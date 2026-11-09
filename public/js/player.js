@@ -46,9 +46,11 @@ async function mountChart(host,ex,o){
       <div class="ex-q">${esc(ex.prompt||(ex.kind==="no-operar"?"Analiza la gráfica. ¿Hay entrada o es mejor no operar?":`Marca la zona de ${side==="sell"?"venta":"compra"} en ${tfZ}${hasSL?` y después baja a ${tfS} para poner el stop loss`:""}.`))}</div></div>
       <div class="tfseg" role="tablist" aria-label="Temporalidad"><button data-tf="H1" role="tab">H1</button><button data-tf="M5" role="tab">M5</button></div></div>
     <div class="stepper" data-a="steps"></div>
-    <div class="chartbox"><div class="cv" style="position:absolute;inset:0"></div></div>
+    <div class="chartbox"><div class="cv" style="position:absolute;inset:0"></div>
+      <div class="pend-ui" hidden><button type="button" data-p="up" title="Subir un poco (flecha ↑)">▲</button><button type="button" data-p="dn" title="Bajar un poco (flecha ↓)">▼</button><button type="button" data-p="ok" class="ok" title="Confirmar (Enter)">✓ <span></span></button><button type="button" data-p="x" class="x" title="Quitar (Esc)">✕</button></div>
+      <div class="chint">Arrastra para mover · rueda o eje de abajo para acercar · eje de precios para estirar · <b>A</b> = auto</div></div>
     <div class="ex-bar"><div class="modes" data-a="modes"></div>
-      <div class="row"><button class="btn sm ghost" data-a="none">Aquí no se opera</button><button class="btn sm gold" data-a="ok" disabled>Confirmar</button></div></div>
+      <div class="row"><button class="btn sm ghost" data-a="none">Aquí no se opera</button><button class="btn sm gold" data-a="ok" disabled>Enviar respuesta</button></div></div>
     <div data-a="replay"></div><div data-a="res"></div></div>`;
   const H=await h1Bars(ex.market);const iH=idxAt(H.bars,ex.t_end);
   if(iH<5){$("[data-a=res]",host).innerHTML='<div class="result bad">No hay velas para esa fecha.</div>';return null}
@@ -58,30 +60,58 @@ async function mountChart(host,ex,o){
   const dec=H.dec;const C=Chart.makeChart($(".cv",host));
   const D={H1:{bars:H.bars.slice(hA,iH+1),range:null},M5:{bars:m5vis,range:null}};
   const tolZ=(ex.tol_pct||0.35)*avgRange(D[tfZ].bars,D[tfZ].bars.length-1),tolS=(ex.tol_pct||0.35)*avgRange(D[tfS==="none"?"M5":tfS].bars,D[tfS==="none"?"M5":tfS].bars.length-1);
-  let tf=tfZ,mode="zone",zone=null,sl=null,answered=false,lines=[];
-  const setTF=t=>{if(D[tf].range==null)D[tf].range=null;tf=t;$$("[data-tf]",host).forEach(b=>{b.classList.toggle("on",b.dataset.tf===t);b.setAttribute("aria-selected",String(b.dataset.tf===t))});
+  let tf=tfZ,mode="zone",zone=null,sl=null,answered=false,lines=[],pend=null,pendLine=null;
+  const PUI=$(".pend-ui",host);
+  const setTF=t=>{tf=t;$$("[data-tf]",host).forEach(b=>{b.classList.toggle("on",b.dataset.tf===t);b.setAttribute("aria-selected",String(b.dataset.tf===t))});
     C.setData(toC(D[t].bars),dec);const n=D[t].bars.length;C.setRange(n-C.span()*(t==="M5"?0.9:1),n+(answered?2:6));drawLines();steps()};
-  const drawLines=()=>{C.clearLines();
-    if(zone!=null)C.addLine({price:zone,color:"#c8d0de",lineWidth:2,lineStyle:"dashed",title:"Tu zona"});
-    if(sl!=null)C.addLine({price:sl,color:"#ff8a80",lineWidth:2,lineStyle:"dashed",title:"Tu SL"});
-    lines.forEach(l=>C.addLine(l))};
-  const steps=()=>{const st=[[`1. Zona en ${tfZ}`,zone!=null,mode==="zone"]];if(hasSL)st.push([`2. Stop loss en ${tfS}`,sl!=null,mode==="sl"]);st.push([`${hasSL?3:2}. Confirmar`,answered,false]);
+  const kName=k=>k==="zone"?"Zona":"Stop loss";
+  const drawLines=()=>{C.clearLines();pendLine=null;
+    if(zone!=null)C.addLine({price:zone,color:"#c8d0de",lineWidth:2,title:"Tu zona ✓"});
+    if(sl!=null)C.addLine({price:sl,color:"#ff8a80",lineWidth:2,title:"Tu SL ✓"});
+    if(pend)pendLine=C.addLine({price:pend.price,color:pend.kind==="zone"?"#f3d88f":"#ff8a80",lineWidth:2,lineStyle:"dashed",draggable:true,title:`${kName(pend.kind)} · arrastra y confirma`});
+    lines.forEach(l=>C.addLine(l));placeUI()};
+  // botones ▲ ▼ ✓ ✕ pegados a la línea pendiente
+  const placeUI=()=>{if(!pend||answered){PUI.hidden=true;return}const y=C.priceToY(pend.price);
+    if(y<C.plotTop()+4||y>C.plotBottom()-4){PUI.hidden=true;return}PUI.hidden=false;PUI.style.top=(y+8)+"px";PUI.style.right=(78+8)+"px";
+    $("[data-p=ok] span",PUI).textContent=`Confirmar ${kName(pend.kind).toLowerCase()}`};
+  C.onDraw(placeUI);
+  C.onLineDrag((l,v)=>{if(l===pendLine&&pend){pend.price=v;steps()}});
+  const tick=()=>{const b=D[tf].bars;const r=avgRange(b,b.length-1)*0.04;const m=Math.pow(10,-dec);return Math.max(m,+r.toFixed(dec))};
+  const nudge=d=>{if(!pend)return;pend.price=+(pend.price+d*tick()).toFixed(dec);drawLines();steps()};
+  const confirmPend=()=>{if(!pend)return;const k=pend.kind,v=pend.price;pend=null;
+    if(k==="zone"){zone=v;if(hasSL&&sl==null){mode="sl";if(tf!==tfS)A.toast(`Zona confirmada. Ahora cambia a ${tfS} para poner el stop loss`);else A.toast("Zona confirmada. Ahora marca el stop loss")}}
+    else{sl=v;A.toast("Stop loss confirmado")}
+    drawLines();steps()};
+  const cancelPend=()=>{pend=null;drawLines();steps()};
+  $("[data-p=up]",PUI).onclick=()=>nudge(1);$("[data-p=dn]",PUI).onclick=()=>nudge(-1);$("[data-p=ok]",PUI).onclick=confirmPend;$("[data-p=x]",PUI).onclick=cancelPend;
+  const onKey=e=>{if(!pend||answered||!document.body.contains(host))return;const t=e.target&&e.target.tagName;if(t==="INPUT"||t==="TEXTAREA"||t==="SELECT")return;
+    if(e.key==="ArrowUp"){e.preventDefault();nudge(e.shiftKey?5:1)}else if(e.key==="ArrowDown"){e.preventDefault();nudge(e.shiftKey?-5:-1)}else if(e.key==="Enter"){e.preventDefault();confirmPend()}else if(e.key==="Escape"){cancelPend()}};
+  document.addEventListener("keydown",onKey);
+  const steps=()=>{const st=[[`1. Zona en ${tfZ}`,zone!=null,mode==="zone"]];if(hasSL)st.push([`2. Stop loss en ${tfS}`,sl!=null,mode==="sl"]);st.push([`${hasSL?3:2}. Enviar respuesta`,answered,false]);
     $("[data-a=steps]",host).innerHTML=ex.kind==="no-operar"?"":st.map(([t,d,on])=>`<span class="${d?"done":on?"on":""}">${t}</span>`).join("");
-    $("[data-a=modes]",host).innerHTML=ex.kind==="no-operar"&&!answered?`<span class="muted" style="font-size:13.5px">Si ves entrada, marca la zona; si no, elige “Aquí no se opera”.</span>`:
-      `<button data-m="zone" class="${mode==="zone"?"on":""}">Zona<span class="v">${zone!=null?zone.toFixed(dec):"—"}</span></button>${hasSL?`<button data-m="sl" class="${mode==="sl"?"on":""}">Stop loss<span class="v">${sl!=null?sl.toFixed(dec):"—"}</span></button>`:""}
-       ${hasSL&&zone!=null&&sl==null&&tf!==tfS?`<button data-go="${tfS}" class="on">Ir a ${tfS} para el SL →</button>`:""}`;
-    $$("[data-m]",host).forEach(b=>b.onclick=()=>{if(answered)return;mode=b.dataset.m;steps()});
+    const val=k=>{const v=k==="zone"?zone:sl;if(pend&&pend.kind===k)return `<span class="v pend">${pend.price.toFixed(dec)}?</span>`;return `<span class="v">${v!=null?v.toFixed(dec):"—"}</span>`};
+    $("[data-a=modes]",host).innerHTML=ex.kind==="no-operar"&&!answered&&zone==null&&!pend?`<span class="muted" style="font-size:13.5px">Si ves entrada, toca la gráfica para marcar la zona; si no, elige “Aquí no se opera”.</span>`:
+      `<button data-m="zone" class="${mode==="zone"?"on":""}" title="Toca para corregir la zona">Zona${val("zone")}</button>${hasSL?`<button data-m="sl" class="${mode==="sl"?"on":""}" title="Toca para corregir el SL">Stop loss${val("sl")}</button>`:""}
+       ${hasSL&&zone!=null&&sl==null&&!pend&&tf!==tfS?`<button data-go="${tfS}" class="on">Ir a ${tfS} para el SL →</button>`:""}
+       ${!answered&&!pend?`<span class="muted mhint">${mode==="zone"&&zone==null?`Toca la gráfica en ${tfZ} donde está tu zona.`:mode==="sl"&&sl==null?(tf===tfS?"Toca la gráfica donde va tu stop loss.":""):""}</span>`:""}
+       ${pend?`<span class="muted mhint">Ajusta la línea (arrástrala, toca otra vez o usa ▲▼) y dale ✓ para confirmar.</span>`:""}`;
+    $$("[data-m]",host).forEach(b=>b.onclick=()=>{if(answered)return;const k=b.dataset.m;mode=k;
+      // corregir un valor ya confirmado: vuelve a quedar pendiente para moverlo
+      const v=k==="zone"?zone:sl;if(v!=null&&!pend){pend={kind:k,price:v};if(k==="zone")zone=null;else sl=null;
+        const need=k==="zone"?tfZ:tfS;if(tf!==need)setTF(need)}
+      drawLines();steps()});
     $$("[data-go]",host).forEach(b=>b.onclick=()=>{setTF(b.dataset.go)});
-    $("[data-a=ok]",host).disabled=answered||zone==null||(hasSL&&sl==null)};
+    $("[data-a=ok]",host).disabled=answered||!!pend||zone==null||(hasSL&&sl==null)};
   $$("[data-tf]",host).forEach(b=>b.onclick=()=>setTF(b.dataset.tf));
   C.onClick(p=>{if(answered)return;const v=+p.toFixed(dec);
-    if(mode==="zone"){if(tf!==tfZ){A.toast(`La zona se marca en ${tfZ}`);return}zone=v;if(hasSL){mode="sl";if(tf!==tfS)A.toast(`Ahora cambia a ${tfS} para poner el stop loss`)}}
-    else{if(tf!==tfS){A.toast(`El stop loss se marca en ${tfS}`);return}sl=v}
-    drawLines();steps()});
+    const k=pend?pend.kind:(mode==="sl"&&zone!=null?"sl":(zone==null?"zone":mode));
+    const need=k==="zone"?tfZ:tfS;if(tf!==need){A.toast(k==="zone"?`La zona se marca en ${tfZ}`:`El stop loss se marca en ${tfS}`);return}
+    if(k==="zone"&&zone!=null&&!pend)return;if(k==="sl"&&sl!=null&&!pend)return;
+    pend={kind:k,price:v};mode=k;drawLines();steps()});
   setTF(tfZ);
   let timer=null;
   const finish=async choice=>{
-    if(answered)return;answered=true;steps();
+    if(answered)return;answered=true;pend=null;drawLines();steps();
     let ans;try{ans=o.preview?o.preview:await API.grade(ex.id)}catch(e){answered=false;steps();
       const msg={premium:"Este ejercicio es para alumnos premium.",demo_agotado:"Ya usaste tus 5 gráficas de prueba.",login:"Inicia sesión para responder."}[e.message]||e.message;
       $("[data-a=res]",host).innerHTML=`<div class="result bad"><b>${esc(msg)}</b>${e.message==="demo_agotado"||e.message==="premium"?'<a class="btn gold sm" href="#premium" style="justify-self:start">Ver cómo acceder</a>':""}</div>`;return}
@@ -129,7 +159,7 @@ async function mountChart(host,ex,o){
   };
   $("[data-a=ok]",host).onclick=()=>finish("zone");
   $("[data-a=none]",host).onclick=()=>finish("none");
-  return{destroy:()=>{clearInterval(timer);try{C.destroy()}catch(e){}}};
+  return{destroy:()=>{clearInterval(timer);document.removeEventListener("keydown",onKey);try{C.destroy()}catch(e){}}};
 }
 
 /* ---------- cálculo ---------- */
