@@ -237,7 +237,7 @@ async function authView(mode,arg){
       <label style="display:flex;gap:10px;align-items:flex-start;font-weight:500;color:var(--fg)"><input type="checkbox" id="uT" style="width:auto;margin-top:4px"> <span>Acepto los términos y entiendo que el trading implica riesgo de pérdida y que este contenido es educativo.</span></label>
       <div class="err" id="err" role="alert"></div><button class="btn gold" type="submit" id="go">Crear cuenta</button></form>`;
   else if(mode==="in")box.innerHTML=head+seg+`<form class="form" id="f" novalidate>
-      <label for="uE">Correo electrónico<input id="uE" type="email" autocomplete="email" required></label>
+      <label for="uE">Correo o nombre de usuario<input id="uE" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" required></label>
       <label for="uP">Contraseña<div class="pw"><input id="uP" type="password" autocomplete="current-password" required><button type="button" data-show="uP">Mostrar</button></div></label>
       ${CFG.TURNSTILE_SITE_KEY?'<label>Verificación<div id="cap"></div></label>':""}
       <div class="err" id="err" role="alert"></div><button class="btn gold" type="submit" id="go">Ingresar</button><a href="#recuperar" style="font-size:14px">Olvidé mi contraseña</a></form>`;
@@ -250,7 +250,8 @@ async function authView(mode,arg){
     $("#pm").style.width=(sc*25)+"%";$("#pm").style.background=["var(--bad)","var(--bad)","var(--warn)","var(--ok)","var(--ok)"][sc];$("#pmt").textContent=["Muy débil","Débil","Aceptable","Fuerte","Muy fuerte"][sc]};
   $("#f").onsubmit=async e=>{e.preventDefault();const err=$("#err");err.textContent="";const go=$("#go");
     const email=$("#uE").value.trim();
-    if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))return err.textContent="Escribe un correo válido.";
+    if(mode==="in"){if(!email)return err.textContent="Escribe tu correo o tu nombre de usuario.";if(email.includes("@")&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))return err.textContent="Escribe un correo válido.";if(!$("#uP").value)return err.textContent="Escribe tu contraseña."}
+    else if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))return err.textContent="Escribe un correo válido.";
     if(cap&&!cap.ok())return err.textContent=CFG.TURNSTILE_SITE_KEY?"Completa la verificación anti-bots.":"El código de verificación no coincide. Inténtalo de nuevo.";
     try{busy(go,true);
       if(mode==="up"){const u=$("#uU").value.trim(),p=$("#uP").value,p2=$("#uP2").value;

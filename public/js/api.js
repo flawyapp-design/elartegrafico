@@ -8,7 +8,7 @@ const uuid=()=>(crypto.randomUUID?crypto.randomUUID():"xxxxxxxx-xxxx-4xxx-yxxx-x
 const now=()=>new Date().toISOString();
 const isPrem=p=>!!p&&!p.banned&&(p.role==="admin"||(p.premium_until&&new Date(p.premium_until)>new Date()));
 const errMsg=j=>{const m=(j&&(j.error_description||j.msg||j.message||j.error))||"Error";
-  const map={"Invalid login credentials":"Correo o contraseña incorrectos.","Email not confirmed":"Confirma tu correo antes de ingresar (revisa tu bandeja de entrada y spam).","User already registered":"Ese correo ya tiene una cuenta.","captcha protection: request disallowed (captcha-verification-process-failed)":"Verificación anti-bots fallida. Inténtalo de nuevo."};
+  const map={"Invalid login credentials":"Usuario, correo o contraseña incorrectos.","Email not confirmed":"Confirma tu correo antes de ingresar (revisa tu bandeja de entrada y spam).","User already registered":"Ese correo ya tiene una cuenta.","captcha protection: request disallowed (captcha-verification-process-failed)":"Verificación anti-bots fallida. Inténtalo de nuevo."};
   if(map[m])return map[m];
   if(/rate limit/i.test(m))return "Demasiados intentos seguidos. Espera unos minutos e inténtalo de nuevo.";
   if(/invalid.*email|email.*invalid/i.test(m))return "Ese correo no es válido. Revísalo.";
@@ -78,6 +78,9 @@ function SupabaseAPI(url,key){
       return{confirm:true};
     },
     async signIn({email,password,captcha}){
+      if(!email.includes("@")){const r0=await raw("/rest/v1/rpc/login_email",{method:"POST",auth:false,body:{u:email,pw:password}});
+        if(!r0.ok){if(r0.status===404)throw new Error("Ingresa con tu correo por ahora.");throw new Error(errMsg(r0.j))}
+        if(!r0.j)throw new Error("Usuario o contraseña incorrectos.");email=r0.j}
       const r=await raw("/auth/v1/token?grant_type=password",{method:"POST",auth:false,body:Object.assign({email,password},cap(captcha))});
       if(!r.ok)throw new Error(errMsg(r.j));saveSess(r.j);await this.loadProfile();
       if(prof&&prof.banned){await this.signOut();throw new Error("Tu cuenta está suspendida. Contacta al equipo.")}
@@ -163,7 +166,8 @@ function LocalAPI(){
       const id=uuid();db.users.push({id,email,password});db.profiles.push({id,username,role:"user",premium_until:null,demo_used:0,banned:false,created_at:now()});save();
       uid=id;try{localStorage.setItem("ag_local_uid",id)}catch(e){}return{confirm:false};
     },
-    async signIn({email,password}){const u=db.users.find(x=>x.email.toLowerCase()===email.toLowerCase()&&x.password===password);if(!u)throw new Error("Correo o contraseña incorrectos.");
+    async signIn({email,password}){const q=email.toLowerCase();const pr=db.profiles.find(x=>(x.username||"").toLowerCase()===q);
+      const u=db.users.find(x=>(x.email.toLowerCase()===q||(pr&&x.id===pr.id))&&x.password===password);if(!u)throw new Error("Usuario, correo o contraseña incorrectos.");
       const p=db.profiles.find(x=>x.id===u.id);if(p&&p.banned)throw new Error("Tu cuenta está suspendida. Contacta al equipo.");uid=u.id;try{localStorage.setItem("ag_local_uid",uid)}catch(e){}},
     async signOut(){uid=null;try{localStorage.removeItem("ag_local_uid")}catch(e){}},
     async recover(){},
