@@ -143,7 +143,7 @@ async function contenido(){
     ed.innerHTML=`<form class="form" id="fl"><div class="sec-h"><h3>Lección</h3><a class="btn sm ghost" href="#leccion-${esc(l.id)}">Ver como alumno</a></div>
       <label for="lT">Título<input id="lT" value="${esc(l.title)}"></label>
       <div class="three"><label for="lM">Módulo<select id="lM">${mods.map(m=>`<option value="${esc(m.id)}">${esc(m.title)}</option>`).join("")}</select></label><label for="lO">Orden<input id="lO" type="number" value="${l.sort||1}"></label><label for="lS">Estado<select id="lS"><option value="borrador">Borrador</option><option value="publicado">Publicado</option></select></label></div>
-      <label for="lV">Video (enlace de YouTube, Vimeo o archivo MP4)<input id="lV" value="${esc(l.video_url||"")}" placeholder="https://youtu.be/…"></label>
+      <label for="lV">Video: enlace de Bunny Stream (recomendado), YouTube, Vimeo o MP4<input id="lV" value="${esc(l.video_url||"")}" placeholder="https://iframe.mediadelivery.net/embed/123456/abcd-…"><span class="dim" style="font-weight:400">En Bunny: Stream → tu librería → el video → botón “Embed” o “Copy video URL”. Pega aquí cualquiera de los dos.</span></label>
       <div class="row">${fileBtn("lVF","Subir video MP4")}<span class="dim" style="font-size:13px">Para videos largos usa YouTube oculto o Vimeo: cargan más rápido.</span></div>
       <label for="lB">Contenido (### subtítulo, - lista, **negrita**)<textarea id="lB" style="min-height:240px">${esc(l.body||"")}</textarea></label>
       <label for="lP">Porcentaje para aprobar<input id="lP" type="number" min="0" max="100" value="${l.min_score||80}" style="max-width:140px"></label>
