@@ -7,9 +7,14 @@ const TABS=[["resumen","Estadísticas"],["sitio","Sitio y textos"],["banners","B
 A.ROUTES.admin=sub=>{
   if(!A.admin()){app.innerHTML=`<div class="empty">Esta sección es solo para administradores.<a class="btn sm" href="#inicio">Volver</a></div>`;return}
   if(sub&&TABS.some(t=>t[0]===sub))tab=sub;
+  const closed=!!(S.site||{}).academyClosed;
   app.innerHTML=`<div class="pagehead"><span class="eyebrow">Administración</span><h1>Panel de control</h1></div>
+    <div class="acad-switch ${closed?"off":"on"}"><div><b>Academia ${closed?"cerrada para alumnos":"abierta"}</b><span class="muted">${closed?"Los usuarios se pueden registrar y ver el sitio principal, pero al entrar a la academia ven el aviso de apertura. Tú sí la ves para montar el contenido.":"Los alumnos pueden entrar a la academia: prueba gratis y, si son premium, todo el contenido."}</span></div>
+      <button class="btn ${closed?"gold":"bad"}" id="acSw">${closed?"Abrir la academia":"Cerrar la academia"}</button></div>
     <div class="tabs" role="tablist">${TABS.map(([k,t])=>`<button role="tab" aria-selected="${tab===k}" class="${tab===k?"on":""}" data-t="${k}">${t}</button>`).join("")}</div><div id="adm"></div>`;
   $$("[data-t]").forEach(b=>b.onclick=()=>{location.hash="#admin-"+b.dataset.t});
+  $("#acSw").onclick=()=>{const host=$("#acSw").parentElement;A.confirmInline(host,closed?"¿Abrir la academia a todos los alumnos?":"¿Cerrar la academia mientras subes el contenido?",async()=>{
+    const ns=Object.assign({},S.site,{academyClosed:!closed});try{await API.saveSite(ns);S.site=ns;A.applySite();toast(closed?"Academia abierta":"Academia cerrada para alumnos");A.ROUTES.admin(tab)}catch(x){toast(x.message);A.ROUTES.admin(tab)}})};
   ({resumen,sitio,banners,contenido,ejercicios,noticias,opiniones,alumnos,archivos})[tab]();
 };
 const H=()=>$("#adm");
@@ -42,6 +47,7 @@ function sitio(){
     <label for="sC">Tarjetas “Qué vas a aprender” (una por línea: Título | texto)<textarea id="sC">${esc(lines(s.cards,c=>c.title+" | "+c.text))}</textarea></label>
     <label for="sS">Pasos “Cómo se aprende” (una por línea: Título | texto)<textarea id="sS" style="min-height:90px">${esc(lines(s.steps,c=>c.title+" | "+c.text))}</textarea></label>
     <label for="sM">Mercados (una por línea: Categoría | Nombre | Estado | descripción). Estado: Disponible o Próximamente<textarea id="sM">${esc(lines(s.markets,m=>[m.cat,m.name,m.status,m.text||""].join(" | ")))}</textarea></label>
+    <h3>Aviso de academia cerrada</h3><div class="two"><label for="sAT">Título<input id="sAT" value="${esc(s.closedTitle||"")}" placeholder="La academia abre muy pronto"></label><label for="sAX">Texto<input id="sAX" value="${esc(s.closedText||"")}" placeholder="Estamos terminando de montar el contenido…"></label></div>
     <h3>Comunidad y Discord (inicio de elartegrafico.com)</h3>
     <div class="two"><label for="sDU">Enlace de invitación al Discord<input id="sDU" value="${esc(s.discordUrl||"")}" placeholder="https://discord.gg/..."></label><label for="sDT">Título<input id="sDT" value="${esc(s.discordTitle||"")}" placeholder="La comunidad de El Arte Gráfico"></label></div>
     <label for="sDX">Texto<textarea id="sDX" style="min-height:70px">${esc(s.discordText||"")}</textarea></label>
@@ -60,7 +66,7 @@ function sitio(){
       cards:pairs($("#sC").value).map(p=>({title:p[0],text:p[1]||""})),steps:pairs($("#sS").value).map(p=>({title:p[0],text:p[1]||""})),
       markets:pairs($("#sM").value).map(p=>({cat:p[0],name:p[1]||"",status:p[2]||"Próximamente",text:p[3]||""})),
       premiumTitle:$("#sPT").value.trim(),premiumText:$("#sPX").value.trim(),premiumItems:$("#sPI").value.split("\n").map(x=>x.trim()).filter(Boolean),
-      discordUrl:$("#sDU").value.trim(),discordTitle:$("#sDT").value.trim(),discordText:$("#sDX").value.trim(),discordItems:$("#sDI").value.split("\n").map(x=>x.trim()).filter(Boolean),
+      closedTitle:$("#sAT").value.trim(),closedText:$("#sAX").value.trim(),discordUrl:$("#sDU").value.trim(),discordTitle:$("#sDT").value.trim(),discordText:$("#sDX").value.trim(),discordItems:$("#sDI").value.split("\n").map(x=>x.trim()).filter(Boolean),
       contact:$("#sCo").value.trim(),social:$("#sSo").value.trim(),legal:$("#sL").value.trim()});
     try{busy($("#sv"),true);await API.saveSite(s);S.site=s;A.applySite();toast("Cambios guardados")}catch(x){toast(x.message)}finally{busy($("#sv"),false)}};
 }
@@ -91,13 +97,13 @@ let sel={};
 async function contenido(){
   let mods=[],les=[];try{mods=await API.modules();les=await API.lessons()}catch(e){}
   H().innerHTML=`<div class="split"><div class="panel"><div class="sec-h"><h3>Temario</h3><button class="btn sm gold" id="nm">Nuevo módulo</button></div>
-    <div class="tree">${mods.map(m=>`<div class="m"><button data-s="m:${esc(m.id)}" class="${sel.id===m.id?"on":""}"><b>${esc(m.title)}</b><span class="tag ${m.status==="publicado"?"pub":""}">${m.status==="publicado"?"Publicado":"Borrador"}</span></button>
+    <div class="tree">${mods.map(m=>`<div class="m"><button data-s="m:${esc(m.id)}" class="${sel.id===m.id?"on":""}"><b>${esc(m.title)}</b><span class="tag ${m.status==="publicado"?"pub":""}">${m.status==="publicado"?"Publicado":"Borrador"}</span>${m.status==="publicado"?`<span class="tag ${A.modOpen(m,true)?"pub":"lock"}">${A.modState(m)}</span>`:""}</button>
       <div class="dim" style="padding:0 12px 6px;font-size:12px">${esc(m.category||"")}</div>
       ${les.filter(l=>l.module_id===m.id).sort((a,b)=>a.sort-b.sort).map(l=>`<button class="l ${sel.id===l.id?"on":""}" data-s="l:${esc(l.id)}"><span>${esc(l.title)}</span><span class="tag ${l.status==="publicado"?"pub":""}">${l.status==="publicado"?"Pub.":"Borr."}</span></button>`).join("")}
       <button class="l" data-nl="${esc(m.id)}" style="color:var(--gold)">+ Nueva lección</button></div>`).join("")||'<div class="muted">Aún no hay módulos.</div>'}</div></div><div class="panel" id="ed"><div class="muted">Elige un módulo o una lección para editarla.</div></div></div>`;
   const cats=[...new Set(mods.map(m=>m.category).concat(["Fundamentos","Método El Arte Gráfico","Gestión y psicología","Sintéticos","Forex","Metales","Evaluación"]))].filter(Boolean);
   const reload=async()=>{await A.loadContent();contenido()};
-  $("#nm").onclick=async()=>{try{const m=await API.saveModule({title:"Nuevo módulo",descr:"",level:"",category:"Fundamentos",sort:(mods.length?Math.max(...mods.map(x=>x.sort||0)):0)+1,status:"borrador",locked:true});sel={t:"m",id:m.id};reload()}catch(x){toast(x.message)}};
+  $("#nm").onclick=async()=>{try{const m=await API.saveModule({title:"Nuevo módulo",descr:"",level:"",category:"Fundamentos",sort:(mods.length?Math.max(...mods.map(x=>x.sort||0)):0)+1,status:"borrador",locked:true,available:false});sel={t:"m",id:m.id};reload()}catch(x){toast(x.message)}};
   $$("[data-nl]").forEach(b=>b.onclick=async()=>{const mid=b.dataset.nl;const ls=les.filter(l=>l.module_id===mid);try{const l=await API.saveLesson({module_id:mid,title:"Nueva lección",sort:(ls.length?Math.max(...ls.map(x=>x.sort||0)):0)+1,status:"borrador",video_url:"",body:"",min_score:80});sel={t:"l",id:l.id};reload()}catch(x){toast(x.message)}});
   $$("[data-s]").forEach(b=>b.onclick=()=>{const [t,id]=b.dataset.s.split(":");sel={t,id};contenido()});
   const ed=$("#ed");
@@ -105,10 +111,12 @@ async function contenido(){
     ed.innerHTML=`<form class="form" id="fm"><div class="sec-h"><h3>Módulo</h3><a class="btn sm ghost" href="#modulo-${esc(m.id)}">Ver como alumno</a></div>
       <label for="mT">Título<input id="mT" value="${esc(m.title)}"></label><label for="mD">Descripción<textarea id="mD" style="min-height:80px">${esc(m.descr||"")}</textarea></label>
       <div class="three"><label for="mC">Categoría<input id="mC" list="cats" value="${esc(m.category||"")}"><datalist id="cats">${cats.map(c=>`<option value="${esc(c)}">`).join("")}</datalist></label><label for="mL">Nivel (opcional)<input id="mL" value="${esc(m.level||"")}" placeholder="Básico, Intermedio…"></label><label for="mO">Orden<input id="mO" type="number" value="${m.sort||1}"></label></div>
-      <div class="two"><label for="mS">Estado<select id="mS"><option value="borrador">Borrador (no lo ven los alumnos)</option><option value="publicado">Publicado</option></select></label><label for="mK">Bloqueo<select id="mK"><option value="1">Se abre al terminar el módulo anterior</option><option value="0">Siempre abierto</option></select></label></div>
+      <div class="two"><label for="mS">Estado<select id="mS"><option value="borrador">Borrador (no lo ven los alumnos)</option><option value="publicado">Publicado</option></select></label><label for="mK">Orden obligatorio<select id="mK"><option value="1">Exige terminar el módulo anterior</option><option value="0">Libre</option></select></label></div>
+      <div class="two"><label for="mA">Disponibilidad para alumnos<select id="mA"><option value="1">Disponible (desbloqueado)</option><option value="0">Bloqueado: se ve en el temario como “Próximamente”</option></select></label>
+        <label for="mW">Desbloquear automáticamente el (opcional)<input id="mW" type="datetime-local" value="${m.open_at?new Date(new Date(m.open_at).getTime()-5*3600e3).toISOString().slice(0,16):""}"><span class="dim" style="font-weight:400">Hora Colombia. Si eliges fecha, el módulo se abre solo ese día aunque esté bloqueado.</span></label></div>
       <div class="row"><button class="btn gold" id="ms">Guardar módulo</button><span id="md"><button type="button" class="btn sm bad" id="mdb">Eliminar módulo</button></span></div></form>`;
-    $("#mS").value=m.status;$("#mK").value=m.locked?"1":"0";
-    $("#fm").onsubmit=async e=>{e.preventDefault();try{busy($("#ms"),true);await API.saveModule({id:m.id,title:$("#mT").value.trim()||"Sin título",descr:$("#mD").value.trim(),category:$("#mC").value.trim()||"Fundamentos",level:$("#mL").value.trim(),sort:+$("#mO").value||1,status:$("#mS").value,locked:$("#mK").value==="1"});toast("Módulo guardado");reload()}catch(x){toast(x.message)}finally{busy($("#ms"),false)}};
+    $("#mS").value=m.status;$("#mK").value=m.locked?"1":"0";$("#mA").value=m.available===false?"0":"1";
+    $("#fm").onsubmit=async e=>{e.preventDefault();try{busy($("#ms"),true);await API.saveModule({id:m.id,title:$("#mT").value.trim()||"Sin título",descr:$("#mD").value.trim(),category:$("#mC").value.trim()||"Fundamentos",level:$("#mL").value.trim(),sort:+$("#mO").value||1,status:$("#mS").value,locked:$("#mK").value==="1",available:$("#mA").value==="1",open_at:$("#mW").value?new Date($("#mW").value+":00-05:00").toISOString():null});toast("Módulo guardado");reload()}catch(x){toast(x.message)}finally{busy($("#ms"),false)}};
     $("#mdb").onclick=()=>A.confirmInline($("#md"),"¿Eliminar el módulo con todas sus lecciones y ejercicios?",async()=>{await API.delModule(m.id);sel={};toast("Módulo eliminado");reload()})}
   if(sel.t==="l"){const l=les.find(x=>x.id===sel.id);if(!l)return;
     ed.innerHTML=`<form class="form" id="fl"><div class="sec-h"><h3>Lección</h3><a class="btn sm ghost" href="#leccion-${esc(l.id)}">Ver como alumno</a></div>

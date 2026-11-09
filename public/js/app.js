@@ -52,11 +52,22 @@ function registerAnswer(kind,res){const p=S.prog.practice;p.n++;if(res==="ok"){p
 
 /* ---------- navegación ---------- */
 const app=$("#app");let cleanup=[];
-function clear(){cleanup.forEach(f=>{try{f()}catch(e){}});cleanup=[]}
+function clear(){cleanup.forEach(f=>{try{f()}catch(e){}});cleanup=[];const n=document.getElementById("admNote");if(n)n.remove()}
+const closedAcad=()=>!!(S.site&&S.site.academyClosed);
+/* módulo disponible: a mano (available) o por fecha (open_at). Sin la columna (SQL viejo) se considera abierto. */
+function modOpen(m,ignoreAdmin){if(!m)return false;if(!ignoreAdmin&&admin())return true;if(m.available!==false)return true;return !!(m.open_at&&new Date(m.open_at)<=new Date())}
+function modState(m){if(modOpen(m,true))return"Disponible";return m.open_at?"Abre el "+new Date(m.open_at).toLocaleDateString("es-CO",{day:"2-digit",month:"short"}):"Próximamente"}
+function closedView(){const s=S.site,p=API.profile()||{};
+  app.innerHTML=`<section class="soon"><img src="${esc(s.logoFullUrl||"assets/logo_circle.png")}" alt=""><span class="eyebrow">Academia</span>
+    <h1>${esc(s.closedTitle||"La academia abre muy pronto")}</h1>
+    <p class="muted">${esc(s.closedText||"Estamos terminando de montar las lecciones y los ejercicios. Tu cuenta ya quedó creada: cuando abramos, entras con el mismo usuario y tendrás tus 5 gráficas de prueba.")}</p>
+    ${p.username?`<span class="pill ok">Registrado como ${esc(p.username)}</span>`:""}
+    <div class="row" style="justify-content:center"><a class="btn gold" href="${toMain("inicio")}">Volver a El Arte Gráfico</a>${s.discordUrl?`<a class="btn ghost" href="${esc(s.discordUrl)}" target="_blank" rel="noopener">Unirme al Discord</a>`:`<a class="btn ghost" href="${toMain("comunidad")}">Ver la comunidad</a>`}</div></section>`}
 function renderNav(){
   let r=(location.hash||"#inicio").slice(1).split("-")[0];if(r==="noticias"||r==="nota")r="comunidad";
   const L=ACAD?[["inicio","Mi panel"],["academia","Temario"],["practica","Práctica"],["ranking","Ranking"]].concat(premium()?[]:[["prueba","Prueba gratis"]])
              :[["inicio","Inicio"],["comunidad","Comunidad"],["opiniones","Opiniones"],["mercados","Mercados"],["premium","Premium"]];
+  if(ACAD&&closedAcad()&&!admin())L.length=0;
   const u=API.user(),p=API.profile();const lv=levelOf((S.prog&&S.prog.xp)||0);
   const other=ACAD?`<a class="navx" href="${toMain("inicio")}">El Arte Gráfico ↗</a>`:(u&&p?`<a class="btn sm gold navacad" href="${toAcad("inicio")}">Ir a la academia</a>`:"");
   $("#nav").innerHTML=L.map(([k,t])=>`<a href="#${k}" class="${r===k?"on":""}">${t}</a>`).join("")+other+
@@ -87,6 +98,8 @@ function route(keep){
   if(ACAD&&MAIN_R.has(k)){location.href=toMain(h);return}
   if(ACAD&&!logged()&&k!=="nueva"){location.replace(toMain("entrar-academia"));return}
   renderNav();
+  if(ACAD&&closedAcad()&&k!=="nueva"&&k!=="perfil"){if(!admin()){API.logView(sid,"academia/cerrada");closedView();return}
+    $("#app").insertAdjacentHTML("beforebegin",'<div class="note admin-note" id="admNote">La academia está <b>cerrada para alumnos</b>: solo tú la ves. Ábrela desde Administración cuando el contenido esté listo.</div>')}
   API.logView(sid,((ACAD?"academia/":"")+h).slice(0,60));
   (ROUTES[k]||ROUTES.inicio)(arg);
 }
@@ -148,7 +161,7 @@ const DISC={title:"La comunidad de El Arte Gráfico",text:"Un espacio para trade
 async function mainHome(){
   const s=S.site,p=API.profile();
   const dItems=(s.discordItems&&s.discordItems.length?s.discordItems:DISC.items);
-  app.innerHTML=`${logged()&&p?`<section class="welcome"><div><span class="eyebrow">Tu cuenta</span><h2>Hola, ${esc(p.username)}</h2><p class="muted">${premium()?"Tienes acceso premium a toda la academia.":`Cuenta gratis · tienes ${Math.max(0,5-(p.demo_used||0))} de 5 gráficas de prueba en la academia.`}</p></div><a class="btn gold" href="${toAcad("inicio")}">Ir a la academia</a></section>`:""}
+  app.innerHTML=`${logged()&&p?`<section class="welcome"><div><span class="eyebrow">Tu cuenta</span><h2>Hola, ${esc(p.username)}</h2><p class="muted">${closedAcad()&&!admin()?"Tu cuenta ya quedó creada. La academia abre muy pronto: te avisaremos por aquí y en la comunidad.":premium()?"Tienes acceso premium a toda la academia.":`Cuenta gratis · tienes ${Math.max(0,5-(p.demo_used||0))} de 5 gráficas de prueba en la academia.`}</p></div>${closedAcad()&&!admin()?'<span class="pill">Academia: próximamente</span>':`<a class="btn gold" href="${toAcad("inicio")}">Ir a la academia</a>`}</section>`:""}
   <section id="hero"></section><section class="statband" id="stats"></section>
   <section class="sec"><div class="disc">
     <div class="disc-main"><span class="eyebrow">Comunidad</span><h2>${esc(s.discordTitle||DISC.title)}</h2><p class="muted">${esc(s.discordText||DISC.text)}</p>
@@ -173,7 +186,7 @@ async function mainHome(){
 }
 
 /* ---------- panel de la academia ---------- */
-function nextLesson(){for(const m of S.modules){const ls=S.lindex.filter(l=>l.module_id===m.id).sort((a,b)=>(a.sort||0)-(b.sort||0));for(const l of ls){if(!(S.prog.done[l.id]&&S.prog.done[l.id].passed))return l}}return null}
+function nextLesson(){for(const m of S.modules){if(!modOpen(m))continue;const ls=S.lindex.filter(l=>l.module_id===m.id).sort((a,b)=>(a.sort||0)-(b.sort||0));for(const l of ls){if(!(S.prog.done[l.id]&&S.prog.done[l.id].passed))return l}}return null}
 async function academyHome(){
   const p=API.profile()||{},g=S.prog,lv=levelOf(g.xp);const pct=lv.to?Math.round(100*(g.xp-lv.from)/(lv.to-lv.from)):100;const nx=premium()?nextLesson():null;
   const passed=Object.values(g.done).filter(d=>d.passed).length,total=S.lindex.length;
@@ -196,8 +209,9 @@ async function syllabus(host,limit){
   if(!mods.length){host.innerHTML='<div class="empty">El temario se publicará pronto.</div>';return}
   const groups={};mods.forEach(m=>{(groups[m.category||"Fundamentos"]=groups[m.category||"Fundamentos"]||[]).push(m)});
   let n=0;host.innerHTML=Object.entries(groups).map(([cat,ms])=>{if(limit&&n>=limit)return"";return `<div class="syl-cat"><h3 class="cat">${esc(cat)}</h3><div class="grid">${ms.map(m=>{if(limit&&n>=limit)return"";n++;const ls=idx.filter(l=>l.module_id===m.id);const pr=modProgress(m.id,ls);
-    return `<a class="mod" href="#modulo-${esc(m.id)}"><span class="num">${esc(m.level||cat)}</span><h3>${esc(m.title)}</h3><p>${esc(m.descr||"")}</p>
-      <div class="meta"><span>${ls.length} ${ls.length===1?"lección":"lecciones"}</span>${premium()?"":'<span class="tag">Premium</span>'}${m.status!=="publicado"?'<span class="tag">Borrador</span>':""}</div>${premium()?`<div class="bar"><i style="width:${Math.round(pr*100)}%"></i></div>`:""}</a>`}).join("")}</div></div>`}).join("")}
+    const op=modOpen(m,true);
+    return `<a class="mod ${op?"":"soon-mod"}" href="#modulo-${esc(m.id)}"><span class="num">${esc(m.level||cat)}</span><h3>${esc(m.title)}</h3><p>${esc(m.descr||"")}</p>
+      <div class="meta"><span>${ls.length} ${ls.length===1?"lección":"lecciones"}</span>${op?"":`<span class="tag lock">${esc(modState(m))}</span>`}${premium()||!op?"":'<span class="tag">Premium</span>'}${m.status!=="publicado"?'<span class="tag">Borrador</span>':""}</div>${premium()?`<div class="bar"><i style="width:${Math.round(pr*100)}%"></i></div>`:""}</a>`}).join("")}</div></div>`}).join("")}
 function modProgress(mid,ls){ls=ls||S.lindex.filter(l=>l.module_id===mid);if(!ls.length||!S.prog)return 0;return ls.filter(l=>S.prog.done[l.id]&&S.prog.done[l.id].passed).length/ls.length}
 const postCard=p=>`<a class="post" href="#nota-${esc(p.id)}">${p.image_url?`<div class="thumb" style="background-image:url('${esc(p.image_url)}')"></div>`:`<div class="thumb noimg">AG</div>`}<div style="display:grid;gap:6px;align-content:start;min-width:0"><div class="row"><span class="tag">${esc(p.category||"Noticia")}</span>${p.pinned?'<span class="tag pub">Fijado</span>':""}${p.premium_only?'<span class="tag">Premium</span>':""}<span class="dim" style="font-size:13px">${fmtDate(p.created_at)}</span></div><h3>${esc(p.title)}</h3><p class="muted clamp">${esc(String(p.body||"").slice(0,220))}</p></div></a>`;
 function reviewsHTML(list,compact){if(!list.length)return `<div class="empty">Todavía no hay opiniones publicadas.${logged()?'<a class="btn sm" href="#opiniones">Escribir la primera</a>':""}</div>`;
@@ -280,13 +294,15 @@ ROUTES.premium=()=>{const s=S.site;app.innerHTML=`<div class="pagehead"><span cl
 /* ---------- academia ---------- */
 ROUTES.academia=()=>{app.innerHTML=`<div class="pagehead"><span class="eyebrow">Academia</span><h1>Temario</h1><p class="muted">Avanza en orden: cada lección se aprueba con sus ejercicios y cada módulo se desbloquea al terminar el anterior.</p>${premium()?"":`<div class="note">Puedes ver el temario completo. Las lecciones y los ejercicios son para alumnos premium. <a href="#premium">Ver cómo acceder</a></div>`}</div><div id="syl"></div>`;syllabus($("#syl"))};
 ROUTES.modulo=id=>{const m=S.modules.find(x=>x.id===id);if(!m){app.innerHTML=`<div class="empty">Ese módulo no existe.<a class="btn sm" href="#academia">Ver temario</a></div>`;return}
-  const ls=S.lindex.filter(l=>l.module_id===id);const i=S.modules.indexOf(m);const prev=S.modules[i-1];const locked=premium()&&!admin()&&m.locked&&prev&&modProgress(prev.id)<1;
+  const ls=S.lindex.filter(l=>l.module_id===id);const i=S.modules.indexOf(m);const prev=S.modules[i-1];const closedM=!modOpen(m);const locked=closedM||(premium()&&!admin()&&m.locked&&prev&&modProgress(prev.id)<1);
   app.innerHTML=`<div class="crumbs"><a href="#academia">Temario</a><span>/</span><span>${esc(m.category||"")}</span></div><div class="pagehead"><span class="eyebrow">${esc(m.level||m.category||"Módulo")}</span><h1>${esc(m.title)}</h1><p class="muted">${esc(m.descr||"")}</p>${premium()?`<div class="bar" style="max-width:420px"><i style="width:${Math.round(modProgress(id)*100)}%"></i></div>`:""}</div>
-  ${locked?`<div class="note">Este módulo se desbloquea al aprobar todas las lecciones de “${esc(prev.title)}”.</div>`:""}
-  <div class="list">${ls.map((l,k)=>{const d=S.prog&&S.prog.done[l.id];return `<a class="item" href="${premium()&&!locked?"#leccion-"+esc(l.id):"#premium"}"><span class="ico ${d&&d.passed?"done":""}">${d&&d.passed?"✓":k+1}</span><span class="txt"><b>${esc(l.title)}</b><span>${l.has_video?"Video · ":""}${d?`Mejor resultado ${d.best}%`:"Pendiente"}</span></span>${premium()?"":'<span class="tag">Premium</span>'}</a>`}).join("")||'<div class="empty">Este módulo todavía no tiene lecciones.</div>'}</div>`};
+  ${closedM?`<div class="note">${m.open_at?`Este módulo se habilita el <b>${esc(new Date(m.open_at).toLocaleString("es-CO",{day:"2-digit",month:"long",hour:"2-digit",minute:"2-digit"}))}</b>.`:"Este módulo se habilitará pronto. Te avisaremos en la comunidad."}</div>`:locked?`<div class="note">Este módulo se desbloquea al aprobar todas las lecciones de “${esc(prev.title)}”.</div>`:""}
+  ${admin()&&!modOpen(m,true)?'<div class="note admin-note">Bloqueado para alumnos: solo tú lo ves abierto.</div>':""}
+  <div class="list">${ls.map((l,k)=>{const d=S.prog&&S.prog.done[l.id];return `<a class="item" href="${premium()&&!locked?"#leccion-"+esc(l.id):closedM?"#modulo-"+esc(m.id):"#premium"}"><span class="ico ${d&&d.passed?"done":""}">${d&&d.passed?"✓":k+1}</span><span class="txt"><b>${esc(l.title)}</b><span>${l.has_video?"Video · ":""}${d?`Mejor resultado ${d.best}%`:"Pendiente"}</span></span>${premium()?"":'<span class="tag">Premium</span>'}</a>`}).join("")||'<div class="empty">Este módulo todavía no tiene lecciones.</div>'}</div>`};
 ROUTES.leccion=async id=>{
   if(!logged()){location.hash="#entrar";return}
   if(!premium()){app.innerHTML=paywall();return}
+  {const li=S.lindex.find(x=>x.id===id);const mm=li&&S.modules.find(x=>x.id===li.module_id);if(mm&&!modOpen(mm)){location.hash="#modulo-"+mm.id;return}}
   app.innerHTML='<div class="muted">Cargando lección…</div>';
   let l=null;try{l=await API.lesson(id)}catch(e){}
   if(!l){app.innerHTML=`<div class="empty">No encontramos esta lección.<a class="btn sm" href="#academia">Volver al temario</a></div>`;return}
@@ -386,7 +402,7 @@ ROUTES.perfil=()=>{if(!logged()){location.hash="#entrar";return}const p=API.prof
 ROUTES.prueba=()=>{location.hash="#inicio";setTimeout(()=>{const p=$("#prueba");p&&p.scrollIntoView({behavior:"smooth"})},350)};
 
 /* exportar para los otros archivos */
-window.AGAPP={SITE,ACAD,link,toAcad,toMain,S,API,$,$$,esc,md,toast,busy,fmtT,fmtDate,fmtDT,TZ,MARKETS,MNAME,h1Bars,m5Bars,idxAt,avgRange,toC,Chart,cleanupPush:f=>cleanup.push(f),route,ROUTES,app,premium,admin,logged,confirmInline,loadContent:()=>loadContent(),renderFoot:()=>renderFoot(),applySite:()=>applySite()};
+window.AGAPP={modOpen,modState,SITE,ACAD,link,toAcad,toMain,S,API,$,$$,esc,md,toast,busy,fmtT,fmtDate,fmtDT,TZ,MARKETS,MNAME,h1Bars,m5Bars,idxAt,avgRange,toC,Chart,cleanupPush:f=>cleanup.push(f),route,ROUTES,app,premium,admin,logged,confirmInline,loadContent:()=>loadContent(),renderFoot:()=>renderFoot(),applySite:()=>applySite()};
 
 /* ---------- arranque ---------- */
 async function loadContent(){try{S.modules=await API.modules()}catch(e){S.modules=[]}try{S.lindex=await API.lessonIndex()}catch(e){S.lindex=[]}}
