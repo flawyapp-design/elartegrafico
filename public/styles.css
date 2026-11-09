@@ -414,3 +414,21 @@ nav.main a.navx{color:var(--gold2)}
 .fjoin>div{display:grid;gap:4px;max-width:60ch}
 .fjoin b{font-family:var(--f-disp);font-size:18px}
 .fjoin b{color:var(--fg)}
+/* ---------- fotos de perfil ---------- */
+.avi{border-radius:50%;object-fit:cover;flex:none;display:inline-grid;place-items:center;vertical-align:middle;box-shadow:0 0 0 2px rgba(216,176,98,.55)}
+.avi.ini{background:linear-gradient(135deg,var(--gold2),var(--gold3));color:#1b1405;font-weight:800;font-family:var(--f-disp)}
+.dd button .avi{box-shadow:0 0 0 1.5px rgba(216,176,98,.7)}
+.who-cell{display:inline-flex;align-items:center;gap:8px}
+.comment .who{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.rev figcaption{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.phead{display:flex;gap:20px;align-items:center;margin-bottom:6px}
+.phead-av .avi{box-shadow:0 0 0 3px var(--gold),0 10px 30px rgba(0,0,0,.4)}
+.avedit{display:flex;gap:18px;align-items:center;flex-wrap:wrap}
+.avedit .avi{box-shadow:0 0 0 3px var(--gold)}
+.dash-av{position:relative;display:block;text-decoration:none!important}
+.dash-av .avi{box-shadow:0 0 0 3px var(--gold),0 10px 30px rgba(0,0,0,.4)}
+.lvchip{position:absolute;right:-4px;bottom:-4px;min-width:30px;height:30px;padding:0 6px;border-radius:999px;display:grid;place-items:center;background:radial-gradient(circle at 35% 30%,var(--gold2),var(--gold3));color:#1b1405;font:800 14px var(--f-disp);box-shadow:0 0 0 3px var(--card)}
+.welcome{flex-wrap:wrap}
+.welcome-av{text-decoration:none!important}
+@media (max-width:820px){.dash .dash-av .avi{width:64px!important;height:64px!important}}
+#af .two{align-items:start}#af select{height:auto}

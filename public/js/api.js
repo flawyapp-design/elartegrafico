@@ -122,6 +122,10 @@ function SupabaseAPI(url,key){
     async upload(file){const name=Date.now()+"-"+file.name.toLowerCase().replace(/[^a-z0-9.]+/g,"-");
       await req(`/storage/v1/object/media/${name}`,{method:"POST",body:file,isFile:true,headers:{"Content-Type":file.type||"application/octet-stream","x-upsert":"true"}});
       return `${url}/storage/v1/object/public/media/${name}`},
+    async uploadAvatar(blob){if(!sess||!sess.user)throw new Error("Inicia sesión");const name=`${sess.user.id}/a-${Date.now()}.webp`;
+      await req(`/storage/v1/object/avatars/${name}`,{method:"POST",body:blob,isFile:true,headers:{"Content-Type":blob.type||"image/webp","x-upsert":"true"}});
+      return `${url}/storage/v1/object/public/avatars/${name}`},
+    async updateMyProfile(o){await rpc("update_my_profile",{p_avatar:o.avatar_url||"",p_bio:o.bio||"",p_country:o.country||""});await this.loadProfile()},
     publicStats(){return rpc("public_stats")},
     publicReviews(){return rpc("public_reviews")},
     async myReview(){if(!sess||!sess.user)return null;const r=await sel("reviews",`&user_id=eq.${sess.user.id}`);return r&&r[0]||null},
@@ -186,10 +190,10 @@ function LocalAPI(){
       const a=db.answers.find(x=>x.exercise_id===id)||{};return{zone:a.zone??null,sl:a.sl??null,answer:a.answer||{},explain:a.explain||"",demo_left:prem?null:5-p.demo_used}},
     async progressGet(){return db.progress.find(x=>x.user_id===uid)||null},
     async progressSave(xp,data){const i=db.progress.findIndex(x=>x.user_id===uid);const o={user_id:uid,xp,data,updated_at:now()};if(i>=0)db.progress[i]=o;else db.progress.push(o);save()},
-    async leaderboard(){return db.progress.map(g=>{const p=db.profiles.find(x=>x.id===g.user_id)||{};return{username:p.username||"alumno",xp:g.xp,lessons:Object.values((g.data||{}).done||{}).filter(d=>d.passed).length,is_me:g.user_id===uid}}).sort((a,b)=>b.xp-a.xp).slice(0,50)},
+    async leaderboard(){return db.progress.map(g=>{const p=db.profiles.find(x=>x.id===g.user_id)||{};return{username:p.username||"alumno",avatar_url:p.avatar_url||null,country:p.country||"",xp:g.xp,lessons:Object.values((g.data||{}).done||{}).filter(d=>d.passed).length,is_me:g.user_id===uid}}).sort((a,b)=>b.xp-a.xp).slice(0,50)},
     async posts(){return db.posts.filter(p=>!p.premium_only||this.isPremium()).sort((a,b)=>(b.pinned-a.pinned)||String(b.created_at).localeCompare(a.created_at))},
     async post(id){return(await this.posts()).find(p=>p.id===id)||null},
-    async comments(pid){if(!uid)return[];return db.comments.filter(c=>c.post_id===pid).sort((a,b)=>String(a.created_at).localeCompare(b.created_at)).map(c=>{const p=db.profiles.find(x=>x.id===c.user_id)||{};return{id:c.id,body:c.body,created_at:c.created_at,username:p.username||"alumno",mine:c.user_id===uid,is_admin:p.role==="admin"}})},
+    async comments(pid){if(!uid)return[];return db.comments.filter(c=>c.post_id===pid).sort((a,b)=>String(a.created_at).localeCompare(b.created_at)).map(c=>{const p=db.profiles.find(x=>x.id===c.user_id)||{};return{id:c.id,body:c.body,created_at:c.created_at,username:p.username||"alumno",avatar_url:p.avatar_url||null,mine:c.user_id===uid,is_admin:p.role==="admin"}})},
     async addComment(post_id,body){if(!this.isPremium())throw new Error("Solo los alumnos premium pueden comentar.");db.comments.push({id:uuid(),post_id,user_id:uid,body,created_at:now()});save()},
     async delComment(id){const c=db.comments.find(x=>x.id===id);if(c&&(c.user_id===uid||adm()))rm("comments",id)},
     async saveSite(data){need();db.site=data;save()},
@@ -206,8 +210,10 @@ function LocalAPI(){
     async upload(file){need();if(file.size>3*1024*1024)throw new Error("En el modo de prueba solo se aceptan archivos de hasta 3 MB.");
       const url=await new Promise((ok,no)=>{const r=new FileReader();r.onload=()=>ok(r.result);r.onerror=no;r.readAsDataURL(file)});db.files.unshift({name:file.name,url,size:file.size});save();return url},
     async files(){return db.files},
+    async uploadAvatar(blob){return await new Promise((ok,no)=>{const r=new FileReader();r.onload=()=>ok(r.result);r.onerror=no;r.readAsDataURL(blob)})},
+    async updateMyProfile(o){const p=me();if(!p)throw new Error("Inicia sesión");p.avatar_url=o.avatar_url||null;p.bio=String(o.bio||"").slice(0,160);p.country=String(o.country||"").slice(0,40);save()},
     async publicStats(){const ap=db.reviews.filter(r=>r.approved);return{students:db.profiles.length,lessons:db.lessons.filter(l=>l.status==="publicado").length,exercises:db.exercises.length,rating:ap.length?Math.round(10*ap.reduce((s,r)=>s+r.rating,0)/ap.length)/10:null,reviews:ap.length}},
-    async publicReviews(){return db.reviews.filter(r=>r.approved).map(r=>{const p=db.profiles.find(x=>x.id===r.user_id)||{};return{id:r.id,rating:r.rating,body:r.body,created_at:r.created_at,username:p.username||"alumno",premium:isPrem(p)}}).sort((a,b)=>String(b.created_at).localeCompare(a.created_at))},
+    async publicReviews(){return db.reviews.filter(r=>r.approved).map(r=>{const p=db.profiles.find(x=>x.id===r.user_id)||{};return{id:r.id,rating:r.rating,body:r.body,created_at:r.created_at,username:p.username||"alumno",avatar_url:p.avatar_url||null,premium:isPrem(p)}}).sort((a,b)=>String(b.created_at).localeCompare(a.created_at))},
     async myReview(){return db.reviews.find(r=>r.user_id===uid)||null},
     async saveReview(rating,body){if(!uid)throw new Error("Inicia sesión");const m=db.reviews.find(r=>r.user_id===uid);if(m)Object.assign(m,{rating,body,approved:false,updated_at:now()});else db.reviews.push({id:uuid(),user_id:uid,rating,body,approved:false,created_at:now()});save()},
     async logView(sid,path){db.views.push({sid,path,user_id:uid,created_at:now()});if(db.views.length>5000)db.views.splice(0,1000);save()},
