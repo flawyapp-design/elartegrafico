@@ -9,7 +9,13 @@ const now=()=>new Date().toISOString();
 const isPrem=p=>!!p&&!p.banned&&(p.role==="admin"||(p.premium_until&&new Date(p.premium_until)>new Date()));
 const errMsg=j=>{const m=(j&&(j.error_description||j.msg||j.message||j.error))||"Error";
   const map={"Invalid login credentials":"Correo o contraseña incorrectos.","Email not confirmed":"Confirma tu correo antes de ingresar (revisa tu bandeja de entrada y spam).","User already registered":"Ese correo ya tiene una cuenta.","captcha protection: request disallowed (captcha-verification-process-failed)":"Verificación anti-bots fallida. Inténtalo de nuevo."};
-  return map[m]||m};
+  if(map[m])return map[m];
+  if(/rate limit/i.test(m))return "Demasiados intentos seguidos. Espera unos minutos e inténtalo de nuevo.";
+  if(/invalid.*email|email.*invalid/i.test(m))return "Ese correo no es válido. Revísalo.";
+  if(/password should be at least/i.test(m))return "La contraseña es muy corta.";
+  if(/signups not allowed/i.test(m))return "Los registros están cerrados por ahora.";
+  if(/failed to fetch|networkerror/i.test(m))return "Sin conexión con el servidor. Revisa tu internet.";
+  return m};
 
 /* ===================== SUPABASE ===================== */
 function SupabaseAPI(url,key){
@@ -56,6 +62,8 @@ function SupabaseAPI(url,key){
     isPremium(){return isPrem(prof)},isAdmin(){return !!prof&&prof.role==="admin"&&!prof.banned},
     async usernameAvailable(u){return !!(await rpc("username_available",{u}))},
     async signUp({username,email,password,captcha}){
+      const typo={"gmai.com":"gmail.com","gmial.com":"gmail.com","gmail.co":"gmail.com","gamil.com":"gmail.com","hotmial.com":"hotmail.com","hotmai.com":"hotmail.com","outlok.com":"outlook.com","yaho.com":"yahoo.com"};const dom=(email.split("@")[1]||"").toLowerCase();
+      if(typo[dom])throw new Error("Revisa tu correo: ¿quisiste decir @"+typo[dom]+"?");
       if(!(await this.usernameAvailable(username)))throw new Error("Ese nombre de usuario ya existe.");
       const r=await raw("/auth/v1/signup",{method:"POST",auth:false,body:Object.assign({email,password,data:{username}},cap(captcha))});
       if(!r.ok)throw new Error(errMsg(r.j));

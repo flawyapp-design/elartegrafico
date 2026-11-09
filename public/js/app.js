@@ -106,7 +106,7 @@ function captcha(host){
 function slider(host,slides,{emblem=true}={}){
   if(!slides.length)slides=[{title:S.site.heroTitle||"El Arte Gráfico Academy",body:S.site.heroText||"",cta_text:"",cta_link:""}];
   host.innerHTML=`<div class="slider" role="region" aria-roledescription="carrusel" aria-label="Destacados">${slides.map((s,i)=>`<div class="slide ${i?"":"on"}" aria-hidden="${i?"true":"false"}">
-      ${s.image_url?`<div class="bgimg" style="background-image:url('${esc(s.image_url)}')"></div>`:emblem?`<img class="emblem" src="${esc(S.site.logoFullUrl||"assets/logo_full.jpg")}" alt="">`:""}
+      ${s.image_url?`<div class="bgimg" style="background-image:url('${esc(s.image_url)}')"></div>`:emblem?`<img class="emblem" src="${esc(S.site.logoFullUrl||"assets/logo_circle.png")}" alt="">`:""}
       <span class="eyebrow">${esc(S.site.name||"El Arte Gráfico")} · Academy</span><h2>${esc(s.title)}</h2>${s.body?`<p>${esc(s.body)}</p>`:""}
       ${s.cta_text?`<div class="cta"><a class="btn gold" href="${esc(s.cta_link||"#registro")}">${esc(s.cta_text)}</a></div>`:'<div class="cta"></div>'}</div>`).join("")}
     ${slides.length>1?`<div class="dots2">${slides.map((_,i)=>`<button aria-label="Ir al destacado ${i+1}" class="${i?"":"on"}" data-i="${i}"></button>`).join("")}</div><div class="sl-arrows"><button aria-label="Anterior" data-d="-1">‹</button><button aria-label="Siguiente" data-d="1">›</button></div>`:""}</div>`;
@@ -178,7 +178,7 @@ async function authView(mode){
   app.innerHTML=`<div class="auth"><div id="aslide"></div><div class="authbox" id="abox"></div></div>`;
   API.slides("login").then(sl=>slider($("#aslide"),sl)).catch(()=>slider($("#aslide"),[]));
   const box=$("#abox");
-  const head=`<div style="display:grid;gap:6px"><img src="assets/logo_mark.png" alt="" style="width:52px;height:52px;border-radius:50%"><h2>${mode==="up"?"Crea tu cuenta":mode==="in"?"Ingresa a la academia":"Recupera tu contraseña"}</h2><p class="muted">${mode==="up"?"Gratis. Incluye 5 gráficas de prueba.":mode==="in"?"Bienvenido de nuevo.":"Te enviaremos un enlace a tu correo."}</p></div>`;
+  const head=`<div style="display:grid;gap:6px"><img src="assets/logo_mark.png" alt="" style="width:56px;height:56px"><h2>${mode==="up"?"Crea tu cuenta":mode==="in"?"Ingresa a la academia":"Recupera tu contraseña"}</h2><p class="muted">${mode==="up"?"Gratis. Incluye 5 gráficas de prueba.":mode==="in"?"Bienvenido de nuevo.":"Te enviaremos un enlace a tu correo."}</p></div>`;
   const seg=mode==="rec"?"":`<div class="seg"><button class="${mode==="in"?"on":""}" data-m="entrar">Ingresar</button><button class="${mode==="up"?"on":""}" data-m="registro">Crear cuenta</button></div>`;
   if(mode==="up")box.innerHTML=head+seg+`<form class="form" id="f" novalidate>
       <label for="uU">Nombre de usuario<input id="uU" autocomplete="username" required minlength="3" maxlength="24" pattern="[A-Za-z0-9_.]{3,24}" placeholder="ej. trader_juan"><span class="dim" style="font-weight:400">Letras, números, punto o guion bajo. Se verá en el ranking y la comunidad.</span></label>

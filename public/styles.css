@@ -36,7 +36,7 @@ p{margin:0}
 .top .wrap{display:flex;align-items:center;gap:18px;padding-block:10px}
 .brand{display:flex;align-items:center;gap:10px;color:var(--fg);min-width:0}
 .brand:hover{text-decoration:none}
-.brand img{width:40px;height:40px;border-radius:50%;box-shadow:0 0 0 1px var(--gold3),0 0 18px rgba(216,176,98,.25);flex:none}
+.brand img{width:42px;height:42px;border-radius:50%;filter:drop-shadow(0 0 10px rgba(216,176,98,.22));flex:none}
 .brand b{font-family:var(--f-disp);font-size:14px;font-weight:700;line-height:1.1;letter-spacing:.02em}
 .brand small{display:block;font-size:10.5px;letter-spacing:.2em;color:var(--gold);font-weight:600}
 nav.main{display:flex;gap:4px;margin-left:auto;flex-wrap:wrap}
@@ -202,7 +202,7 @@ footer .wrap{display:grid;gap:10px}
 .slide::after{content:"";position:absolute;inset:0;z-index:-1;background:linear-gradient(90deg,rgba(6,11,26,.92) 0%,rgba(6,11,26,.65) 55%,rgba(6,11,26,.2) 100%),linear-gradient(0deg,rgba(6,11,26,.85),transparent 60%)}
 .slide h2{font-size:clamp(24px,4vw,46px);font-weight:800;max-width:20ch}
 .slide p{font-size:clamp(15px,1.6vw,18px);color:#c9d3ea;max-width:52ch}
-.slide .emblem{position:absolute;right:clamp(10px,4vw,48px);top:50%;transform:translateY(-50%);width:clamp(130px,26vw,330px);opacity:.95;z-index:-1;border-radius:50%;box-shadow:0 0 0 1px rgba(216,176,98,.35),0 0 80px rgba(216,176,98,.18)}
+.slide .emblem{position:absolute;right:clamp(10px,4vw,48px);top:50%;transform:translateY(-50%);width:clamp(130px,26vw,330px);z-index:-1;border-radius:50%;filter:drop-shadow(0 18px 50px rgba(0,0,0,.55)) drop-shadow(0 0 60px rgba(216,176,98,.16))}
 .dots2{position:absolute;left:clamp(22px,4vw,48px);bottom:16px;display:flex;gap:8px;z-index:2}
 .dots2 button{width:26px;height:5px;border-radius:9px;border:0;background:rgba(255,255,255,.25);cursor:pointer;padding:0}
 .dots2 button.on{background:var(--gold)}
