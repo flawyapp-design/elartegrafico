@@ -72,6 +72,7 @@ function sitio(){
     <h3>Comunidad y Discord (inicio de elartegrafico.com)</h3>
     <div class="two"><label for="sDU">Enlace de invitación al Discord<input id="sDU" value="${esc(s.discordUrl||"")}" placeholder="https://discord.gg/..."></label><label for="sDT">Título<input id="sDT" value="${esc(s.discordTitle||"")}" placeholder="La comunidad de El Arte Gráfico"></label></div>
     <label for="sDX">Texto<textarea id="sDX" style="min-height:70px">${esc(s.discordText||"")}</textarea></label>
+    <label for="sCS">Cifras de la comunidad (una por línea: Valor | texto). Los miembros y conectados de Discord salen solos.<textarea id="sCS" style="min-height:70px" placeholder="25K | seguidores en TikTok">${esc((s.communityStats||[]).map(c=>c.v+" | "+c.t).join("\n"))}</textarea></label>
     <label for="sDI">Puntos destacados (uno por línea)<textarea id="sDI" style="min-height:90px">${esc((s.discordItems||[]).join("\n"))}</textarea></label>
     <h3>Premium</h3><div class="two"><label for="sPT">Título<input id="sPT" value="${esc(s.premiumTitle||"")}"></label><label for="sPX">Texto<input id="sPX" value="${esc(s.premiumText||"")}"></label></div>
     <label for="sPI">Beneficios (uno por línea)<textarea id="sPI" style="min-height:90px">${esc((s.premiumItems||[]).join("\n"))}</textarea></label>
@@ -87,7 +88,7 @@ function sitio(){
       cards:pairs($("#sC").value).map(p=>({title:p[0],text:p[1]||""})),steps:pairs($("#sS").value).map(p=>({title:p[0],text:p[1]||""})),
       markets:pairs($("#sM").value).map(p=>({cat:p[0],name:p[1]||"",status:p[2]||"Próximamente",text:p[3]||""})),
       premiumTitle:$("#sPT").value.trim(),premiumText:$("#sPX").value.trim(),premiumItems:$("#sPI").value.split("\n").map(x=>x.trim()).filter(Boolean),
-      closedTitle:$("#sAT").value.trim(),closedText:$("#sAX").value.trim(),discordUrl:$("#sDU").value.trim(),discordTitle:$("#sDT").value.trim(),discordText:$("#sDX").value.trim(),discordItems:$("#sDI").value.split("\n").map(x=>x.trim()).filter(Boolean),
+      closedTitle:$("#sAT").value.trim(),closedText:$("#sAX").value.trim(),discordUrl:$("#sDU").value.trim(),discordTitle:$("#sDT").value.trim(),discordText:$("#sDX").value.trim(),discordItems:$("#sDI").value.split("\n").map(x=>x.trim()).filter(Boolean),communityStats:pairs($("#sCS").value).map(p=>({v:p[0],t:p[1]||""})),
       contact:$("#sCo").value.trim(),social:$("#sSo").value.trim(),legal:$("#sL").value.trim()});
     try{busy($("#sv"),true);await API.saveSite(s);S.site=s;A.applySite();toast("Cambios guardados")}catch(x){toast(x.message)}finally{busy($("#sv"),false)}};
 }

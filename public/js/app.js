@@ -81,7 +81,8 @@ function renderNav(){
 }
 $("#menuBtn").onclick=()=>{const o=$("#nav").classList.toggle("open");$("#menuBtn").setAttribute("aria-expanded",String(o))};
 function renderFoot(){const s=S.site;
-  $("#foot").innerHTML=`<div class="fcols"><div class="fbrand"><img src="${esc(s.logoUrl||"assets/logo_mark.png")}" alt=""><div><b>${esc(s.name||"El Arte Gráfico")}</b><span>${esc(s.tagline||"")}</span></div></div>
+  $("#foot").innerHTML=`${s.discordUrl?`<div class="fjoin"><div><b>Únete a la comunidad</b><span class="muted">Análisis, dudas y avisos del método, junto a otros traders que operan con reglas.</span></div><a class="btn gold btn-ic" href="${esc(s.discordUrl)}" target="_blank" rel="noopener">${ICON_CHAT}<span>Entrar al Discord</span></a></div>`:""}
+    <div class="fcols"><div class="fbrand"><img src="${esc(s.logoUrl||"assets/logo_mark.png")}" alt=""><div><b>${esc(s.name||"El Arte Gráfico")}</b><span>${esc(s.tagline||"")}</span></div></div>
     <div><h4>El Arte Gráfico</h4><a href="${toMain("inicio")}">Inicio</a><a href="${toMain("comunidad")}">Comunidad</a><a href="${toMain("opiniones")}">Opiniones</a>${s.discordUrl?`<a href="${esc(s.discordUrl)}" target="_blank" rel="noopener">Discord</a>`:""}</div>
     <div><h4>Academia</h4><a href="${toAcad("inicio")}">Mi panel</a><a href="${toAcad("academia")}">Temario</a><a href="${toAcad("practica")}">Práctica</a><a href="#premium">Premium</a></div>
     <div><h4>Mercados</h4><a href="${toMain("mercados")}">Sintéticos</a><a href="${toMain("mercados")}">Forex</a><a href="${toMain("mercados")}">Metales</a></div>
@@ -155,6 +156,11 @@ function slider(host,slides,{emblem=true}={}){
    VISTAS PÚBLICAS
    ===================================================================== */
 ROUTES.inicio=()=>ACAD?academyHome():mainHome();
+const ICON_CHAT='<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20.5l1.4-4.6A8 8 0 1 1 21 12z"/><path d="M8.5 11h.01M12 11h.01M15.5 11h.01"/></svg>';
+function discordCode(u){const m=String(u||"").match(/(?:discord\.gg|discord(?:app)?\.com\/invite)\/([\w-]+)/i);return m?m[1]:null}
+let discCache=null;async function discordCounts(u){const c=discordCode(u);if(!c)return null;if(discCache)return discCache;
+  try{const r=await fetch(`https://discord.com/api/v10/invites/${c}?with_counts=true`);if(!r.ok)return null;const j=await r.json();discCache={members:j.approximate_member_count,online:j.approximate_presence_count,name:j.guild&&j.guild.name};return discCache}catch(e){return null}}
+const fmtN=n=>n>=1e6?(n/1e6).toFixed(1).replace(".0","")+"M":n>=1e4?Math.round(n/1e3)+"K":n>=1e3?(n/1e3).toFixed(1).replace(".0","")+"K":String(n);
 const statsBand=()=>API.publicStats().then(st=>{if(!$("#stats"))return;$("#stats").innerHTML=[[st.students,"alumnos registrados"],[st.lessons,"lecciones publicadas"],[st.exercises,"ejercicios"],[st.rating?st.rating.toFixed(1)+" / 5":"—",st.reviews?`calificación · ${st.reviews} opiniones`:"calificación"]].map(([v,t])=>`<div><b class="mono">${esc(v??0)}</b><span>${t}</span></div>`).join("")}).catch(()=>{});
 const DISC={title:"La comunidad de El Arte Gráfico",text:"Un espacio para traders que operan con reglas: análisis del día, dudas resueltas, avisos del método y acompañamiento entre alumnos.",items:["Análisis y zonas compartidas a diario","Avisos de actualizaciones y nuevas lecciones","Resolución de dudas con el equipo","Comunidad de alumnos que practican el mismo método"]};
 
@@ -167,7 +173,8 @@ async function mainHome(){
   <section class="sec"><div class="disc">
     <div class="disc-main"><span class="eyebrow">Comunidad</span><h2>${esc(s.discordTitle||DISC.title)}</h2><p class="muted">${esc(s.discordText||DISC.text)}</p>
       <ul class="checks">${dItems.map(i=>`<li>${esc(i)}</li>`).join("")}</ul>
-      <div class="row">${s.discordUrl?`<a class="btn gold" href="${esc(s.discordUrl)}" target="_blank" rel="noopener">Unirme al Discord</a>`:'<span class="pill">El enlace al Discord se publicará pronto</span>'}<a class="btn ghost" href="#comunidad">Ver publicaciones</a></div></div>
+      <div class="cstats" id="cstats">${(s.communityStats||[]).map(c=>`<div><b class="mono">${esc(c.v)}</b><span>${esc(c.t)}</span></div>`).join("")}</div>
+      <div class="row">${s.discordUrl?`<a class="btn gold btn-ic" href="${esc(s.discordUrl)}" target="_blank" rel="noopener">${ICON_CHAT}<span>Unirme al Discord</span></a>`:'<span class="pill">El enlace al Discord se publicará pronto</span>'}<a class="btn ghost" href="#comunidad">Ver publicaciones</a></div></div>
     <div class="disc-news"><div class="sec-h"><h3>Últimas publicaciones</h3><a href="#comunidad">Ver todo</a></div><div id="newsMini" class="minis"><div class="muted">Cargando…</div></div></div>
   </div></section>
   <section class="sec"><div class="sec-h"><div><span class="eyebrow">La academia</span><h2>Qué vas a aprender</h2></div><a href="${toAcad("inicio")}">Ir a la academia</a></div><div class="cards" id="cards"></div>
@@ -178,6 +185,8 @@ async function mainHome(){
   <section class="sec"><div class="sec-h"><div><span class="eyebrow">Opiniones</span><h2>Lo que dicen los alumnos</h2></div><a href="#opiniones">Ver todas</a></div><div id="revs"></div></section>
   <section class="cta-band" id="premiumBand"></section>`;
   API.slides("home").then(sl=>slider($("#hero"),sl)).catch(()=>slider($("#hero"),[]));statsBand();
+  if(s.discordUrl)discordCounts(s.discordUrl).then(d=>{const h=$("#cstats");if(!h||!d||!d.members)return;
+    h.insertAdjacentHTML("afterbegin",`<div><b class="mono">${fmtN(d.members)}</b><span>miembros en Discord</span></div>${d.online?`<div><b class="mono"><i class="live"></i>${fmtN(d.online)}</b><span>conectados ahora</span></div>`:""}`)});
   $("#cards").innerHTML=(s.cards||[]).map((c,i)=>`<div class="card"><span class="k">${String(i+1).padStart(2,"0")}</span><h3>${esc(c.title)}</h3><p>${esc(c.text)}</p></div>`).join("");
   $("#mkts").innerHTML=marketsHTML(s.markets||[],true);
   $("#steps").innerHTML=(s.steps||[]).map((c,i)=>`<div class="step"><span class="n">Paso ${i+1}</span><h3>${esc(c.title)}</h3><p class="muted">${esc(c.text)}</p></div>`).join("");
