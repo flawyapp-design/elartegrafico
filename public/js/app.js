@@ -1,0 +1,354 @@
+/* El Arte Gráfico Academy — aplicación (vanilla JS, sin compilación). */
+(function(){
+"use strict";
+const API=window.AGAPI, CFG=window.AG_CONFIG||{}, Chart=window.AGChart;
+const $=(s,r=document)=>r.querySelector(s), $$=(s,r=document)=>[...r.querySelectorAll(s)];
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const TZ=-5*3600;
+const fmtT=t=>new Date((t+TZ)*1000).toISOString().slice(0,16).replace("T"," ");
+const fmtDate=s=>{if(!s)return"—";const d=new Date(s);return d.toLocaleDateString("es-CO",{day:"2-digit",month:"short",year:"numeric"})};
+const fmtDT=s=>{if(!s)return"—";const d=new Date(s);return d.toLocaleString("es-CO",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"})};
+const todayKey=()=>new Date(Date.now()+TZ*1000).toISOString().slice(0,10);
+const MARKETS=["B1000","B900","B600","B500","B300","C1000","C900","C600","C500","C300"];
+const MNAME={B1000:"Boom 1000",B900:"Boom 900",B600:"Boom 600",B500:"Boom 500",B300:"Boom 300",C1000:"Crash 1000",C900:"Crash 900",C600:"Crash 600",C500:"Crash 500",C300:"Crash 300"};
+const LEVELS=[[0,"Nivel 1 · Fundamentos"],[150,"Nivel 2 · Analista"],[400,"Nivel 3 · Operador"],[900,"Nivel 4 · Estratega"],[1800,"Nivel 5 · Maestro"]];
+const levelOf=xp=>{let i=0;LEVELS.forEach((l,k)=>{if(xp>=l[0])i=k});const n=LEVELS[i+1];return{i,name:LEVELS[i][1],from:LEVELS[i][0],to:n?n[0]:null}};
+const ACH=[{id:"primera",t:"Primera operación correcta"},{id:"diez",t:"10 aciertos"},{id:"racha5",t:"5 aciertos seguidos"},{id:"constancia",t:"3 días seguidos practicando"},{id:"leccion",t:"Primera lección aprobada"},{id:"modulo",t:"Primer módulo completo"},{id:"paciencia",t:"Supo no operar"},{id:"cien",t:"100 ejercicios"}];
+
+const S={site:{},user:null,prof:null,modules:[],lindex:[],prog:null,loaded:false};
+const blankProg=()=>({xp:0,done:{},streak:0,lastDay:"",practice:{n:0,ok:0,row:0,best:0},ach:[]});
+const premium=()=>API.isPremium(), admin=()=>API.isAdmin(), logged=()=>!!API.user();
+
+/* ---------- utilidades UI ---------- */
+let toastT;function toast(m){let t=$(".toast");if(!t){t=document.createElement("div");t.className="toast";t.setAttribute("role","status");document.body.appendChild(t)}t.textContent=m;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>t.hidden=true,2800)}
+function md(txt){const lines=String(txt||"").split(/\r?\n/);let out="",list=false;
+  const inl=s=>esc(s).replace(/\*\*(.+?)\*\*/g,"<b>$1</b>").replace(/(https?:\/\/[^\s<]+)/g,'<a href="$1" target="_blank" rel="noopener">$1</a>');
+  for(const l of lines){if(/^\s*[-•]\s+/.test(l)){if(!list){out+="<ul>";list=true}out+="<li>"+inl(l.replace(/^\s*[-•]\s+/,""))+"</li>";continue}
+    if(list){out+="</ul>";list=false}if(/^###\s+/.test(l))out+="<h3>"+inl(l.slice(4))+"</h3>";else if(l.trim())out+="<p>"+inl(l)+"</p>"}
+  if(list)out+="</ul>";return out}
+const stars=n=>"★★★★★".slice(0,Math.round(n||0))+"☆☆☆☆☆".slice(0,5-Math.round(n||0));
+const busy=(btn,on,txt)=>{if(!btn)return;if(on){btn.dataset.t=btn.textContent;btn.textContent=txt||"Procesando…";btn.disabled=true}else{btn.textContent=btn.dataset.t||btn.textContent;btn.disabled=false}};
+function confirmInline(host,msg,onYes){const prev=host.innerHTML;host.innerHTML=`<span class="confirm"><span>${esc(msg)}</span><button class="btn sm bad" type="button" data-y>Sí</button><button class="btn sm" type="button" data-n>Cancelar</button></span>`;
+  $("[data-n]",host).onclick=()=>{host.innerHTML=prev;bindLater&&bindLater()};$("[data-y]",host).onclick=onYes}
+let bindLater=null;
+
+/* ---------- progreso ---------- */
+let saveT=null;
+function saveProg(){try{localStorage.setItem("ag_prog_"+(API.user()||{id:"anon"}).id,JSON.stringify(S.prog))}catch(e){}renderNav();clearTimeout(saveT);saveT=setTimeout(()=>{if(logged())API.progressSave(S.prog.xp,S.prog).catch(()=>{})},800)}
+async function loadProg(){S.prog=blankProg();if(!logged())return;try{const r=await API.progressGet();if(r&&r.data)S.prog=Object.assign(blankProg(),r.data,{xp:r.xp||r.data.xp||0})}catch(e){}}
+function ach(id){if(!S.prog.ach.includes(id)){S.prog.ach.push(id);const a=ACH.find(x=>x.id===id);if(a)setTimeout(()=>toast("Logro: "+a.t),700)}}
+function addXP(n){S.prog.xp=(S.prog.xp||0)+n;const d=todayKey();if(S.prog.lastDay!==d){const y=new Date(Date.now()+TZ*1000-864e5).toISOString().slice(0,10);S.prog.streak=S.prog.lastDay===y?(S.prog.streak||0)+1:1;S.prog.lastDay=d;if(S.prog.streak>=3)ach("constancia")}saveProg()}
+function registerAnswer(kind,res){const p=S.prog.practice;p.n++;if(res==="ok"){p.ok++;p.row++;ach("primera");if(kind==="no-operar")ach("paciencia")}else p.row=0;p.best=Math.max(p.best,p.row);if(p.ok>=10)ach("diez");if(p.row>=5)ach("racha5");if(p.n>=100)ach("cien");saveProg()}
+
+/* ---------- navegación ---------- */
+const app=$("#app");let cleanup=[];
+function clear(){cleanup.forEach(f=>{try{f()}catch(e){}});cleanup=[]}
+function renderNav(){
+  const r=(location.hash||"#inicio").slice(1).split("-")[0];
+  const L=[["inicio","Inicio"],["academia","Academia"],["mercados","Mercados"],["practica","Práctica"],["noticias","Comunidad"],["opiniones","Opiniones"]];
+  const u=API.user(),p=API.profile();const lv=levelOf((S.prog&&S.prog.xp)||0);
+  $("#nav").innerHTML=L.map(([k,t])=>`<a href="#${k}" class="${r===k?"on":""}">${t}</a>`).join("")+
+    (u&&p?`<div class="dd" id="dd"><button aria-haspopup="true" aria-expanded="false" id="ddb"><span class="av">${esc((p.username||"?")[0].toUpperCase())}</span><span>${esc(p.username)}</span>${premium()?'<span class="prem-badge">Premium</span>':""}</button>
+      <div class="menu" hidden><div class="who">${esc(p.email||"")}<br>${esc(lv.name)} · ${S.prog?S.prog.xp:0} pts</div><a href="#perfil">Mi progreso</a><a href="#ranking">Ranking</a>${premium()?"":'<a href="#premium">Hazte premium</a>'}${admin()?'<a href="#admin">Administración</a>':""}<button id="logout">Cerrar sesión</button></div></div>`
+     :`<div class="userbox"><a class="btn sm ghost" href="#entrar">Ingresar</a><a class="btn sm gold" href="#registro">Crear cuenta</a></div>`);
+  const dd=$("#dd");if(dd){const b=$("#ddb"),m=$(".menu",dd);b.onclick=e=>{e.stopPropagation();m.hidden=!m.hidden;b.setAttribute("aria-expanded",String(!m.hidden))};document.addEventListener("click",()=>{m.hidden=true},{once:true});
+    $("#logout").onclick=async()=>{await API.signOut();S.prog=blankProg();toast("Sesión cerrada");location.hash="#inicio";renderNav();route()}}
+}
+$("#menuBtn").onclick=()=>{const o=$("#nav").classList.toggle("open");$("#menuBtn").setAttribute("aria-expanded",String(o))};
+function renderFoot(){const s=S.site;
+  $("#foot").innerHTML=`<div class="fcols"><div class="fbrand"><img src="${esc(s.logoUrl||"assets/logo_mark.png")}" alt=""><div><b>${esc(s.name||"El Arte Gráfico")}</b><span>${esc(s.tagline||"")}</span></div></div>
+    <div><h4>Academia</h4><a href="#academia">Temario</a><a href="#practica">Práctica</a><a href="#premium">Premium</a></div>
+    <div><h4>Mercados</h4><a href="#mercados">Sintéticos</a><a href="#mercados">Forex</a><a href="#mercados">Metales</a></div>
+    <div><h4>Comunidad</h4><a href="#noticias">Noticias</a><a href="#opiniones">Opiniones</a><a href="#ranking">Ranking</a></div>
+    <div><h4>Contacto</h4>${s.contact?`<span class="sel">${esc(s.contact)}</span>`:'<span class="dim">Pronto</span>'}${(s.social||"").split(/\n/).filter(Boolean).map(l=>{const [t,u]=l.split("|").map(x=>x.trim());return u?`<a href="${esc(u)}" target="_blank" rel="noopener">${esc(t)}</a>`:""}).join("")}</div></div>
+    <p class="legal">${esc(s.legal||"Contenido educativo. Operar instrumentos financieros implica alto riesgo. No es asesoría financiera.")}</p>
+    <p class="dim">© ${new Date().getFullYear()} ${esc(s.name||"El Arte Gráfico")}. Todos los derechos reservados.</p>`}
+
+let sid;try{sid=sessionStorage.getItem("ag_sid")||Math.random().toString(36).slice(2,12);sessionStorage.setItem("ag_sid",sid)}catch(e){sid=Math.random().toString(36).slice(2,12)}
+const ROUTES={};
+function route(keep){
+  clear();$("#nav").classList.remove("open");const h=(location.hash||"#inicio").slice(1)||"inicio";if(keep!==true)window.scrollTo(0,0);
+  const [k,...rest]=h.split("-");const arg=rest.join("-");renderNav();
+  API.logView(sid,h.slice(0,60));
+  (ROUTES[k]||ROUTES.inicio)(arg);
+}
+window.addEventListener("hashchange",()=>route());
+
+/* ---------- datos de mercado ---------- */
+const cache={};
+async function getJSON(u){if(cache[u])return cache[u];const r=await fetch(u);if(!r.ok)throw new Error("No se pudieron cargar las velas");cache[u]=await r.json();return cache[u]}
+async function h1Bars(code){const j=await getJSON(`data/h1/${code}.json`);if(!j._bars){j._bars=j.dt.map((d,i)=>({t:j.t0+d*3600,o:j.o[i],h:j.h[i],l:j.l[i],c:j.c[i]}))}return{bars:j._bars,dec:j.dec}}
+async function m5Bars(code,from,to){const out=[];let dec=2;const d=new Date(from*1000);d.setUTCDate(1);d.setUTCHours(0,0,0,0);
+  while(d.getTime()/1000<=to){const per=d.toISOString().slice(0,7);try{const j=await getJSON(`data/m5/${code}/${per}.json`);dec=j.dec;for(let i=0;i<j.dt.length;i++){const t=j.t0+j.dt[i]*300;if(t>=from&&t<=to)out.push({t,o:j.o[i],h:j.h[i],l:j.l[i],c:j.c[i]})}}catch(e){}d.setUTCMonth(d.getUTCMonth()+1)}
+  return{bars:out,dec}}
+const idxAt=(bars,t)=>{let lo=0,hi=bars.length-1,a=-1;while(lo<=hi){const m=(lo+hi)>>1;if(bars[m].t<=t){a=m;lo=m+1}else hi=m-1}return a};
+const avgRange=(bars,i,n=20)=>{let s=0,k=0;for(let j=Math.max(0,i-n+1);j<=i;j++){s+=bars[j].h-bars[j].l;k++}return k?s/k:1};
+const toC=bars=>bars.map(x=>({time:x.t+TZ,open:x.o,high:x.h,low:x.l,close:x.c}));
+
+/* ---------- captcha (Turnstile si hay clave; si no, captcha propio) ---------- */
+function captcha(host){
+  if(CFG.TURNSTILE_SITE_KEY){let token="";host.innerHTML='<div class="ts"></div>';
+    const go=()=>{try{window.turnstile.render($(".ts",host),{sitekey:CFG.TURNSTILE_SITE_KEY,theme:"dark",language:"es",callback:t=>token=t,"expired-callback":()=>token=""})}catch(e){}};
+    if(window.turnstile)go();else{const s=document.createElement("script");s.src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";s.onload=go;document.head.appendChild(s)}
+    return{ok:()=>!!token,token:()=>token,reset:()=>{try{window.turnstile.reset()}catch(e){}token=""}}}
+  let code="";const chars="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  host.innerHTML=`<div class="captcha"><canvas width="150" height="46" aria-label="Código de verificación"></canvas><input id="capIn" maxlength="5" autocomplete="off" placeholder="Escribe el código" aria-label="Escribe el código de la imagen" style="text-transform:uppercase"><button type="button" class="btn sm ghost" title="Otro código">↻</button></div>`;
+  const cv=$("canvas",host),cx=cv.getContext("2d");
+  const draw=()=>{code=Array.from({length:5},()=>chars[Math.floor(Math.random()*chars.length)]).join("");cx.fillStyle="#0b1636";cx.fillRect(0,0,150,46);
+    for(let i=0;i<6;i++){cx.strokeStyle=`rgba(${120+Math.random()*120},${140+Math.random()*80},255,.35)`;cx.beginPath();cx.moveTo(Math.random()*150,Math.random()*46);cx.bezierCurveTo(Math.random()*150,Math.random()*46,Math.random()*150,Math.random()*46,Math.random()*150,Math.random()*46);cx.stroke()}
+    [...code].forEach((c,i)=>{cx.save();cx.translate(18+i*26,30+Math.random()*6-3);cx.rotate((Math.random()-.5)*.6);cx.font=`700 ${22+Math.random()*6}px monospace`;cx.fillStyle=i%2?"#f3d88f":"#c8d0de";cx.fillText(c,0,0);cx.restore()});
+    for(let i=0;i<40;i++){cx.fillStyle="rgba(255,255,255,.25)";cx.fillRect(Math.random()*150,Math.random()*46,1.5,1.5)}$("#capIn",host).value=""};
+  $("button",host).onclick=draw;draw();
+  return{ok:()=>$("#capIn",host).value.trim().toUpperCase()===code,token:()=>null,reset:draw};
+}
+
+/* ---------- slider ---------- */
+function slider(host,slides,{emblem=true}={}){
+  if(!slides.length)slides=[{title:S.site.heroTitle||"El Arte Gráfico Academy",body:S.site.heroText||"",cta_text:"",cta_link:""}];
+  host.innerHTML=`<div class="slider" role="region" aria-roledescription="carrusel" aria-label="Destacados">${slides.map((s,i)=>`<div class="slide ${i?"":"on"}" aria-hidden="${i?"true":"false"}">
+      ${s.image_url?`<div class="bgimg" style="background-image:url('${esc(s.image_url)}')"></div>`:emblem?`<img class="emblem" src="${esc(S.site.logoFullUrl||"assets/logo_full.jpg")}" alt="">`:""}
+      <span class="eyebrow">${esc(S.site.name||"El Arte Gráfico")} · Academy</span><h2>${esc(s.title)}</h2>${s.body?`<p>${esc(s.body)}</p>`:""}
+      ${s.cta_text?`<div class="cta"><a class="btn gold" href="${esc(s.cta_link||"#registro")}">${esc(s.cta_text)}</a></div>`:'<div class="cta"></div>'}</div>`).join("")}
+    ${slides.length>1?`<div class="dots2">${slides.map((_,i)=>`<button aria-label="Ir al destacado ${i+1}" class="${i?"":"on"}" data-i="${i}"></button>`).join("")}</div><div class="sl-arrows"><button aria-label="Anterior" data-d="-1">‹</button><button aria-label="Siguiente" data-d="1">›</button></div>`:""}</div>`;
+  if(slides.length<2)return;let k=0;const els=$$(".slide",host),ds=$$(".dots2 button",host);
+  const show=i=>{k=(i+els.length)%els.length;els.forEach((e,j)=>{e.classList.toggle("on",j===k);e.setAttribute("aria-hidden",String(j!==k))});ds.forEach((d,j)=>d.classList.toggle("on",j===k))};
+  ds.forEach(d=>d.onclick=()=>{show(+d.dataset.i);restart()});$$(".sl-arrows button",host).forEach(b=>b.onclick=()=>{show(k+ +b.dataset.d);restart()});
+  let t;const restart=()=>{clearInterval(t);if(!matchMedia("(prefers-reduced-motion: reduce)").matches)t=setInterval(()=>show(k+1),6500)};restart();cleanup.push(()=>clearInterval(t));
+}
+
+/* =====================================================================
+   VISTAS PÚBLICAS
+   ===================================================================== */
+ROUTES.inicio=async()=>{
+  app.innerHTML=`<section id="hero"></section><section class="statband" id="stats"></section>
+  <section class="sec"><div class="sec-h"><div><span class="eyebrow">La academia</span><h2>Qué vas a aprender</h2></div></div><div class="cards" id="cards"></div></section>
+  <section class="sec"><div class="sec-h"><div><span class="eyebrow">Mercados</span><h2>Empezamos por sintéticos. Vamos por todo el mercado.</h2></div><a href="#mercados">Ver mercados</a></div><div class="mkts" id="mkts"></div></section>
+  <section class="sec"><div class="sec-h"><div><span class="eyebrow">Metodología</span><h2>Cómo se aprende aquí</h2></div></div><div class="steps" id="steps"></div></section>
+  <section class="sec" id="prueba"><div class="sec-h"><div><span class="eyebrow">Prueba gratis</span><h2>Practica antes de decidir</h2></div><span class="muted" id="demoLeft"></span></div><div id="demoBox"></div></section>
+  <section class="sec"><div class="sec-h"><div><span class="eyebrow">Temario</span><h2>Ruta de aprendizaje</h2></div><a href="#academia">Ver temario completo</a></div><div id="syl"></div></section>
+  <section class="sec"><div class="sec-h"><div><span class="eyebrow">Opiniones</span><h2>Lo que dicen los alumnos</h2></div><a href="#opiniones">Ver todas</a></div><div id="revs"></div></section>
+  <section class="sec"><div class="sec-h"><div><span class="eyebrow">Comunidad</span><h2>Noticias y actualizaciones</h2></div><a href="#noticias">Ver todo</a></div><div id="news" class="posts"></div></section>
+  <section class="cta-band" id="premiumBand"></section>`;
+  const s=S.site;
+  API.slides("home").then(sl=>slider($("#hero"),sl)).catch(()=>slider($("#hero"),[]));
+  API.publicStats().then(st=>{if(!$("#stats"))return;$("#stats").innerHTML=[[st.students,"alumnos registrados"],[st.lessons,"lecciones publicadas"],[st.exercises,"ejercicios"],[st.rating?st.rating.toFixed(1)+" / 5":"—",st.reviews?`calificación · ${st.reviews} opiniones`:"calificación"]].map(([v,t])=>`<div><b class="mono">${esc(v??0)}</b><span>${t}</span></div>`).join("")}).catch(()=>{});
+  $("#cards").innerHTML=(s.cards||[]).map((c,i)=>`<div class="card"><span class="k">${String(i+1).padStart(2,"0")}</span><h3>${esc(c.title)}</h3><p>${esc(c.text)}</p></div>`).join("");
+  $("#mkts").innerHTML=marketsHTML(s.markets||[],true);
+  $("#steps").innerHTML=(s.steps||[]).map((c,i)=>`<div class="step"><span class="n">Paso ${i+1}</span><h3>${esc(c.title)}</h3><p class="muted">${esc(c.text)}</p></div>`).join("");
+  $("#premiumBand").innerHTML=premiumBand();
+  syllabus($("#syl"),3);demoSection();
+  API.publicReviews().then(r=>{if($("#revs"))$("#revs").innerHTML=reviewsHTML(r.slice(0,3),true)}).catch(()=>{});
+  API.posts().then(p=>{if($("#news"))$("#news").innerHTML=p.slice(0,3).map(postCard).join("")||'<div class="empty">Pronto publicaremos noticias y actualizaciones.</div>'}).catch(()=>{});
+};
+function marketsHTML(list,compact){const g={};list.forEach(m=>{(g[m.cat]=g[m.cat]||[]).push(m)});
+  return Object.entries(g).map(([cat,ms])=>`<div class="mkcat"><h3>${esc(cat)}</h3><div class="mklist">${ms.map(m=>`<div class="mk ${m.status==="Disponible"?"on":""}"><div><b>${esc(m.name)}</b>${compact?"":`<p class="muted">${esc(m.text||"")}</p>`}</div><span class="tag ${m.status==="Disponible"?"pub":""}">${esc(m.status)}</span></div>`).join("")}</div></div>`).join("")||'<div class="empty">Sin mercados configurados.</div>'}
+function premiumBand(){const s=S.site;return `<div class="pb"><div><span class="eyebrow">Premium</span><h2>${esc(s.premiumTitle||"Hazte premium")}</h2><p class="muted" style="max-width:60ch;margin-top:8px">${esc(s.premiumText||"")}</p></div>
+  <ul class="checks">${(s.premiumItems||[]).map(i=>`<li>${esc(i)}</li>`).join("")}</ul><div class="row">${premium()?'<span class="pill ok">Ya eres premium</span><a class="btn" href="#academia">Ir a la academia</a>':`<a class="btn gold" href="#premium">Ver cómo acceder</a>${logged()?"":'<a class="btn ghost" href="#registro">Crear cuenta gratis</a>'}`}</div></div>`}
+async function syllabus(host,limit){
+  const [mods,idx]=[S.modules,S.lindex];if(!host)return;
+  if(!mods.length){host.innerHTML='<div class="empty">El temario se publicará pronto.</div>';return}
+  const groups={};mods.forEach(m=>{(groups[m.category||"Fundamentos"]=groups[m.category||"Fundamentos"]||[]).push(m)});
+  let n=0;host.innerHTML=Object.entries(groups).map(([cat,ms])=>{if(limit&&n>=limit)return"";return `<div class="syl-cat"><h3 class="cat">${esc(cat)}</h3><div class="grid">${ms.map(m=>{if(limit&&n>=limit)return"";n++;const ls=idx.filter(l=>l.module_id===m.id);const pr=modProgress(m.id,ls);
+    return `<a class="mod" href="#modulo-${esc(m.id)}"><span class="num">${esc(m.level||cat)}</span><h3>${esc(m.title)}</h3><p>${esc(m.descr||"")}</p>
+      <div class="meta"><span>${ls.length} ${ls.length===1?"lección":"lecciones"}</span>${premium()?"":'<span class="tag">Premium</span>'}${m.status!=="publicado"?'<span class="tag">Borrador</span>':""}</div>${premium()?`<div class="bar"><i style="width:${Math.round(pr*100)}%"></i></div>`:""}</a>`}).join("")}</div></div>`}).join("")}
+function modProgress(mid,ls){ls=ls||S.lindex.filter(l=>l.module_id===mid);if(!ls.length||!S.prog)return 0;return ls.filter(l=>S.prog.done[l.id]&&S.prog.done[l.id].passed).length/ls.length}
+const postCard=p=>`<a class="post" href="#nota-${esc(p.id)}">${p.image_url?`<div class="thumb" style="background-image:url('${esc(p.image_url)}')"></div>`:`<div class="thumb noimg">AG</div>`}<div style="display:grid;gap:6px;align-content:start;min-width:0"><div class="row"><span class="tag">${esc(p.category||"Noticia")}</span>${p.pinned?'<span class="tag pub">Fijado</span>':""}${p.premium_only?'<span class="tag">Premium</span>':""}<span class="dim" style="font-size:13px">${fmtDate(p.created_at)}</span></div><h3>${esc(p.title)}</h3><p class="muted clamp">${esc(String(p.body||"").slice(0,220))}</p></div></a>`;
+function reviewsHTML(list,compact){if(!list.length)return `<div class="empty">Todavía no hay opiniones publicadas.${logged()?'<a class="btn sm" href="#opiniones">Escribir la primera</a>':""}</div>`;
+  return `<div class="revs ${compact?"compact":""}">${list.map(r=>`<figure class="rev"><div class="stars" aria-label="${r.rating} de 5">${stars(r.rating)}</div><blockquote>${esc(r.body||"")}</blockquote><figcaption><b>${esc(r.username)}</b>${r.premium?'<span class="tag pub">Premium</span>':""}<span class="dim">${fmtDate(r.created_at)}</span></figcaption></figure>`).join("")}</div>`}
+
+/* ---------- prueba gratis ---------- */
+async function demoSection(){
+  const box=$("#demoBox");if(!box)return;
+  if(!logged()){box.innerHTML=`<div class="panel demo-cta"><div><h3>5 gráficas de prueba gratis</h3><p class="muted">Crea tu cuenta y practica con gráficas reales: marca la zona, baja a M5 para el stop loss y mira la repetición.</p></div><div class="row"><a class="btn gold" href="#registro">Crear cuenta gratis</a><a class="btn ghost" href="#entrar">Ya tengo cuenta</a></div></div>`;return}
+  const p=API.profile()||{};const left=premium()?null:Math.max(0,5-(p.demo_used||0));
+  $("#demoLeft").textContent=premium()?"Eres premium: práctica ilimitada":`Te quedan ${left} de 5 gráficas`;
+  if(left===0){box.innerHTML=`<div class="panel demo-cta"><div><h3>Ya usaste tus 5 gráficas de prueba</h3><p class="muted">Con el acceso premium tienes todas las lecciones y práctica ilimitada.</p></div><a class="btn gold" href="#premium">Ver cómo acceder</a></div>`;return}
+  let ex=[];try{ex=await API.exercises({demo:true})}catch(e){}
+  if(!ex.length){box.innerHTML='<div class="empty">Las gráficas de prueba se publicarán pronto.</div>';return}
+  const pick=ex[(p.demo_used||0)%ex.length];
+  const h=await Player.mount(box,pick,{onDone:({res,pts})=>{registerAnswer(pick.kind,res);if(pts)addXP(pts);const l=premium()?null:Math.max(0,5-((API.profile()||{}).demo_used||0));if(l!=null)$("#demoLeft").textContent=`Te quedan ${l} de 5 gráficas`},
+    next:()=>demoSection()});
+  if(h)cleanup.push(h.destroy);
+}
+
+/* ---------- auth ---------- */
+ROUTES.entrar=()=>authView("in");ROUTES.registro=()=>authView("up");ROUTES.recuperar=()=>authView("rec");
+async function authView(mode){
+  if(logged()&&mode!=="rec"){location.hash="#inicio";return}
+  app.innerHTML=`<div class="auth"><div id="aslide"></div><div class="authbox" id="abox"></div></div>`;
+  API.slides("login").then(sl=>slider($("#aslide"),sl)).catch(()=>slider($("#aslide"),[]));
+  const box=$("#abox");
+  const head=`<div style="display:grid;gap:6px"><img src="assets/logo_mark.png" alt="" style="width:52px;height:52px;border-radius:50%"><h2>${mode==="up"?"Crea tu cuenta":mode==="in"?"Ingresa a la academia":"Recupera tu contraseña"}</h2><p class="muted">${mode==="up"?"Gratis. Incluye 5 gráficas de prueba.":mode==="in"?"Bienvenido de nuevo.":"Te enviaremos un enlace a tu correo."}</p></div>`;
+  const seg=mode==="rec"?"":`<div class="seg"><button class="${mode==="in"?"on":""}" data-m="entrar">Ingresar</button><button class="${mode==="up"?"on":""}" data-m="registro">Crear cuenta</button></div>`;
+  if(mode==="up")box.innerHTML=head+seg+`<form class="form" id="f" novalidate>
+      <label for="uU">Nombre de usuario<input id="uU" autocomplete="username" required minlength="3" maxlength="24" pattern="[A-Za-z0-9_.]{3,24}" placeholder="ej. trader_juan"><span class="dim" style="font-weight:400">Letras, números, punto o guion bajo. Se verá en el ranking y la comunidad.</span></label>
+      <label for="uE">Correo electrónico<input id="uE" type="email" autocomplete="email" required placeholder="tucorreo@ejemplo.com"></label>
+      <label for="uP">Contraseña<div class="pw"><input id="uP" type="password" autocomplete="new-password" required minlength="8"><button type="button" data-show="uP">Mostrar</button></div><div class="meter"><i id="pm"></i></div><span class="dim" id="pmt" style="font-weight:400">Mínimo 8 caracteres, con letras y números.</span></label>
+      <label for="uP2">Repite la contraseña<div class="pw"><input id="uP2" type="password" autocomplete="new-password" required><button type="button" data-show="uP2">Mostrar</button></div></label>
+      <label>Verificación<div id="cap"></div></label>
+      <label style="display:flex;gap:10px;align-items:flex-start;font-weight:500;color:var(--fg)"><input type="checkbox" id="uT" style="width:auto;margin-top:4px"> <span>Acepto los términos y entiendo que el trading implica riesgo de pérdida y que este contenido es educativo.</span></label>
+      <div class="err" id="err" role="alert"></div><button class="btn gold" type="submit" id="go">Crear cuenta</button></form>`;
+  else if(mode==="in")box.innerHTML=head+seg+`<form class="form" id="f" novalidate>
+      <label for="uE">Correo electrónico<input id="uE" type="email" autocomplete="email" required></label>
+      <label for="uP">Contraseña<div class="pw"><input id="uP" type="password" autocomplete="current-password" required><button type="button" data-show="uP">Mostrar</button></div></label>
+      ${CFG.TURNSTILE_SITE_KEY?'<label>Verificación<div id="cap"></div></label>':""}
+      <div class="err" id="err" role="alert"></div><button class="btn gold" type="submit" id="go">Ingresar</button><a href="#recuperar" style="font-size:14px">Olvidé mi contraseña</a></form>`;
+  else box.innerHTML=head+`<form class="form" id="f" novalidate><label for="uE">Correo electrónico<input id="uE" type="email" required></label><label>Verificación<div id="cap"></div></label>
+      <div class="err" id="err" role="alert"></div><button class="btn gold" type="submit" id="go">Enviar enlace</button><a href="#entrar" style="font-size:14px">Volver a ingresar</a></form>`;
+  $$("[data-m]",box).forEach(b=>b.onclick=()=>location.hash="#"+b.dataset.m);
+  $$("[data-show]",box).forEach(b=>b.onclick=()=>{const i=$("#"+b.dataset.show);i.type=i.type==="password"?"text":"password";b.textContent=i.type==="password"?"Mostrar":"Ocultar"});
+  const cap=$("#cap")?captcha($("#cap")):null;
+  if($("#uP")&&mode==="up")$("#uP").oninput=()=>{const v=$("#uP").value;let sc=0;if(v.length>=8)sc++;if(/[0-9]/.test(v)&&/[a-zA-Z]/.test(v))sc++;if(v.length>=12)sc++;if(/[^A-Za-z0-9]/.test(v))sc++;
+    $("#pm").style.width=(sc*25)+"%";$("#pm").style.background=["var(--bad)","var(--bad)","var(--warn)","var(--ok)","var(--ok)"][sc];$("#pmt").textContent=["Muy débil","Débil","Aceptable","Fuerte","Muy fuerte"][sc]};
+  $("#f").onsubmit=async e=>{e.preventDefault();const err=$("#err");err.textContent="";const go=$("#go");
+    const email=$("#uE").value.trim();
+    if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))return err.textContent="Escribe un correo válido.";
+    if(cap&&!cap.ok())return err.textContent=CFG.TURNSTILE_SITE_KEY?"Completa la verificación anti-bots.":"El código de verificación no coincide. Inténtalo de nuevo.";
+    try{busy(go,true);
+      if(mode==="up"){const u=$("#uU").value.trim(),p=$("#uP").value,p2=$("#uP2").value;
+        if(!/^[A-Za-z0-9_.]{3,24}$/.test(u))throw new Error("El nombre de usuario debe tener de 3 a 24 caracteres: letras, números, punto o guion bajo.");
+        if(p.length<8||!/[0-9]/.test(p)||!/[a-zA-Z]/.test(p))throw new Error("La contraseña debe tener mínimo 8 caracteres, con letras y números.");
+        if(p!==p2)throw new Error("Las contraseñas no coinciden.");
+        if(!$("#uT").checked)throw new Error("Debes aceptar los términos para crear tu cuenta.");
+        const r=await API.signUp({username:u,email,password:p,captcha:cap&&cap.token()});
+        if(r.confirm){box.innerHTML=head+`<div class="okmsg">Te enviamos un correo a <b>${esc(email)}</b> para confirmar tu cuenta. Ábrelo y luego ingresa.</div><a class="btn" href="#entrar">Ir a ingresar</a>`;return}
+        await afterLogin();toast("Cuenta creada. Bienvenido.");location.hash="#prueba";
+      }else if(mode==="in"){await API.signIn({email,password:$("#uP").value,captcha:cap&&cap.token()});await afterLogin();toast("Bienvenido");location.hash=premium()?"#academia":"#inicio";}
+      else{await API.recover(email,cap&&cap.token());box.innerHTML=head+`<div class="okmsg">Si existe una cuenta con ese correo, te llegará un enlace para crear una contraseña nueva.</div><a class="btn" href="#entrar">Volver</a>`}
+    }catch(x){err.textContent=x.message||"No se pudo completar.";cap&&cap.reset()}finally{busy(go,false)}};
+}
+ROUTES.nueva=()=>{app.innerHTML=`<div class="authbox" style="max-width:480px;margin:0 auto"><h2>Crea tu contraseña nueva</h2><form class="form" id="f"><label for="nP">Contraseña nueva<input id="nP" type="password" minlength="8" required autocomplete="new-password"></label><label for="nP2">Repítela<input id="nP2" type="password" required autocomplete="new-password"></label><div class="err" id="err"></div><button class="btn gold" id="go">Guardar</button></form></div>`;
+  $("#f").onsubmit=async e=>{e.preventDefault();const a=$("#nP").value,b=$("#nP2").value;if(a.length<8||!/[0-9]/.test(a)||!/[a-zA-Z]/.test(a))return $("#err").textContent="Mínimo 8 caracteres, con letras y números.";if(a!==b)return $("#err").textContent="No coinciden.";
+    try{await API.updatePassword(a);toast("Contraseña actualizada");location.hash="#inicio"}catch(x){$("#err").textContent=x.message}}};
+async function afterLogin(){await API.loadProfile();await loadProg();await loadContent();renderNav()}
+
+/* ---------- mercados / premium ---------- */
+ROUTES.mercados=()=>{app.innerHTML=`<div class="pagehead"><span class="eyebrow">Mercados</span><h1>Un método, varios mercados</h1><p class="muted">Empezamos con los índices sintéticos Boom y Crash, con práctica en gráficas reales. Después llegan Step Index, Volatility, Forex y metales.</p></div><div class="mkts big">${marketsHTML(S.site.markets||[],false)}</div>`};
+ROUTES.premium=()=>{const s=S.site;app.innerHTML=`<div class="pagehead"><span class="eyebrow">Premium</span><h1>${esc(s.premiumTitle||"Hazte premium")}</h1><p class="muted">${esc(s.premiumText||"")}</p></div>
+  <div class="cta-band">${premiumBand()}</div>
+  <div class="panel"><h3>Cómo activar tu acceso</h3><ol class="prose" style="padding-left:20px"><li>${logged()?"Ya tienes tu cuenta creada.":'<a href="#registro">Crea tu cuenta gratis</a>.'}</li><li>Escríbenos para realizar el pago${s.contact?`: <b class="sel">${esc(s.contact)}</b>`:"."}</li><li>Activamos tu acceso premium y entras a todo el contenido.</li></ol>${logged()?`<p class="muted">Tu usuario: <b>${esc((API.profile()||{}).username||"")}</b> · ${esc((API.profile()||{}).email||"")}</p>`:""}</div>`};
+
+/* ---------- academia ---------- */
+ROUTES.academia=()=>{app.innerHTML=`<div class="pagehead"><span class="eyebrow">Academia</span><h1>Temario</h1><p class="muted">Avanza en orden: cada lección se aprueba con sus ejercicios y cada módulo se desbloquea al terminar el anterior.</p>${premium()?"":`<div class="note">Puedes ver el temario completo. Las lecciones y los ejercicios son para alumnos premium. <a href="#premium">Ver cómo acceder</a></div>`}</div><div id="syl"></div>`;syllabus($("#syl"))};
+ROUTES.modulo=id=>{const m=S.modules.find(x=>x.id===id);if(!m){app.innerHTML=`<div class="empty">Ese módulo no existe.<a class="btn sm" href="#academia">Ver temario</a></div>`;return}
+  const ls=S.lindex.filter(l=>l.module_id===id);const i=S.modules.indexOf(m);const prev=S.modules[i-1];const locked=premium()&&!admin()&&m.locked&&prev&&modProgress(prev.id)<1;
+  app.innerHTML=`<div class="crumbs"><a href="#academia">Temario</a><span>/</span><span>${esc(m.category||"")}</span></div><div class="pagehead"><span class="eyebrow">${esc(m.level||m.category||"Módulo")}</span><h1>${esc(m.title)}</h1><p class="muted">${esc(m.descr||"")}</p>${premium()?`<div class="bar" style="max-width:420px"><i style="width:${Math.round(modProgress(id)*100)}%"></i></div>`:""}</div>
+  ${locked?`<div class="note">Este módulo se desbloquea al aprobar todas las lecciones de “${esc(prev.title)}”.</div>`:""}
+  <div class="list">${ls.map((l,k)=>{const d=S.prog&&S.prog.done[l.id];return `<a class="item" href="${premium()&&!locked?"#leccion-"+esc(l.id):"#premium"}"><span class="ico ${d&&d.passed?"done":""}">${d&&d.passed?"✓":k+1}</span><span class="txt"><b>${esc(l.title)}</b><span>${l.has_video?"Video · ":""}${d?`Mejor resultado ${d.best}%`:"Pendiente"}</span></span>${premium()?"":'<span class="tag">Premium</span>'}</a>`}).join("")||'<div class="empty">Este módulo todavía no tiene lecciones.</div>'}</div>`};
+ROUTES.leccion=async id=>{
+  if(!logged()){location.hash="#entrar";return}
+  if(!premium()){app.innerHTML=paywall();return}
+  app.innerHTML='<div class="muted">Cargando lección…</div>';
+  let l=null;try{l=await API.lesson(id)}catch(e){}
+  if(!l){app.innerHTML=`<div class="empty">No encontramos esta lección.<a class="btn sm" href="#academia">Volver al temario</a></div>`;return}
+  const m=S.modules.find(x=>x.id===l.module_id)||{title:"Módulo"};const ls=S.lindex.filter(x=>x.module_id===l.module_id);const k=ls.findIndex(x=>x.id===id);const next=ls[k+1];
+  app.innerHTML=`<div class="crumbs"><a href="#academia">Temario</a><span>/</span><a href="#modulo-${esc(m.id||"")}">${esc(m.title)}</a><span>/</span><span>${esc(l.title)}</span></div>
+   <div class="pagehead"><span class="eyebrow">Lección ${k+1}${l.status!=="publicado"?" · borrador":""}</span><h1>${esc(l.title)}</h1></div>
+   <div id="vid"></div><div class="prose">${md(l.body)||'<p class="muted">El texto de esta lección se publicará pronto.</p>'}</div>
+   <section class="sec" id="exsec"></section>
+   <div class="row" style="justify-content:space-between"><a class="btn ghost" href="#modulo-${esc(l.module_id)}">Volver al módulo</a>${next?`<a class="btn" href="#leccion-${esc(next.id)}">Siguiente lección</a>`:""}</div>`;
+  videoBlock($("#vid"),l);
+  let exs=[];try{exs=await API.exercises({lessonId:id})}catch(e){}
+  const sec=$("#exsec");if(!sec)return;
+  if(!exs.length){sec.innerHTML=`<div class="note">Esta lección no tiene ejercicios.</div><div><button class="btn gold" id="seen">Marcar como completada</button></div>`;$("#seen").onclick=()=>{passLesson(l,100);toast("Lección completada")};return}
+  let i=0,res=[];const min=l.min_score||80;
+  const draw=async()=>{if(!$("#exsec"))return;
+    sec.innerHTML=`<div class="sec-h"><h2>Ejercicios</h2><span class="mono muted">${Math.min(i+1,exs.length)} / ${exs.length}</span></div><div class="dots">${exs.map((_,j)=>`<i class="${res[j]||""} ${j===i?"cur":""}"></i>`).join("")}</div><div id="exh"></div>`;
+    if(i>=exs.length){const sc=Math.round(100*res.reduce((s,r)=>s+(r==="ok"?1:r==="mid"?.5:0),0)/exs.length);const ok=sc>=min;
+      $("#exh").innerHTML=`<div class="result ${ok?"ok":"bad"}"><b class="big">${ok?"Lección aprobada":"Aún no apruebas"} · ${sc}%</b><div>${ok?"Puedes seguir con la próxima lección.":`Necesitas ${min}% para aprobar.`}</div><div class="row"><button class="btn" id="rt">Repetir ejercicios</button>${ok&&next?`<a class="btn gold" href="#leccion-${esc(next.id)}">Siguiente lección</a>`:""}</div></div>`;
+      $("#rt").onclick=()=>{i=0;res=[];draw()};passLesson(l,sc);return}
+    const h=await Player.mount($("#exh"),exs[i],{onDone:({res:r,pts})=>{res[i]=r;registerAnswer(exs[i].kind,r);if(pts)addXP(pts)},next:()=>{h&&h.destroy();i++;draw()},nextLabel:i+1<exs.length?"Siguiente ejercicio":"Ver resultado"});
+    if(h)cleanup.push(h.destroy)};
+  draw();
+};
+function passLesson(l,sc){const prev=S.prog.done[l.id]||{best:0,passed:false};const passed=prev.passed||sc>=(l.min_score||80);S.prog.done[l.id]={best:Math.max(prev.best||0,sc),passed,at:Date.now()};
+  if(passed&&!prev.passed){ach("leccion");addXP(30);if(modProgress(l.module_id)>=1){ach("modulo");addXP(60)}}else saveProg()}
+const paywall=()=>`<div class="cta-band">${premiumBand()}</div>`;
+function videoBlock(host,l){
+  const u=(l.video_url||"").trim();if(!u){host.innerHTML="";return}
+  let track=null,last=0;const tick=s=>{if(s>0)API.addWatch(l.id,Math.min(120,Math.round(s)))};
+  const yt=u.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([\w-]{11})/);
+  const vm=u.match(/vimeo\.com\/(?:video\/)?(\d+)/);
+  if(yt||vm){const src=yt?`https://www.youtube-nocookie.com/embed/${yt[1]}?rel=0&modestbranding=1&enablejsapi=1&origin=${encodeURIComponent(location.origin)}`:`https://player.vimeo.com/video/${vm[1]}?dnt=1`;
+    host.innerHTML=`<div class="video"><iframe src="${src}" title="${esc(l.title)}" allow="autoplay; fullscreen; picture-in-picture; encrypted-media" allowfullscreen style="width:100%;height:100%;border:0"></iframe></div>`;
+    // tiempo de video aproximado: mientras la lección está visible y la ventana enfocada después de interactuar con el video
+    let active=false;window.addEventListener("blur",()=>{if(document.activeElement&&document.activeElement.tagName==="IFRAME")active=true});
+    const iv=setInterval(()=>{if(active&&document.visibilityState==="visible"){last+=30;if(last>=60){tick(last);last=0}}},30000);cleanup.push(()=>{clearInterval(iv);tick(last)});return}
+  if(/\.(mp4|webm|m3u8)(\?|$)/i.test(u)||u.includes("/storage/v1/object/")){host.innerHTML=`<div class="video"><video controls preload="metadata" src="${esc(u)}" controlslist="nodownload"></video></div>`;
+    const v=$("video",host);let acc=0,prev=0;v.addEventListener("timeupdate",()=>{const d=v.currentTime-prev;prev=v.currentTime;if(d>0&&d<2)acc+=d;if(acc>=30){tick(acc);acc=0}});cleanup.push(()=>tick(acc));return}
+  host.innerHTML=`<div class="video" style="aspect-ratio:auto;min-height:160px"><div class="ph"><b>Video de la lección</b><a class="btn gold" href="${esc(u)}" target="_blank" rel="noopener">Ver el video</a></div></div>`;
+}
+
+/* ---------- práctica ---------- */
+ROUTES.practica=async()=>{
+  if(!logged()){app.innerHTML=`<div class="pagehead"><span class="eyebrow">Práctica</span><h1>Practica con gráficas reales</h1></div><div class="panel demo-cta"><div><h3>Crea tu cuenta para practicar</h3><p class="muted">Con la cuenta gratis tienes 5 gráficas de prueba.</p></div><a class="btn gold" href="#registro">Crear cuenta gratis</a></div>`;return}
+  if(!premium()){location.hash="#prueba";return}
+  const pr=S.prog.practice;
+  app.innerHTML=`<div class="pagehead"><span class="eyebrow">Práctica libre</span><h1>Práctica</h1><p class="muted">Ejercicios sueltos para entrenar el ojo. No cuentan para aprobar lecciones, pero sí suman puntos.</p></div>
+    <div class="kv"><div><b>${pr.n}</b><span>resueltos</span></div><div><b>${pr.n?Math.round(100*pr.ok/pr.n):0}%</b><span>aciertos</span></div><div><b>${pr.row}</b><span>racha actual</span></div><div><b>${pr.best}</b><span>mejor racha</span></div></div><div id="ph"></div>`;
+  let list=[];try{list=await API.exercises({practice:true})}catch(e){}
+  if(!list.length){$("#ph").innerHTML='<div class="empty">Pronto habrá ejercicios de práctica libre.</div>';return}
+  let h=null;const go=async()=>{h&&h.destroy();const ex=list[Math.floor(Math.random()*list.length)];
+    h=await Player.mount($("#ph"),ex,{onDone:({res,pts})=>{registerAnswer(ex.kind,res);if(pts)addXP(pts)},next:go,nextLabel:"Otro ejercicio"});if(h)cleanup.push(()=>h&&h.destroy())};go();
+};
+
+/* ---------- comunidad ---------- */
+ROUTES.noticias=async()=>{app.innerHTML=`<div class="pagehead"><span class="eyebrow">Comunidad</span><h1>Noticias y actualizaciones</h1><p class="muted">Anuncios, cambios del método y conversación de la comunidad.${premium()?"":" Comentar es exclusivo para alumnos premium."}</p></div><div class="posts" id="pl"><div class="muted">Cargando…</div></div>`;
+  try{const p=await API.posts();$("#pl").innerHTML=p.map(postCard).join("")||'<div class="empty">Todavía no hay publicaciones.</div>'}catch(e){$("#pl").innerHTML='<div class="empty">No se pudieron cargar las noticias.</div>'}};
+ROUTES.nota=async id=>{app.innerHTML='<div class="muted">Cargando…</div>';let p=null;try{p=await API.post(id)}catch(e){}
+  if(!p){app.innerHTML=`<div class="empty">Esta publicación no existe o es solo para premium.<a class="btn sm" href="#noticias">Ver noticias</a></div>`;return}
+  app.innerHTML=`<div class="crumbs"><a href="#noticias">Comunidad</a><span>/</span><span>${esc(p.category||"Noticia")}</span></div>
+   <article class="article"><div class="pagehead"><span class="eyebrow">${esc(p.category||"Noticia")} · ${fmtDate(p.created_at)}</span><h1>${esc(p.title)}</h1></div>${p.image_url?`<div class="cover" style="background-image:url('${esc(p.image_url)}')"></div>`:""}<div class="prose">${md(p.body)}</div></article>
+   <section class="sec"><h2>Comentarios</h2><div id="cl" class="list"></div><div id="cf"></div></section>`;
+  const load=async()=>{if(!logged()){$("#cl").innerHTML=`<div class="note"><a href="#entrar">Ingresa</a> para ver y escribir comentarios.</div>`;return}
+    let cs=[];try{cs=await API.comments(id)}catch(e){}
+    $("#cl").innerHTML=cs.map(c=>`<div class="comment"><div class="who"><b>${esc(c.username)}</b>${c.is_admin?'<span class="tag pub">El Arte Gráfico</span>':""}<span class="dim">${fmtDT(c.created_at)}</span>${c.mine||admin()?`<button class="btn sm ghost" data-del="${esc(c.id)}" style="margin-left:auto">Borrar</button>`:""}</div><div>${md(c.body)}</div></div>`).join("")||'<div class="muted">Sé el primero en comentar.</div>';
+    $$("[data-del]").forEach(b=>b.onclick=async()=>{await API.delComment(b.dataset.del);load()})};
+  load();
+  if(logged()&&premium()&&p.allow_comments){$("#cf").innerHTML=`<form class="form" id="cfm"><label for="cb">Tu comentario<textarea id="cb" maxlength="2000" required style="min-height:100px"></textarea></label><div class="row"><button class="btn gold" id="cbg">Publicar comentario</button></div></form>`;
+    $("#cfm").onsubmit=async e=>{e.preventDefault();const v=$("#cb").value.trim();if(!v)return;try{busy($("#cbg"),true);await API.addComment(id,v);$("#cb").value="";load()}catch(x){toast(x.message)}finally{busy($("#cbg"),false)}}}
+  else if(logged()&&!premium())$("#cf").innerHTML=`<div class="note">Comentar es exclusivo para alumnos premium. <a href="#premium">Ver cómo acceder</a></div>`;
+  else if(!p.allow_comments)$("#cf").innerHTML='<div class="dim">Los comentarios están cerrados en esta publicación.</div>';
+};
+ROUTES.opiniones=async()=>{
+  app.innerHTML=`<div class="pagehead"><span class="eyebrow">Opiniones</span><h1>Opiniones de los alumnos</h1><div id="avg" class="muted"></div></div><div id="mine"></div><div id="rl"></div>`;
+  try{const st=await API.publicStats();$("#avg").innerHTML=st.reviews?`<span class="stars big">${stars(st.rating)}</span> <b class="mono">${st.rating.toFixed(1)}</b> de 5 · ${st.reviews} opiniones`:"Aún no hay opiniones publicadas."}catch(e){}
+  try{$("#rl").innerHTML=reviewsHTML(await API.publicReviews(),false)}catch(e){}
+  if(!logged()){$("#mine").innerHTML=`<div class="note"><a href="#entrar">Ingresa</a> para dejar tu opinión.</div>`;return}
+  let m=null;try{m=await API.myReview()}catch(e){}let rating=m?m.rating:0;
+  $("#mine").innerHTML=`<div class="panel"><h3>${m?"Tu opinión":"Califica la academia"}</h3>${m&&!m.approved?'<span class="pill">En revisión: se publicará cuando sea aprobada</span>':m?'<span class="pill ok">Publicada</span>':""}
+    <form class="form" id="rf"><div class="rate" role="radiogroup" aria-label="Calificación">${[1,2,3,4,5].map(n=>`<button type="button" role="radio" aria-checked="${n===rating}" data-r="${n}" aria-label="${n} estrellas">★</button>`).join("")}</div>
+    <label for="rb">Comentario<textarea id="rb" maxlength="1500" placeholder="¿Qué te ha parecido la academia?">${esc(m?m.body:"")}</textarea></label><div class="row"><button class="btn gold" id="rg">${m?"Actualizar opinión":"Enviar opinión"}</button></div></form></div>`;
+  const paint=()=>$$("[data-r]").forEach(b=>{b.classList.toggle("on",+b.dataset.r<=rating);b.setAttribute("aria-checked",String(+b.dataset.r===rating))});paint();
+  $$("[data-r]").forEach(b=>b.onclick=()=>{rating=+b.dataset.r;paint()});
+  $("#rf").onsubmit=async e=>{e.preventDefault();if(!rating)return toast("Elige de 1 a 5 estrellas");try{busy($("#rg"),true);await API.saveReview(rating,$("#rb").value.trim());toast("Gracias. Tu opinión quedó en revisión.");ROUTES.opiniones()}catch(x){toast(x.message)}finally{busy($("#rg"),false)}};
+};
+ROUTES.ranking=async()=>{app.innerHTML=`<div class="pagehead"><span class="eyebrow">Comunidad</span><h1>Ranking</h1><p class="muted">Puntos por ejercicios correctos y lecciones aprobadas.</p></div><div id="rk" class="muted">Cargando…</div>`;
+  if(!logged()){$("#rk").innerHTML=`<div class="note"><a href="#entrar">Ingresa</a> para ver el ranking.</div>`;return}
+  try{const r=await API.leaderboard();$("#rk").innerHTML=r.length?`<div class="scroll"><table class="tbl"><thead><tr><th>#</th><th>Alumno</th><th>Nivel</th><th style="text-align:right">Lecciones</th><th style="text-align:right">Puntos</th></tr></thead><tbody>${r.map((x,i)=>`<tr${x.is_me?' class="me"':""}><td class="mono">${i+1}</td><td>${esc(x.username)}</td><td>${esc(levelOf(x.xp).name)}</td><td class="n">${x.lessons}</td><td class="n">${x.xp}</td></tr>`).join("")}</tbody></table></div>`:'<div class="empty">Aún no hay alumnos en el ranking.</div>'}catch(e){$("#rk").textContent="No se pudo cargar el ranking."}};
+ROUTES.perfil=()=>{if(!logged()){location.hash="#entrar";return}const p=API.profile()||{},g=S.prog,lv=levelOf(g.xp);const pct=lv.to?Math.round(100*(g.xp-lv.from)/(lv.to-lv.from)):100;
+  app.innerHTML=`<div class="pagehead"><span class="eyebrow">Mi cuenta</span><h1>${esc(p.username||"")}</h1><p class="muted">${esc(p.email||"")} · ${premium()?`Premium${p.premium_until?` hasta ${fmtDate(p.premium_until)}`:""}`:"Cuenta gratis"}</p></div>
+    <div class="lvl"><div class="medal">${lv.i+1}</div><div style="display:grid;gap:8px;min-width:0"><h2>${esc(lv.name)}</h2><div class="bar"><i style="width:${pct}%"></i></div><div class="muted mono">${g.xp} pts${lv.to?` · faltan ${lv.to-g.xp} para el siguiente nivel`:""}</div></div></div>
+    <div class="kv"><div><b>${Object.values(g.done).filter(d=>d.passed).length}</b><span>lecciones aprobadas</span></div><div><b>${g.practice.n}</b><span>ejercicios resueltos</span></div><div><b>${g.practice.n?Math.round(100*g.practice.ok/g.practice.n):0}%</b><span>aciertos</span></div><div><b>${g.streak||0}</b><span>días seguidos</span></div></div>
+    <section class="sec"><h2>Logros</h2><div class="badges">${ACH.map(a=>`<div class="badge ${g.ach.includes(a.id)?"on":""}"><b>${esc(a.t)}</b><span>${g.ach.includes(a.id)?"Conseguido":"Pendiente"}</span></div>`).join("")}</div></section>
+    <section class="sec"><h2>Seguridad</h2><div class="panel"><form class="form" id="pf" style="max-width:420px"><label for="np">Cambiar contraseña<input id="np" type="password" minlength="8" autocomplete="new-password"></label><button class="btn" id="npg">Guardar contraseña</button></form></div></section>`;
+  $("#pf").onsubmit=async e=>{e.preventDefault();const v=$("#np").value;if(v.length<8||!/[0-9]/.test(v)||!/[a-zA-Z]/.test(v))return toast("Mínimo 8 caracteres, con letras y números");try{await API.updatePassword(v);toast("Contraseña actualizada");$("#np").value=""}catch(x){toast(x.message)}}};
+ROUTES.prueba=()=>{location.hash="#inicio";setTimeout(()=>{const p=$("#prueba");p&&p.scrollIntoView({behavior:"smooth"})},350)};
+
+/* exportar para los otros archivos */
+window.AGAPP={S,API,$,$$,esc,md,toast,busy,fmtT,fmtDate,fmtDT,TZ,MARKETS,MNAME,h1Bars,m5Bars,idxAt,avgRange,toC,Chart,cleanupPush:f=>cleanup.push(f),route,ROUTES,app,premium,admin,logged,confirmInline,loadContent:()=>loadContent(),renderFoot:()=>renderFoot(),applySite:()=>applySite()};
+
+/* ---------- arranque ---------- */
+async function loadContent(){try{S.modules=await API.modules()}catch(e){S.modules=[]}try{S.lindex=await API.lessonIndex()}catch(e){S.lindex=[]}}
+function applySite(){const s=S.site;$("#brandName").textContent=(s.name||"El Arte Gráfico").toUpperCase();if(s.logoUrl)$("#logoMark").src=s.logoUrl;document.title=(s.name||"El Arte Gráfico")+" Academy";renderFoot()}
+async function boot(){
+  if(API.mode==="local")$("#localbar").innerHTML=`<div class="localbar"><div class="wrap"><b>Modo de prueba</b><span>Los datos se guardan solo en este navegador. Administrador de prueba: admin@elartegrafico.com · admin1234</span><button id="rstLocal">Reiniciar datos de prueba</button></div></div>`;
+  const r=$("#rstLocal");if(r)r.onclick=()=>API.resetLocal();
+  let rec=false;try{rec=(await API.init()).recovery}catch(e){}
+  try{S.site=await API.site()}catch(e){S.site={}}applySite();
+  await loadProg();await loadContent();S.loaded=true;
+  if(rec)location.hash="#nueva-clave";
+  route();
+}
+window.AGBOOT=boot;
+})();
