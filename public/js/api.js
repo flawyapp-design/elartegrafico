@@ -21,7 +21,11 @@ const errMsg=j=>{const m=(j&&(j.error_description||j.msg||j.message||j.error))||
 function SupabaseAPI(url,key){
   url=url.replace(/\/$/,"");
   let sess=null;try{sess=JSON.parse(localStorage.getItem("ag_sess")||"null")}catch(e){}
-  const saveSess=s=>{sess=s;try{s?localStorage.setItem("ag_sess",JSON.stringify(s)):localStorage.removeItem("ag_sess")}catch(e){}};
+  /* sesión compartida entre elartegrafico.com y academia.elartegrafico.com: el refresh token viaja en una cookie del dominio */
+  const SHARED=/(^|\.)elartegrafico\.com$/.test(location.hostname);
+  const ckGet=()=>{const m=document.cookie.match(/(?:^|; )ag_rt=([^;]*)/);return m?decodeURIComponent(m[1]):null};
+  const ckSet=v=>{if(!SHARED)return;const b="; domain=.elartegrafico.com; path=/; secure; samesite=lax";document.cookie=v?`ag_rt=${encodeURIComponent(v)}; max-age=5184000${b}`:`ag_rt=; max-age=0${b}`};
+  const saveSess=s=>{sess=s;try{s?localStorage.setItem("ag_sess",JSON.stringify(s)):localStorage.removeItem("ag_sess")}catch(e){}ckSet(s&&s.refresh_token)};
   let prof=null;
   async function raw(path,{method="GET",body,headers={},auth=true,isFile=false}={}){
     const h=Object.assign({apikey:key,Authorization:"Bearer "+((auth&&sess&&sess.access_token)||key)},headers);
@@ -30,8 +34,8 @@ function SupabaseAPI(url,key){
     let j=null;const t=await r.text();try{j=t?JSON.parse(t):null}catch(e){j=t}
     return{ok:r.ok,status:r.status,j};
   }
-  async function refresh(){if(!sess||!sess.refresh_token)return false;
-    const r=await raw("/auth/v1/token?grant_type=refresh_token",{method:"POST",body:{refresh_token:sess.refresh_token},auth:false});
+  async function refresh(){const rt=(SHARED&&ckGet())||(sess&&sess.refresh_token);if(!rt)return false;
+    const r=await raw("/auth/v1/token?grant_type=refresh_token",{method:"POST",body:{refresh_token:rt},auth:false});
     if(r.ok){saveSess(r.j);return true}saveSess(null);return false}
   async function req(path,opt={}){
     if(sess&&sess.expires_at&&sess.expires_at*1000<Date.now()+60000)await refresh();
@@ -53,6 +57,9 @@ function SupabaseAPI(url,key){
       if(h.includes("access_token=")){const p=new URLSearchParams(h.slice(1));
         saveSess({access_token:p.get("access_token"),refresh_token:p.get("refresh_token"),expires_at:Math.floor(Date.now()/1000)+(+p.get("expires_in")||3600),user:null});
         recovery=p.get("type")==="recovery";history.replaceState(null,"",location.pathname+(recovery?"#nueva-clave":"#inicio"))}
+      if(SHARED){const rt=ckGet();
+        if(!rt&&sess)saveSess(null);                       // cerró sesión en el otro sitio
+        else if(rt&&(!sess||sess.refresh_token!==rt)){sess={refresh_token:rt};if(!(await refresh()))saveSess(null)}}
       if(sess){try{const u=await req("/auth/v1/user");sess.user=u;saveSess(sess);await this.loadProfile()}catch(e){saveSess(null)}}
       return{recovery};
     },
