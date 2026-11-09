@@ -63,6 +63,7 @@ function SupabaseAPI(url,key){
       if(sess){try{const u=await req("/auth/v1/user");sess.user=u;saveSess(sess);await this.loadProfile()}catch(e){saveSess(null)}}
       return{recovery};
     },
+    shareSession(){if(sess&&sess.refresh_token)ckSet(sess.refresh_token);return SHARED?!!ckGet():true},
     user(){return sess&&sess.user?{id:sess.user.id,email:sess.user.email}:null},
     profile(){return prof},
     async loadProfile(){if(!sess||!sess.user){prof=null;return null}const r=await sel("profiles",`&id=eq.${sess.user.id}`);prof=r&&r[0]||null;if(prof)prof.email=sess.user.email;return prof},
@@ -72,7 +73,7 @@ function SupabaseAPI(url,key){
       const typo={"gmai.com":"gmail.com","gmial.com":"gmail.com","gmail.co":"gmail.com","gamil.com":"gmail.com","hotmial.com":"hotmail.com","hotmai.com":"hotmail.com","outlok.com":"outlook.com","yaho.com":"yahoo.com"};const dom=(email.split("@")[1]||"").toLowerCase();
       if(typo[dom])throw new Error("Revisa tu correo: ¿quisiste decir @"+typo[dom]+"?");
       if(!(await this.usernameAvailable(username)))throw new Error("Ese nombre de usuario ya existe.");
-      const r=await raw("/auth/v1/signup",{method:"POST",auth:false,body:Object.assign({email,password,data:{username}},cap(captcha))});
+      const r=await raw("/auth/v1/signup",{method:"POST",auth:false,body:Object.assign({email,password,data:{username,accepted_terms_at:new Date().toISOString(),terms_version:"2026-11-09"}},cap(captcha))});
       if(!r.ok)throw new Error(errMsg(r.j));
       if(r.j&&r.j.access_token){saveSess(r.j);await this.loadProfile();return{confirm:false}}
       return{confirm:true};

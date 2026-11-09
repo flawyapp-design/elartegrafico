@@ -3,7 +3,7 @@
 "use strict";
 const A=window.AGAPP;const {$,$$,esc,API,S,toast,busy,fmtT,fmtDate,fmtDT,TZ,MARKETS,MNAME,h1Bars,m5Bars,idxAt,avgRange,toC,Chart,app}=A;
 let tab="resumen";
-const TABS=[["resumen","Estadísticas"],["sitio","Sitio y textos"],["banners","Banners"],["contenido","Módulos y lecciones"],["ejercicios","Ejercicios"],["noticias","Noticias"],["opiniones","Opiniones"],["alumnos","Alumnos"],["archivos","Archivos"]];
+const TABS=[["resumen","Estadísticas"],["sitio","Sitio y textos"],["banners","Banners"],["contenido","Módulos y lecciones"],["ejercicios","Ejercicios"],["noticias","Noticias"],["opiniones","Opiniones"],["alumnos","Alumnos"],["archivos","Archivos"],["legal","Legal"]];
 A.ROUTES.admin=sub=>{
   if(!A.admin()){app.innerHTML=`<div class="empty">Esta sección es solo para administradores.<a class="btn sm" href="#inicio">Volver</a></div>`;return}
   if(sub&&TABS.some(t=>t[0]===sub))tab=sub;
@@ -15,7 +15,7 @@ A.ROUTES.admin=sub=>{
   $$("[data-t]").forEach(b=>b.onclick=()=>{location.hash="#admin-"+b.dataset.t});
   $("#acSw").onclick=()=>{const host=$("#acSw").parentElement;A.confirmInline(host,closed?"¿Abrir la academia a todos los alumnos?":"¿Cerrar la academia mientras subes el contenido?",async()=>{
     const ns=Object.assign({},S.site,{academyClosed:!closed});try{await API.saveSite(ns);S.site=ns;A.applySite();toast(closed?"Academia abierta":"Academia cerrada para alumnos");A.ROUTES.admin(tab)}catch(x){toast(x.message);A.ROUTES.admin(tab)}})};
-  ({resumen,sitio,banners,contenido,ejercicios,noticias,opiniones,alumnos,archivos})[tab]();
+  ({resumen,sitio,banners,contenido,ejercicios,noticias,opiniones,alumnos,archivos,legal})[tab]();
 };
 const H=()=>$("#adm");
 const fileBtn=(id,label="Subir imagen")=>`<label class="btn sm" for="${id}" style="cursor:pointer">${label}</label><input id="${id}" type="file" hidden accept="image/*">`;
@@ -35,6 +35,27 @@ async function resumen(){
       ${daily.map((d,i)=>{const h=d.views/mx*Hh,hu=d.visitors/mx*Hh;return `<rect x="${i*bw+2}" y="${Hh-h}" width="${bw-4}" height="${h}" fill="#2b4282"><title>${d.d}: ${d.views} vistas, ${d.visitors} visitantes, ${d.signups} registros</title></rect><rect x="${i*bw+bw*.3}" y="${Hh-hu}" width="${bw*.4}" height="${hu}" fill="#d8b062"/>${d.signups?`<circle cx="${i*bw+bw/2}" cy="${Hh-h-7}" r="3.5" fill="#35c4a2"/>`:""}${i%5===0?`<text x="${i*bw+bw/2}" y="${Hh+16}" fill="#64739a" font-size="10" text-anchor="middle">${String(d.d).slice(5)}</text>`:""}`}).join("")}</svg></div></div>
     <div class="two"><div class="panel"><h3>Páginas más visitadas (30 días)</h3>${(s.pages||[]).length?`<table class="tbl">${s.pages.map(p=>`<tr><td>${esc(p.path)}</td><td class="n">${p.n}</td></tr>`).join("")}</table>`:'<div class="muted">Sin datos todavía.</div>'}</div>
       <div class="panel"><h3>Lecciones con más horas vistas</h3>${(s.top_lessons||[]).length?`<table class="tbl">${s.top_lessons.map(p=>`<tr><td>${esc(p.title)}</td><td class="n">${p.hours} h</td></tr>`).join("")}</table>`:'<div class="muted">Sin datos todavía.</div>'}</div></div>`;
+}
+
+/* ---------- legal ---------- */
+function legal(){
+  const s=JSON.parse(JSON.stringify(S.site||{}));const I=s.legalInfo||{};const docs=window.AG_LEGAL||[];const cur=s.legalDocs||{};
+  H().innerHTML=`<form class="panel form" id="fl">
+    <div class="note">Estos textos son una base redactada para Colombia (Ley 1581 de 2012, Ley 1480 de 2011). Completa tus datos y, antes de empezar a cobrar, hazlos revisar por un abogado.</div>
+    <h3>Datos del responsable</h3>
+    <div class="two"><label for="lO">Nombre completo o razón social<input id="lO" value="${esc(I.owner||"")}" placeholder="Nombre y apellidos o empresa"></label><label for="lD">Cédula o NIT<input id="lD" value="${esc(I.doc||"")}" placeholder="C.C. 1.234.567.890 o NIT 900.000.000-0"></label></div>
+    <div class="two"><label for="lA">Dirección<input id="lA" value="${esc(I.address||"")}"></label><label for="lC">Ciudad<input id="lC" value="${esc(I.city||"")}" placeholder="Bogotá D.C."></label></div>
+    <div class="three"><label for="lE">Correo para PQR y datos personales<input id="lE" type="email" value="${esc(I.email||"")}"></label><label for="lP">Teléfono / WhatsApp (opcional)<input id="lP" value="${esc(I.phone||"")}"></label><label for="lF">Fecha de vigencia<input id="lF" value="${esc(I.date||"9 de noviembre de 2026")}"></label></div>
+    <h3>Documentos</h3><p class="muted" style="margin:0">Puedes editar cada texto. Usa ### para títulos y guion para listas. Los datos entre llaves ({RESPONSABLE}, {CORREO}…) se llenan solos con lo de arriba.</p>
+    ${docs.map(d=>`<details class="panel" style="padding:12px"><summary style="cursor:pointer;font-weight:700">${esc(d.title)} ${cur[d.key]?'<span class="tag">Editado</span>':'<span class="tag pub">Texto base</span>'}</summary>
+      <textarea id="lt_${d.key}" style="min-height:360px;margin-top:10px;font-family:var(--f-mono);font-size:13px">${esc(cur[d.key]||d.text)}</textarea>
+      <div class="row"><a class="btn sm ghost" href="${A.toMain("legal-"+d.key)}" target="_blank" rel="noopener">Ver publicado</a><button type="button" class="btn sm" data-rst="${d.key}">Restaurar texto base</button></div></details>`).join("")}
+    <div class="row"><button class="btn gold" id="lsv">Guardar</button></div></form>`;
+  $$("[data-rst]").forEach(b=>b.onclick=()=>{const d=docs.find(x=>x.key===b.dataset.rst);$("#lt_"+d.key).value=d.text;toast("Texto base restaurado: guarda para aplicar")});
+  $("#fl").onsubmit=async e=>{e.preventDefault();
+    s.legalInfo={owner:$("#lO").value.trim(),doc:$("#lD").value.trim(),address:$("#lA").value.trim(),city:$("#lC").value.trim(),email:$("#lE").value.trim(),phone:$("#lP").value.trim(),date:$("#lF").value.trim()};
+    const out={};docs.forEach(d=>{const v=$("#lt_"+d.key).value;if(v.trim()&&v.trim()!==d.text.trim())out[d.key]=v});s.legalDocs=out;
+    try{busy($("#lsv"),true);await API.saveSite(s);S.site=s;A.applySite();toast("Textos legales guardados")}catch(x){toast(x.message)}finally{busy($("#lsv"),false)}};
 }
 
 /* ---------- sitio ---------- */

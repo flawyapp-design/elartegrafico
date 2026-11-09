@@ -26,7 +26,7 @@ function link(site,hash){hash=hash||"inicio";if(site===SITE)return"#"+hash;
   if(PROD){const base=HOST.replace(/^(www\.|academia\.)/,"");return"https://"+(site==="academia"?"academia.":"")+base+"/#"+hash}
   return location.pathname+(site==="academia"?"?sitio=academia":"")+"#"+hash}
 const ACAD_R=new Set(["academia","modulo","leccion","practica","prueba","ranking"]);
-const MAIN_R=new Set(["entrar","registro","recuperar","noticias","comunidad","nota","opiniones","mercados"]);
+const MAIN_R=new Set(["entrar","registro","recuperar","noticias","comunidad","nota","opiniones","mercados","legal","terminos","privacidad"]);
 const toAcad=h=>link("academia",h),toMain=h=>link("main",h);
 
 /* ---------- utilidades UI ---------- */
@@ -86,6 +86,7 @@ function renderFoot(){const s=S.site;
     <div><h4>Academia</h4><a href="${toAcad("inicio")}">Mi panel</a><a href="${toAcad("academia")}">Temario</a><a href="${toAcad("practica")}">Práctica</a><a href="#premium">Premium</a></div>
     <div><h4>Mercados</h4><a href="${toMain("mercados")}">Sintéticos</a><a href="${toMain("mercados")}">Forex</a><a href="${toMain("mercados")}">Metales</a></div>
     <div><h4>Contacto</h4>${s.contact?`<span class="sel">${esc(s.contact)}</span>`:'<span class="dim">Pronto</span>'}${(s.social||"").split(/\n/).filter(Boolean).map(l=>{const [t,u]=l.split("|").map(x=>x.trim());return u?`<a href="${esc(u)}" target="_blank" rel="noopener">${esc(t)}</a>`:""}).join("")}</div></div>
+    <nav class="legal-links" aria-label="Legal">${(window.AG_LEGAL||[]).map(d=>`<a href="${toMain("legal-"+d.key)}">${esc(d.title)}</a>`).join("")}</nav>
     <p class="legal">${esc(s.legal||"Contenido educativo. Operar instrumentos financieros implica alto riesgo. No es asesoría financiera.")}</p>
     <p class="dim">© ${new Date().getFullYear()} ${esc(s.name||"El Arte Gráfico")}. Todos los derechos reservados.</p>`}
 
@@ -235,8 +236,11 @@ async function demoSection(){
 /* ---------- auth ---------- */
 ROUTES.entrar=a=>authView("in",a);ROUTES.registro=a=>authView("up",a);ROUTES.recuperar=()=>authView("rec");
 async function authView(mode,arg){
-  const back=arg==="academia";const done=()=>{if(back)location.href=toAcad("inicio");else location.hash="#inicio"};
-  if(logged()&&mode!=="rec"){done();return}
+  const back=arg==="academia";
+  const done=()=>{if(!back){location.hash="#inicio";return}API.shareSession&&API.shareSession();
+    try{localStorage.setItem("ag_go_acad",String(Date.now()))}catch(e){}location.href=toAcad("inicio")};
+  let loop=false;try{loop=Date.now()-(+localStorage.getItem("ag_go_acad")||0)<15000}catch(e){}
+  if(logged()&&mode!=="rec"){if(back&&loop){try{localStorage.removeItem("ag_go_acad")}catch(e){}await API.signOut();renderNav();toast("Vuelve a ingresar para entrar a la academia")}else{done();return}}
   app.innerHTML=`<div class="auth"><div id="aslide"></div><div class="authbox" id="abox"></div></div>`;
   API.slides("login").then(sl=>slider($("#aslide"),sl)).catch(()=>slider($("#aslide"),[]));
   const box=$("#abox");
@@ -248,7 +252,7 @@ async function authView(mode,arg){
       <label for="uP">Contraseña<div class="pw"><input id="uP" type="password" autocomplete="new-password" required minlength="8"><button type="button" data-show="uP">Mostrar</button></div><div class="meter"><i id="pm"></i></div><span class="dim" id="pmt" style="font-weight:400">Mínimo 8 caracteres, con letras y números.</span></label>
       <label for="uP2">Repite la contraseña<div class="pw"><input id="uP2" type="password" autocomplete="new-password" required><button type="button" data-show="uP2">Mostrar</button></div></label>
       <label>Verificación<div id="cap"></div></label>
-      <label style="display:flex;gap:10px;align-items:flex-start;font-weight:500;color:var(--fg)"><input type="checkbox" id="uT" style="width:auto;margin-top:4px"> <span>Acepto los términos y entiendo que el trading implica riesgo de pérdida y que este contenido es educativo.</span></label>
+      <label class="accept"><input type="checkbox" id="uT"> <span>Soy mayor de 18 años, acepto los <a href="${toMain("legal-terminos")}" target="_blank" rel="noopener">Términos y condiciones</a> y el <a href="${toMain("legal-riesgo")}" target="_blank" rel="noopener">Aviso de riesgo</a>, y autorizo el tratamiento de mis datos según la <a href="${toMain("legal-privacidad")}" target="_blank" rel="noopener">Política de datos personales</a>.</span></label>
       <div class="err" id="err" role="alert"></div><button class="btn gold" type="submit" id="go">Crear cuenta</button></form>`;
   else if(mode==="in")box.innerHTML=head+seg+`<form class="form" id="f" novalidate>
       <label for="uE">Correo o nombre de usuario<input id="uE" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" required></label>
@@ -272,7 +276,7 @@ async function authView(mode,arg){
         if(!/^[A-Za-z0-9_.]{3,24}$/.test(u))throw new Error("El nombre de usuario debe tener de 3 a 24 caracteres: letras, números, punto o guion bajo.");
         if(p.length<8||!/[0-9]/.test(p)||!/[a-zA-Z]/.test(p))throw new Error("La contraseña debe tener mínimo 8 caracteres, con letras y números.");
         if(p!==p2)throw new Error("Las contraseñas no coinciden.");
-        if(!$("#uT").checked)throw new Error("Debes aceptar los términos para crear tu cuenta.");
+        if(!$("#uT").checked)throw new Error("Para crear tu cuenta debes aceptar los términos, el aviso de riesgo y la política de datos.");
         const r=await API.signUp({username:u,email,password:p,captcha:cap&&cap.token()});
         if(r.confirm){box.innerHTML=head+`<div class="okmsg">Te enviamos un correo a <b>${esc(email)}</b> para confirmar tu cuenta. Ábrelo y luego ingresa.</div><a class="btn" href="#entrar">Ir a ingresar</a>`;return}
         await afterLogin();toast("Cuenta creada. Bienvenido.");done();
@@ -399,10 +403,21 @@ ROUTES.perfil=()=>{if(!logged()){location.hash="#entrar";return}const p=API.prof
     <section class="sec"><h2>Logros</h2><div class="badges">${ACH.map(a=>`<div class="badge ${g.ach.includes(a.id)?"on":""}"><b>${esc(a.t)}</b><span>${g.ach.includes(a.id)?"Conseguido":"Pendiente"}</span></div>`).join("")}</div></section>
     <section class="sec"><h2>Seguridad</h2><div class="panel"><form class="form" id="pf" style="max-width:420px"><label for="np">Cambiar contraseña<input id="np" type="password" minlength="8" autocomplete="new-password"></label><button class="btn" id="npg">Guardar contraseña</button></form></div></section>`;
   $("#pf").onsubmit=async e=>{e.preventDefault();const v=$("#np").value;if(v.length<8||!/[0-9]/.test(v)||!/[a-zA-Z]/.test(v))return toast("Mínimo 8 caracteres, con letras y números");try{await API.updatePassword(v);toast("Contraseña actualizada");$("#np").value=""}catch(x){toast(x.message)}}};
+/* ---------- legal ---------- */
+function legalText(key){const s=S.site||{},I=s.legalInfo||{},docs=window.AG_LEGAL||[];const d=docs.find(x=>x.key===key);if(!d)return null;
+  const P=t=>`[pendiente: ${t}]`;
+  const map={RESPONSABLE:I.owner||P("nombre del responsable"),DOCUMENTO:I.doc||P("cédula o NIT"),DOMICILIO:I.address||P("dirección"),CIUDAD:I.city||P("ciudad"),
+    CORREO:I.email||P("correo de contacto"),TELEFONO:I.phone?" o al "+I.phone:"",TELEFONO_LINEA:I.phone?"\n- **Teléfono:** "+I.phone:"",SITIO:I.site||"elartegrafico.com",FECHA:I.date||"9 de noviembre de 2026"};
+  const txt=((s.legalDocs||{})[key]||d.text).replace(/\{([A-Z_]+)\}/g,(m,k)=>k in map?map[k]:m);
+  return{title:d.title,text:txt}}
+ROUTES.terminos=()=>{location.hash="#legal-terminos"};ROUTES.privacidad=()=>{location.hash="#legal-privacidad"};
+ROUTES.legal=key=>{const docs=window.AG_LEGAL||[];key=key||"terminos";const d=legalText(key)||legalText("terminos");
+  app.innerHTML=`<div class="legal-page"><aside class="legal-nav"><span class="eyebrow">Legal</span>${docs.map(x=>`<a href="#legal-${x.key}" class="${x.key===key?"on":""}">${esc(x.title)}</a>`).join("")}</aside>
+    <article class="article"><div class="pagehead"><span class="eyebrow">${esc(S.site.name||"El Arte Gráfico")}</span><h1>${esc(d.title)}</h1></div><div class="prose legal-doc">${md(d.text).replace(/\[pendiente: ([^\]]+)\]/g,'<mark>[pendiente: $1]</mark>')}</div></article></div>`};
 ROUTES.prueba=()=>{location.hash="#inicio";setTimeout(()=>{const p=$("#prueba");p&&p.scrollIntoView({behavior:"smooth"})},350)};
 
 /* exportar para los otros archivos */
-window.AGAPP={modOpen,modState,SITE,ACAD,link,toAcad,toMain,S,API,$,$$,esc,md,toast,busy,fmtT,fmtDate,fmtDT,TZ,MARKETS,MNAME,h1Bars,m5Bars,idxAt,avgRange,toC,Chart,cleanupPush:f=>cleanup.push(f),route,ROUTES,app,premium,admin,logged,confirmInline,loadContent:()=>loadContent(),renderFoot:()=>renderFoot(),applySite:()=>applySite()};
+window.AGAPP={legalText,modOpen,modState,SITE,ACAD,link,toAcad,toMain,S,API,$,$$,esc,md,toast,busy,fmtT,fmtDate,fmtDT,TZ,MARKETS,MNAME,h1Bars,m5Bars,idxAt,avgRange,toC,Chart,cleanupPush:f=>cleanup.push(f),route,ROUTES,app,premium,admin,logged,confirmInline,loadContent:()=>loadContent(),renderFoot:()=>renderFoot(),applySite:()=>applySite()};
 
 /* ---------- arranque ---------- */
 async function loadContent(){try{S.modules=await API.modules()}catch(e){S.modules=[]}try{S.lindex=await API.lessonIndex()}catch(e){S.lindex=[]}}
