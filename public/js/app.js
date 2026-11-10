@@ -72,8 +72,10 @@ function modOpen(m,ignoreAdmin){if(!m)return false;if(!ignoreAdmin&&admin())retu
 /* orden obligatorio: con «Exige terminar el módulo anterior», el módulo se abre al aprobar todo el anterior
    y dentro del módulo cada lección se abre al aprobar la anterior (puntaje mínimo de la lección). El admin no tiene bloqueos. */
 function passedL(id){return !!(S.prog&&S.prog.done[id]&&S.prog.done[id].passed)}
-function modLocked(m){if(admin())return false;const i=S.modules.indexOf(m);const prev=S.modules[i-1];return !!(m.locked&&prev&&modProgress(prev.id)<1)}
-function lessonOpen(l){if(admin())return true;const m=S.modules.find(x=>x.id===l.module_id);if(!m||!modOpen(m)||modLocked(m))return false;if(!m.locked)return true;
+/* módulo anterior que cuenta para el orden: los módulos opcionales no bloquean a los siguientes */
+function prevReq(m){const i=S.modules.indexOf(m);for(let k=i-1;k>=0;k--){if(!S.modules[k].optional)return S.modules[k]}return null}
+function modLocked(m){if(admin())return false;const prev=prevReq(m);return !!(m.locked&&prev&&modProgress(prev.id)<1)}
+function lessonOpen(l){if(admin())return true;const m=S.modules.find(x=>x.id===l.module_id);if(!m||!modOpen(m)||modLocked(m))return false;if(!m.locked||m.optional)return true;
   const ls=S.lindex.filter(x=>x.module_id===l.module_id);const k=ls.findIndex(x=>x.id===l.id);return ls.slice(0,Math.max(0,k)).every(x=>passedL(x.id))}
 function modState(m){if(modOpen(m,true))return"Disponible";return m.open_at?"Abre el "+new Date(m.open_at).toLocaleDateString("es-CO",{day:"2-digit",month:"short"}):"Próximamente"}
 function closedView(){const s=S.site,p=API.profile()||{};
@@ -215,7 +217,7 @@ async function mainHome(){
 }
 
 /* ---------- panel de la academia ---------- */
-function nextLesson(){for(const m of S.modules){if(!modOpen(m))continue;const ls=S.lindex.filter(l=>l.module_id===m.id).sort((a,b)=>(a.sort||0)-(b.sort||0));for(const l of ls){if(!(S.prog.done[l.id]&&S.prog.done[l.id].passed))return l}}return null}
+function nextLesson(){for(const m of S.modules){if(!modOpen(m)||m.optional)continue;const ls=S.lindex.filter(l=>l.module_id===m.id).sort((a,b)=>(a.sort||0)-(b.sort||0));for(const l of ls){if(!(S.prog.done[l.id]&&S.prog.done[l.id].passed))return l}}return null}
 async function academyHome(){
   const p=API.profile()||{},g=S.prog,lv=levelOf(g.xp);const pct=lv.to?Math.round(100*(g.xp-lv.from)/(lv.to-lv.from)):100;const nx=premium()?nextLesson():null;
   const passed=Object.values(g.done).filter(d=>d.passed).length,total=S.lindex.length;
@@ -240,7 +242,7 @@ async function syllabus(host,limit){
   let n=0;host.innerHTML=Object.entries(groups).map(([cat,ms])=>{if(limit&&n>=limit)return"";return `<div class="syl-cat"><h3 class="cat">${esc(cat)}</h3><div class="grid">${ms.map(m=>{if(limit&&n>=limit)return"";n++;const ls=idx.filter(l=>l.module_id===m.id);const pr=modProgress(m.id,ls);
     const op=modOpen(m,true);
     return `<a class="mod ${op?"":"soon-mod"}" href="#modulo-${esc(m.id)}"><span class="num">${esc(m.level||cat)}</span><h3>${esc(m.title)}</h3><p>${esc(m.descr||"")}</p>
-      <div class="meta"><span>${ls.length} ${ls.length===1?"lección":"lecciones"}</span>${op?"":`<span class="tag lock">${esc(modState(m))}</span>`}${premium()||!op?"":'<span class="tag">Premium</span>'}${m.status!=="publicado"?'<span class="tag">Borrador</span>':""}</div>${premium()?`<div class="bar"><i style="width:${Math.round(pr*100)}%"></i></div>`:""}</a>`}).join("")}</div></div>`}).join("")}
+      <div class="meta"><span>${ls.length} ${ls.length===1?"lección":"lecciones"}</span>${m.optional?'<span class="tag pub">Opcional</span>':""}${op?"":`<span class="tag lock">${esc(modState(m))}</span>`}${premium()||!op?"":'<span class="tag">Premium</span>'}${m.status!=="publicado"?'<span class="tag">Borrador</span>':""}</div>${premium()?`<div class="bar"><i style="width:${Math.round(pr*100)}%"></i></div>`:""}</a>`}).join("")}</div></div>`}).join("")}
 function modProgress(mid,ls){ls=ls||S.lindex.filter(l=>l.module_id===mid);if(!ls.length||!S.prog)return 0;return ls.filter(l=>S.prog.done[l.id]&&S.prog.done[l.id].passed).length/ls.length}
 const postCard=p=>`<a class="post" href="#nota-${esc(p.id)}">${p.image_url?`<div class="thumb" style="background-image:url('${esc(p.image_url)}')"></div>`:`<div class="thumb noimg">AG</div>`}<div style="display:grid;gap:6px;align-content:start;min-width:0"><div class="row"><span class="tag">${esc(p.category||"Noticia")}</span>${p.pinned?'<span class="tag pub">Fijado</span>':""}${p.premium_only?'<span class="tag">Premium</span>':""}<span class="dim" style="font-size:13px">${fmtDate(p.created_at)}</span></div><h3>${esc(p.title)}</h3><p class="muted clamp">${esc(String(p.body||"").slice(0,220))}</p></div></a>`;
 function reviewsHTML(list,compact){if(!list.length)return `<div class="empty">Todavía no hay opiniones publicadas.${logged()?'<a class="btn sm" href="#opiniones">Escribir la primera</a>':""}</div>`;
@@ -353,9 +355,10 @@ ROUTES.premium=()=>{const s=S.site;const plans=(s.plans||[]).filter(x=>x&&x.name
 /* ---------- academia ---------- */
 ROUTES.academia=()=>{app.innerHTML=`<div class="pagehead"><span class="eyebrow">Academia</span><h1>Temario</h1><p class="muted">Avanza en orden: cada lección se aprueba con sus ejercicios y cada módulo se desbloquea al terminar el anterior.</p>${premium()?"":`<div class="note">Puedes ver el temario completo. Las lecciones y los ejercicios son para alumnos premium. <a href="#premium">Ver cómo acceder</a></div>`}</div><div id="syl"></div>`;syllabus($("#syl"))};
 ROUTES.modulo=id=>{const m=S.modules.find(x=>x.id===id);if(!m){app.innerHTML=`<div class="empty">Ese módulo no existe.<a class="btn sm" href="#academia">Ver temario</a></div>`;return}
-  const ls=S.lindex.filter(l=>l.module_id===id);const i=S.modules.indexOf(m);const prev=S.modules[i-1];const closedM=!modOpen(m);const locked=closedM||(premium()&&!admin()&&m.locked&&prev&&modProgress(prev.id)<1);
+  const ls=S.lindex.filter(l=>l.module_id===id);const prev=prevReq(m);const closedM=!modOpen(m);const locked=closedM||(premium()&&modLocked(m));
   app.innerHTML=`<div class="crumbs"><a href="#academia">Temario</a><span>/</span><span>${esc(m.category||"")}</span></div><div class="pagehead"><span class="eyebrow">${esc(m.level||m.category||"Módulo")}</span><h1>${esc(m.title)}</h1><p class="muted">${esc(m.descr||"")}</p>${premium()?`<div class="bar" style="max-width:420px"><i style="width:${Math.round(modProgress(id)*100)}%"></i></div>`:""}</div>
   ${closedM?`<div class="note">${m.open_at?`Este módulo se habilita el <b>${esc(new Date(m.open_at).toLocaleString("es-CO",{day:"2-digit",month:"long",hour:"2-digit",minute:"2-digit"}))}</b>.`:"Este módulo se habilitará pronto. Te avisaremos en la comunidad."}</div>`:locked?`<div class="note">Este módulo se desbloquea al aprobar todas las lecciones de “${esc(prev.title)}”.</div>`:""}
+  ${m.optional&&!closedM?`<div class="note">Módulo opcional: ${esc(m.optional_note||"si ya lo dominas, puedes saltarlo. No es necesario para abrir los módulos siguientes.")}</div>`:""}
   ${admin()&&!modOpen(m,true)?'<div class="note admin-note">Bloqueado para alumnos: solo tú lo ves abierto.</div>':""}
   <div class="list">${ls.map((l,k)=>{const d=S.prog&&S.prog.done[l.id];const cerrada=premium()&&!locked&&!closedM&&!lessonOpen(l);return `<a class="item${cerrada?" lock":""}" href="${premium()&&!locked&&!cerrada?"#leccion-"+esc(l.id):closedM||cerrada||locked&&premium()?"#modulo-"+esc(m.id):"#premium"}"><span class="ico ${d&&d.passed?"done":""}">${d&&d.passed?"✓":cerrada?"🔒":k+1}</span><span class="txt"><b>${esc(l.title)}</b><span>${cerrada?`Aprueba la lección anterior con ${(ls[k-1]&&ls[k-1].min_score)||80}% para abrirla`:`${l.has_video?"Video · ":""}${d?`Mejor resultado ${d.best}%`:"Pendiente"}`}</span></span>${premium()?"":'<span class="tag">Premium</span>'}</a>`}).join("")||'<div class="empty">Este módulo todavía no tiene lecciones.</div>'}</div>`};
 ROUTES.leccion=async id=>{
