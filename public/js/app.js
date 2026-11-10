@@ -357,7 +357,7 @@ function videoBlock(host,l){
   const yt=u.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([\w-]{11})/);
   const vm=u.match(/vimeo\.com\/(?:video\/)?(\d+)/);
   const bn=u.match(/(?:iframe|player)\.mediadelivery\.net\/(?:embed|play)\/(\d+)\/([\w-]+)/);
-  const p=API.profile()||{};const wmText=`${p.username||""} · ${p.email||""}`;
+  const p=API.profile()||{};const wmText="El Arte Gráfico";
   const shell=inner=>`<div class="vwrap"><div class="video">${inner}<div class="wm" aria-hidden="true">${esc(wmText)}</div></div>
     <div class="vbar"><span class="dim">Contenido exclusivo para ${esc(p.username||"alumnos")}. Prohibido grabar o compartir.</span><button type="button" class="btn sm ghost" data-fs>Pantalla completa</button></div></div>`;
   const mountExtras=()=>{const box=$(".video",host),wm=$(".wm",host);
