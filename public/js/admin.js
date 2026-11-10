@@ -119,7 +119,7 @@ let sel={};
 async function contenido(){
   let mods=[],les=[];try{mods=await API.modules();les=await API.lessons()}catch(e){}
   H().innerHTML=`<div class="split"><div class="panel"><div class="sec-h"><h3>Temario</h3><button class="btn sm gold" id="nm">Nuevo módulo</button></div>
-    <div class="tree">${mods.map(m=>`<div class="m"><button data-s="m:${esc(m.id)}" class="${sel.id===m.id?"on":""}"><b>${esc(m.title)}</b><span class="tag ${m.status==="publicado"?"pub":""}">${m.status==="publicado"?"Publicado":"Borrador"}</span>${m.status==="publicado"?`<span class="tag ${A.modOpen(m,true)?"pub":"lock"}">${A.modState(m)}</span>`:""}</button>
+    <div class="tree">${mods.map(m=>`<div class="m"><button data-s="m:${esc(m.id)}" class="${sel.id===m.id?"on":""}"><b>${esc(m.title)}</b><span class="tags"><span class="tag ${m.status==="publicado"?"pub":""}">${m.status==="publicado"?"Publicado":"Borrador"}</span>${m.status==="publicado"?`<span class="tag ${A.modOpen(m,true)?"pub":"lock"}">${A.modState(m)}</span>`:""}</span></button>
       <div class="dim" style="padding:0 12px 6px;font-size:12px">${esc(m.category||"")}</div>
       ${les.filter(l=>l.module_id===m.id).sort((a,b)=>a.sort-b.sort).map(l=>`<button class="l ${sel.id===l.id?"on":""}" data-s="l:${esc(l.id)}"><span>${esc(l.title)}</span><span class="tag ${l.status==="publicado"?"pub":""}">${l.status==="publicado"?"Pub.":"Borr."}</span></button>`).join("")}
       <button class="l" data-nl="${esc(m.id)}" style="color:var(--gold)">+ Nueva lección</button></div>`).join("")||'<div class="muted">Aún no hay módulos.</div>'}</div></div><div class="panel" id="ed"><div class="muted">Elige un módulo o una lección para editarla.</div></div></div>`;

@@ -166,12 +166,17 @@ a.item:hover{text-decoration:none;border-color:var(--gold3)}
 .three{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
 @media (max-width:700px){.two,.three{grid-template-columns:1fr}}
 .panel{border:1px solid var(--line);border-radius:var(--r2);padding:18px;background:var(--card);display:grid;gap:14px;min-width:0}
-.split{display:grid;grid-template-columns:minmax(0,320px) minmax(0,1fr);gap:18px;align-items:start}
+.split{display:grid;grid-template-columns:minmax(0,360px) minmax(0,1fr);gap:18px;align-items:start}
+.split>.panel{overflow:hidden}
 @media (max-width:900px){.split{grid-template-columns:1fr}}
 .tree{display:grid;gap:8px}
 .tree .m{border:1px solid var(--line);border-radius:12px;background:var(--bg2)}
 .tree .m>button,.tree .l{width:100%;text-align:left;background:transparent;border:0;padding:10px 12px;cursor:pointer;color:var(--fg);display:flex;gap:8px;align-items:center;justify-content:space-between}
-.tree .m>button b{font-size:14.5px}
+.tree .m>button{flex-wrap:wrap;justify-content:flex-start;row-gap:6px}
+.tree .m>button b{font-size:14.5px;flex:1 1 100%;min-width:0;overflow-wrap:anywhere}
+.tree .tags{display:flex;flex-wrap:wrap;gap:6px}
+.tree .l>span:first-child{flex:1;min-width:0;overflow-wrap:anywhere}
+.tree .tag{flex-shrink:0;white-space:nowrap}
 .tree .l{padding:8px 12px 8px 22px;font-size:14px;color:var(--muted);border-top:1px solid var(--line)}
 .tree .l.on,.tree .m>button.on{color:var(--gold2)}
 .tag{font-size:11px;letter-spacing:.08em;text-transform:uppercase;padding:2px 7px;border-radius:6px;border:1px solid var(--line2);color:var(--muted)}
