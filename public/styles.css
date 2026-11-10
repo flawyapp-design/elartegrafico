@@ -453,3 +453,4 @@ nav.main a.navx{color:var(--gold2)}
 @media (max-width:640px){.pend-ui .ok span{display:none}.pend-ui button{min-width:40px;height:40px}}
 .modes .v.pend{color:var(--gold2)}
 .mhint{font-size:13px;align-self:center}
+.item.lock{opacity:.6;cursor:not-allowed}

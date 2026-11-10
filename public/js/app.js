@@ -65,6 +65,12 @@ function clear(){cleanup.forEach(f=>{try{f()}catch(e){}});cleanup=[];const n=doc
 const closedAcad=()=>!!(S.site&&S.site.academyClosed);
 /* módulo disponible: a mano (available) o por fecha (open_at). Sin la columna (SQL viejo) se considera abierto. */
 function modOpen(m,ignoreAdmin){if(!m)return false;if(!ignoreAdmin&&admin())return true;if(m.available!==false)return true;return !!(m.open_at&&new Date(m.open_at)<=new Date())}
+/* orden obligatorio: con «Exige terminar el módulo anterior», el módulo se abre al aprobar todo el anterior
+   y dentro del módulo cada lección se abre al aprobar la anterior (puntaje mínimo de la lección). El admin no tiene bloqueos. */
+function passedL(id){return !!(S.prog&&S.prog.done[id]&&S.prog.done[id].passed)}
+function modLocked(m){if(admin())return false;const i=S.modules.indexOf(m);const prev=S.modules[i-1];return !!(m.locked&&prev&&modProgress(prev.id)<1)}
+function lessonOpen(l){if(admin())return true;const m=S.modules.find(x=>x.id===l.module_id);if(!m||!modOpen(m)||modLocked(m))return false;if(!m.locked)return true;
+  const ls=S.lindex.filter(x=>x.module_id===l.module_id);const k=ls.findIndex(x=>x.id===l.id);return ls.slice(0,Math.max(0,k)).every(x=>passedL(x.id))}
 function modState(m){if(modOpen(m,true))return"Disponible";return m.open_at?"Abre el "+new Date(m.open_at).toLocaleDateString("es-CO",{day:"2-digit",month:"short"}):"Próximamente"}
 function closedView(){const s=S.site,p=API.profile()||{};
   app.innerHTML=`<section class="soon"><img src="${esc(s.logoFullUrl||"assets/logo_circle.png")}" alt=""><span class="eyebrow">Academia</span>
@@ -320,11 +326,12 @@ ROUTES.modulo=id=>{const m=S.modules.find(x=>x.id===id);if(!m){app.innerHTML=`<d
   app.innerHTML=`<div class="crumbs"><a href="#academia">Temario</a><span>/</span><span>${esc(m.category||"")}</span></div><div class="pagehead"><span class="eyebrow">${esc(m.level||m.category||"Módulo")}</span><h1>${esc(m.title)}</h1><p class="muted">${esc(m.descr||"")}</p>${premium()?`<div class="bar" style="max-width:420px"><i style="width:${Math.round(modProgress(id)*100)}%"></i></div>`:""}</div>
   ${closedM?`<div class="note">${m.open_at?`Este módulo se habilita el <b>${esc(new Date(m.open_at).toLocaleString("es-CO",{day:"2-digit",month:"long",hour:"2-digit",minute:"2-digit"}))}</b>.`:"Este módulo se habilitará pronto. Te avisaremos en la comunidad."}</div>`:locked?`<div class="note">Este módulo se desbloquea al aprobar todas las lecciones de “${esc(prev.title)}”.</div>`:""}
   ${admin()&&!modOpen(m,true)?'<div class="note admin-note">Bloqueado para alumnos: solo tú lo ves abierto.</div>':""}
-  <div class="list">${ls.map((l,k)=>{const d=S.prog&&S.prog.done[l.id];return `<a class="item" href="${premium()&&!locked?"#leccion-"+esc(l.id):closedM?"#modulo-"+esc(m.id):"#premium"}"><span class="ico ${d&&d.passed?"done":""}">${d&&d.passed?"✓":k+1}</span><span class="txt"><b>${esc(l.title)}</b><span>${l.has_video?"Video · ":""}${d?`Mejor resultado ${d.best}%`:"Pendiente"}</span></span>${premium()?"":'<span class="tag">Premium</span>'}</a>`}).join("")||'<div class="empty">Este módulo todavía no tiene lecciones.</div>'}</div>`};
+  <div class="list">${ls.map((l,k)=>{const d=S.prog&&S.prog.done[l.id];const cerrada=premium()&&!locked&&!closedM&&!lessonOpen(l);return `<a class="item${cerrada?" lock":""}" href="${premium()&&!locked&&!cerrada?"#leccion-"+esc(l.id):closedM||cerrada||locked&&premium()?"#modulo-"+esc(m.id):"#premium"}"><span class="ico ${d&&d.passed?"done":""}">${d&&d.passed?"✓":cerrada?"🔒":k+1}</span><span class="txt"><b>${esc(l.title)}</b><span>${cerrada?`Aprueba la lección anterior con ${(ls[k-1]&&ls[k-1].min_score)||80}% para abrirla`:`${l.has_video?"Video · ":""}${d?`Mejor resultado ${d.best}%`:"Pendiente"}`}</span></span>${premium()?"":'<span class="tag">Premium</span>'}</a>`}).join("")||'<div class="empty">Este módulo todavía no tiene lecciones.</div>'}</div>`};
 ROUTES.leccion=async id=>{
   if(!logged()){location.hash="#entrar";return}
   if(!premium()){app.innerHTML=paywall();return}
-  {const li=S.lindex.find(x=>x.id===id);const mm=li&&S.modules.find(x=>x.id===li.module_id);if(mm&&!modOpen(mm)){location.hash="#modulo-"+mm.id;return}}
+  {const li=S.lindex.find(x=>x.id===id);const mm=li&&S.modules.find(x=>x.id===li.module_id);if(mm&&!modOpen(mm)){location.hash="#modulo-"+mm.id;return}
+   if(li&&!lessonOpen(li)){toast(mm&&modLocked(mm)?"Primero aprueba todas las lecciones del módulo anterior.":"Primero aprueba la lección anterior.");location.hash="#modulo-"+li.module_id;return}}
   app.innerHTML='<div class="muted">Cargando lección…</div>';
   let l=null;try{l=await API.lesson(id)}catch(e){}
   if(!l){app.innerHTML=`<div class="empty">No encontramos esta lección.<a class="btn sm" href="#academia">Volver al temario</a></div>`;return}
@@ -333,7 +340,7 @@ ROUTES.leccion=async id=>{
    <div class="pagehead"><span class="eyebrow">Lección ${k+1}${l.status!=="publicado"?" · borrador":""}</span><h1>${esc(l.title)}</h1></div>
    <div id="vid"></div><div class="prose">${md(l.body)||'<p class="muted">El texto de esta lección se publicará pronto.</p>'}</div>
    <section class="sec" id="exsec"></section>
-   <div class="row" style="justify-content:space-between"><a class="btn ghost" href="#modulo-${esc(l.module_id)}">Volver al módulo</a>${next?`<a class="btn" href="#leccion-${esc(next.id)}">Siguiente lección</a>`:""}</div>`;
+   <div class="row" style="justify-content:space-between"><a class="btn ghost" href="#modulo-${esc(l.module_id)}">Volver al módulo</a>${next&&(admin()||!m.locked||passedL(l.id))?`<a class="btn" href="#leccion-${esc(next.id)}">Siguiente lección</a>`:""}</div>`;
   videoBlock($("#vid"),l);
   let exs=[];try{exs=await API.exercises({lessonId:id})}catch(e){}
   const sec=$("#exsec");if(!sec)return;
