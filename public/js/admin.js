@@ -77,6 +77,9 @@ function sitio(){
     <label for="sDI">Puntos destacados (uno por línea)<textarea id="sDI" style="min-height:90px">${esc((s.discordItems||[]).join("\n"))}</textarea></label>
     <h3>Premium</h3><div class="two"><label for="sPT">Título<input id="sPT" value="${esc(s.premiumTitle||"")}"></label><label for="sPX">Texto<input id="sPX" value="${esc(s.premiumText||"")}"></label></div>
     <label for="sPI">Beneficios (uno por línea)<textarea id="sPI" style="min-height:90px">${esc((s.premiumItems||[]).join("\n"))}</textarea></label>
+    <h3>Deriv: enlace de socio</h3><p class="muted" style="margin:0">Escribe <b class="mono">{DERIV}</b> en una línea del contenido de una lección y ahí aparece el botón con tu enlace y el aviso de comisión.</p>
+    <label for="sRU">Tu enlace de referido de Deriv<input id="sRU" value="${esc(s.derivRefUrl||"")}" placeholder="https://track.deriv.com/..."></label>
+    <div class="two"><label for="sRT">Texto del botón<input id="sRT" value="${esc(s.derivRefText||"")}" placeholder="Abrir mi cuenta en Deriv"></label><label for="sRN">Aviso debajo del botón (opcional)<input id="sRN" value="${esc(s.derivRefNote||"")}" placeholder="Enlace de socio: Deriv le paga una comisión a El Arte Gráfico…"></label></div>
     <h3>Pagos con Binance Pay</h3><p class="muted" style="margin:0">El alumno paga a tu Binance Pay ID y registra el ID de orden en la página Premium. Tú lo confirmas en Administración → Pagos.</p>
     <div class="two"><label for="sBP">Tu Binance Pay ID<input id="sBP" value="${esc(s.binancePayId||"")}" placeholder="Ej.: 123456789"></label><label for="sBN">Nombre que ven al pagar (opcional)<input id="sBN" value="${esc(s.binanceName||"")}" placeholder="El Arte Gráfico"></label></div>
     <label for="sPL">Planes (uno por línea: Nombre | días | precio)<textarea id="sPL" style="min-height:80px" placeholder="Mensual | 30 | 20 USDT&#10;Trimestral | 90 | 50 USDT">${esc((s.plans||[]).map(x=>[x.name,x.days,x.price].join(" | ")).join("\n"))}</textarea></label>
@@ -93,6 +96,7 @@ function sitio(){
       cards:pairs($("#sC").value).map(p=>({title:p[0],text:p[1]||""})),steps:pairs($("#sS").value).map(p=>({title:p[0],text:p[1]||""})),
       markets:pairs($("#sM").value).map(p=>({cat:p[0],name:p[1]||"",status:p[2]||"Próximamente",text:p[3]||""})),
       premiumTitle:$("#sPT").value.trim(),premiumText:$("#sPX").value.trim(),premiumItems:$("#sPI").value.split("\n").map(x=>x.trim()).filter(Boolean),
+      derivRefUrl:$("#sRU").value.trim(),derivRefText:$("#sRT").value.trim(),derivRefNote:$("#sRN").value.trim(),
       binancePayId:$("#sBP").value.trim(),binanceName:$("#sBN").value.trim(),payNote:$("#sPN").value.trim(),
       plans:pairs($("#sPL").value).map(p=>({name:p[0],days:Math.max(1,Math.min(3650,parseInt(p[1])||30)),price:p[2]||""})),
       closedTitle:$("#sAT").value.trim(),closedText:$("#sAX").value.trim(),discordUrl:$("#sDU").value.trim(),discordTitle:$("#sDT").value.trim(),discordText:$("#sDX").value.trim(),discordItems:$("#sDI").value.split("\n").map(x=>x.trim()).filter(Boolean),communityStats:pairs($("#sCS").value).map(p=>({v:p[0],t:p[1]||""})),

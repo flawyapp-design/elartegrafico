@@ -457,3 +457,5 @@ nav.main a.navx{color:var(--gold2)}
 .plans{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px}
 .plan{border:1px solid var(--line2);border-radius:12px;padding:12px 14px;background:var(--bg2);display:grid;gap:2px}
 .plan .price{font-size:22px;font-weight:800;color:var(--gold2)}
+.deriv-ref{display:grid;gap:8px;justify-items:start;margin:14px 0;padding:14px 16px;border:1px solid rgba(216,176,98,.35);border-radius:12px;background:rgba(216,176,98,.06)}
+.deriv-ref p{margin:0;font-size:13px}

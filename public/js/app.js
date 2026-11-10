@@ -34,8 +34,12 @@ let toastT;function toast(m){let t=$(".toast");if(!t){t=document.createElement("
 function md(txt){const lines=String(txt||"").split(/\r?\n/);let out="",list=false;
   const inl=s=>esc(s).replace(/\*\*(.+?)\*\*/g,"<b>$1</b>").replace(/(https?:\/\/[^\s<]+)/g,'<a href="$1" target="_blank" rel="noopener">$1</a>');
   for(const l of lines){if(/^\s*[-•]\s+/.test(l)){if(!list){out+="<ul>";list=true}out+="<li>"+inl(l.replace(/^\s*[-•]\s+/,""))+"</li>";continue}
-    if(list){out+="</ul>";list=false}if(/^###\s+/.test(l))out+="<h3>"+inl(l.slice(4))+"</h3>";else if(l.trim())out+="<p>"+inl(l)+"</p>"}
+    if(list){out+="</ul>";list=false}if(/^\s*\{DERIV\}\s*$/.test(l)){out+=derivBlock();continue}if(/^###\s+/.test(l))out+="<h3>"+inl(l.slice(4))+"</h3>";else if(l.trim())out+="<p>"+inl(l)+"</p>"}
   if(list)out+="</ul>";return out}
+/* botón de registro en Deriv con el enlace de socio (se pone en una lección escribiendo {DERIV} en una línea) */
+function derivBlock(){const s=S.site||{};const u=(s.derivRefUrl||"").trim();if(!/^https:\/\//.test(u))return"";
+  return `<div class="deriv-ref"><a class="btn gold" href="${esc(u)}" target="_blank" rel="noopener sponsored">${esc(s.derivRefText||"Abrir mi cuenta en Deriv")}</a>
+  <p class="dim">${esc(s.derivRefNote||"Enlace de socio: si abres tu cuenta con este enlace, Deriv le paga una comisión a El Arte Gráfico. A ti no te cuesta nada extra. Puedes abrir tu cuenta sin el enlace si prefieres.")}</p></div>`}
 /* foto de perfil: imagen o inicial */
 const avatar=(o,sz=32,cls="")=>{o=o||{};const n=(o.username||"?")[0].toUpperCase();
   return o.avatar_url?`<img class="avi ${cls}" src="${esc(o.avatar_url)}" alt="" width="${sz}" height="${sz}" style="width:${sz}px;height:${sz}px" loading="lazy">`
