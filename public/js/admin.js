@@ -3,7 +3,7 @@
 "use strict";
 const A=window.AGAPP;const {$,$$,esc,API,S,toast,busy,fmtT,fmtDate,fmtDT,TZ,MARKETS,MNAME,h1Bars,m5Bars,idxAt,avgRange,toC,Chart,app}=A;
 let tab="resumen";
-const TABS=[["resumen","Estadísticas"],["sitio","Sitio y textos"],["banners","Banners"],["contenido","Módulos y lecciones"],["ejercicios","Ejercicios"],["noticias","Noticias"],["opiniones","Opiniones"],["alumnos","Alumnos"],["archivos","Archivos"],["legal","Legal"]];
+const TABS=[["resumen","Estadísticas"],["sitio","Sitio y textos"],["banners","Banners"],["contenido","Módulos y lecciones"],["ejercicios","Ejercicios"],["noticias","Noticias"],["opiniones","Opiniones"],["pagos","Pagos"],["alumnos","Alumnos"],["archivos","Archivos"],["legal","Legal"]];
 A.ROUTES.admin=sub=>{
   if(!A.admin()){app.innerHTML=`<div class="empty">Esta sección es solo para administradores.<a class="btn sm" href="#inicio">Volver</a></div>`;return}
   if(sub&&TABS.some(t=>t[0]===sub))tab=sub;
@@ -15,7 +15,8 @@ A.ROUTES.admin=sub=>{
   $$("[data-t]").forEach(b=>b.onclick=()=>{location.hash="#admin-"+b.dataset.t});
   $("#acSw").onclick=()=>{const host=$("#acSw").parentElement;A.confirmInline(host,closed?"¿Abrir la academia a todos los alumnos?":"¿Cerrar la academia mientras subes el contenido?",async()=>{
     const ns=Object.assign({},S.site,{academyClosed:!closed});try{await API.saveSite(ns);S.site=ns;A.applySite();toast(closed?"Academia abierta":"Academia cerrada para alumnos");A.ROUTES.admin(tab)}catch(x){toast(x.message);A.ROUTES.admin(tab)}})};
-  ({resumen,sitio,banners,contenido,ejercicios,noticias,opiniones,alumnos,archivos,legal})[tab]();
+  ({resumen,sitio,banners,contenido,ejercicios,noticias,opiniones,pagos,alumnos,archivos,legal})[tab]();
+  API.adminPayments().then(l=>{const n=(l||[]).filter(x=>x.status==="pendiente").length;const b=document.querySelector('[data-t="pagos"]');if(b&&n)b.innerHTML=`Pagos <span class="tag pub">${n}</span>`}).catch(()=>{});
 };
 const H=()=>$("#adm");
 const fileBtn=(id,label="Subir imagen")=>`<label class="btn sm" for="${id}" style="cursor:pointer">${label}</label><input id="${id}" type="file" hidden accept="image/*">`;
@@ -76,6 +77,10 @@ function sitio(){
     <label for="sDI">Puntos destacados (uno por línea)<textarea id="sDI" style="min-height:90px">${esc((s.discordItems||[]).join("\n"))}</textarea></label>
     <h3>Premium</h3><div class="two"><label for="sPT">Título<input id="sPT" value="${esc(s.premiumTitle||"")}"></label><label for="sPX">Texto<input id="sPX" value="${esc(s.premiumText||"")}"></label></div>
     <label for="sPI">Beneficios (uno por línea)<textarea id="sPI" style="min-height:90px">${esc((s.premiumItems||[]).join("\n"))}</textarea></label>
+    <h3>Pagos con Binance Pay</h3><p class="muted" style="margin:0">El alumno paga a tu Binance Pay ID y registra el ID de orden en la página Premium. Tú lo confirmas en Administración → Pagos.</p>
+    <div class="two"><label for="sBP">Tu Binance Pay ID<input id="sBP" value="${esc(s.binancePayId||"")}" placeholder="Ej.: 123456789"></label><label for="sBN">Nombre que ven al pagar (opcional)<input id="sBN" value="${esc(s.binanceName||"")}" placeholder="El Arte Gráfico"></label></div>
+    <label for="sPL">Planes (uno por línea: Nombre | días | precio)<textarea id="sPL" style="min-height:80px" placeholder="Mensual | 30 | 20 USDT&#10;Trimestral | 90 | 50 USDT">${esc((s.plans||[]).map(x=>[x.name,x.days,x.price].join(" | ")).join("\n"))}</textarea></label>
+    <label for="sPN">Indicaciones extra para pagar (opcional)<input id="sPN" value="${esc(s.payNote||"")}" placeholder="Ej.: envía exactamente el monto en USDT"></label>
     <h3>Contacto y pie de página</h3><label for="sCo">Contacto (WhatsApp, correo…)<input id="sCo" value="${esc(s.contact||"")}"></label>
     <label for="sSo">Redes (una por línea: Nombre | enlace)<textarea id="sSo" style="min-height:80px" placeholder="Instagram | https://instagram.com/...">${esc(s.social||"")}</textarea></label>
     <label for="sL">Aviso legal<textarea id="sL" style="min-height:80px">${esc(s.legal||"")}</textarea></label>
@@ -88,6 +93,8 @@ function sitio(){
       cards:pairs($("#sC").value).map(p=>({title:p[0],text:p[1]||""})),steps:pairs($("#sS").value).map(p=>({title:p[0],text:p[1]||""})),
       markets:pairs($("#sM").value).map(p=>({cat:p[0],name:p[1]||"",status:p[2]||"Próximamente",text:p[3]||""})),
       premiumTitle:$("#sPT").value.trim(),premiumText:$("#sPX").value.trim(),premiumItems:$("#sPI").value.split("\n").map(x=>x.trim()).filter(Boolean),
+      binancePayId:$("#sBP").value.trim(),binanceName:$("#sBN").value.trim(),payNote:$("#sPN").value.trim(),
+      plans:pairs($("#sPL").value).map(p=>({name:p[0],days:Math.max(1,Math.min(3650,parseInt(p[1])||30)),price:p[2]||""})),
       closedTitle:$("#sAT").value.trim(),closedText:$("#sAX").value.trim(),discordUrl:$("#sDU").value.trim(),discordTitle:$("#sDT").value.trim(),discordText:$("#sDX").value.trim(),discordItems:$("#sDI").value.split("\n").map(x=>x.trim()).filter(Boolean),communityStats:pairs($("#sCS").value).map(p=>({v:p[0],t:p[1]||""})),
       contact:$("#sCo").value.trim(),social:$("#sSo").value.trim(),legal:$("#sL").value.trim()});
     try{busy($("#sv"),true);await API.saveSite(s);S.site=s;A.applySite();toast("Cambios guardados")}catch(x){toast(x.message)}finally{busy($("#sv"),false)}};
@@ -261,6 +268,28 @@ async function opiniones(){
   $$("[data-ap]").forEach(b=>b.onclick=async()=>{await API.setReview(b.dataset.ap,{approved:true});toast("Opinión publicada");opiniones()});
   $$("[data-h]").forEach(b=>b.onclick=async()=>{await API.setReview(b.dataset.h,{approved:false});opiniones()});
   $$("[data-dl]").forEach(b=>b.onclick=()=>A.confirmInline($(`[data-dw="${b.dataset.dl}"]`),"¿Borrar?",async()=>{await API.delReview(b.dataset.dl);opiniones()}));
+}
+
+/* ---------- pagos ---------- */
+async function pagos(){
+  H().innerHTML='<div class="muted">Cargando pagos…</div>';let list=[];try{list=await API.adminPayments()}catch(e){H().innerHTML=`<div class="empty">No se pudieron cargar los pagos. ¿Ya corriste supabase/pagos.sql en Supabase? (${esc(e.message)})</div>`;return}
+  const pend=list.filter(x=>x.status==="pendiente"),rest=list.filter(x=>x.status!=="pendiente");
+  const isP=u=>u.premium_until&&new Date(u.premium_until)>new Date();
+  const fila=r=>`<div class="item pay" style="align-items:flex-start;flex-wrap:wrap"><span class="txt" style="min-width:240px;flex:1">
+      <b>${esc(r.username||"alumno")} · ${esc(r.plan||"Plan")} · ${esc(r.amount||"")}</b>
+      <span>${esc(r.email||"")} · ${fmtDT(r.created_at)}${isP(r)?` · premium hasta ${fmtDate(r.premium_until)}`:""}</span>
+      <span>ID de orden: <b class="mono sel">${esc(r.order_id)}</b> <button type="button" class="btn sm ghost" data-cp="${esc(r.order_id)}">Copiar</button></span>
+      ${r.note?`<span>Nota: ${esc(r.note)}</span>`:""}${r.admin_note?`<span class="dim">Tu nota: ${esc(r.admin_note)}</span>`:""}</span>
+    ${r.status==="pendiente"?`<span class="row" data-w="${esc(r.id)}"><label class="dim" style="display:flex;gap:6px;align-items:center">Días <input type="number" min="1" max="3650" value="${r.days}" data-d="${esc(r.id)}" style="width:80px;background:var(--bg2);border:1px solid var(--line2);border-radius:8px;padding:6px;color:var(--fg)"></label>
+      <button class="btn sm ok" data-ok="${esc(r.id)}">Aprobar</button><button class="btn sm bad" data-no="${esc(r.id)}">Rechazar</button></span>`
+      :`<span class="tag ${r.status==="aprobado"?"pub":""}">${r.status==="aprobado"?`Aprobado · ${r.days} días`:"Rechazado"}</span>`}</div>`;
+  H().innerHTML=`<div style="display:grid;gap:16px"><div class="panel"><div class="sec-h"><h3>Pagos por confirmar (${pend.length})</h3><span class="muted">Revisa en tu Binance (Pay → Historial) que el ID de orden y el monto coincidan antes de aprobar.</span></div>
+    <div class="list">${pend.map(fila).join("")||'<div class="muted">No hay pagos pendientes.</div>'}</div></div>
+    <div class="panel"><h3>Historial</h3><div class="list">${rest.map(fila).join("")||'<div class="muted">Sin pagos revisados todavía.</div>'}</div></div></div>`;
+  $$("[data-cp]").forEach(b=>b.onclick=async()=>{try{await navigator.clipboard.writeText(b.dataset.cp);toast("ID copiado")}catch(e){toast("No se pudo copiar")}});
+  $$("[data-ok]").forEach(b=>b.onclick=()=>{const id=b.dataset.ok;const r=list.find(x=>x.id===id);const d=Math.max(1,parseInt($(`[data-d="${id}"]`).value)||r.days);
+    A.confirmInline($(`[data-w="${id}"]`),`¿Confirmaste el pago en tu Binance? Se le suman ${d} días a ${r.username}.`,async()=>{try{const x=await API.reviewPayment(id,true,d,"");toast(`Premium activado${x&&x.premium_until?" hasta "+fmtDate(x.premium_until):""}`)}catch(e){toast(e.message)}pagos()})});
+  $$("[data-no]").forEach(b=>b.onclick=()=>{const id=b.dataset.no;A.confirmInline($(`[data-w="${id}"]`),"¿Rechazar este pago? (no encontraste el pago o el monto no coincide)",async()=>{try{await API.reviewPayment(id,false,null,"No encontramos el pago con ese ID de orden");toast("Pago rechazado")}catch(e){toast(e.message)}pagos()})});
 }
 
 /* ---------- alumnos ---------- */

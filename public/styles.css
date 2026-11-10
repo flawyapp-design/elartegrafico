@@ -454,3 +454,6 @@ nav.main a.navx{color:var(--gold2)}
 .modes .v.pend{color:var(--gold2)}
 .mhint{font-size:13px;align-self:center}
 .item.lock{opacity:.6;cursor:not-allowed}
+.plans{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px}
+.plan{border:1px solid var(--line2);border-radius:12px;padding:12px 14px;background:var(--bg2);display:grid;gap:2px}
+.plan .price{font-size:22px;font-weight:800;color:var(--gold2)}

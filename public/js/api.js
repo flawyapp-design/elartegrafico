@@ -137,6 +137,11 @@ function SupabaseAPI(url,key){
     adminReviews(){return rpc("admin_reviews")},
     setReview(id,patch){return req(`/rest/v1/reviews?id=eq.${id}`,{method:"PATCH",body:patch,headers:{Prefer:"return=minimal"}})},
     delReview(id){return del("reviews",id)},
+    // pagos (Binance, semiautomático)
+    async payRequest(o){const r=await req("/rest/v1/payment_requests",{method:"POST",body:{method:"binance",plan:o.plan||"",days:o.days||30,amount:o.amount||"",order_id:o.order_id,note:o.note||""},headers:{Prefer:"return=representation"}});return r&&r[0]},
+    myPayments(){if(!sess||!sess.user)return Promise.resolve([]);return sel("payment_requests",`&user_id=eq.${sess.user.id}&order=created_at.desc`)},
+    adminPayments(){return rpc("admin_payments")},
+    reviewPayment(id,approve,days,note){return rpc("review_payment",{pid:id,approve,p_days:days==null?null:days,p_note:note||""})},
     async files(){const r=await req("/storage/v1/object/list/media",{method:"POST",body:{prefix:"",limit:200,sortBy:{column:"created_at",order:"desc"}}});return(r||[]).map(f=>({name:f.name,url:`${url}/storage/v1/object/public/media/${f.name}`,size:f.metadata&&f.metadata.size}))},
   };
 }
@@ -231,6 +236,16 @@ function LocalAPI(){
     async adminReviews(){need();return db.reviews.map(r=>{const p=db.profiles.find(x=>x.id===r.user_id)||{};return Object.assign({},r,{username:p.username})}).sort((a,b)=>(a.approved-b.approved)||String(b.created_at).localeCompare(a.created_at))},
     async setReview(id,patch){need();Object.assign(db.reviews.find(r=>r.id===id)||{},patch);save()},
     async delReview(id){const r=db.reviews.find(x=>x.id===id);if(r&&(r.user_id===uid||adm()))rm("reviews",id)},
+    async payRequest(o){if(!uid)throw new Error("Inicia sesión");db.payments=db.payments||[];
+      const oid=String(o.order_id||"").trim();if(oid.length<4)throw new Error("Escribe el ID de orden de Binance.");
+      if(db.payments.some(x=>x.status!=="rechazado"&&x.order_id.toLowerCase()===oid.toLowerCase()))throw new Error("Ese ID de orden ya fue registrado.");
+      if(db.payments.filter(x=>x.user_id===uid&&x.status==="pendiente").length>=3)throw new Error("Ya tienes 3 pagos por confirmar. Espera a que los revisemos.");
+      const r={id:uuid(),user_id:uid,method:"binance",plan:o.plan||"",days:o.days||30,amount:o.amount||"",order_id:oid,note:o.note||"",status:"pendiente",admin_note:"",created_at:now(),reviewed_at:null};db.payments.push(r);save();return r},
+    async myPayments(){return(db.payments||[]).filter(x=>x.user_id===uid).sort((a,b)=>String(b.created_at).localeCompare(a.created_at))},
+    async adminPayments(){need();return(db.payments||[]).map(r=>{const p=db.profiles.find(x=>x.id===r.user_id)||{};const u=db.users.find(x=>x.id===r.user_id)||{};return Object.assign({},r,{username:p.username,email:u.email,premium_until:p.premium_until})}).sort((a,b)=>((b.status==="pendiente")-(a.status==="pendiente"))||String(b.created_at).localeCompare(a.created_at))},
+    async reviewPayment(id,approve,days,note){need();const r=(db.payments||[]).find(x=>x.id===id);if(!r)throw new Error("El pago no existe");if(r.status!=="pendiente")throw new Error("Este pago ya fue revisado");
+      let hasta=null;if(approve){const d=days||r.days;const p=db.profiles.find(x=>x.id===r.user_id);const base=Math.max(Date.now(),p.premium_until?new Date(p.premium_until).getTime():0);hasta=new Date(base+d*864e5).toISOString();p.premium_until=hasta;r.days=d}
+      Object.assign(r,{status:approve?"aprobado":"rechazado",admin_note:note||"",reviewed_at:now()});save();return{status:r.status,premium_until:hasta}},
     resetLocal(){localStorage.removeItem(KEY);localStorage.removeItem("ag_local_uid");location.reload()},
   };
 }

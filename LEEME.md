@@ -70,7 +70,12 @@ Sin Turnstile, la web usa un captcha propio. Sirve para frenar bots simples, per
 - **Reiniciar** sus 5 gráficas de prueba.
 - **Hacer administrador.**
 
-Más adelante conectamos el pago (Binance Pay / Wompi) para que se active solo.
+### Pagos con Binance Pay (semiautomático)
+
+1. Corre `supabase/pagos.sql` en Supabase → SQL Editor (una sola vez).
+2. En **Panel → Sitio y textos → Pagos con Binance Pay** pon tu Binance Pay ID y tus planes (`Nombre | días | precio`).
+3. El alumno paga desde Binance y registra el **ID de orden** en la página Premium.
+4. En **Panel → Pagos** revisas en tu Binance que llegó y le das **Aprobar**: se le suman los días de premium.
 
 ---
 
