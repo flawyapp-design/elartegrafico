@@ -1348,3 +1348,11 @@ nav.main .mnav-sw a.on{color:#1b1405!important;background:linear-gradient(180deg
 .pl-op:has(input:checked){border-color:var(--gold);background:rgba(216,176,98,.07)}
 .uc-st .pill{margin-top:4px}
 .pl-box label[for=plT]{display:block}.pl-box #plT{display:block;width:100%;margin-top:8px;min-height:130px}
+/* modo prueba del admin */
+.view-bar{position:fixed;left:50%;top:10px;transform:translateX(-50%);z-index:95;display:flex;gap:10px;align-items:center;flex-wrap:wrap;justify-content:center;padding:8px 10px 8px 16px;border-radius:999px;background:linear-gradient(135deg,#3a2a06,#1b1405);border:1px solid #d8b062;color:#fff;box-shadow:0 10px 30px rgba(0,0,0,.5);font-size:14px;max-width:calc(100% - 24px)}
+.view-bar select{background:#0a1330;color:#fff;border:1px solid #d8b062;border-radius:999px;padding:5px 10px;font:inherit;font-weight:700}
+@media (max-width:860px){.view-bar{top:auto;bottom:calc(84px + env(safe-area-inset-bottom,0px));border-radius:16px}}
+.adm-view{margin:8px 0}.adm-view summary{list-style:none;cursor:pointer;width:100%;justify-content:center}.adm-view summary::-webkit-details-marker{display:none}
+.adm-view-m{display:grid;gap:6px;margin-top:8px}
+.adm-view-m button{display:grid;text-align:left;gap:2px;padding:10px 12px;border-radius:12px;border:1px solid var(--line2);background:var(--card);color:var(--fg);cursor:pointer}
+.adm-view-m button:hover{border-color:var(--gold)}.adm-view-m small{color:var(--muted)}.adm-view-m .dim{font-size:12px}

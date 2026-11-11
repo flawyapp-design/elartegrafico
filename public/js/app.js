@@ -20,10 +20,14 @@ const S={site:{},user:null,prof:null,modules:[],lindex:[],prog:null,loaded:false
 const blankProg=()=>({xp:0,done:{},streak:0,lastDay:"",practice:{n:0,ok:0,row:0,best:0},ach:[],px:[]});
 /* cada ejercicio da puntos solo la primera vez (repetirlo no suma más) */
 function exXP(ex,pts){if(!pts||!ex)return;S.prog.px=S.prog.px||[];const k=ex.id||"";if(k&&S.prog.px.includes(k))return;if(k){S.prog.px.push(k);if(S.prog.px.length>3000)S.prog.px=S.prog.px.slice(-3000)}addXP(pts)}
-const premium=()=>API.isPremium(), admin=()=>API.isAdmin(), logged=()=>!!API.user();
+/* modo prueba del admin: ver la página como un alumno (gratis, en prueba gratis o premium) sin cambiar de usuario */
+const VIEWS={gratis:"Alumno gratis",prueba:"Alumno en prueba gratis",premium:"Alumno premium"};
+const viewAs=()=>{if(!API.isAdmin())return"";let v="";try{v=sessionStorage.getItem("ag_view_as")||""}catch(e){}return VIEWS[v]?v:""};
+const setViewAs=v=>{try{v?sessionStorage.setItem("ag_view_as",v):sessionStorage.removeItem("ag_view_as")}catch(e){}};
+const premium=()=>{const v=viewAs();return v?v==="premium":API.isPremium()}, admin=()=>API.isAdmin()&&!viewAs(), logged=()=>!!API.user();
 /* prueba gratis: módulos marcados como "free" durante los primeros días de la cuenta */
 const trialDays=()=>{const d=(S.site||{}).trialDays;return d==null||d===""?7:Math.max(0,+d||0)};
-const trialLeft=()=>{if(!logged()||premium())return 0;const p=API.profile()||{},u=API.user()||{};const c=Math.max(new Date(p.created_at||u.created_at||Date.now()).getTime(),(S.site||{}).trialFrom?new Date(S.site.trialFrom).getTime():0);return Math.max(0,Math.ceil((c+trialDays()*864e5-Date.now())/864e5))};
+const trialLeft=()=>{if(viewAs()==="prueba")return trialDays();if(viewAs()==="gratis")return 0;if(!logged()||premium())return 0;const p=API.profile()||{},u=API.user()||{};const c=Math.max(new Date(p.created_at||u.created_at||Date.now()).getTime(),(S.site||{}).trialFrom?new Date(S.site.trialFrom).getTime():0);return Math.max(0,Math.ceil((c+trialDays()*864e5-Date.now())/864e5))};
 const inTrial=()=>!closedAcad()&&trialLeft()>0;
 const canMod=m=>premium()||(!!m&&!!m.free&&inTrial());
 /* ---------- dos sitios con el mismo código: elartegrafico.com (principal) y academia.elartegrafico.com ---------- */
@@ -31,8 +35,10 @@ const HOST=location.hostname,PROD=/(^|\.)elartegrafico\.com$/.test(HOST);
 const SITE=PROD?(/^academia\./.test(HOST)?"academia":"main"):(new URLSearchParams(location.search).get("sitio")==="academia"?"academia":"main");
 const ACAD=SITE==="academia";
 function link(site,hash){hash=hash||"inicio";if(site===SITE)return"#"+hash;
-  if(PROD){const base=HOST.replace(/^(www\.|academia\.)/,"");return"https://"+(site==="academia"?"academia.":"")+base+"/#"+hash}
-  return location.pathname+(site==="academia"?"?sitio=academia":"")+"#"+hash}
+  let vq="";try{const v=sessionStorage.getItem("ag_view_as");if(v&&!/^admin/.test(hash))vq="ver="+encodeURIComponent(v)}catch(e){}
+  if(PROD){const base=HOST.replace(/^(www\.|academia\.)/,"");return"https://"+(site==="academia"?"academia.":"")+base+"/"+(vq?"?"+vq:"")+"#"+hash}
+  return location.pathname+(site==="academia"?"?sitio=academia"+(vq?"&"+vq:""):(vq?"?"+vq:""))+"#"+hash}
+try{const v=new URLSearchParams(location.search).get("ver");if(v)sessionStorage.setItem("ag_view_as",v)}catch(e){}
 const ACAD_R=new Set(["academia","modulo","leccion","practica","prueba","progreso","logros"]);
 const MAIN_R=new Set(["entrar","registro","recuperar","noticias","comunidad","nota","opiniones","mercados","legal","terminos","privacidad","retos","reto","ranking","puntos"]);
 const toAcad=h=>link("academia",h),toMain=h=>link("main",h);
@@ -80,7 +86,7 @@ const premTag=()=>'<span class="prem-tag" title="Alumno premium"><svg viewBox="0
 const COUNTRIES=["Colombia","México","Argentina","Chile","Perú","Ecuador","Venezuela","Bolivia","Uruguay","Paraguay","Panamá","Costa Rica","Guatemala","Honduras","El Salvador","Nicaragua","República Dominicana","Puerto Rico","Cuba","España","Estados Unidos","Otro"];
 /* ---------- completar perfil: foto y país (paso a paso) ---------- */
 function onboard(){
-  const p=API.profile();if(!p||!logged()||admin()||$("#onb"))return;
+  const p=API.profile();if(!p||!logged()||API.isAdmin()||$("#onb"))return;
   let skipFoto=false;try{skipFoto=sessionStorage.getItem("ag_onb_foto")==="1"}catch(e){}
   const needC=!p.country,needF=!p.avatar_url&&!skipFoto;if(!needC&&!needF)return;
   const steps=[...(needF?["foto"]:[]),...(needC?["pais"]:[]),"listo"];let k=0,av=p.avatar_url||"",pais=p.country||"";
@@ -181,7 +187,12 @@ function sideState(){let off=false;try{off=localStorage.getItem("ag_side_off")==
   let f=$("#sideShow");if(!f){f=document.createElement("button");f.id="sideShow";f.type="button";f.className="side-show";f.title="Mostrar menú";f.setAttribute("aria-label","Mostrar menú");f.innerHTML=EYE_ON;document.body.appendChild(f);
     f.onclick=()=>{try{localStorage.setItem("ag_side_off","0")}catch(e){}sideState();window.dispatchEvent(new Event("resize"))}}}
 document.addEventListener("click",e=>{if(e.target.closest&&e.target.closest("#sideHide")){try{localStorage.setItem("ag_side_off","1")}catch(x){}sideState();window.dispatchEvent(new Event("resize"))}});
-function renderNav(){sideState();document.body.classList.toggle("is-acad",!!ACAD);
+function viewBar(){let b=$("#viewBar");const v=viewAs();if(!v){if(b)b.remove();document.body.classList.remove("viewing");return}
+  if(!b){b=document.createElement("div");b.id="viewBar";b.className="view-bar";document.body.appendChild(b)}document.body.classList.add("viewing");
+  b.innerHTML=`<span>👁 <b>Modo prueba:</b> así ve la página un</span><select aria-label="Ver como">${Object.entries(VIEWS).map(([k,t])=>`<option value="${k}"${k===v?" selected":""}>${t.replace("Alumno ","alumno ")}</option>`).join("")}</select><a class="btn sm gold" href="${toMain("admin")}">Volver a admin</a>`;
+  $("select",b).onchange=e=>{setViewAs(e.target.value);renderNav();route()}}
+window.AGVIEW=v=>{setViewAs(v);viewBar();renderNav();location.hash="#inicio";route()};
+function renderNav(){sideState();viewBar();document.body.classList.toggle("is-acad",!!ACAD);
   let r=(location.hash||"#inicio").slice(1).split("-")[0];if(r==="noticias"||r==="nota")r="comunidad";
   const rw=rewardsOn()||admin();
   const L=ACAD?[["inicio","Mi panel"],["academia","Temario"],["practica","Práctica"],["logros","Logros"],["progreso","Progreso"]].concat(premium()?[]:[["prueba","Prueba gratis"]])
@@ -242,7 +253,7 @@ function renderFoot(){const s=S.site;
 
 let sid;try{sid=sessionStorage.getItem("ag_sid")||Math.random().toString(36).slice(2,12);sessionStorage.setItem("ag_sid",sid)}catch(e){sid=Math.random().toString(36).slice(2,12)}
 const ROUTES={};
-function route(keep){
+function route(keep){if(/^#admin/.test(location.hash)&&API.isAdmin()){let v="";try{v=sessionStorage.getItem("ag_view_as")}catch(e){}if(v){setViewAs("");viewBar();renderNav()}}
   clear();$("#nav").classList.remove("open");document.body.classList.remove("sheet-open");const h=(location.hash||"#inicio").slice(1)||"inicio";if(keep!==true)window.scrollTo(0,0);
   const [k,...rest]=h.split("-");const arg=rest.join("-");
   if(!ACAD&&ACAD_R.has(k)){location.href=toAcad(h);return}
@@ -1088,7 +1099,7 @@ ROUTES.prueba=()=>{location.hash="#inicio";setTimeout(()=>{const p=$("#prueba");
 /* exportar para los otros archivos */
 /* el panel de administración se descarga solo cuando se abre */
 let admLoad=null;
-ROUTES.admin=async sub=>{if(!admin()){location.hash="#inicio";return}app.innerHTML='<div class="muted">Cargando administración…</div>';
+ROUTES.admin=async sub=>{if(viewAs()){setViewAs("");viewBar();renderNav()}if(!admin()){location.hash="#inicio";return}app.innerHTML='<div class="muted">Cargando administración…</div>';
   admLoad=admLoad||new Promise((ok,no)=>{const sc=document.createElement("script");sc.src="js/admin.js?v=1";sc.onload=ok;sc.onerror=no;document.body.appendChild(sc)});
   try{await admLoad}catch(e){app.innerHTML='<div class="empty">No se pudo cargar la administración. Revisa tu conexión y recarga.</div>';return}
   if(ROUTES.admin.__lazy){app.innerHTML='<div class="empty">No se pudo cargar la administración.</div>';return}ROUTES.admin(sub)};

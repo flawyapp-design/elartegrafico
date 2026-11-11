@@ -20,12 +20,18 @@ A.ROUTES.admin=sub=>{
   app.innerHTML=`<div class="adm">
     <aside class="adm-side">
       <div class="adm-brand"><span class="eyebrow">Administración</span><b>Panel de control</b></div>
+      <details class="adm-view"><summary class="btn sm">👁 Modo prueba: ver como alumno</summary><div class="adm-view-m">
+        <button type="button" data-va="gratis"><b>Alumno gratis</b><small>Cuenta nueva sin prueba ni premium</small></button>
+        <button type="button" data-va="prueba"><b>En prueba gratis</b><small>Con el módulo de prueba abierto</small></button>
+        <button type="button" data-va="premium"><b>Alumno premium</b><small>Todo el contenido abierto</small></button>
+        <span class="dim">No cambia tu cuenta. Para salir toca "Volver a admin".</span></div></details>
       <div class="adm-st ${closed?"off":"on"}"><span class="dot"></span><div><b>Academia ${closed?"cerrada":"abierta"}</b><small>${closed?"Solo tú la ves":"Los alumnos pueden entrar"}</small></div><button class="btn sm ${closed?"gold":"bad"}" id="acSw">${closed?"Abrir":"Cerrar"}</button></div>
       <button type="button" class="adm-mbtn" id="admMb" aria-expanded="false">${ico(TICO[tab]||"news",20)}<span><small>Sección</small><b>${cur[1]}</b></span><i>▾</i></button>
       <nav class="adm-nav" aria-label="Secciones de administración">${GROUPS.map(([g,ks])=>`<div class="adm-g"><span class="adm-gt">${g}</span>${ks.map(k=>{const t=TABS.find(x=>x[0]===k);return `<button type="button" class="${tab===k?"on":""}" data-t="${k}"${tab===k?' aria-current="page"':""}>${ico(TICO[k]||"news",18)}<span>${t[1]}</span><i class="adm-b" data-badge="${k}"></i></button>`}).join("")}</div>`).join("")}</nav>
     </aside>
     <section class="adm-main"><header class="adm-h"><span class="adm-hi">${ico(TICO[tab]||"news",22)}</span><div><h1>${cur[1]}</h1><p class="muted">${TDESC[tab]||""}</p></div></header><div id="adm"></div></section>
   </div>`;
+  $$("[data-va]").forEach(b=>b.onclick=()=>window.AGVIEW(b.dataset.va));
   $$("[data-t]").forEach(b=>b.onclick=()=>{location.hash="#admin-"+b.dataset.t});
   $("#admMb").onclick=()=>{const n=$(".adm-nav"),o=n.classList.toggle("open");$("#admMb").setAttribute("aria-expanded",String(o))};
   $("#acSw").onclick=()=>{const host=$("#acSw").parentElement;A.confirmInline(host,closed?"¿Abrir la academia a todos?":"¿Cerrar la academia?",async()=>{
