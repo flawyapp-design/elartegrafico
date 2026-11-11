@@ -744,6 +744,13 @@ async function syllabus(host,limit){
     return `<a class="mod ${op?"":"soon-mod"}" href="#modulo-${esc(m.id)}"><span class="num">${esc(m.level||cat)}</span><h3>${esc(m.title)}</h3><p>${esc(m.descr||"")}</p>
       <div class="meta"><span>${ls.length} ${ls.length===1?"lección":"lecciones"}</span>${m.optional?'<span class="tag pub">Opcional</span>':""}${op?"":`<span class="tag lock">${esc(modState(m))}</span>`}${premium()||!op?"":'<span class="tag">Premium</span>'}${m.status!=="publicado"?'<span class="tag">Borrador</span>':""}</div>${premium()?`<div class="bar"><i style="width:${Math.round(pr*100)}%"></i></div>`:""}</a>`}).join("")}</div></div>`}).join("")}
 function modProgress(mid,ls){ls=ls||S.lindex.filter(l=>l.module_id===mid);if(!ls.length||!S.prog)return 0;return ls.filter(l=>S.prog.done[l.id]&&S.prog.done[l.id].passed).length/ls.length}
+/* reproducir enlaces .m3u8 (Bunny "playlist.m3u8") también en Chrome/Android con hls.js */
+let hlsP=null;
+function hlsAttach(v){const u=v.dataset.hls;if(!u||v.__hls)return;v.__hls=1;
+  if(v.canPlayType("application/vnd.apple.mpegurl")){v.src=u;return}
+  hlsP=hlsP||new Promise((ok,no)=>{if(window.Hls)return ok(window.Hls);const sc=document.createElement("script");sc.src="https://cdnjs.cloudflare.com/ajax/libs/hls.js/1.5.13/hls.min.js";sc.onload=()=>ok(window.Hls);sc.onerror=no;document.head.appendChild(sc)});
+  hlsP.then(H=>{if(!H||!H.isSupported()){v.src=u;return}const h=new H({capLevelToPlayerSize:true});h.loadSource(u);h.attachMedia(v);cleanup.push(()=>{try{h.destroy()}catch(e){}})}).catch(()=>{v.src=u})}
+function hlsInit(root){(root||document).querySelectorAll("video[data-hls]").forEach(hlsAttach)}
 /* video de una publicación: Bunny, YouTube, Vimeo o archivo .mp4/.webm/.mov */
 function mediaVideo(u,poster){u=String(u||"").trim();if(!/^https:\/\//.test(u))return"";
   const yt=u.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([\w-]{11})/),vm=u.match(/vimeo\.com\/(?:video\/)?(\d+)/),bn=u.match(/(?:iframe|player)\.mediadelivery\.net\/(?:embed|play)\/(\d+)\/([\w-]+)/);
@@ -751,6 +758,7 @@ function mediaVideo(u,poster){u=String(u||"").trim();if(!/^https:\/\//.test(u))r
   if(bn)return fr(`https://iframe.mediadelivery.net/embed/${bn[1]}/${bn[2]}?autoplay=false&preload=false&responsive=true`);
   if(yt)return fr(`https://www.youtube-nocookie.com/embed/${yt[1]}?rel=0`);
   if(vm)return fr(`https://player.vimeo.com/video/${vm[1]}`);
+  if(/\.m3u8(\?|$)/i.test(u)){const th=/b-cdn\.net\/[\w-]+\/playlist\.m3u8/.test(u)?u.replace(/playlist\.m3u8.*$/,"thumbnail.jpg"):"";return `<div class="pvid"><video controls playsinline preload="metadata" poster="${esc(poster||th)}" data-hls="${esc(u)}"></video></div>`}
   if(/\.(mp4|webm|mov|m4v)(\?|$)/i.test(u))return `<div class="pvid"><video controls playsinline preload="metadata"${poster?` poster="${esc(poster)}"`:""} src="${esc(u)}"></video></div>`;
   return ""}
 
@@ -955,7 +963,7 @@ function videoBlock(host,l){
     // tiempo de video aproximado: mientras la lección está visible y la ventana enfocada después de interactuar con el video
     let active=false;const onBlur=()=>{if(document.activeElement&&document.activeElement.tagName==="IFRAME")active=true};window.addEventListener("blur",onBlur);
     const iv=setInterval(()=>{if(active&&document.visibilityState==="visible"){last+=30;if(last>=60){tick(last);last=0}}},30000);cleanup.push(()=>{clearInterval(iv);window.removeEventListener("blur",onBlur);tick(last)});return}
-  if(/\.(mp4|webm|m3u8)(\?|$)/i.test(u)||u.includes("/storage/v1/object/")){host.innerHTML=shell(`<video controls preload="metadata" src="${esc(u)}" controlslist="nodownload noplaybackrate nofullscreen" disablepictureinpicture oncontextmenu="return false"></video>`);mountExtras();
+  if(/\.(mp4|webm|m3u8)(\?|$)/i.test(u)||u.includes("/storage/v1/object/")){const isH=/\.m3u8(\?|$)/i.test(u);host.innerHTML=shell(`<video controls preload="metadata" playsinline ${isH?`data-hls="${esc(u)}"`:`src="${esc(u)}"`} controlslist="nodownload noplaybackrate nofullscreen" disablepictureinpicture oncontextmenu="return false"></video>`);mountExtras();hlsInit(host);
     const v=$("video",host);let acc=0,prev=0;v.addEventListener("timeupdate",()=>{const d=v.currentTime-prev;prev=v.currentTime;if(d>0&&d<2)acc+=d;if(acc>=30){tick(acc);acc=0}});cleanup.push(()=>tick(acc));return}
   host.innerHTML=`<div class="video" style="aspect-ratio:auto;min-height:160px"><div class="ph"><b>Video de la lección</b><a class="btn gold" href="${esc(u)}" target="_blank" rel="noopener">Ver el video</a></div></div>`;
 }
@@ -981,7 +989,7 @@ ROUTES.nota=async id=>{app.innerHTML='<div class="muted">Cargando…</div>';let 
   if(!p){app.innerHTML=`<div class="empty">Esta publicación no existe o es solo para premium.<a class="btn sm" href="#comunidad">Ver publicaciones</a></div>`;return}
   app.innerHTML=`<div class="crumbs"><a href="#comunidad">Comunidad</a><span>/</span><span>${esc(p.category||"Noticia")}</span></div>
    <article class="article"><div class="pagehead"><span class="eyebrow">${esc(p.category||"Noticia")} · ${fmtDate(p.created_at)}</span><h1>${esc(p.title)}</h1></div>${p.video_url&&mediaVideo(p.video_url,p.image_url)?mediaVideo(p.video_url,p.image_url):p.image_url?`<div class="cover" style="background-image:url('${esc(p.image_url)}')"></div>`:""}<div class="prose">${md(p.body)}</div></article>
-   <section class="sec"><h2>Comentarios</h2><div id="cl" class="list"></div><div id="cf"></div></section>`;
+   <section class="sec"><h2>Comentarios</h2><div id="cl" class="list"></div><div id="cf"></div></section>`;hlsInit(app);
   const load=async()=>{if(!logged()){$("#cl").innerHTML=`<div class="note"><a href="#entrar">Ingresa</a> para ver y escribir comentarios.</div>`;return}
     let cs=[];try{cs=await API.comments(id)}catch(e){}
     $("#cl").innerHTML=cs.map(c=>`<div class="comment"><div class="who">${avatar(c,30)}<b>${esc(c.username)}</b>${c.is_admin?'<span class="tag pub">El Arte Gráfico</span>':""}<span class="dim">${fmtDT(c.created_at)}</span>${c.mine||admin()?`<button class="btn sm ghost" data-del="${esc(c.id)}" style="margin-left:auto">Borrar</button>`:""}</div><div>${md(c.body)}</div></div>`).join("")||'<div class="muted">Sé el primero en comentar.</div>';
@@ -1057,7 +1065,7 @@ ROUTES.admin=async sub=>{if(!admin()){location.hash="#inicio";return}app.innerHT
   try{await admLoad}catch(e){app.innerHTML='<div class="empty">No se pudo cargar la administración. Revisa tu conexión y recarga.</div>';return}
   if(ROUTES.admin.__lazy){app.innerHTML='<div class="empty">No se pudo cargar la administración.</div>';return}ROUTES.admin(sub)};
 ROUTES.admin.__lazy=true;
-window.AGAPP={mediaVideo,ico,avatar,affTag,absUrl,enablePush,flag,premTag,legalText,modOpen,modState,SITE,ACAD,link,toAcad,toMain,S,API,$,$$,esc,md,toast,busy,fmtT,fmtDate,fmtDT,TZ,MARKETS,MNAME,h1Bars,m5Bars,idxAt,avgRange,toC,Chart,cleanupPush:f=>cleanup.push(f),route,ROUTES,app,premium,admin,logged,confirmInline,loadContent:()=>loadContent(),renderFoot:()=>renderFoot(),applySite:()=>applySite()};
+window.AGAPP={mediaVideo,hlsInit,ico,avatar,affTag,absUrl,enablePush,flag,premTag,legalText,modOpen,modState,SITE,ACAD,link,toAcad,toMain,S,API,$,$$,esc,md,toast,busy,fmtT,fmtDate,fmtDT,TZ,MARKETS,MNAME,h1Bars,m5Bars,idxAt,avgRange,toC,Chart,cleanupPush:f=>cleanup.push(f),route,ROUTES,app,premium,admin,logged,confirmInline,loadContent:()=>loadContent(),renderFoot:()=>renderFoot(),applySite:()=>applySite()};
 
 /* ---------- arranque ---------- */
 async function loadContent(){const [m,l]=await Promise.all([API.modules().catch(()=>[]),API.lessonIndex().catch(()=>[])]);S.modules=m||[];S.lindex=l||[]}

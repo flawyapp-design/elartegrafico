@@ -319,7 +319,7 @@ async function noticias(){
   const edit=p=>{$("#pe").innerHTML=`<form class="form" id="pf"><h3>${p.id?"Editar publicación":"Nueva publicación"}</h3>
     <label for="pT">Título<input id="pT" value="${esc(p.title||"")}"></label><div class="two"><label for="pC">Categoría<input id="pC" list="pcats" value="${esc(p.category||"Noticia")}"><datalist id="pcats"><option value="Noticia"><option value="Anuncio"><option value="Actualización"><option value="Análisis"><option value="Comunidad"></datalist></label>
     <div class="row">${fileBtn("pI","Imagen de portada")}<input id="pU" value="${esc(p.image_url||"")}" placeholder="o URL de imagen" style="flex:1;min-width:180px"></div></div>
-    <label for="pV">Video (opcional)<span class="dim" style="font-weight:400"> · súbelo aquí (hasta 50 MB) o pega un enlace de Bunny, YouTube o un .mp4</span></label>
+    <label for="pV">Video (opcional)<span class="dim" style="font-weight:400"> · súbelo aquí (hasta 50 MB) o pega un enlace de Bunny (sirve el de "playlist.m3u8" o el de "embed"), YouTube o un .mp4</span></label>
     <div class="row"><label class="btn sm" for="pVf" style="cursor:pointer">Subir video</label><input id="pVf" type="file" hidden accept="video/mp4,video/webm,video/quicktime"><input id="pV" value="${esc(p.video_url||"")}" placeholder="https://iframe.mediadelivery.net/embed/… o https://youtu.be/…" style="flex:1;min-width:200px"></div>
     <div id="pVp"></div>
     <label for="pB">Contenido<textarea id="pB" style="min-height:220px">${esc(p.body||"")}</textarea></label>
@@ -327,7 +327,7 @@ async function noticias(){
     <label style="display:flex;gap:8px;align-items:center;color:var(--fg)"><input type="checkbox" id="pNt" style="width:auto" ${p.id?"":"checked"}> Avisar a los alumnos con una notificación${p.id?" (es una edición: márcalo solo si el cambio es importante)":""}</label>
     <div class="row"><button class="btn gold" id="ps">Publicar</button>${p.id?`<a class="btn ghost" href="#nota-${esc(p.id)}">Ver</a><span id="pd"><button type="button" class="btn sm bad" id="pdb">Eliminar</button></span>`:""}</div></form>`;
     bindUpload("pI",u=>$("#pU").value=u);
-    const vprev=()=>{const u=$("#pV").value.trim();$("#pVp").innerHTML=u?A.mediaVideo(u,$("#pU").value.trim()):""};$("#pV").oninput=vprev;vprev();
+    const vprev=()=>{const u=$("#pV").value.trim();$("#pVp").innerHTML=u?A.mediaVideo(u,$("#pU").value.trim()):"";A.hlsInit($("#pVp"))};$("#pV").oninput=vprev;vprev();
     $("#pVf").onchange=async e=>{const f=e.target.files[0];if(!f)return;if(f.size>50*1024*1024){toast("El video pesa más de 50 MB. Súbelo a Bunny o YouTube y pega el enlace.");return}
       toast("Subiendo video… no cierres esta página");try{const u=await API.upload(f);$("#pV").value=u;vprev();toast("Video subido")}catch(x){toast(x.message)}};
     $("#pf").onsubmit=async e=>{e.preventDefault();const o={title:$("#pT").value.trim()||"Sin título",category:$("#pC").value.trim()||"Noticia",image_url:$("#pU").value.trim(),body:$("#pB").value,pinned:$("#pPin").checked,premium_only:$("#pPr").checked,allow_comments:$("#pCo").checked};if(p.id)o.id=p.id;{const v=$("#pV").value.trim();if(v||p.video_url)o.video_url=v}
