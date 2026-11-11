@@ -132,14 +132,20 @@ function setTheme(t){const r=document.documentElement;if(t==="light")r.setAttrib
   const b=$("#themeBtn");if(b){b.setAttribute("aria-label",t==="light"?"Cambiar a modo oscuro":"Cambiar a modo claro")}
   window.dispatchEvent(new Event("ag-theme"))}
 document.addEventListener("click",e=>{if(e.target.closest&&e.target.closest("#themeBtn"))setTheme(getTheme()==="light"?"dark":"light")});
-function renderNav(){
+function renderNav(){document.body.classList.toggle("is-acad",!!ACAD);
   let r=(location.hash||"#inicio").slice(1).split("-")[0];if(r==="noticias"||r==="nota")r="comunidad";
   const L=ACAD?[["inicio","Mi panel"],["academia","Temario"],["practica","Práctica"],["ranking","Ranking"]].concat(premium()?[]:[["prueba","Prueba gratis"]])
              :[["inicio","Inicio"],["comunidad","Comunidad"],["opiniones","Opiniones"],["mercados","Mercados"],["premium","Premium"]];
   if(ACAD&&closedAcad()&&!admin())L.length=0;
   const u=API.user(),p=API.profile();const lv=levelOf((S.prog&&S.prog.xp)||0);
   const other=ACAD?`<a class="navx" href="${toMain("inicio")}">El Arte Gráfico ↗</a>`:(u&&p?`<a class="btn sm gold navacad" href="${toAcad("inicio")}">Ir a la academia</a>`:"");
-  $("#nav").innerHTML=L.map(([k,t])=>`<a href="#${k}" class="${r===k?"on":""}">${t}</a>`).join("")+other+
+  const NI={inicio:"home",comunidad:"chat",opiniones:"star",mercados:"chart",premium:"crown",academia:"acad",practica:"chart",ranking:"trophy",prueba:"play"};
+  const msw=`<div class="mnav-sw" role="group" aria-label="Elige sección"><a class="${ACAD?"":"on"}" href="${ACAD?toMain("inicio"):"#inicio"}"${ACAD?"":' aria-current="true"'}>${ico("home",20)}<span><b>El Arte Gráfico</b><small>Comunidad y noticias</small></span></a><a class="${ACAD?"on":""}" href="${ACAD?"#inicio":toAcad("inicio")}"${ACAD?' aria-current="true"':""}>${ico("acad",20)}<span><b>Academia</b><small>Lecciones y práctica</small></span></a></div>
+    <div class="mnav-here"><i></i>Estás en ${ACAD?"<b>la Academia</b>":"<b>El Arte Gráfico</b>"}</div>`;
+  const mus=u&&p?`<div class="mnav-user"><a class="mnu-me" href="#perfil">${avatar(p,40)}<span><b>${esc(p.username)}</b><small>${esc(lv.name)} · ${S.prog?S.prog.xp:0} pts</small></span>${premium()?premTag():""}</a>
+      <div class="mnu-links"><a href="#perfil">${ico("gear",18)}Configuración</a>${premium()?"":`<a href="${toMain("premium")}">${ico("crown",18)}Hazte premium</a>`}${admin()?`<a href="${toMain("admin")}">${ico("news",18)}Administración</a>`:""}<button type="button" id="logout2">Cerrar sesión</button></div></div>`
+    :`<div class="mnav-user"><div class="mnu-links two"><a class="btn ghost" href="${toMain("entrar")}">Ingresar</a><a class="btn gold" href="${toMain("registro")}">Crear cuenta</a></div></div>`;
+  $("#nav").innerHTML=msw+L.map(([k,t])=>`<a href="#${k}" class="${r===k?"on":""}"><span class="mi">${ico(NI[k]||"news",20)}</span>${t}</a>`).join("")+other+mus+
     (u&&p?`<div class="dd" id="dd"><button aria-haspopup="true" aria-expanded="false" id="ddb">${avatar(p,28)}<span>${esc(p.username)}</span>${premium()?'<span class="prem-badge">Premium</span>':""}</button>
       <div class="menu" hidden><div class="who">${esc(p.email||"")}<br>${esc(lv.name)} · ${S.prog?S.prog.xp:0} pts</div>
       ${ACAD?`<a href="#perfil">⚙︎ Configuración</a><a href="#perfil-progreso">Mi progreso</a><a href="#ranking">Ranking</a><a href="${toMain("inicio")}">Ir a El Arte Gráfico</a>`:`<a href="${toAcad("inicio")}">Ir a la academia</a><a href="#perfil">⚙︎ Configuración</a><a href="#comunidad">Comunidad</a>`}
@@ -147,6 +153,7 @@ function renderNav(){
      :`<div class="userbox"><a class="btn sm ghost" href="${toMain("entrar")}">Ingresar</a><a class="btn sm gold" href="${toMain("registro")}">Crear cuenta</a></div>`);
   const dd=$("#dd");if(dd){const b=$("#ddb"),m=$(".menu",dd);b.onclick=e=>{e.stopPropagation();m.hidden=!m.hidden;b.setAttribute("aria-expanded",String(!m.hidden))};document.addEventListener("click",()=>{m.hidden=true},{once:true});
     const di=$("#ddInst");if(di)di.onclick=e=>{e.stopPropagation();m.hidden=true;installApp()};
+    const lo2=$("#logout2");if(lo2)lo2.onclick=()=>$("#logout").click();
     $("#logout").onclick=async()=>{await API.signOut();S.prog=blankProg();toast("Sesión cerrada");if(ACAD){location.href=toMain("inicio");return}location.hash="#inicio";renderNav();route()}}
 }
 $("#menuBtn").onclick=()=>{const o=$("#nav").classList.toggle("open");$("#menuBtn").setAttribute("aria-expanded",String(o))};
@@ -325,7 +332,9 @@ const IC={
   news:'<path d="M5 5h11v14H6a1 1 0 0 1-1-1V5z"/><path d="M16 9h3v9a1 1 0 0 1-1 1h-2"/><path d="M8 9h5M8 12h5M8 15h3"/>',
   gear:'<circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1.2l2-1.5-2-3.4-2.3.9a7 7 0 0 0-2-1.2L14 3h-4l-.6 2.6a7 7 0 0 0-2 1.2l-2.3-.9-2 3.4 2 1.5a7 7 0 0 0 0 2.4l-2 1.5 2 3.4 2.3-.9a7 7 0 0 0 2 1.2L10 21h4l.6-2.6a7 7 0 0 0 2-1.2l2.3.9 2-3.4-2-1.5c.1-.4.1-.8.1-1.2z"/>',
   crown:'<path d="M3 8l4.5 4L12 5l4.5 7L21 8l-2 11H5z"/>',
-  play:'<path d="M8 5v14l11-7z"/>'};
+  play:'<path d="M8 5v14l11-7z"/>',
+  home:'<path d="M4 11l8-7 8 7"/><path d="M6 9.5V20h12V9.5"/><path d="M10 20v-5h4v5"/>',
+  star:'<path d="M12 4l2.5 5.2 5.5.8-4 3.9.9 5.6L12 16.9 7.1 19.5l.9-5.6-4-3.9 5.5-.8z"/>'};
 const ico=(k,s=22)=>`<svg viewBox="0 0 24 24" width="${s}" height="${s}" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${IC[k]}</svg>`;
 function saludo(){const h=new Date(Date.now()+TZ*1000).getUTCHours();return h<5?"Buenas noches":h<12?"Buenos días":h<19?"Buenas tardes":"Buenas noches"}
 async function memberHome(){
