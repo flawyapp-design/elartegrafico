@@ -562,16 +562,21 @@ window.addEventListener("appinstalled",()=>{PWA.evt=null;toast("App instalada. B
 function absUrl(site,hash){const l=link(site,hash);return /^https?:/.test(l)?l:location.origin+location.pathname+location.search+l}
 async function pushState(){if(!pushSupported())return isIOS()&&!isStandalone()?"ios-install":"unsupported";
   if(Notification.permission==="denied")return"denied";
-  try{const reg=PWA.reg||await navigator.serviceWorker.ready;const sub=await reg.pushManager.getSubscription();return sub&&Notification.permission==="granted"?"on":"off"}catch(e){return"off"}}
+  try{const reg=await Promise.race([swReg(),new Promise((_,no)=>setTimeout(()=>no(new Error("t")),4000))]);const sub=await reg.pushManager.getSubscription();return sub&&Notification.permission==="granted"?"on":"off"}catch(e){return"off"}}
+/* registro del service worker sin quedarse esperando para siempre (iPhone a veces tarda) */
+async function swReg(){if(PWA.reg&&PWA.reg.active)return PWA.reg;
+  let reg=await navigator.serviceWorker.getRegistration("/").catch(()=>null);if(!reg)reg=await navigator.serviceWorker.register("/sw.js").catch(()=>null);
+  if(!reg)throw new Error("No se pudo preparar la app. Recarga la página.");
+  for(let i=0;i<50&&!reg.active;i++)await new Promise(r=>setTimeout(r,100));PWA.reg=reg;return reg}
 const b64u=s=>{const p="=".repeat((4-s.length%4)%4),b=atob((s+p).replace(/-/g,"+").replace(/_/g,"/"));return Uint8Array.from([...b].map(c=>c.charCodeAt(0)))};
 async function enablePush(){
   if(!logged()){toast("Inicia sesión para activar las notificaciones");return false}
   if(!pushSupported()){if(isIOS()&&!isStandalone())installHelp();else toast("Este navegador no permite notificaciones");return false}
   const perm=await Notification.requestPermission();if(perm!=="granted"){toast(perm==="denied"?"Bloqueaste las notificaciones. Actívalas en los ajustes del navegador.":"No se activaron las notificaciones");return false}
-  try{const reg=PWA.reg||await navigator.serviceWorker.ready;const key=await API.pushKey();
+  try{const reg=await swReg();const key=await API.pushKey();
     let sub=await reg.pushManager.getSubscription();if(!sub)sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:b64u(key)});
     await API.savePushSub(sub,navigator.userAgent);toast("Notificaciones activadas");return true}catch(e){toast(e.message||"No se pudieron activar");return false}}
-async function disablePush(){try{const reg=PWA.reg||await navigator.serviceWorker.ready;const sub=await reg.pushManager.getSubscription();if(sub){await API.delPushSub(sub.endpoint);await sub.unsubscribe()}toast("Notificaciones desactivadas")}catch(e){toast(e.message)}}
+async function disablePush(){try{const reg=await swReg();const sub=await reg.pushManager.getSubscription();if(sub){await API.delPushSub(sub.endpoint);await sub.unsubscribe()}toast("Notificaciones desactivadas")}catch(e){toast(e.message)}}
 function installHelp(){const ios=isIOS();
   const m=document.createElement("div");m.className="modal";m.innerHTML=`<div class="modal-box" role="dialog" aria-modal="true" aria-label="Instalar la app"><img src="assets/icon-192.png" alt="" width="64" height="64" style="border-radius:16px">
     <h3>Instala El Arte Gráfico</h3>${ios?`<ol class="steps-ol"><li>Toca el botón <b>Compartir</b> <span class="kbd">⬆︎</span> abajo en Safari.</li><li>Elige <b>“Agregar a inicio”</b>.</li><li>Abre la app desde tu pantalla de inicio y activa las notificaciones en <b>Mi cuenta</b>.</li></ol><p class="dim">En iPhone hay que usar Safari. Las notificaciones solo funcionan con la app agregada al inicio.</p>`
