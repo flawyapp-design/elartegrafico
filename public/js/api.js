@@ -177,6 +177,7 @@ function SupabaseAPI(url,key){
     adminChallengeEntries(id){return rpc("admin_challenge_entries",{p_id:id})},
     adminAffiliates(){return rpc("admin_affiliates")},
     reviewAffiliate(uid,ok,note){return rpc("review_affiliate",{p_user:uid,p_ok:!!ok,p_note:note||""})},
+    publicProfile(u){return rpc("public_profile",{p_username:u})},
     dmSend(body,user,topic){return rpc("dm_send",{p_body:body,p_user:user||null,p_topic:topic||null})},dmMine(){return rpc("dm_mine")},dmBadge(){return rpc("dm_badge")},
     adminDmThreads(){return rpc("admin_dm_threads")},adminDmThread(u){return rpc("admin_dm_thread",{p_user:u})},adminDmClose(u){return rpc("admin_dm_close",{p_user:u})},
     adminPartnerImport(ids,monthly,tier){return rpc("admin_partner_import",{p_ids:ids,p_monthly:!!monthly,p_tier:tier==="antiguo"?"antiguo":"activo"})},adminPartnerApproveOld(){return rpc("admin_partner_approve_old")},adminPartnerInfo(){return rpc("admin_partner_info")},
@@ -346,6 +347,11 @@ function LocalAPI(){
       L.forEach(x=>{if(tier==="activo"){db.ptier[x]="activo";saved++}else if(!db.ptier[x]){db.ptier[x]="antiguo";saved++}});
       let ok=0;(db.affiliates||[]).forEach(a=>{if((a.status==="pendiente"||a.status==="rechazado")&&db.ptier[String(a.deriv_id).toUpperCase()]==="activo"){Object.assign(a,{status:"verificado",admin_note:"Verificado automáticamente con la lista de socios activos",reviewed_at:now()});const p=db.profiles.find(x=>x.id===a.user_id);if(p)p.affiliate=true;ok++}});save();
       const v=Object.values(db.ptier);return{received:L.length,saved,moved_old:moved,approved:ok,active:v.filter(x=>x==="activo").length,old:v.filter(x=>x==="antiguo").length}},
+    async publicProfile(u){const p=db.profiles.find(x=>(x.username||"").toLowerCase()===String(u||"").toLowerCase());if(!p||p.banned)return null;const g=db.progress.find(x=>x.user_id===p.id)||{xp:0,data:{}};
+      const L=(db.lessons||[]).filter(l=>l.status==="publicado"),done=(g.data||{}).done||{},E=(db.centries||[]).filter(e=>e.user_id===p.id);const pr=p.premium_until&&new Date(p.premium_until)>new Date();
+      return{username:p.username,avatar_url:p.avatar_url,country:p.country,since:p.created_at||new Date().toISOString(),is_admin:p.role==="admin",is_me:me()&&me().id===p.id,premium:!!pr,plan:pr?(p.plan||null):null,affiliate:!!p.affiliate,
+        xp:g.xp||0,lessons:L.filter(l=>done[l.id]&&done[l.id].passed).length,lessons_total:L.length,courses:[],month_points:E.reduce((a,e)=>a+(e.points||0),0),month_pos:E.some(e=>e.points)?1:null,
+        points:E.reduce((a,e)=>a+(e.points||0),0),wins:E.filter(e=>e.place).length,firsts:E.filter(e=>e.place===1).length,played:E.length,streak:0,best_streak:0}},
     /* chat privado (modo local) */
     async dmSend(body,user,topic){const p=me();if(!p)throw new Error("Inicia sesión");body=String(body||"").trim();if(!body)throw new Error("Escribe un mensaje");db.dms=db.dms||{};
       const a=adm()&&user&&user!==p.id,u=a?user:p.id;let t=db.dms[u];
