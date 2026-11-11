@@ -50,6 +50,38 @@ const ISO={"Colombia":"co","México":"mx","Argentina":"ar","Chile":"cl","Perú":
 const flag=c=>{const k=ISO[c];return k?`<img class="flag" src="https://flagcdn.com/w40/${k}.png" srcset="https://flagcdn.com/w80/${k}.png 2x" width="22" height="16" alt="" title="${esc(c)}" loading="lazy" onerror="this.outerHTML='<span class=&quot;flag-t&quot; title=&quot;${esc(c)}&quot;>${k.toUpperCase()}</span>'">`:""};
 const premTag=()=>'<span class="prem-tag" title="Alumno premium"><svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true"><path fill="currentColor" d="M3 8l4.5 4L12 5l4.5 7L21 8l-2 11H5z"/></svg>Premium</span>';
 const COUNTRIES=["Colombia","México","Argentina","Chile","Perú","Ecuador","Venezuela","Bolivia","Uruguay","Paraguay","Panamá","Costa Rica","Guatemala","Honduras","El Salvador","Nicaragua","República Dominicana","Puerto Rico","Cuba","España","Estados Unidos","Otro"];
+/* ---------- completar perfil: foto y país (paso a paso) ---------- */
+function onboard(){
+  const p=API.profile();if(!p||!logged()||admin()||$("#onb"))return;
+  let skipFoto=false;try{skipFoto=sessionStorage.getItem("ag_onb_foto")==="1"}catch(e){}
+  const needC=!p.country,needF=!p.avatar_url&&!skipFoto;if(!needC&&!needF)return;
+  const steps=[...(needF?["foto"]:[]),...(needC?["pais"]:[]),"listo"];let k=0,av=p.avatar_url||"",pais=p.country||"";
+  const el=document.createElement("div");el.id="onb";el.className="onb";el.setAttribute("role","dialog");el.setAttribute("aria-modal","true");el.setAttribute("aria-labelledby","onbT");
+  document.body.appendChild(el);document.body.classList.add("noscroll");
+  const fin=()=>{el.remove();document.body.classList.remove("noscroll");renderNav()};
+  const save=async()=>{await API.updateMyProfile({avatar_url:av,bio:p.bio||"",country:pais})};
+  const draw=()=>{const st=steps[k],tot=steps.length-1;
+    const dots=`<div class="onb-dots">${steps.slice(0,-1).map((_,i)=>`<i class="${i<k?"ok":i===k?"on":""}"></i>`).join("")}</div>`;
+    if(st==="foto")el.innerHTML=`<div class="onb-card">${dots}<span class="eyebrow">Paso ${k+1} de ${tot} · Completa tu perfil</span><h2 id="onbT">Pon tu foto</h2>
+      <p class="muted">Así te reconocen en el ranking, en los comentarios y en las opiniones.</p>
+      <label class="onb-av" for="onbF" title="Subir foto">${avatar({username:p.username,avatar_url:av},128)}<span class="onb-cam" aria-hidden="true">+</span></label><input id="onbF" type="file" accept="image/jpeg,image/png,image/webp" hidden>
+      <div class="onb-act"><label class="btn gold" for="onbF" style="cursor:pointer">Subir mi foto</label><button type="button" class="btn ghost" id="onbS">Ahora no</button></div></div>`;
+    else if(st==="pais")el.innerHTML=`<div class="onb-card">${dots}<span class="eyebrow">Paso ${k+1} de ${tot} · Completa tu perfil</span><h2 id="onbT">¿Desde qué país operas?</h2>
+      <p class="muted">Tu bandera sale junto a tu nombre en el ranking.</p>
+      <div class="onb-cs">${COUNTRIES.filter(c=>c!=="Otro").map(c=>`<button type="button" class="${pais===c?"on":""}" data-c="${esc(c)}">${flag(c)}<span>${esc(c)}</span></button>`).join("")}<button type="button" data-c="Otro" class="${pais==="Otro"?"on":""}"><span class="flag-t">🌎</span><span>Otro</span></button></div>
+      <div class="onb-act"><button type="button" class="btn gold" id="onbN" ${pais?"":"disabled"}>Continuar</button></div></div>`;
+    else el.innerHTML=`<div class="onb-card">${dots}<span class="eyebrow">¡Listo!</span><h2 id="onbT">Así te ven los demás</h2>
+      <div class="onb-prev">${avatar({username:p.username,avatar_url:av},44)}<b>${esc(p.username)}</b>${flag(pais)}${premium()?premTag():""}<span class="mono dim">${(S.prog&&S.prog.xp)||0} pts</span></div>
+      <p class="muted">Puedes cambiar tu foto y tu país cuando quieras en Configuración.</p>
+      <div class="onb-act"><button type="button" class="btn gold" id="onbX">Empezar</button></div></div>`;
+    const f=$("#onbF",el);if(f)f.onchange=async e=>{const fl=e.target.files[0];if(!fl)return;try{toast("Subiendo foto…");av=await API.uploadAvatar(await squareImage(fl));await save();toast("Foto lista");k++;draw()}catch(x){toast(x.message)}};
+    if($("#onbS",el))$("#onbS",el).onclick=()=>{try{sessionStorage.setItem("ag_onb_foto","1")}catch(e){}if(!needC){fin();return}k++;draw()};
+    $$("[data-c]",el).forEach(b=>b.onclick=()=>{pais=b.dataset.c;$$("[data-c]",el).forEach(x=>x.classList.toggle("on",x===b));$("#onbN",el).disabled=false});
+    if($("#onbN",el))$("#onbN",el).onclick=async()=>{if(!pais)return;try{busy($("#onbN",el),true);await save();k++;draw()}catch(x){toast(x.message)}finally{const b=$("#onbN",el);if(b)busy(b,false)}};
+    if($("#onbX",el))$("#onbX",el).onclick=()=>{fin();route(true)};
+    const first=$("button:not([disabled]),label.btn",el);if(first)first.focus()};
+  draw();
+}
 async function squareImage(file,size=320){const img=await new Promise((ok,no)=>{const i=new Image();i.onload=()=>ok(i);i.onerror=()=>no(new Error("No se pudo leer la imagen"));i.src=URL.createObjectURL(file)});
   const m=Math.min(img.naturalWidth,img.naturalHeight),c=document.createElement("canvas");c.width=c.height=size;const x=c.getContext("2d");
   x.drawImage(img,(img.naturalWidth-m)/2,(img.naturalHeight-m)/2,m,m,0,0,size,size);URL.revokeObjectURL(img.src);
@@ -135,6 +167,7 @@ function route(keep){
     $("#app").insertAdjacentHTML("beforebegin",'<div class="note admin-note" id="admNote">La academia está <b>cerrada para alumnos</b>: solo tú la ves. Ábrela desde Administración cuando el contenido esté listo.</div>')}
   API.logView(sid,((ACAD?"academia/":"")+h).slice(0,60));
   (ROUTES[k]||ROUTES.inicio)(arg);
+  if(!["perfil","nueva","legal","entrar","registro"].includes(k))setTimeout(onboard,700);
 }
 window.addEventListener("hashchange",()=>route());
 
@@ -256,16 +289,17 @@ function temarioBlock(host){if(!host)return;const pub=new Set((S.modules||[]).fi
   const tot=TEMARIO.reduce((a,x)=>a+x[1],0);
   host.innerHTML=TEMARIO.map(([t,n,lv],i)=>{const on=pub.has(t.toLowerCase());return `<div class="tm${on?" on":""}"><span class="tm-n mono">${String(i).padStart(2,"0")}</span><div><b>${esc(t)}</b><span class="dim">${n} lecciones · ${esc(lv)}</span></div>${on?'<span class="tag pub">Disponible</span>':'<span class="tag">Próximamente</span>'}</div>`}).join("")
     +`<p class="dim tm-foot">${TEMARIO.length} módulos · ${tot} lecciones con ejercicios en gráficas reales. Los módulos se van abriendo a medida que avanzas.</p>`}
-function pricingBlock(host){if(!host)return;const s=S.site;const pl=(s.plans||[]).filter(x=>x&&x.name&&x.price);if(!pl.length||premium()){host.remove();return}
+function pricingBlock(host,o={}){if(!host)return;const s=S.site;const pl=(s.plans||[]).filter(x=>x&&x.name&&x.price);if(!pl.length||(premium()&&!o.page)){host.remove();return}const off=o.off??!!s.paymentsOff;
   const num=x=>{const m=String(x).replace(",",".").match(/\d+(\.\d+)?/);return m?parseFloat(m[0]):NaN};const cur=x=>String(x).replace(/[\d.,\s]+/g," ").trim()||"USD";
   const base=pl.find(x=>x.days<=31),bm=base?num(base.price)/(base.days/30):NaN;const fav=pl.length===3?1:pl.length>3?Math.floor(pl.length/2):-1;
   const items=(s.premiumItems||[]).slice(0,4);
-  host.innerHTML=`<div class="sec-h"><div><span class="eyebrow">Precios</span><h2>Elige tu plan</h2></div><a href="#premium">Cómo pagar</a></div>
+  host.innerHTML=`${o.page?"":`<div class="sec-h"><div><span class="eyebrow">Precios</span><h2>Elige tu plan</h2></div><a href="#premium">Cómo pagar</a></div>`}
     <div class="prices">${pl.map((x,i)=>{const v=num(x.price),pm=v/(x.days/30),ah=isFinite(bm)&&x.days>31&&pm<bm?Math.round(100*(1-pm/bm)):0;
       return `<div class="price${i===fav?" fav":""}">${i===fav?'<span class="price-tag">Más elegido</span>':""}<h3>${esc(x.name)}</h3><div class="price-v"><b>${esc(String(x.price).replace(/\s*[A-Za-z]+$/,""))}</b><span>${esc(cur(x.price))}</span></div>
         <span class="dim">${x.days>31&&isFinite(pm)?`≈ ${pm.toFixed(pm<10?1:0).replace(".0","")} ${esc(cur(x.price))} al mes`:"pago único por 30 días"}</span>${ah?`<span class="pill ok">Ahorras ${ah}%</span>`:""}
-        <ul class="checks">${items.map(t=>`<li>${esc(t)}</li>`).join("")}</ul><a class="btn ${i===fav?"gold":""}" href="#premium">Elegir ${esc(x.name)}</a></div>`}).join("")}</div>
-    <p class="dim price-foot">Pagas con Binance Pay en USDT y activamos tu premium al confirmar el pago. ¿Quieres probar antes? Con tu cuenta gratis tienes 5 gráficas de prueba.</p>`}
+        <ul class="checks">${items.map(t=>`<li>${esc(t)}</li>`).join("")}</ul>${off?'<span class="btn disabled" aria-disabled="true">Disponible pronto</span>':o.page?`<button type="button" class="btn ${i===fav?"gold":""}" data-pick="${i}">Elegir ${esc(x.name)}</button>`:`<a class="btn ${i===fav?"gold":""}" href="${toMain("premium")}">Elegir ${esc(x.name)}</a>`}</div>`}).join("")}</div>
+    <p class="dim price-foot">${off?"Los pagos están pausados por ahora: te avisaremos cuando abran.":"Pagas con Binance Pay en USDT y activamos tu premium al confirmar el pago."}${o.page?"":" ¿Quieres probar antes? Con tu cuenta gratis tienes 5 gráficas de prueba."}</p>`;
+  $$("[data-pick]",host).forEach(b=>b.onclick=()=>{const sel=$("#pP");const k=pl[+b.dataset.pick];if(sel){const j=(S.site.plans||[]).findIndex(x=>x.name===k.name);if(j>=0)sel.value=String(j)}const t=$("#pay");if(t)t.scrollIntoView({behavior:"smooth",block:"start"})})}
 const FAQ_DEF=[["¿Necesito experiencia?","No. El temario empieza desde cero: qué es un bróker, cómo leer las velas y la estructura del mercado, hasta el método completo."],
   ["¿Con cuánto dinero empiezo?","Puedes aprender y practicar en una cuenta demo sin poner dinero. Cuando pases a real, el módulo de gestión del riesgo te enseña a calcular el lote según el tamaño de tu cuenta."],
   ["¿Funciona desde el celular?","Sí. La academia y los ejercicios funcionan en el navegador del celular y la puedes instalar como app."],
@@ -371,17 +405,29 @@ function nextLesson(){for(const m of S.modules){if(!modOpen(m)||m.optional)conti
 async function academyHome(){
   const p=API.profile()||{},g=S.prog,lv=levelOf(g.xp);const pct=lv.to?Math.round(100*(g.xp-lv.from)/(lv.to-lv.from)):100;const nx=premium()?nextLesson():null;
   const passed=Object.values(g.done).filter(d=>d.passed).length,total=S.lindex.length;
-  app.innerHTML=`<section class="dash"><a class="dash-av" href="#perfil" title="Cambiar foto">${avatar(p,86)}<span class="lvchip" title="${esc(lv.name)}">${lv.i+1}</span></a><div class="dash-t"><span class="eyebrow">Academia · ${premium()?"Premium":"Cuenta gratis"}</span><h1>Hola, ${esc(p.username||"")}</h1>
-      <div class="muted">${esc(lv.name)} · <span class="mono">${g.xp} pts</span>${lv.to?` · faltan ${lv.to-g.xp} para el siguiente nivel`:""}</div><div class="bar"><i style="width:${pct}%"></i></div></div>
-    <div class="dash-a">${premium()?(nx?`<a class="btn gold" href="#leccion-${esc(nx.id)}">Continuar: ${esc(nx.title)}</a>`:'<a class="btn gold" href="#practica">Ir a práctica</a>'):'<a class="btn gold" href="#premium">Hazte premium</a>'}</div></section>
+  const prem=premium(),apct=total?Math.round(100*passed/total):0,acc=g.practice.n?Math.round(100*g.practice.ok/g.practice.n):0,demo=Math.max(0,5-(p.demo_used||0));
+  const tiles=[["acad","Temario",`${passed} de ${total} lecciones`,"#academia"],["chart","Práctica",prem?"Gráficas ilimitadas":`${demo} gráficas de prueba`,prem?"#practica":"#prueba"],
+    ["trophy","Ranking",'<span id="mhPos">Ver mi puesto</span>',"#ranking"],["news","Comunidad","Novedades y avisos",toMain("comunidad")],["gear","Configuración","Perfil, app y notificaciones","#perfil"]];
+  app.innerHTML=`<section class="mh">
+    <div class="mh-bg" aria-hidden="true"></div>
+    <div class="mh-id"><a class="mh-av" href="#perfil" title="Configuración">${avatar(p,84)}<span class="lvchip" title="${esc(lv.name)}">${lv.i+1}</span></a>
+      <div class="mh-t"><span class="eyebrow">${saludo()} · Academia</span><h1>${esc(p.username||"")} ${flag(p.country||"")}</h1>
+        <div class="mh-chips">${prem?premTag():'<span class="tag">Cuenta gratis</span>'}<span class="tag">${esc(lv.name)}</span><span class="tag mono">${g.xp} pts</span></div></div></div>
+    <div class="mh-cta">${prem?(nx?`<a class="btn gold btn-ic" href="#leccion-${esc(nx.id)}">${ico("play",18)}<span>Continuar: ${esc(nx.title)}</span></a>`:'<a class="btn gold" href="#practica">Ir a práctica</a>'):`<a class="btn gold" href="#prueba">Probar gratis (${demo} de 5)</a><a class="btn ghost" href="${toMain("premium")}">Hazte premium</a>`}</div>
+    <div class="mh-bars">
+      <div><div class="mh-bl"><span>Lecciones aprobadas: ${passed}${total?` de ${total}`:""}</span><b class="mono">${apct}%</b></div><div class="bar"><i style="width:${apct}%"></i></div></div>
+      <div><div class="mh-bl"><span>${lv.to?`Nivel ${lv.i+2} en ${lv.to-g.xp} pts`:"Nivel máximo"}</span><b class="mono">${pct}%</b></div><div class="bar"><i style="width:${pct}%"></i></div></div>
+    </div>
+    <div class="mh-mini"><span><b class="mono">${g.practice.n}</b> ejercicios</span><span><b class="mono">${acc}%</b> aciertos</span><span><b class="mono">${g.streak||0}</b> días seguidos</span></div>
+  </section>
+  <section class="mh-tiles">${tiles.map(([k,t,d,h])=>`<a class="mt" href="${esc(h)}"><span class="mt-i">${ico(k)}</span><b>${t}</b><span class="dim">${d}</span></a>`).join("")}</section>
   ${premium()?(m=>m?fbCard(m):"")(S.modules.find(needFb)):""}
   <div id="appCard"></div>
-  <div class="kv"><div><b>${passed}${total?` / ${total}`:""}</b><span>lecciones aprobadas</span></div><div><b>${g.practice.n}</b><span>ejercicios resueltos</span></div><div><b>${g.practice.n?Math.round(100*g.practice.ok/g.practice.n):0}%</b><span>aciertos</span></div><div><b>${g.streak||0}</b><span>días seguidos</span></div></div>
   ${premium()?"":`<section class="sec" id="prueba"><div class="sec-h"><div><span class="eyebrow">Prueba gratis</span><h2>Tus gráficas de prueba</h2></div><span class="muted" id="demoLeft"></span></div><div id="demoBox"></div></section>`}
   <section class="sec"><div class="sec-h"><div><span class="eyebrow">Temario</span><h2>Ruta de aprendizaje</h2></div><a href="#academia">Ver temario completo</a></div><div id="syl"></div></section>
   ${premium()?`<section class="sec"><div class="two"><div class="panel"><h3>Práctica libre</h3><p class="muted">Ejercicios sueltos para entrenar el ojo. Suman puntos para el ranking.</p><div class="row"><a class="btn" href="#practica">Practicar ahora</a></div></div><div class="panel"><div class="sec-h"><h3>Ranking</h3><a href="#ranking">Ver completo</a></div><div id="rkMini" class="muted">Cargando…</div></div></div></section>`:`<section class="sec"><div class="panel"><div class="sec-h"><h3>Ranking de alumnos</h3><a href="#ranking">Ver completo</a></div><div id="rkMini" class="muted">Cargando…</div></div></section><section class="cta-band">${premiumBand()}</section>`}`;
   syllabus($("#syl"),premium()?0:6);if(!premium())demoSection();appCard($("#appCard"));
-  API.leaderboard().then(r=>{if(!$("#rkMini"))return;$("#rkMini").innerHTML=r.length?`<table class="tbl rk">${r.slice(0,5).map((x,i)=>`<tr class="${x.is_me?"me ":""}${x.premium?"prem":""}"><td class="mono">${i<3?["🥇","🥈","🥉"][i]:i+1}</td><td><span class="who-cell">${avatar(x,24)}<span>${esc(x.username)}</span>${flag(x.country)}${x.premium?premTag():""}</span></td><td class="n">${x.xp}</td></tr>`).join("")}</table>`:'<div class="muted">Aún no hay alumnos en el ranking.</div>'}).catch(()=>{});
+  API.leaderboard().then(r=>{const k=r.findIndex(x=>x.is_me);if($("#mhPos"))$("#mhPos").textContent=k>=0?`Vas en el puesto #${k+1}`:"Suma puntos para aparecer";if(!$("#rkMini"))return;$("#rkMini").innerHTML=r.length?`<table class="tbl rk">${r.slice(0,5).map((x,i)=>`<tr class="${x.is_me?"me ":""}${x.premium?"prem":""}"><td class="mono">${i<3?["🥇","🥈","🥉"][i]:i+1}</td><td><span class="who-cell">${avatar(x,24)}<span>${esc(x.username)}</span>${flag(x.country)}${x.premium?premTag():""}</span></td><td class="n">${x.xp}</td></tr>`).join("")}</table>`:'<div class="muted">Aún no hay alumnos en el ranking.</div>'}).catch(()=>{});
 }
 function marketsHTML(list,compact){const g={};list.forEach(m=>{(g[m.cat]=g[m.cat]||[]).push(m)});
   return Object.entries(g).map(([cat,ms])=>`<div class="mkcat"><h3>${esc(cat)}</h3><div class="mklist">${ms.map(m=>`<div class="mk ${m.status==="Disponible"?"on":""}"><div><b>${esc(m.name)}</b>${compact?"":`<p class="muted">${esc(m.text||"")}</p>`}</div><span class="tag ${m.status==="Disponible"?"pub":""}">${esc(m.status)}</span></div>`).join("")}</div></div>`).join("")||'<div class="empty">Sin mercados configurados.</div>'}
@@ -396,7 +442,7 @@ async function syllabus(host,limit){
     return `<a class="mod ${op?"":"soon-mod"}" href="#modulo-${esc(m.id)}"><span class="num">${esc(m.level||cat)}</span><h3>${esc(m.title)}</h3><p>${esc(m.descr||"")}</p>
       <div class="meta"><span>${ls.length} ${ls.length===1?"lección":"lecciones"}</span>${m.optional?'<span class="tag pub">Opcional</span>':""}${op?"":`<span class="tag lock">${esc(modState(m))}</span>`}${premium()||!op?"":'<span class="tag">Premium</span>'}${m.status!=="publicado"?'<span class="tag">Borrador</span>':""}</div>${premium()?`<div class="bar"><i style="width:${Math.round(pr*100)}%"></i></div>`:""}</a>`}).join("")}</div></div>`}).join("")}
 function modProgress(mid,ls){ls=ls||S.lindex.filter(l=>l.module_id===mid);if(!ls.length||!S.prog)return 0;return ls.filter(l=>S.prog.done[l.id]&&S.prog.done[l.id].passed).length/ls.length}
-const postCard=p=>`<a class="post" href="#nota-${esc(p.id)}">${p.image_url?`<div class="thumb" style="background-image:url('${esc(p.image_url)}')"></div>`:`<div class="thumb noimg">AG</div>`}<div style="display:grid;gap:6px;align-content:start;min-width:0"><div class="row"><span class="tag">${esc(p.category||"Noticia")}</span>${p.pinned?'<span class="tag pub">Fijado</span>':""}${p.premium_only?'<span class="tag">Premium</span>':""}<span class="dim" style="font-size:13px">${fmtDate(p.created_at)}</span></div><h3>${esc(p.title)}</h3><p class="muted clamp">${esc(String(p.body||"").slice(0,220))}</p></div></a>`;
+const postCard=p=>`<a class="post${p.image_url?"":" noimg"}" href="#nota-${esc(p.id)}">${p.image_url?`<div class="thumb" style="background-image:url('${esc(p.image_url)}')"></div>`:""}<div style="display:grid;gap:6px;align-content:start;min-width:0"><div class="row"><span class="tag">${esc(p.category||"Noticia")}</span>${p.pinned?'<span class="tag pub">Fijado</span>':""}${p.premium_only?'<span class="tag">Premium</span>':""}<span class="dim" style="font-size:13px">${fmtDate(p.created_at)}</span></div><h3>${esc(p.title)}</h3><p class="muted clamp">${esc(String(p.body||"").slice(0,220))}</p></div></a>`;
 function reviewsHTML(list,compact){if(!list.length)return `<div class="empty">Todavía no hay opiniones publicadas.${logged()?'<a class="btn sm" href="#opiniones">Escribir la primera</a>':""}</div>`;
   return `<div class="revs ${compact?"compact":""}">${list.map(r=>`<figure class="rev"><div class="stars" aria-label="${r.rating} de 5">${stars(r.rating)}</div><blockquote>${esc(r.body||"")}</blockquote><figcaption>${avatar(r,30)}<b>${esc(r.username)}</b>${r.premium?'<span class="tag pub">Premium</span>':""}<span class="dim">${fmtDate(r.created_at)}</span></figcaption></figure>`).join("")}</div>`}
 
@@ -473,11 +519,13 @@ async function afterLogin(){await API.loadProfile();await loadProg();await loadC
 
 /* ---------- mercados / premium ---------- */
 ROUTES.mercados=()=>{app.innerHTML=`<div class="pagehead"><span class="eyebrow">Mercados</span><h1>Un método, varios mercados</h1><p class="muted">Empezamos con los índices sintéticos Boom y Crash, con práctica en gráficas reales. Después llegan Step Index, Volatility, Forex y metales.</p></div><div class="mkts big">${marketsHTML(S.site.markets||[],false)}</div>`};
-ROUTES.premium=()=>{const s=S.site;const plans=(s.plans||[]).filter(x=>x&&x.name);const bin=!!(s.binancePayId&&plans.length);
+ROUTES.premium=()=>{const s=S.site;const plans=(s.plans||[]).filter(x=>x&&x.name);const off=!!s.paymentsOff;const bin=!off&&!!(s.binancePayId&&plans.length);const pf=API.profile()||{};
   app.innerHTML=`<div class="pagehead"><span class="eyebrow">Premium</span><h1>${esc(s.premiumTitle||"Hazte premium")}</h1><p class="muted">${esc(s.premiumText||"")}</p></div>
-  <div class="cta-band">${premiumBand()}</div>
-  ${bin?`<div class="panel" id="pay"><h3>Paga con Binance Pay</h3>
-    <div class="plans">${plans.map(x=>`<div class="plan"><b>${esc(x.name)}</b><span class="price">${esc(x.price)}</span><span class="dim">${x.days} días de acceso</span></div>`).join("")}</div>
+  ${premium()?`<div class="note ok-note">Ya eres premium${pf.premium_until&&new Date(pf.premium_until).getFullYear()<2090?` hasta el <b>${fmtDate(pf.premium_until)}</b>`:""}. Si pagas otro plan, los días se suman a los que te quedan.</div>`:""}
+  ${off?`<div class="panel pay-off"><span class="mt-i">${ico("crown")}</span><div><h3>Los pagos están pausados por ahora</h3><p class="muted">Estamos preparando la apertura. Te avisaremos por la comunidad${s.discordUrl?" y el Discord":""} cuando puedas activar tu plan.${s.contact?` Si tienes dudas escríbenos: <b class="sel">${esc(s.contact)}</b>`:""}</p></div></div>`:""}
+  <section class="sec" id="pmPlans"></section>
+  ${off?""
+  :bin?`<div class="panel" id="pay"><h3>Paga con Binance Pay</h3>
     <ol class="prose" style="padding-left:20px">
       <li>${logged()?"Ya tienes tu cuenta creada.":'<a href="#registro">Crea tu cuenta gratis</a> o <a href="#entrar">ingresa</a>.'}</li>
       <li>En la app de Binance entra a <b>Pay → Enviar</b> y envía el monto de tu plan al <b>Binance Pay ID</b>: <b class="mono sel" id="bpid">${esc(s.binancePayId)}</b> <button type="button" class="btn sm ghost" id="cpid">Copiar</button>${s.binanceName?` <span class="dim">(${esc(s.binanceName)})</span>`:""}</li>
@@ -486,6 +534,7 @@ ROUTES.premium=()=>{const s=S.site;const plans=(s.plans||[]).filter(x=>x&&x.name
     ${s.payNote?`<div class="note">${esc(s.payNote)}</div>`:""}
     <div id="payf"></div></div>`:
   `<div class="panel"><h3>Cómo activar tu acceso</h3><ol class="prose" style="padding-left:20px"><li>${logged()?"Ya tienes tu cuenta creada.":'<a href="#registro">Crea tu cuenta gratis</a>.'}</li><li>Escríbenos para realizar el pago${s.contact?`: <b class="sel">${esc(s.contact)}</b>`:"."}</li><li>Activamos tu acceso premium y entras a todo el contenido.</li></ol>${logged()?`<p class="muted">Tu usuario: <b>${esc((API.profile()||{}).username||"")}</b> · ${esc((API.profile()||{}).email||"")}</p>`:""}</div>`}`;
+  pricingBlock($("#pmPlans"),{page:true,off});
   if(!bin)return;
   $("#cpid").onclick=async()=>{try{await navigator.clipboard.writeText(s.binancePayId);toast("Binance Pay ID copiado")}catch(e){toast("No se pudo copiar")}};
   const host=$("#payf");
@@ -646,9 +695,9 @@ ROUTES.ranking=async()=>{app.innerHTML=`<div class="pagehead"><span class="eyebr
   try{const r=await API.leaderboard();const yo=r.find(x=>x.is_me);
     const cta=!logged()?`<div class="rk-cta"><div><b>¿Quieres aparecer aquí?</b><span class="muted">Crea tu cuenta gratis, haz tus primeros ejercicios y empieza a sumar puntos.</span></div><a class="btn gold" href="#registro">Crear cuenta</a></div>`
       :!premium()?`<div class="rk-cta"><div><b>${yo?`Vas en el puesto #${r.indexOf(yo)+1}`:"Aún no apareces en el ranking"}</b><span class="muted">Con premium tienes todas las lecciones y la práctica libre para sumar puntos sin límite, y tu placa dorada en el ranking.</span></div><a class="btn gold" href="#premium">Hazte premium</a></div>`:"";
-    $("#rk").innerHTML=cta+(r.length?`${podio(r)}<div class="scroll"><table class="tbl rk"><thead><tr><th>#</th><th>Alumno</th><th>Nivel</th><th style="text-align:right">Lecciones</th><th style="text-align:right">Puntos</th></tr></thead><tbody>${r.map((x,i)=>rkRow(x,i)).join("")}</tbody></table></div>`:'<div class="empty">Aún no hay alumnos en el ranking.</div>')}
+    $("#rk").innerHTML=cta+(r.length?`${podio(r)}<div class="scroll"><table class="tbl rk"><thead><tr><th>#</th><th>Alumno</th><th class="c-hide">Nivel</th><th class="c-hide" style="text-align:right">Lecciones</th><th style="text-align:right">Puntos</th></tr></thead><tbody>${r.map((x,i)=>rkRow(x,i)).join("")}</tbody></table></div>`:'<div class="empty">Aún no hay alumnos en el ranking.</div>')}
   catch(e){$("#rk").textContent="No se pudo cargar el ranking."}};
-const rkRow=(x,i)=>`<tr class="${x.is_me?"me ":""}${x.premium?"prem":""}"><td class="mono">${i<3?["🥇","🥈","🥉"][i]:i+1}</td><td><span class="who-cell">${avatar(x,28)}<span>${esc(x.username)}</span>${flag(x.country)}${x.premium?premTag():""}</span></td><td>${esc(levelOf(x.xp).name)}</td><td class="n">${x.lessons}</td><td class="n">${x.xp}</td></tr>`;
+const rkRow=(x,i)=>`<tr class="${x.is_me?"me ":""}${x.premium?"prem":""}"><td class="mono">${i<3?["🥇","🥈","🥉"][i]:i+1}</td><td><span class="who-cell">${avatar(x,28)}<span>${esc(x.username)}</span>${flag(x.country)}${x.premium?premTag():""}</span></td><td class="c-hide">${esc(levelOf(x.xp).name)}</td><td class="n c-hide">${x.lessons}</td><td class="n">${x.xp}</td></tr>`;
 const podio=r=>r.length<3?"":`<div class="podio">${[1,0,2].map(i=>{const x=r[i];return `<div class="pod p${i+1}${x.premium?" prem":""}"><div class="pav">${avatar(x,i?64:84)}</div><b>${esc(x.username)} ${flag(x.country)}</b>${x.premium?premTag():'<span class="dim" style="font-size:13px">Gratis</span>'}<span class="mono">${x.xp} pts</span><div class="step">${i+1}</div></div>`}).join("")}</div>`;
 ROUTES.perfil=arg=>{if(!logged()){location.hash="#entrar";return}setTimeout(()=>{const t={progreso:"cfgProg",app:"cfgApp",seguridad:"cfgSeg"}[arg];if(t&&$("#"+t))$("#"+t).scrollIntoView({behavior:"smooth",block:"start"})},150);const p=API.profile()||{},g=S.prog,lv=levelOf(g.xp);const pct=lv.to?Math.round(100*(g.xp-lv.from)/(lv.to-lv.from)):100;
   app.innerHTML=`<div class="phead"><div class="phead-av">${avatar(p,96)}</div><div style="display:grid;gap:6px;min-width:0"><span class="eyebrow">Configuración</span><h1>${esc(p.username||"")}</h1>

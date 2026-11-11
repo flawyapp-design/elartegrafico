@@ -627,3 +627,68 @@ nav.main a.navx{color:var(--gold2)}
 .mh-me{margin-top:8px;padding:8px 10px;border-radius:10px;background:rgba(216,176,98,.08);font-size:13px}
 @media (max-width:1000px){.mh-tiles{grid-template-columns:repeat(3,minmax(0,1fr))}.mh-grid{grid-template-columns:1fr}}
 @media (max-width:700px){.mh{grid-template-columns:1fr}.mh-cta{justify-content:flex-start}.mh-cta .btn{flex:1 1 100%;justify-content:center;max-width:none}.mh-bars{grid-template-columns:1fr;gap:4px}.mh-tiles{grid-template-columns:repeat(2,minmax(0,1fr))}.mh-id{gap:14px}.mh-av .avi{width:64px!important;height:64px!important;font-size:26px!important}}
+
+/* ---------- limpieza general: más aire y menos ruido ---------- */
+#app>.sec,#app>section.sec{margin-top:clamp(36px,5vw,64px)}
+#app>.sec:first-child{margin-top:0}
+.sec-h h2{letter-spacing:-.015em}
+.pagehead{margin-bottom:clamp(18px,3vw,28px)}
+.pagehead p.muted{font-size:clamp(15px,1.5vw,17px);line-height:1.6}
+.cta-band{margin-top:clamp(40px,6vw,72px)}
+.statband{margin-top:16px}
+.btn.disabled{opacity:.55;cursor:not-allowed;pointer-events:none;justify-content:center}
+.ok-note{border-left:3px solid var(--ok)}
+/* panel académico */
+.mh-tiles{grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
+.mh-mini{grid-column:1/-1;display:flex;gap:18px;flex-wrap:wrap;font-size:13px;color:var(--muted)}
+.mh-mini b{color:var(--fg);font-size:15px;margin-right:4px}
+.mh+.fb-card,.mh-tiles+.fb-card{margin-top:16px}
+#appCard:not(:empty){margin:16px 0}
+/* temario del inicio: menos etiquetas */
+.tm .tag:not(.pub){border:0;padding:0;opacity:.6;font-size:10px}
+/* pagos pausados */
+.pay-off{display:flex;gap:16px;align-items:flex-start;border-color:rgba(216,176,98,.45)}
+.pay-off>div{display:grid;gap:6px}
+/* noticias sin imagen */
+.post.noimg{grid-template-columns:1fr}
+/* ranking en celular: solo lo importante */
+@media (max-width:640px){
+  .tbl.rk .c-hide{display:none}
+  .tbl.rk td .who-cell{flex-wrap:nowrap;min-width:0}
+  .tbl.rk td .who-cell>span:not(.flag-t):not(.prem-tag){overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:9.5em}
+  .tbl.rk .prem-tag{padding:3px 6px;font-size:0;gap:0}.tbl.rk .prem-tag svg{width:12px;height:12px}
+  .podio .pod b{font-size:13px}.podio .prem-tag{font-size:9px;padding:2px 6px}
+}
+/* ingresar / crear cuenta: en celular primero el formulario */
+@media (max-width:900px){.auth .slider{display:none}}
+/* configuración en celular */
+@media (max-width:640px){
+  .avedit{flex-direction:row;align-items:center}.avedit #avPrev .avi{width:72px!important;height:72px!important;font-size:28px!important}
+  .phead .avi,.pagehead .avi{width:64px!important;height:64px!important}
+  #app>.sec,#app>section.sec{margin-top:40px}
+}
+/* panel: que nada se salga en celular */
+.mh>*{min-width:0}
+.mh-cta .btn{min-width:0;max-width:100%}
+@media (max-width:700px){.mh{grid-template-columns:minmax(0,1fr)}.mh-t h1{font-size:26px}}
+
+/* completar perfil */
+body.noscroll{overflow:hidden}
+.onb{position:fixed;inset:0;z-index:200;display:grid;place-items:center;padding:16px;background:rgba(3,6,16,.78);backdrop-filter:blur(6px);animation:onbIn .25s ease}
+@keyframes onbIn{from{opacity:0}to{opacity:1}}
+.onb-card{width:min(560px,100%);max-height:calc(100dvh - 32px);overflow:auto;display:grid;gap:14px;justify-items:center;text-align:center;padding:clamp(22px,4vw,34px);border-radius:22px;border:1px solid rgba(216,176,98,.45);
+  background:radial-gradient(100% 70% at 50% 0%,rgba(216,176,98,.16),transparent 60%),linear-gradient(160deg,#0e1c48,#070d20 80%);box-shadow:0 30px 90px rgba(0,0,0,.6)}
+.onb-card h2{font-size:clamp(24px,4vw,30px);font-weight:800}
+.onb-card p{max-width:42ch}
+.onb-dots{display:flex;gap:6px}.onb-dots i{width:28px;height:5px;border-radius:9px;background:var(--line2)}.onb-dots i.on{background:#d8b062}.onb-dots i.ok{background:#2ec486}
+.onb-av{position:relative;cursor:pointer;border-radius:50%;padding:5px;background:linear-gradient(135deg,#f6dc8c,#8a6424);box-shadow:0 0 40px rgba(216,176,98,.35);margin:6px 0}
+.onb-av .avi{width:128px!important;height:128px!important;font-size:48px!important}
+.onb-cam{position:absolute;right:4px;bottom:4px;width:38px;height:38px;border-radius:50%;display:grid;place-items:center;font-size:24px;font-weight:700;color:#2a1d02;background:#e7c06a;border:3px solid #0a1230}
+.onb-act{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-top:4px}
+.onb-cs{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;width:100%;max-height:min(46vh,380px);overflow:auto;padding:2px}
+.onb-cs button{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;border:1px solid var(--line2);background:var(--bg2);color:var(--fg);font:inherit;font-size:14px;text-align:left;cursor:pointer}
+.onb-cs button:hover{border-color:rgba(216,176,98,.6)}
+.onb-cs button.on{border-color:#d8b062;background:rgba(216,176,98,.16);box-shadow:0 0 0 1px #d8b062 inset}
+.onb-prev{display:flex;align-items:center;gap:10px;padding:12px 16px;border-radius:14px;border:1px solid var(--line2);background:var(--bg2);flex-wrap:wrap;justify-content:center}
+@media (max-width:480px){.onb-cs{grid-template-columns:1fr 1fr}.onb-cs button{font-size:13px;padding:9px}}
+#app>#pmPlans{margin-top:8px}

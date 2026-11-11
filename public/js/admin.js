@@ -319,8 +319,14 @@ async function opiniones(){
 }
 
 /* ---------- pagos ---------- */
+function paySwitch(){const off=!!(S.site||{}).paymentsOff;
+  return `<div class="acad-switch ${off?"off":"on"}" style="margin-bottom:14px"><div><b>Pagos ${off?"pausados":"activos"}</b><span class="muted">${off?"Nadie puede registrar pagos. En la web los planes dicen “Disponible pronto” y la página Premium avisa que los pagos están pausados.":"Los alumnos pueden pagar con Binance Pay y registrar su pago para que lo apruebes."}</span></div>
+    <button class="btn ${off?"gold":"bad"}" id="pySw">${off?"Activar los pagos":"Pausar los pagos"}</button></div>`}
+function bindPaySwitch(){const b=$("#pySw");if(!b)return;const off=!!(S.site||{}).paymentsOff;
+  b.onclick=()=>A.confirmInline(b.parentElement,off?"¿Activar los pagos? Los alumnos podrán pagar y registrar su pago.":"¿Pausar los pagos? Nadie podrá registrar pagos hasta que los actives.",async()=>{
+    const ns=Object.assign({},S.site,{paymentsOff:!off});try{await API.saveSite(ns);S.site=ns;toast(off?"Pagos activados":"Pagos pausados")}catch(x){toast(x.message)}A.ROUTES.admin("pagos")})}
 async function pagos(){
-  H().innerHTML='<div class="muted">Cargando pagos…</div>';let list=[];try{list=await API.adminPayments()}catch(e){H().innerHTML=`<div class="empty">No se pudieron cargar los pagos. ¿Ya corriste supabase/pagos.sql en Supabase? (${esc(e.message)})</div>`;return}
+  H().innerHTML='<div class="muted">Cargando pagos…</div>';let list=[];try{list=await API.adminPayments()}catch(e){H().innerHTML=paySwitch()+`<div class="empty">No se pudieron cargar los pagos. ¿Ya corriste supabase/pagos.sql en Supabase? (${esc(e.message)})</div>`;bindPaySwitch();return}
   const pend=list.filter(x=>x.status==="pendiente"),rest=list.filter(x=>x.status!=="pendiente");
   const isP=u=>u.premium_until&&new Date(u.premium_until)>new Date();
   const fila=r=>`<div class="item pay" style="align-items:flex-start;flex-wrap:wrap"><span class="txt" style="min-width:240px;flex:1">
@@ -331,9 +337,10 @@ async function pagos(){
     ${r.status==="pendiente"?`<span class="row" data-w="${esc(r.id)}"><label class="dim" style="display:flex;gap:6px;align-items:center">Días <input type="number" min="1" max="3650" value="${r.days}" data-d="${esc(r.id)}" style="width:80px;background:var(--bg2);border:1px solid var(--line2);border-radius:8px;padding:6px;color:var(--fg)"></label>
       <button class="btn sm ok" data-ok="${esc(r.id)}">Aprobar</button><button class="btn sm bad" data-no="${esc(r.id)}">Rechazar</button></span>`
       :`<span class="tag ${r.status==="aprobado"?"pub":""}">${r.status==="aprobado"?`Aprobado · ${r.days} días`:"Rechazado"}</span>`}</div>`;
-  H().innerHTML=`<div style="display:grid;gap:16px"><div class="panel"><div class="sec-h"><h3>Pagos por confirmar (${pend.length})</h3><span class="muted">Revisa en tu Binance (Pay → Historial) que el ID de orden y el monto coincidan antes de aprobar.</span></div>
+  H().innerHTML=paySwitch()+`<div style="display:grid;gap:16px"><div class="panel"><div class="sec-h"><h3>Pagos por confirmar (${pend.length})</h3><span class="muted">Revisa en tu Binance (Pay → Historial) que el ID de orden y el monto coincidan antes de aprobar.</span></div>
     <div class="list">${pend.map(fila).join("")||'<div class="muted">No hay pagos pendientes.</div>'}</div></div>
     <div class="panel"><h3>Historial</h3><div class="list">${rest.map(fila).join("")||'<div class="muted">Sin pagos revisados todavía.</div>'}</div></div></div>`;
+  bindPaySwitch();
   $$("[data-cp]").forEach(b=>b.onclick=async()=>{try{await navigator.clipboard.writeText(b.dataset.cp);toast("ID copiado")}catch(e){toast("No se pudo copiar")}});
   $$("[data-ok]").forEach(b=>b.onclick=()=>{const id=b.dataset.ok;const r=list.find(x=>x.id===id);const d=Math.max(1,parseInt($(`[data-d="${id}"]`).value)||r.days);
     A.confirmInline($(`[data-w="${id}"]`),`¿Confirmaste el pago en tu Binance? Se le suman ${d} días a ${r.username}.`,async()=>{try{const x=await API.reviewPayment(id,true,d,"");toast(`Premium activado${x&&x.premium_until?" hasta "+fmtDate(x.premium_until):""}`)}catch(e){toast(e.message)}pagos()})});

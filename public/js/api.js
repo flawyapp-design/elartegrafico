@@ -256,7 +256,7 @@ function LocalAPI(){
     async adminReviews(){need();return db.reviews.map(r=>{const p=db.profiles.find(x=>x.id===r.user_id)||{};return Object.assign({},r,{username:p.username})}).sort((a,b)=>(a.approved-b.approved)||String(b.created_at).localeCompare(a.created_at))},
     async setReview(id,patch){need();Object.assign(db.reviews.find(r=>r.id===id)||{},patch);save()},
     async delReview(id){const r=db.reviews.find(x=>x.id===id);if(r&&(r.user_id===uid||adm()))rm("reviews",id)},
-    async payRequest(o){if(!uid)throw new Error("Inicia sesión");db.payments=db.payments||[];
+    async payRequest(o){if(!uid)throw new Error("Inicia sesión");if(db.site&&db.site.paymentsOff&&!adm())throw new Error("Los pagos están pausados por ahora. Te avisaremos cuando abran.");db.payments=db.payments||[];
       const oid=String(o.order_id||"").trim();if(oid.length<4)throw new Error("Escribe el ID de orden de Binance.");
       if(db.payments.some(x=>x.status!=="rechazado"&&x.order_id.toLowerCase()===oid.toLowerCase()))throw new Error("Ese ID de orden ya fue registrado.");
       if(db.payments.filter(x=>x.user_id===uid&&x.status==="pendiente").length>=3)throw new Error("Ya tienes 3 pagos por confirmar. Espera a que los revisemos.");

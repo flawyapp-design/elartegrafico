@@ -112,3 +112,6 @@ Sin Turnstile, la web usa un captcha propio. Sirve para frenar bots simples, per
 
 ## Reiniciar puntos y avance
 Corre `supabase/reinicios.sql`. En Admin → Alumnos: "Reiniciar puntos" / "Reiniciar avance" por alumno, y al final "Reinicio general para el lanzamiento" (escribe REINICIAR). Cada ejercicio da puntos solo la primera vez que se resuelve.
+
+## Pausar los pagos
+Admin → Pagos → "Pausar los pagos". Para que también se bloquee del lado del servidor, corre `supabase/pagos_pausa.sql`.
