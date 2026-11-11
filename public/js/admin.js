@@ -89,8 +89,17 @@ function sitio(){
     <div class="two"><div class="row">${fileBtn("upLogo","Subir logo (icono)")}<span class="muted" id="lgN" style="font-size:13px">${s.logoUrl?"Logo personalizado":"Logo por defecto"}</span></div><div class="row">${fileBtn("upLogoF","Subir logo grande")}<span class="muted" id="lgF" style="font-size:13px">${s.logoFullUrl?"Logo grande personalizado":"Logo grande por defecto"}</span></div></div>
     <h3>Portada</h3><label for="sH">Título<input id="sH" value="${esc(s.heroTitle||"")}"></label><label for="sT">Texto<textarea id="sT" style="min-height:70px">${esc(s.heroText||"")}</textarea></label>
     <label for="sC">Tarjetas “Qué vas a aprender” (una por línea: Título | texto)<textarea id="sC">${esc(lines(s.cards,c=>c.title+" | "+c.text))}</textarea></label>
-    <label for="sS">Pasos “Cómo se aprende” (una por línea: Título | texto)<textarea id="sS" style="min-height:90px">${esc(lines(s.steps,c=>c.title+" | "+c.text))}</textarea></label>
+    <label for="sS">Pasos “Cómo se aprende” (una por línea: Título | texto) · ya no se muestran en el inicio<textarea id="sS" style="min-height:90px">${esc(lines(s.steps,c=>c.title+" | "+c.text))}</textarea></label>
     <label for="sM">Mercados (una por línea: Categoría | Nombre | Estado | descripción). Estado: Disponible o Próximamente<textarea id="sM">${esc(lines(s.markets,m=>[m.cat,m.name,m.status,m.text||""].join(" | ")))}</textarea></label>
+    <h3>Quién te enseña (inicio)</h3>
+    <div class="two"><label for="sAbT">Título pequeño<input id="sAbT" value="${esc(s.aboutTitle||"")}" placeholder="Quién te enseña"></label><label for="sAbN">Nombre<input id="sAbN" value="${esc(s.aboutName||"")}" placeholder="El Arte Gráfico"></label></div>
+    <div class="row">${fileBtn("upAbout","Subir tu foto")}<span class="muted" id="abF" style="font-size:13px">${s.aboutPhoto?"Foto personalizada":"Sin foto: se muestra el logo"}</span>${s.aboutPhoto?'<button type="button" class="btn sm ghost" id="abX">Quitar foto</button>':""}</div>
+    <label for="sAbX">Texto<textarea id="sAbX" style="min-height:90px" placeholder="Soy el creador de El Arte Gráfico…">${esc(s.aboutText||"")}</textarea></label>
+    <div class="two"><label for="sAbI">Puntos (uno por línea)<textarea id="sAbI" style="min-height:80px">${esc((s.aboutItems||[]).join("\n"))}</textarea></label>
+      <label for="sAbS">Cifras (una por línea: Valor | texto)<textarea id="sAbS" style="min-height:80px" placeholder="120K | seguidores en TikTok&#10;4 años | operando Boom y Crash">${esc((s.aboutStats||[]).map(c=>c.v+" | "+c.t).join("\n"))}</textarea></label></div>
+    <div class="two"><label for="sAbK">Enlace de tu TikTok<input id="sAbK" value="${esc(s.aboutTiktok||"")}" placeholder="https://www.tiktok.com/@el_arte_grafico"></label><label for="sAbH">Mostrar la sección<select id="sAbH"><option value="0">Sí</option><option value="1" ${s.aboutHide?"selected":""}>No, ocultarla</option></select></label></div>
+    <h3>Preguntas frecuentes (inicio)</h3>
+    <label for="sFq">Una por línea: Pregunta | Respuesta. Si lo dejas vacío se muestran las preguntas por defecto.<textarea id="sFq" style="min-height:110px" placeholder="¿Necesito experiencia? | No, empezamos desde cero.">${esc((s.faq||[]).map(x=>x.q+" | "+x.a).join("\n"))}</textarea></label>
     <h3>Aviso de academia cerrada</h3><div class="two"><label for="sAT">Título<input id="sAT" value="${esc(s.closedTitle||"")}" placeholder="La academia abre muy pronto"></label><label for="sAX">Texto<input id="sAX" value="${esc(s.closedText||"")}" placeholder="Estamos terminando de montar el contenido…"></label></div>
     <h3>Comunidad y Discord (inicio de elartegrafico.com)</h3>
     <div class="two"><label for="sDU">Enlace de invitación al Discord<input id="sDU" value="${esc(s.discordUrl||"")}" placeholder="https://discord.gg/..."></label><label for="sDT">Título<input id="sDT" value="${esc(s.discordTitle||"")}" placeholder="La comunidad de El Arte Gráfico"></label></div>
@@ -112,6 +121,8 @@ function sitio(){
     <div class="row"><button class="btn gold" id="sv">Guardar cambios</button></div></form>`;
   bindUpload("upLogo",u=>{s.logoUrl=u;$("#lgN").textContent="Logo subido: guarda los cambios"});
   bindUpload("upLogoF",u=>{s.logoFullUrl=u;$("#lgF").textContent="Logo subido: guarda los cambios"});
+  bindUpload("upAbout",u=>{s.aboutPhoto=u;$("#abF").textContent="Foto subida: guarda los cambios"});
+  if($("#abX"))$("#abX").onclick=()=>{s.aboutPhoto="";$("#abF").textContent="Foto quitada: guarda los cambios"};
   const pairs=v=>v.split("\n").map(l=>l.split("|").map(x=>x.trim())).filter(p=>p[0]);
   $("#fs").onsubmit=async e=>{e.preventDefault();
     Object.assign(s,{name:$("#sN").value.trim(),tagline:$("#sG").value.trim(),heroTitle:$("#sH").value.trim(),heroText:$("#sT").value.trim(),
@@ -122,6 +133,9 @@ function sitio(){
       binancePayId:$("#sBP").value.trim(),binanceName:$("#sBN").value.trim(),payNote:$("#sPN").value.trim(),
       plans:pairs($("#sPL").value).map(p=>({name:p[0],days:Math.max(1,Math.min(3650,parseInt(p[1])||30)),price:p[2]||""})),
       closedTitle:$("#sAT").value.trim(),closedText:$("#sAX").value.trim(),discordUrl:$("#sDU").value.trim(),discordTitle:$("#sDT").value.trim(),discordText:$("#sDX").value.trim(),discordItems:$("#sDI").value.split("\n").map(x=>x.trim()).filter(Boolean),communityStats:pairs($("#sCS").value).map(p=>({v:p[0],t:p[1]||""})),
+      aboutTitle:$("#sAbT").value.trim(),aboutName:$("#sAbN").value.trim(),aboutText:$("#sAbX").value.trim(),aboutItems:$("#sAbI").value.split("\n").map(x=>x.trim()).filter(Boolean),
+      aboutStats:pairs($("#sAbS").value).map(p=>({v:p[0],t:p[1]||""})),aboutTiktok:$("#sAbK").value.trim(),aboutHide:$("#sAbH").value==="1",
+      faq:$("#sFq").value.split("\n").map(l=>{const i=l.indexOf("|");return i<0?null:{q:l.slice(0,i).trim(),a:l.slice(i+1).trim()}}).filter(x=>x&&x.q&&x.a),
       contact:$("#sCo").value.trim(),social:$("#sSo").value.trim(),legal:$("#sL").value.trim()});
     try{busy($("#sv"),true);await API.saveSite(s);S.site=s;A.applySite();toast("Cambios guardados")}catch(x){toast(x.message)}finally{busy($("#sv"),false)}};
 }

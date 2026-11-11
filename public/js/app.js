@@ -192,8 +192,88 @@ function discordCode(u){const m=String(u||"").match(/(?:discord\.gg|discord(?:ap
 let discCache=null;async function discordCounts(u){const c=discordCode(u);if(!c)return null;if(discCache)return discCache;
   try{const r=await fetch(`https://discord.com/api/v10/invites/${c}?with_counts=true`);if(!r.ok)return null;const j=await r.json();discCache={members:j.approximate_member_count,online:j.approximate_presence_count,name:j.guild&&j.guild.name};return discCache}catch(e){return null}}
 const fmtN=n=>n>=1e6?(n/1e6).toFixed(1).replace(".0","")+"M":n>=1e4?Math.round(n/1e3)+"K":n>=1e3?(n/1e3).toFixed(1).replace(".0","")+"K":String(n);
-const statsBand=()=>API.publicStats().then(st=>{if(!$("#stats"))return;$("#stats").innerHTML=[[st.students,"alumnos registrados"],[st.lessons,"lecciones publicadas"],[st.exercises,"ejercicios"],[st.rating?st.rating.toFixed(1)+" / 5":"—",st.reviews?`calificación · ${st.reviews} opiniones`:"calificación"]].map(([v,t])=>`<div><b class="mono">${esc(v??0)}</b><span>${t}</span></div>`).join("")}).catch(()=>{});
+const statsBand=()=>API.publicStats().then(st=>{if(!$("#stats"))return;$("#stats").innerHTML=[[st.students,"alumnos registrados"],[TEMARIO.length,"módulos en el temario"],[st.exercises,"ejercicios en gráficas reales"],[st.rating?st.rating.toFixed(1)+" / 5":"—",st.reviews?`calificación · ${st.reviews} opiniones`:"calificación"]].map(([v,t])=>`<div><b class="mono">${esc(v??0)}</b><span>${t}</span></div>`).join("")}).catch(()=>{});
 const DISC={title:"La comunidad de El Arte Gráfico",text:"Un espacio para traders que operan con reglas: análisis del día, dudas resueltas, avisos del método y acompañamiento entre alumnos.",items:["Análisis y zonas compartidas a diario","Avisos de actualizaciones y nuevas lecciones","Resolución de dudas con el equipo","Comunidad de alumnos que practican el mismo método"]};
+
+/* ---------- bloques del inicio ---------- */
+const TEMARIO=[["Bienvenida e introducción",5,"Introducción"],["La plataforma: Deriv y MT5",6,"Básico"],["Velas japonesas",5,"Básico"],["Estructura del mercado",6,"Básico"],
+  ["Fractales y zonas",6,"Intermedio"],["Las entradas: Inicio, Punta y Aislada",7,"Intermedio"],["Stop loss en M5 y manejo de la operación",6,"Intermedio"],
+  ["Gestión del riesgo",6,"Gestión"],["Psicología y rachas",5,"Gestión"],["Boom y Crash a fondo",6,"Avanzado"],["Tu plan de trading y tu diario",5,"Avanzado"],
+  ["Medir tu estrategia con datos",5,"Avanzado"],["Examen final",3,"Evaluación"]];
+const ICON_TT='<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M16.6 5.8A4.3 4.3 0 0 1 15.5 3h-3.1v12.4a2.6 2.6 0 1 1-2.6-2.6c.3 0 .5 0 .8.1V9.7a5.8 5.8 0 1 0 4.9 5.7V9.1a7.4 7.4 0 0 0 4.3 1.4V7.4a4.3 4.3 0 0 1-3.2-1.6z"/></svg>';
+
+/* gráfico animado: zona en H1 → stop en M5 → repetición (ilustrativo) */
+function demoChart(host){if(!host)return;
+  const st=["Marca la zona en H1","Baja a M5 y pon tu stop loss","Mira la repetición vela por vela"];
+  host.innerHTML=`<div class="dm-top"><span class="dm-mk">Boom 1000</span><span class="dm-tf"><b data-tf="H1">H1</b><b data-tf="M5">M5</b></span></div><canvas aria-hidden="true"></canvas>
+    <ol class="dm-steps">${st.map((t,i)=>`<li data-s="${i}"><i>${i+1}</i>${esc(t)}</li>`).join("")}</ol><span class="dm-note">Ilustración de un ejercicio de la academia</span>`;
+  const cv=$("canvas",host),cx=cv.getContext("2d");
+  let sd=11;const rnd=()=>(sd=(sd*16807)%2147483647)/2147483647;
+  const pre=[],post=[];let p=100;
+  for(let i=0;i<34;i++){const o=p;let c;if(i===8)c=o+3.4+rnd();else if(i===20)c=o+2.6+rnd()*.6;else{c=o-((i>20?.1:.17)+rnd()*.16);if(rnd()<.14)c=o+rnd()*.12}
+    pre.push({o,h:Math.max(o,c)+rnd()*.1,l:Math.min(o,c)-rnd()*.1,c});p=c}
+  const z=pre[19],zLo=z.l,zHi=z.l+.42,sl=zLo-.38;
+  for(let i=0;i<12;i++){const o=p;let c;if(i===7)c=o+2.7;else if(i<7)c=Math.max(zLo+.05,o-(.14+rnd()*.14));else c=o-(.08+rnd()*.1);
+    post.push({o,h:Math.max(o,c)+rnd()*.1,l:Math.min(o,c)-rnd()*.08,c});p=c}
+  const all=pre.concat(post),lo=Math.min(sl,...all.map(b=>b.l))-.3,hi=Math.max(...all.map(b=>b.h))+.3;
+  const ent=post.findIndex(b=>b.l<=zHi),top=Math.max(...post.slice(ent).map(b=>b.h)),R=(top-zHi)/(zHi-sl);
+  const T=12,red=matchMedia("(prefers-reduced-motion: reduce)").matches;let raf,t0=performance.now(),W=0,H=0;
+  const fit=()=>{const w=cv.clientWidth,h=cv.clientHeight,d=window.devicePixelRatio||1;if(w!==W||h!==H){W=w;H=h;cv.width=w*d;cv.height=h*d;cx.setTransform(d,0,0,d,0,0)}};
+  const ease=x=>x<=0?0:x>=1?1:1-Math.pow(1-x,3);
+  const frame=now=>{if(!host.isConnected){cancelAnimationFrame(raf);return}fit();const t=red?10:((now-t0)/1000)%T;
+    const n=all.length+2,dx=(W-58)/n,Y=v=>58+(hi-v)/(hi-lo)*(H-72),X=i=>8+dx*(i+.5);
+    cx.clearRect(0,0,W,H);cx.strokeStyle="rgba(120,140,190,.10)";cx.lineWidth=1;for(let k=1;k<5;k++){const y=k*H/5;cx.beginPath();cx.moveTo(0,y);cx.lineTo(W,y);cx.stroke()}
+    const fade=t>11.4?1-(t-11.4)/.6:1;cx.globalAlpha=fade;
+    const nPre=Math.ceil(pre.length*ease(t/2)),nPost=t<5.2?0:Math.min(post.length,Math.floor((t-5.2)/3.6*post.length)+1);
+    const za=ease((t-2.1)/.8),sa=ease((t-3.7)/.8);
+    if(za>0){cx.fillStyle=`rgba(216,176,98,${.16*za})`;cx.fillRect(X(19)-dx/2,Y(zHi),(W-50)-(X(19)-dx/2),Y(zLo)-Y(zHi));cx.strokeStyle=`rgba(216,176,98,${.85*za})`;cx.lineWidth=1.5;cx.strokeRect(X(19)-dx/2,Y(zHi),(W-50)-(X(19)-dx/2),Y(zLo)-Y(zHi))}
+    const candle=(b,i)=>{const up=b.c>=b.o,col=up?"#2ec486":"#e84c5c";cx.strokeStyle=col;cx.fillStyle=col;cx.lineWidth=1.2;const x=X(i);cx.beginPath();cx.moveTo(x,Y(b.h));cx.lineTo(x,Y(b.l));cx.stroke();
+      const a=Y(Math.max(b.o,b.c)),c=Y(Math.min(b.o,b.c));cx.fillRect(x-dx*.32,a,dx*.64,Math.max(1.5,c-a))};
+    pre.slice(0,nPre).forEach(candle);post.slice(0,nPost).forEach((b,i)=>candle(b,pre.length+i));
+    if(sa>0){cx.strokeStyle=`rgba(232,76,92,${sa})`;cx.setLineDash([5,4]);cx.lineWidth=1.5;cx.beginPath();cx.moveTo(X(19)-dx/2,Y(sl));cx.lineTo(X(19)-dx/2+((W-50)-(X(19)-dx/2))*sa,Y(sl));cx.stroke();cx.setLineDash([])}
+    const tag=(y,txt,bg,fg,a)=>{if(a<=0)return;cx.globalAlpha=fade*a;cx.font="600 11px Inter,system-ui,sans-serif";const w=cx.measureText(txt).width+12;cx.fillStyle=bg;cx.beginPath();cx.roundRect?cx.roundRect(W-w-2,y-9,w,18,5):cx.rect(W-w-2,y-9,w,18);cx.fill();cx.fillStyle=fg;cx.fillText(txt,W-w+4,y+4);cx.globalAlpha=fade};
+    tag(Y(zHi)-2,"Zona H1","#d8b062","#1c1404",za);tag(Y(sl)+2,"SL M5","#e84c5c","#fff",sa);
+    if(nPost>ent&&ent>=0){const x=X(pre.length+ent),y=Y(zHi);cx.fillStyle="#d8b062";cx.beginPath();cx.arc(x,y,4.5,0,7);cx.fill()}
+    const ra=ease((t-9)/.6);if(ra>0){cx.globalAlpha=fade*ra;const txt=`+${R.toFixed(1)} R`;cx.font="800 22px Inter,system-ui,sans-serif";const w=cx.measureText(txt).width+26,x=W/2-w/2,y=16;
+      cx.fillStyle="rgba(46,196,134,.16)";cx.strokeStyle="#2ec486";cx.lineWidth=1.5;cx.beginPath();cx.roundRect?cx.roundRect(x,y,w,38,10):cx.rect(x,y,w,38);cx.fill();cx.stroke();cx.fillStyle="#7df0bd";cx.fillText(txt,x+13,y+27);cx.globalAlpha=1}
+    cx.globalAlpha=1;
+    const step=t<2.1?-1:t<3.7?0:t<5.2?1:2;$$(".dm-steps li",host).forEach(li=>li.classList.toggle("on",+li.dataset.s===step));
+    $$(".dm-tf b",host).forEach(b=>b.classList.toggle("on",b.dataset.tf===(t>=3.7&&t<5.2?"M5":"H1")));
+    if(!red)raf=requestAnimationFrame(frame)};
+  raf=requestAnimationFrame(frame);cleanup.push(()=>cancelAnimationFrame(raf));
+}
+function aboutBlock(host){if(!host)return;const s=S.site;if(s.aboutHide){host.remove();return}
+  const name=s.aboutName||s.name||"El Arte Gráfico";
+  const items=s.aboutItems&&s.aboutItems.length?s.aboutItems:["Método propio para Boom y Crash, con reglas claras","Zona en H1 y stop loss en M5: lo mismo que ves en mis videos","Práctica en gráficas reales, no solo teoría"];
+  const tk=s.aboutTiktok||"https://www.tiktok.com/@el_arte_grafico";
+  host.innerHTML=`<div class="about"><div class="about-ph${s.aboutPhoto?" foto":""}"><img src="${esc(s.aboutPhoto||s.logoFullUrl||"assets/logo_circle.png")}" alt="${esc(name)}" loading="lazy"></div>
+    <div class="about-t"><span class="eyebrow">${esc(s.aboutTitle||"Quién te enseña")}</span><h2>${esc(name)}</h2>
+      <p class="muted">${esc(s.aboutText||"Soy el creador de El Arte Gráfico. En TikTok comparto mis análisis de Boom y Crash; aquí enseño el método completo, paso a paso: cómo encuentro mis zonas en H1, dónde pongo el stop loss en M5 y cómo gestiono el riesgo. Sin promesas de dinero fácil: reglas claras y mucha práctica.")}</p>
+      <ul class="checks">${items.map(i=>`<li>${esc(i)}</li>`).join("")}</ul>
+      ${(s.aboutStats||[]).length?`<div class="cstats">${s.aboutStats.map(c=>`<div><b class="mono">${esc(c.v)}</b><span>${esc(c.t)}</span></div>`).join("")}</div>`:""}
+      <div class="row"><a class="btn ghost btn-ic" href="${esc(tk)}" target="_blank" rel="noopener">${ICON_TT}<span>Verme en TikTok</span></a></div></div></div>`}
+function temarioBlock(host){if(!host)return;const pub=new Set((S.modules||[]).filter(m=>m.status==="publicado"&&modOpen(m)).map(m=>m.title.trim().toLowerCase()));
+  const tot=TEMARIO.reduce((a,x)=>a+x[1],0);
+  host.innerHTML=TEMARIO.map(([t,n,lv],i)=>{const on=pub.has(t.toLowerCase());return `<div class="tm${on?" on":""}"><span class="tm-n mono">${String(i).padStart(2,"0")}</span><div><b>${esc(t)}</b><span class="dim">${n} lecciones · ${esc(lv)}</span></div>${on?'<span class="tag pub">Disponible</span>':'<span class="tag">Próximamente</span>'}</div>`}).join("")
+    +`<p class="dim tm-foot">${TEMARIO.length} módulos · ${tot} lecciones con ejercicios en gráficas reales. Los módulos se van abriendo a medida que avanzas.</p>`}
+function pricingBlock(host){if(!host)return;const s=S.site;const pl=(s.plans||[]).filter(x=>x&&x.name&&x.price);if(!pl.length||premium()){host.remove();return}
+  const num=x=>{const m=String(x).replace(",",".").match(/\d+(\.\d+)?/);return m?parseFloat(m[0]):NaN};const cur=x=>String(x).replace(/[\d.,\s]+/g," ").trim()||"USD";
+  const base=pl.find(x=>x.days<=31),bm=base?num(base.price)/(base.days/30):NaN;const fav=pl.length===3?1:pl.length>3?Math.floor(pl.length/2):-1;
+  const items=(s.premiumItems||[]).slice(0,4);
+  host.innerHTML=`<div class="sec-h"><div><span class="eyebrow">Precios</span><h2>Elige tu plan</h2></div><a href="#premium">Cómo pagar</a></div>
+    <div class="prices">${pl.map((x,i)=>{const v=num(x.price),pm=v/(x.days/30),ah=isFinite(bm)&&x.days>31&&pm<bm?Math.round(100*(1-pm/bm)):0;
+      return `<div class="price${i===fav?" fav":""}">${i===fav?'<span class="price-tag">Más elegido</span>':""}<h3>${esc(x.name)}</h3><div class="price-v"><b>${esc(String(x.price).replace(/\s*[A-Za-z]+$/,""))}</b><span>${esc(cur(x.price))}</span></div>
+        <span class="dim">${x.days>31&&isFinite(pm)?`≈ ${pm.toFixed(pm<10?1:0).replace(".0","")} ${esc(cur(x.price))} al mes`:"pago único por 30 días"}</span>${ah?`<span class="pill ok">Ahorras ${ah}%</span>`:""}
+        <ul class="checks">${items.map(t=>`<li>${esc(t)}</li>`).join("")}</ul><a class="btn ${i===fav?"gold":""}" href="#premium">Elegir ${esc(x.name)}</a></div>`}).join("")}</div>
+    <p class="dim price-foot">Pagas con Binance Pay en USDT y activamos tu premium al confirmar el pago. ¿Quieres probar antes? Con tu cuenta gratis tienes 5 gráficas de prueba.</p>`}
+const FAQ_DEF=[["¿Necesito experiencia?","No. El temario empieza desde cero: qué es un bróker, cómo leer las velas y la estructura del mercado, hasta el método completo."],
+  ["¿Con cuánto dinero empiezo?","Puedes aprender y practicar en una cuenta demo sin poner dinero. Cuando pases a real, el módulo de gestión del riesgo te enseña a calcular el lote según el tamaño de tu cuenta."],
+  ["¿Funciona desde el celular?","Sí. La academia y los ejercicios funcionan en el navegador del celular y la puedes instalar como app."],
+  ["¿Cómo pago?","Con Binance Pay en USDT. Registras el pago en la página Premium y activamos tu acceso cuando lo confirmamos."],
+  ["¿Puedo probar antes de pagar?","Sí. Con tu cuenta gratis tienes 5 gráficas de prueba para ver cómo funcionan los ejercicios."],
+  ["¿Me garantizan ganancias?","No. Esto es formación. Operar índices sintéticos tiene un riesgo alto y nadie puede garantizarte resultados; por eso practicamos en demo y con gestión del riesgo."]];
+function faqBlock(host){if(!host)return;const f=(S.site.faq||[]).length?S.site.faq.map(x=>[x.q,x.a]):FAQ_DEF;
+  host.innerHTML=f.map(([q,a])=>`<details class="fq"><summary>${esc(q)}</summary><p class="muted">${esc(a)}</p></details>`).join("")}
 
 /* ---------- inicio del sitio principal ---------- */
 async function mainHome(){
@@ -201,7 +281,12 @@ async function mainHome(){
   const dItems=(s.discordItems&&s.discordItems.length?s.discordItems:DISC.items);
   app.innerHTML=`${logged()&&p?`<section class="welcome"><a class="welcome-av" href="#perfil" title="Configuración">${avatar(p,56)}</a><div style="flex:1;min-width:200px"><span class="eyebrow">Tu cuenta</span><h2>Hola, ${esc(p.username)}</h2><p class="muted">${closedAcad()&&!admin()?"Tu cuenta ya quedó creada. La academia abre muy pronto: te avisaremos por aquí y en la comunidad.":premium()?"Tienes acceso premium a toda la academia.":`Cuenta gratis · tienes ${Math.max(0,5-(p.demo_used||0))} de 5 gráficas de prueba en la academia.`}</p></div>${closedAcad()&&!admin()?'<span class="pill">Academia: próximamente</span>':`<a class="btn gold" href="${toAcad("inicio")}">Ir a la academia</a>`}</section>`:""}
   <div id="appCard"></div>
-  <section id="hero"></section><section class="statband" id="stats"></section>
+  <section class="hero2"><div id="hero"></div><div class="demo-card" id="demo" aria-label="Así se practica en la academia"></div></section>
+  <section class="statband" id="stats"></section>
+  <section class="sec"><div class="sec-h"><div><span class="eyebrow">La academia</span><h2>Qué vas a aprender</h2></div><a href="${toAcad("inicio")}">Ir a la academia</a></div><div class="cards" id="cards"></div></section>
+  <section class="sec" id="about"></section>
+  <section class="sec"><div class="sec-h"><div><span class="eyebrow">Temario</span><h2>De cero al método completo</h2></div><a href="${toAcad("academia")}">Ver temario</a></div><div class="tmp" id="tmp"></div></section>
+  <section class="sec" id="precios"></section>
   <section class="sec"><div class="disc">
     <div class="disc-main"><span class="eyebrow">Comunidad</span><h2>${esc(s.discordTitle||DISC.title)}</h2><p class="muted">${esc(s.discordText||DISC.text)}</p>
       <ul class="checks">${dItems.map(i=>`<li>${esc(i)}</li>`).join("")}</ul>
@@ -209,20 +294,17 @@ async function mainHome(){
       <div class="row">${s.discordUrl?`<a class="btn gold btn-ic" href="${esc(s.discordUrl)}" target="_blank" rel="noopener">${ICON_CHAT}<span>Unirme al Discord</span></a>`:'<span class="pill">El enlace al Discord se publicará pronto</span>'}<a class="btn ghost" href="#comunidad">Ver publicaciones</a></div></div>
     <div class="disc-news"><div class="sec-h"><h3>Últimas publicaciones</h3><a href="#comunidad">Ver todo</a></div><div id="newsMini" class="minis"><div class="muted">Cargando…</div></div></div>
   </div></section>
-  <section class="sec"><div class="sec-h"><div><span class="eyebrow">La academia</span><h2>Qué vas a aprender</h2></div><a href="${toAcad("inicio")}">Ir a la academia</a></div><div class="cards" id="cards"></div>
-    <div class="panel acad-cta"><div><h3>Practica en gráficas reales</h3><p class="muted">Marca la zona en H1, baja a M5 para poner el stop loss y mira la repetición de lo que habría pasado. Con tu cuenta gratis tienes 5 gráficas de prueba.</p></div>
-      <div class="row">${logged()?`<a class="btn gold" href="${toAcad(premium()?"inicio":"prueba")}">${premium()?"Ir a la academia":"Probar gratis"}</a>`:'<a class="btn gold" href="#registro">Crear cuenta gratis</a><a class="btn ghost" href="#entrar">Ya tengo cuenta</a>'}</div></div></section>
-  <section class="sec"><div class="sec-h"><div><span class="eyebrow">Metodología</span><h2>Cómo se aprende</h2></div></div><div class="steps" id="steps"></div></section>
   <section class="sec"><div class="sec-h"><div><span class="eyebrow">Mercados</span><h2>Empezamos por sintéticos. Vamos por todo el mercado.</h2></div><a href="#mercados">Ver mercados</a></div><div class="mkts" id="mkts"></div></section>
   <section class="sec"><div class="sec-h"><div><span class="eyebrow">Opiniones</span><h2>Lo que dicen los alumnos</h2></div><a href="#opiniones">Ver todas</a></div><div id="revs"></div></section>
+  <section class="sec"><div class="sec-h"><div><span class="eyebrow">Preguntas frecuentes</span><h2>Antes de empezar</h2></div></div><div class="faq" id="faq"></div></section>
   <section class="cta-band" id="premiumBand"></section>`;
-  API.slides("home").then(sl=>slider($("#hero"),sl)).catch(()=>slider($("#hero"),[]));statsBand();appCard($("#appCard"));
+  API.slides("home").then(sl=>slider($("#hero"),sl,{emblem:false})).catch(()=>slider($("#hero"),[],{emblem:false}));statsBand();demoChart($("#demo"));aboutBlock($("#about"));temarioBlock($("#tmp"));pricingBlock($("#precios"));faqBlock($("#faq"));appCard($("#appCard"));
   if(s.discordUrl)discordCounts(s.discordUrl).then(d=>{const h=$("#cstats");if(!h||!d||!d.members)return;
     h.insertAdjacentHTML("afterbegin",`<div><b class="mono">${fmtN(d.members)}</b><span>miembros en Discord</span></div>${d.online?`<div><b class="mono"><i class="live"></i>${fmtN(d.online)}</b><span>conectados ahora</span></div>`:""}`)});
   $("#cards").innerHTML=(s.cards||[]).map((c,i)=>`<div class="card"><span class="k">${String(i+1).padStart(2,"0")}</span><h3>${esc(c.title)}</h3><p>${esc(c.text)}</p></div>`).join("");
   $("#mkts").innerHTML=marketsHTML(s.markets||[],true);
-  $("#steps").innerHTML=(s.steps||[]).map((c,i)=>`<div class="step"><span class="n">Paso ${i+1}</span><h3>${esc(c.title)}</h3><p class="muted">${esc(c.text)}</p></div>`).join("");
-  $("#premiumBand").innerHTML=premiumBand();
+  {const pb=$("#premiumBand");if(premium())pb.remove();else if(logged())pb.innerHTML=premiumBand();
+    else pb.innerHTML=`<div class="pb final"><div><span class="eyebrow">Empieza hoy</span><h2>Crea tu cuenta gratis y prueba el método</h2><p class="muted" style="max-width:60ch;margin-top:8px">Tienes 5 gráficas de prueba para marcar tu zona, poner tu stop loss y ver la repetición. Sin tarjeta y sin compromiso.</p></div><div class="row"><a class="btn gold" href="#registro">Crear cuenta gratis</a><a class="btn ghost" href="#entrar">Ya tengo cuenta</a></div></div>`}
   API.publicReviews().then(r=>{if($("#revs"))$("#revs").innerHTML=reviewsHTML(r.slice(0,3),true)}).catch(()=>{});
   API.posts().then(p=>{if($("#newsMini"))$("#newsMini").innerHTML=p.slice(0,4).map(x=>`<a class="mini" href="#nota-${esc(x.id)}"><span class="dim">${fmtDate(x.created_at)} · ${esc(x.category||"Noticia")}</span><b>${esc(x.title)}</b></a>`).join("")||'<div class="muted">Pronto publicaremos noticias y actualizaciones.</div>'}).catch(()=>{if($("#newsMini"))$("#newsMini").innerHTML='<div class="muted">Sin publicaciones por ahora.</div>'});
 }
