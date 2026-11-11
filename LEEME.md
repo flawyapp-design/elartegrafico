@@ -105,3 +105,7 @@ Sin Turnstile, la web usa un captcha propio. Sirve para frenar bots simples, per
 - **Velas:** `public/data/h1` (H1 de 2026) y `public/data/m5/<mercado>/<mes>.json` (M5 de 2026).
 - **Actualizarlas:** exporta de MT5 con el script de siempre y pídeme regenerarlas.
 - **Nuevos mercados** (Step, Volatility, Forex, oro): se agregan exportando sus velas.
+
+## Ranking público y reseñas de módulos
+1. Corre `supabase/ranking_publico.sql` en Supabase → SQL Editor: el ranking lo ve cualquiera (también sin cuenta), muestra la placa premium y la bandera del país, y la lista de alumnos del admin trae el país.
+2. Corre `supabase/resenas_modulos.sql`: al terminar un módulo el alumno debe dejar su reseña (estrellas, cómo le pareció y qué mejorar) para abrir el siguiente. Las ves en Admin → Reseñas de módulos. Se puede desactivar por módulo en su editor ("Reseña al terminar").

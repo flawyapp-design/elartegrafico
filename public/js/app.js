@@ -15,7 +15,7 @@ const LEVELS=[[0,"Nivel 1 · Fundamentos"],[150,"Nivel 2 · Analista"],[400,"Niv
 const levelOf=xp=>{let i=0;LEVELS.forEach((l,k)=>{if(xp>=l[0])i=k});const n=LEVELS[i+1];return{i,name:LEVELS[i][1],from:LEVELS[i][0],to:n?n[0]:null}};
 const ACH=[{id:"primera",t:"Primera operación correcta"},{id:"diez",t:"10 aciertos"},{id:"racha5",t:"5 aciertos seguidos"},{id:"constancia",t:"3 días seguidos practicando"},{id:"leccion",t:"Primera lección aprobada"},{id:"modulo",t:"Primer módulo completo"},{id:"paciencia",t:"Supo no operar"},{id:"cien",t:"100 ejercicios"}];
 
-const S={site:{},user:null,prof:null,modules:[],lindex:[],prog:null,loaded:false};
+const S={site:{},user:null,prof:null,modules:[],lindex:[],prog:null,loaded:false,fb:new Set(),fbOff:false};
 const blankProg=()=>({xp:0,done:{},streak:0,lastDay:"",practice:{n:0,ok:0,row:0,best:0},ach:[]});
 const premium=()=>API.isPremium(), admin=()=>API.isAdmin(), logged=()=>!!API.user();
 /* ---------- dos sitios con el mismo código: elartegrafico.com (principal) y academia.elartegrafico.com ---------- */
@@ -44,6 +44,9 @@ function derivBlock(){const s=S.site||{};const u=(s.derivRefUrl||"").trim();if(!
 const avatar=(o,sz=32,cls="")=>{o=o||{};const n=(o.username||"?")[0].toUpperCase();
   return o.avatar_url?`<img class="avi ${cls}" src="${esc(o.avatar_url)}" alt="" width="${sz}" height="${sz}" style="width:${sz}px;height:${sz}px" loading="lazy">`
     :`<span class="avi ini ${cls}" style="width:${sz}px;height:${sz}px;font-size:${Math.round(sz*.42)}px" aria-hidden="true">${esc(n)}</span>`};
+const ISO={"Colombia":"co","México":"mx","Argentina":"ar","Chile":"cl","Perú":"pe","Ecuador":"ec","Venezuela":"ve","Bolivia":"bo","Uruguay":"uy","Paraguay":"py","Panamá":"pa","Costa Rica":"cr","Guatemala":"gt","Honduras":"hn","El Salvador":"sv","Nicaragua":"ni","República Dominicana":"do","Puerto Rico":"pr","Cuba":"cu","España":"es","Estados Unidos":"us"};
+const flag=c=>{const k=ISO[c];return k?`<img class="flag" src="https://flagcdn.com/w40/${k}.png" srcset="https://flagcdn.com/w80/${k}.png 2x" width="22" height="16" alt="" title="${esc(c)}" loading="lazy" onerror="this.outerHTML='<span class=&quot;flag-t&quot; title=&quot;${esc(c)}&quot;>${k.toUpperCase()}</span>'">`:""};
+const premTag=()=>'<span class="prem-tag" title="Alumno premium"><svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true"><path fill="currentColor" d="M3 8l4.5 4L12 5l4.5 7L21 8l-2 11H5z"/></svg>Premium</span>';
 const COUNTRIES=["Colombia","México","Argentina","Chile","Perú","Ecuador","Venezuela","Bolivia","Uruguay","Paraguay","Panamá","Costa Rica","Guatemala","Honduras","El Salvador","Nicaragua","República Dominicana","Puerto Rico","Cuba","España","Estados Unidos","Otro"];
 async function squareImage(file,size=320){const img=await new Promise((ok,no)=>{const i=new Image();i.onload=()=>ok(i);i.onerror=()=>no(new Error("No se pudo leer la imagen"));i.src=URL.createObjectURL(file)});
   const m=Math.min(img.naturalWidth,img.naturalHeight),c=document.createElement("canvas");c.width=c.height=size;const x=c.getContext("2d");
@@ -58,7 +61,8 @@ let bindLater=null;
 /* ---------- progreso ---------- */
 let saveT=null;
 function saveProg(){try{localStorage.setItem("ag_prog_"+(API.user()||{id:"anon"}).id,JSON.stringify(S.prog))}catch(e){}renderNav();clearTimeout(saveT);saveT=setTimeout(()=>{if(logged())API.progressSave(S.prog.xp,S.prog).catch(()=>{})},800)}
-async function loadProg(){S.prog=blankProg();if(!logged())return;try{const r=await API.progressGet();if(r&&r.data)S.prog=Object.assign(blankProg(),r.data,{xp:r.xp||r.data.xp||0})}catch(e){}}
+async function loadProg(){S.prog=blankProg();S.fb=new Set();if(!logged())return;
+  API.myFeedback().then(r=>{S.fb=new Set((r||[]).map(x=>x.module_id));S.fbOff=false}).catch(()=>{S.fbOff=true});try{const r=await API.progressGet();if(r&&r.data)S.prog=Object.assign(blankProg(),r.data,{xp:r.xp||r.data.xp||0})}catch(e){}}
 function ach(id){if(!S.prog.ach.includes(id)){S.prog.ach.push(id);const a=ACH.find(x=>x.id===id);if(a)setTimeout(()=>toast("Logro: "+a.t),700)}}
 function addXP(n){S.prog.xp=(S.prog.xp||0)+n;const d=todayKey();if(S.prog.lastDay!==d){const y=new Date(Date.now()+TZ*1000-864e5).toISOString().slice(0,10);S.prog.streak=S.prog.lastDay===y?(S.prog.streak||0)+1:1;S.prog.lastDay=d;if(S.prog.streak>=3)ach("constancia")}saveProg()}
 function registerAnswer(kind,res){const p=S.prog.practice;p.n++;if(res==="ok"){p.ok++;p.row++;ach("primera");if(kind==="no-operar")ach("paciencia")}else p.row=0;p.best=Math.max(p.best,p.row);if(p.ok>=10)ach("diez");if(p.row>=5)ach("racha5");if(p.n>=100)ach("cien");saveProg()}
@@ -74,7 +78,10 @@ function modOpen(m,ignoreAdmin){if(!m)return false;if(!ignoreAdmin&&admin())retu
 function passedL(id){return !!(S.prog&&S.prog.done[id]&&S.prog.done[id].passed)}
 /* módulo anterior que cuenta para el orden: los módulos opcionales no bloquean a los siguientes */
 function prevReq(m){const i=S.modules.indexOf(m);for(let k=i-1;k>=0;k--){if(!S.modules[k].optional)return S.modules[k]}return null}
-function modLocked(m){if(admin())return false;const prev=prevReq(m);return !!(m.locked&&prev&&modProgress(prev.id)<1)}
+/* reseña obligatoria: al terminar un módulo hay que dejar la reseña para abrir el siguiente */
+function needFb(m){return !!(m&&!admin()&&!S.fbOff&&logged()&&m.ask_feedback!==false&&modProgress(m.id)>=1&&!S.fb.has(m.id))}
+function modLocked(m){if(admin())return false;const prev=prevReq(m);if(!prev)return false;if(needFb(prev))return true;return !!(m.locked&&modProgress(prev.id)<1)}
+const fbCard=m=>`<div class="fb-card"><div><span class="eyebrow">¡Terminaste “${esc(m.title)}”!</span><b>Cuéntanos cómo te pareció</b><span class="muted">Tu reseña nos ayuda a mejorar la academia. Es obligatoria para abrir el siguiente módulo y te toma un minuto.</span></div><a class="btn gold" href="#resena-${esc(m.id)}">Dejar mi reseña</a></div>`;
 function lessonOpen(l){if(admin())return true;const m=S.modules.find(x=>x.id===l.module_id);if(!m||!modOpen(m)||modLocked(m))return false;if(!m.locked||m.optional)return true;
   const ls=S.lindex.filter(x=>x.module_id===l.module_id);const k=ls.findIndex(x=>x.id===l.id);return ls.slice(0,Math.max(0,k)).every(x=>passedL(x.id))}
 function modState(m){if(modOpen(m,true))return"Disponible";return m.open_at?"Abre el "+new Date(m.open_at).toLocaleDateString("es-CO",{day:"2-digit",month:"short"}):"Próximamente"}
@@ -119,7 +126,7 @@ function route(keep){
   const [k,...rest]=h.split("-");const arg=rest.join("-");
   if(!ACAD&&ACAD_R.has(k)){location.href=toAcad(h);return}
   if(ACAD&&MAIN_R.has(k)){location.href=toMain(h);return}
-  if(ACAD&&!logged()&&k!=="nueva"){location.replace(toMain("entrar-academia"));return}
+  if(ACAD&&!logged()&&k!=="nueva"&&k!=="ranking"){location.replace(toMain("entrar-academia"));return}
   renderNav();
   if(ACAD&&closedAcad()&&k!=="nueva"&&k!=="perfil"){if(!admin()){API.logView(sid,"academia/cerrada");closedView();return}
     $("#app").insertAdjacentHTML("beforebegin",'<div class="note admin-note" id="admNote">La academia está <b>cerrada para alumnos</b>: solo tú la ves. Ábrela desde Administración cuando el contenido esté listo.</div>')}
@@ -224,12 +231,13 @@ async function academyHome(){
   app.innerHTML=`<section class="dash"><a class="dash-av" href="#perfil" title="Cambiar foto">${avatar(p,86)}<span class="lvchip" title="${esc(lv.name)}">${lv.i+1}</span></a><div class="dash-t"><span class="eyebrow">Academia · ${premium()?"Premium":"Cuenta gratis"}</span><h1>Hola, ${esc(p.username||"")}</h1>
       <div class="muted">${esc(lv.name)} · <span class="mono">${g.xp} pts</span>${lv.to?` · faltan ${lv.to-g.xp} para el siguiente nivel`:""}</div><div class="bar"><i style="width:${pct}%"></i></div></div>
     <div class="dash-a">${premium()?(nx?`<a class="btn gold" href="#leccion-${esc(nx.id)}">Continuar: ${esc(nx.title)}</a>`:'<a class="btn gold" href="#practica">Ir a práctica</a>'):'<a class="btn gold" href="#premium">Hazte premium</a>'}</div></section>
+  ${premium()?(m=>m?fbCard(m):"")(S.modules.find(needFb)):""}
   <div class="kv"><div><b>${passed}${total?` / ${total}`:""}</b><span>lecciones aprobadas</span></div><div><b>${g.practice.n}</b><span>ejercicios resueltos</span></div><div><b>${g.practice.n?Math.round(100*g.practice.ok/g.practice.n):0}%</b><span>aciertos</span></div><div><b>${g.streak||0}</b><span>días seguidos</span></div></div>
   ${premium()?"":`<section class="sec" id="prueba"><div class="sec-h"><div><span class="eyebrow">Prueba gratis</span><h2>Tus gráficas de prueba</h2></div><span class="muted" id="demoLeft"></span></div><div id="demoBox"></div></section>`}
   <section class="sec"><div class="sec-h"><div><span class="eyebrow">Temario</span><h2>Ruta de aprendizaje</h2></div><a href="#academia">Ver temario completo</a></div><div id="syl"></div></section>
-  ${premium()?`<section class="sec"><div class="two"><div class="panel"><h3>Práctica libre</h3><p class="muted">Ejercicios sueltos para entrenar el ojo. Suman puntos para el ranking.</p><div class="row"><a class="btn" href="#practica">Practicar ahora</a></div></div><div class="panel"><div class="sec-h"><h3>Ranking</h3><a href="#ranking">Ver completo</a></div><div id="rkMini" class="muted">Cargando…</div></div></div></section>`:`<section class="cta-band">${premiumBand()}</section>`}`;
+  ${premium()?`<section class="sec"><div class="two"><div class="panel"><h3>Práctica libre</h3><p class="muted">Ejercicios sueltos para entrenar el ojo. Suman puntos para el ranking.</p><div class="row"><a class="btn" href="#practica">Practicar ahora</a></div></div><div class="panel"><div class="sec-h"><h3>Ranking</h3><a href="#ranking">Ver completo</a></div><div id="rkMini" class="muted">Cargando…</div></div></div></section>`:`<section class="sec"><div class="panel"><div class="sec-h"><h3>Ranking de alumnos</h3><a href="#ranking">Ver completo</a></div><div id="rkMini" class="muted">Cargando…</div></div></section><section class="cta-band">${premiumBand()}</section>`}`;
   syllabus($("#syl"),premium()?0:6);if(!premium())demoSection();
-  if(premium())API.leaderboard().then(r=>{if(!$("#rkMini"))return;$("#rkMini").innerHTML=r.length?`<table class="tbl">${r.slice(0,5).map((x,i)=>`<tr${x.is_me?' class="me"':""}><td class="mono">${i+1}</td><td><span class="who-cell">${avatar(x,24)}<span>${esc(x.username)}</span></span></td><td class="n">${x.xp}</td></tr>`).join("")}</table>`:'<div class="muted">Aún no hay alumnos en el ranking.</div>'}).catch(()=>{});
+  API.leaderboard().then(r=>{if(!$("#rkMini"))return;$("#rkMini").innerHTML=r.length?`<table class="tbl rk">${r.slice(0,5).map((x,i)=>`<tr class="${x.is_me?"me ":""}${x.premium?"prem":""}"><td class="mono">${i<3?["🥇","🥈","🥉"][i]:i+1}</td><td><span class="who-cell">${avatar(x,24)}<span>${esc(x.username)}</span>${flag(x.country)}${x.premium?premTag():""}</span></td><td class="n">${x.xp}</td></tr>`).join("")}</table>`:'<div class="muted">Aún no hay alumnos en el ranking.</div>'}).catch(()=>{});
 }
 function marketsHTML(list,compact){const g={};list.forEach(m=>{(g[m.cat]=g[m.cat]||[]).push(m)});
   return Object.entries(g).map(([cat,ms])=>`<div class="mkcat"><h3>${esc(cat)}</h3><div class="mklist">${ms.map(m=>`<div class="mk ${m.status==="Disponible"?"on":""}"><div><b>${esc(m.name)}</b>${compact?"":`<p class="muted">${esc(m.text||"")}</p>`}</div><span class="tag ${m.status==="Disponible"?"pub":""}">${esc(m.status)}</span></div>`).join("")}</div></div>`).join("")||'<div class="empty">Sin mercados configurados.</div>'}
@@ -357,7 +365,8 @@ ROUTES.academia=()=>{app.innerHTML=`<div class="pagehead"><span class="eyebrow">
 ROUTES.modulo=id=>{const m=S.modules.find(x=>x.id===id);if(!m){app.innerHTML=`<div class="empty">Ese módulo no existe.<a class="btn sm" href="#academia">Ver temario</a></div>`;return}
   const ls=S.lindex.filter(l=>l.module_id===id);const prev=prevReq(m);const closedM=!modOpen(m);const locked=closedM||(premium()&&modLocked(m));
   app.innerHTML=`<div class="crumbs"><a href="#academia">Temario</a><span>/</span><span>${esc(m.category||"")}</span></div><div class="pagehead"><span class="eyebrow">${esc(m.level||m.category||"Módulo")}</span><h1>${esc(m.title)}</h1><p class="muted">${esc(m.descr||"")}</p>${premium()?`<div class="bar" style="max-width:420px"><i style="width:${Math.round(modProgress(id)*100)}%"></i></div>`:""}</div>
-  ${closedM?`<div class="note">${m.open_at?`Este módulo se habilita el <b>${esc(new Date(m.open_at).toLocaleString("es-CO",{day:"2-digit",month:"long",hour:"2-digit",minute:"2-digit"}))}</b>.`:"Este módulo se habilitará pronto. Te avisaremos en la comunidad."}</div>`:locked?`<div class="note">Este módulo se desbloquea al aprobar todas las lecciones de “${esc(prev.title)}”.</div>`:""}
+  ${closedM?`<div class="note">${m.open_at?`Este módulo se habilita el <b>${esc(new Date(m.open_at).toLocaleString("es-CO",{day:"2-digit",month:"long",hour:"2-digit",minute:"2-digit"}))}</b>.`:"Este módulo se habilitará pronto. Te avisaremos en la comunidad."}</div>`:locked?(prev&&needFb(prev)?`<div class="note">Para abrir este módulo, deja tu reseña de “${esc(prev.title)}”. <a href="#resena-${esc(prev.id)}">Dejar mi reseña</a></div>`:`<div class="note">Este módulo se desbloquea al aprobar todas las lecciones de “${esc(prev.title)}”.</div>`):""}
+  ${premium()&&needFb(m)?fbCard(m):""}
   ${m.optional&&!closedM?`<div class="note">Módulo opcional: ${esc(m.optional_note||"si ya lo dominas, puedes saltarlo. No es necesario para abrir los módulos siguientes.")}</div>`:""}
   ${admin()&&!modOpen(m,true)?'<div class="note admin-note">Bloqueado para alumnos: solo tú lo ves abierto.</div>':""}
   <div class="list">${ls.map((l,k)=>{const d=S.prog&&S.prog.done[l.id];const cerrada=premium()&&!locked&&!closedM&&!lessonOpen(l);return `<a class="item${cerrada?" lock":""}" href="${premium()&&!locked&&!cerrada?"#leccion-"+esc(l.id):closedM||cerrada||locked&&premium()?"#modulo-"+esc(m.id):"#premium"}"><span class="ico ${d&&d.passed?"done":""}">${d&&d.passed?"✓":cerrada?"🔒":k+1}</span><span class="txt"><b>${esc(l.title)}</b><span>${cerrada?`Aprueba la lección anterior con ${(ls[k-1]&&ls[k-1].min_score)||80}% para abrirla`:`${l.has_video?"Video · ":""}${d?`Mejor resultado ${d.best}%`:"Pendiente"}`}</span></span>${premium()?"":'<span class="tag">Premium</span>'}</a>`}).join("")||'<div class="empty">Este módulo todavía no tiene lecciones.</div>'}</div>`};
@@ -365,7 +374,7 @@ ROUTES.leccion=async id=>{
   if(!logged()){location.hash="#entrar";return}
   if(!premium()){app.innerHTML=paywall();return}
   {const li=S.lindex.find(x=>x.id===id);const mm=li&&S.modules.find(x=>x.id===li.module_id);if(mm&&!modOpen(mm)){location.hash="#modulo-"+mm.id;return}
-   if(li&&!lessonOpen(li)){toast(mm&&modLocked(mm)?"Primero aprueba todas las lecciones del módulo anterior.":"Primero aprueba la lección anterior.");location.hash="#modulo-"+li.module_id;return}}
+   if(li&&!lessonOpen(li)){toast(mm&&modLocked(mm)?(needFb(prevReq(mm))?"Primero deja tu reseña del módulo anterior.":"Primero aprueba todas las lecciones del módulo anterior."):"Primero aprueba la lección anterior.");location.hash="#modulo-"+li.module_id;return}}
   app.innerHTML='<div class="muted">Cargando lección…</div>';
   let l=null;try{l=await API.lesson(id)}catch(e){}
   if(!l){app.innerHTML=`<div class="empty">No encontramos esta lección.<a class="btn sm" href="#academia">Volver al temario</a></div>`;return}
@@ -378,19 +387,39 @@ ROUTES.leccion=async id=>{
   videoBlock($("#vid"),l);
   let exs=[];try{exs=await API.exercises({lessonId:id})}catch(e){}
   const sec=$("#exsec");if(!sec)return;
-  if(!exs.length){sec.innerHTML=`<div class="note">Esta lección no tiene ejercicios.</div><div><button class="btn gold" id="seen">Marcar como completada</button></div>`;$("#seen").onclick=()=>{passLesson(l,100);toast("Lección completada")};return}
+  if(!exs.length){sec.innerHTML=`<div class="note">Esta lección no tiene ejercicios.</div><div><button class="btn gold" id="seen">Marcar como completada</button></div>`;$("#seen").onclick=()=>{passLesson(l,100);toast("Lección completada");if(needFb(m))sec.insertAdjacentHTML("beforeend",fbCard(m))};return}
   let i=0,res=[];const min=l.min_score||80;
   const draw=async()=>{if(!$("#exsec"))return;
     sec.innerHTML=`<div class="sec-h"><h2>Ejercicios</h2><span class="mono muted">${Math.min(i+1,exs.length)} / ${exs.length}</span></div><div class="dots">${exs.map((_,j)=>`<i class="${res[j]||""} ${j===i?"cur":""}"></i>`).join("")}</div><div id="exh"></div>`;
     if(i>=exs.length){const sc=Math.round(100*res.reduce((s,r)=>s+(r==="ok"?1:r==="mid"?.5:0),0)/exs.length);const ok=sc>=min;
       $("#exh").innerHTML=`<div class="result ${ok?"ok":"bad"}"><b class="big">${ok?"Lección aprobada":"Aún no apruebas"} · ${sc}%</b><div>${ok?"Puedes seguir con la próxima lección.":`Necesitas ${min}% para aprobar.`}</div><div class="row"><button class="btn" id="rt">Repetir ejercicios</button>${ok&&next?`<a class="btn gold" href="#leccion-${esc(next.id)}">Siguiente lección</a>`:""}</div></div>`;
-      $("#rt").onclick=()=>{i=0;res=[];draw()};passLesson(l,sc);return}
+      $("#rt").onclick=()=>{i=0;res=[];draw()};passLesson(l,sc);
+      if(ok&&needFb(m)&&$("#exh"))$("#exh").insertAdjacentHTML("beforeend",fbCard(m));return}
     const h=await Player.mount($("#exh"),exs[i],{onDone:({res:r,pts})=>{res[i]=r;registerAnswer(exs[i].kind,r);if(pts)addXP(pts)},next:()=>{h&&h.destroy();i++;draw()},nextLabel:i+1<exs.length?"Siguiente ejercicio":"Ver resultado"});
     if(h)cleanup.push(h.destroy)};
   draw();
 };
 function passLesson(l,sc){const prev=S.prog.done[l.id]||{best:0,passed:false};const passed=prev.passed||sc>=(l.min_score||80);S.prog.done[l.id]={best:Math.max(prev.best||0,sc),passed,at:Date.now()};
   if(passed&&!prev.passed){ach("leccion");addXP(30);if(modProgress(l.module_id)>=1){ach("modulo");addXP(60)}}else saveProg()}
+ROUTES.resena=id=>{if(!logged()){location.hash="#entrar";return}
+  const m=S.modules.find(x=>x.id===id);if(!m){location.hash="#academia";return}
+  if(S.fb.has(id)){app.innerHTML=`<div class="empty">Ya dejaste tu reseña de “${esc(m.title)}”. ¡Gracias!<a class="btn sm" href="#academia">Ver temario</a></div>`;return}
+  if(modProgress(id)<1&&!admin()){app.innerHTML=`<div class="empty">Podrás dejar tu reseña cuando termines todas las lecciones de “${esc(m.title)}”.<a class="btn sm" href="#modulo-${esc(id)}">Ir al módulo</a></div>`;return}
+  const i=S.modules.indexOf(m);const sig=S.modules.slice(i+1).find(x=>!x.optional&&modOpen(x));let r=0;
+  app.innerHTML=`<div class="crumbs"><a href="#academia">Temario</a><span>/</span><a href="#modulo-${esc(id)}">${esc(m.title)}</a><span>/</span><span>Reseña</span></div>
+  <div class="pagehead"><span class="eyebrow">Reseña del módulo</span><h1>¿Cómo te pareció “${esc(m.title)}”?</h1><p class="muted">Tu opinión es privada: solo la ve El Arte Gráfico y la usamos para mejorar las lecciones.</p></div>
+  <form class="panel fb-form" id="fbf"><fieldset class="fb-stars" aria-label="Calificación"><legend>Calificación</legend>${[1,2,3,4,5].map(n=>`<button type="button" data-r="${n}" aria-label="${n} de 5">★</button>`).join("")}<span class="muted" id="fbRt">Toca las estrellas</span></fieldset>
+   <label for="fbL">¿Qué te gustó? ¿Cómo te pareció el módulo?<textarea id="fbL" rows="4" maxlength="1500" required minlength="10" placeholder="Lo que más te sirvió, lo que entendiste mejor…"></textarea></label>
+   <label for="fbI">¿Qué se puede mejorar?<textarea id="fbI" rows="4" maxlength="1500" required minlength="10" placeholder="Algo que no quedó claro, un tema que faltó, el audio, los ejercicios…"></textarea></label>
+   <div class="row"><button class="btn gold" id="fbS">Enviar reseña${sig?" y seguir":""}</button></div></form>`;
+  const txt=["","Muy malo","Malo","Regular","Bueno","Excelente"];
+  const pint=n=>{$$("#fbf [data-r]").forEach(b=>b.classList.toggle("on",+b.dataset.r<=n));$("#fbRt").textContent=n?txt[n]:"Toca las estrellas"};
+  $$("#fbf [data-r]").forEach(b=>{b.onclick=()=>{r=+b.dataset.r;pint(r)};b.onmouseenter=()=>pint(+b.dataset.r);b.onmouseleave=()=>pint(r)});
+  $("#fbf").onsubmit=async e=>{e.preventDefault();if(!r){toast("Elige de 1 a 5 estrellas");return}
+    const liked=$("#fbL").value.trim(),improve=$("#fbI").value.trim();if(liked.length<10||improve.length<10){toast("Escribe al menos una frase en cada pregunta");return}
+    try{busy($("#fbS"),true);await API.sendFeedback({module_id:id,rating:r,liked,improve});S.fb.add(id);toast("¡Gracias por tu reseña!");location.hash=sig?"#modulo-"+sig.id:"#academia"}
+    catch(x){if(/duplicate|unique|Ya dejaste/i.test(x.message)){S.fb.add(id);location.hash=sig?"#modulo-"+sig.id:"#academia";return}toast(x.message)}finally{busy($("#fbS"),false)}};
+};
 const paywall=()=>`<div class="cta-band">${premiumBand()}</div>`;
 function videoBlock(host,l){
   const u=(l.video_url||"").trim();if(!u){host.innerHTML="";return}
@@ -468,12 +497,17 @@ ROUTES.opiniones=async()=>{
   $$("[data-r]").forEach(b=>b.onclick=()=>{rating=+b.dataset.r;paint()});
   $("#rf").onsubmit=async e=>{e.preventDefault();if(!rating)return toast("Elige de 1 a 5 estrellas");try{busy($("#rg"),true);await API.saveReview(rating,$("#rb").value.trim());toast("Gracias. Tu opinión quedó en revisión.");ROUTES.opiniones()}catch(x){toast(x.message)}finally{busy($("#rg"),false)}};
 };
-ROUTES.ranking=async()=>{app.innerHTML=`<div class="pagehead"><span class="eyebrow">Comunidad</span><h1>Ranking</h1><p class="muted">Puntos por ejercicios correctos y lecciones aprobadas.</p></div><div id="rk" class="muted">Cargando…</div>`;
-  if(!logged()){$("#rk").innerHTML=`<div class="note"><a href="#entrar">Ingresa</a> para ver el ranking.</div>`;return}
-  try{const r=await API.leaderboard();$("#rk").innerHTML=r.length?`<div class="scroll"><table class="tbl"><thead><tr><th>#</th><th>Alumno</th><th>Nivel</th><th style="text-align:right">Lecciones</th><th style="text-align:right">Puntos</th></tr></thead><tbody>${r.map((x,i)=>`<tr${x.is_me?' class="me"':""}><td class="mono">${i+1}</td><td><span class="who-cell">${avatar(x,28)}<span>${esc(x.username)}</span>${x.country?`<span class="dim">${esc(x.country)}</span>`:""}</span></td><td>${esc(levelOf(x.xp).name)}</td><td class="n">${x.lessons}</td><td class="n">${x.xp}</td></tr>`).join("")}</tbody></table></div>`:'<div class="empty">Aún no hay alumnos en el ranking.</div>'}catch(e){$("#rk").textContent="No se pudo cargar el ranking."}};
+ROUTES.ranking=async()=>{app.innerHTML=`<div class="pagehead"><span class="eyebrow">Comunidad</span><h1>Ranking</h1><p class="muted">Puntos por ejercicios correctos y lecciones aprobadas. Los alumnos con la placa dorada son premium.</p></div><div id="rk" class="muted">Cargando…</div>`;
+  try{const r=await API.leaderboard();const yo=r.find(x=>x.is_me);
+    const cta=!logged()?`<div class="rk-cta"><div><b>¿Quieres aparecer aquí?</b><span class="muted">Crea tu cuenta gratis, haz tus primeros ejercicios y empieza a sumar puntos.</span></div><a class="btn gold" href="#registro">Crear cuenta</a></div>`
+      :!premium()?`<div class="rk-cta"><div><b>${yo?`Vas en el puesto #${r.indexOf(yo)+1}`:"Aún no apareces en el ranking"}</b><span class="muted">Con premium tienes todas las lecciones y la práctica libre para sumar puntos sin límite, y tu placa dorada en el ranking.</span></div><a class="btn gold" href="#premium">Hazte premium</a></div>`:"";
+    $("#rk").innerHTML=cta+(r.length?`${podio(r)}<div class="scroll"><table class="tbl rk"><thead><tr><th>#</th><th>Alumno</th><th>Nivel</th><th style="text-align:right">Lecciones</th><th style="text-align:right">Puntos</th></tr></thead><tbody>${r.map((x,i)=>rkRow(x,i)).join("")}</tbody></table></div>`:'<div class="empty">Aún no hay alumnos en el ranking.</div>')}
+  catch(e){$("#rk").textContent="No se pudo cargar el ranking."}};
+const rkRow=(x,i)=>`<tr class="${x.is_me?"me ":""}${x.premium?"prem":""}"><td class="mono">${i<3?["🥇","🥈","🥉"][i]:i+1}</td><td><span class="who-cell">${avatar(x,28)}<span>${esc(x.username)}</span>${flag(x.country)}${x.premium?premTag():""}</span></td><td>${esc(levelOf(x.xp).name)}</td><td class="n">${x.lessons}</td><td class="n">${x.xp}</td></tr>`;
+const podio=r=>r.length<3?"":`<div class="podio">${[1,0,2].map(i=>{const x=r[i];return `<div class="pod p${i+1}${x.premium?" prem":""}"><div class="pav">${avatar(x,i?64:84)}</div><b>${esc(x.username)} ${flag(x.country)}</b>${x.premium?premTag():'<span class="dim" style="font-size:13px">Gratis</span>'}<span class="mono">${x.xp} pts</span><div class="step">${i+1}</div></div>`}).join("")}</div>`;
 ROUTES.perfil=()=>{if(!logged()){location.hash="#entrar";return}const p=API.profile()||{},g=S.prog,lv=levelOf(g.xp);const pct=lv.to?Math.round(100*(g.xp-lv.from)/(lv.to-lv.from)):100;
   app.innerHTML=`<div class="phead"><div class="phead-av">${avatar(p,96)}</div><div style="display:grid;gap:6px;min-width:0"><span class="eyebrow">Mi cuenta</span><h1>${esc(p.username||"")}</h1>
-      <p class="muted">${esc(p.email||"")} · ${premium()?`Premium${p.premium_until&&new Date(p.premium_until).getFullYear()<2090?` hasta ${fmtDate(p.premium_until)}`:""}`:"Cuenta gratis"}${p.country?` · ${esc(p.country)}`:""}</p>${p.bio?`<p>${esc(p.bio)}</p>`:""}</div></div>
+      <p class="muted">${esc(p.email||"")} · ${premium()?`Premium${p.premium_until&&new Date(p.premium_until).getFullYear()<2090?` hasta ${fmtDate(p.premium_until)}`:""}`:"Cuenta gratis"}${p.country?` · ${flag(p.country)} ${esc(p.country)}`:""}</p>${p.bio?`<p>${esc(p.bio)}</p>`:""}</div></div>
     <section class="sec"><h2>Ajustes de cuenta</h2><form class="panel form" id="af">
       <div class="avedit"><div id="avPrev">${avatar(p,112)}</div><div style="display:grid;gap:8px"><b>Foto de perfil</b><span class="muted" style="font-size:14px">JPG, PNG o WebP. Se recorta en cuadrado y se ve en el ranking, los comentarios y las opiniones.</span>
         <div class="row"><label class="btn sm" for="avF" style="cursor:pointer">Cambiar foto</label><input id="avF" type="file" accept="image/jpeg,image/png,image/webp" hidden>${p.avatar_url?'<button type="button" class="btn sm ghost" id="avX">Quitar foto</button>':""}</div></div></div>
@@ -505,7 +539,7 @@ ROUTES.legal=key=>{const docs=window.AG_LEGAL||[];key=key||"terminos";const d=le
 ROUTES.prueba=()=>{location.hash="#inicio";setTimeout(()=>{const p=$("#prueba");p&&p.scrollIntoView({behavior:"smooth"})},350)};
 
 /* exportar para los otros archivos */
-window.AGAPP={legalText,modOpen,modState,SITE,ACAD,link,toAcad,toMain,S,API,$,$$,esc,md,toast,busy,fmtT,fmtDate,fmtDT,TZ,MARKETS,MNAME,h1Bars,m5Bars,idxAt,avgRange,toC,Chart,cleanupPush:f=>cleanup.push(f),route,ROUTES,app,premium,admin,logged,confirmInline,loadContent:()=>loadContent(),renderFoot:()=>renderFoot(),applySite:()=>applySite()};
+window.AGAPP={flag,premTag,legalText,modOpen,modState,SITE,ACAD,link,toAcad,toMain,S,API,$,$$,esc,md,toast,busy,fmtT,fmtDate,fmtDT,TZ,MARKETS,MNAME,h1Bars,m5Bars,idxAt,avgRange,toC,Chart,cleanupPush:f=>cleanup.push(f),route,ROUTES,app,premium,admin,logged,confirmInline,loadContent:()=>loadContent(),renderFoot:()=>renderFoot(),applySite:()=>applySite()};
 
 /* ---------- arranque ---------- */
 async function loadContent(){try{S.modules=await API.modules()}catch(e){S.modules=[]}try{S.lindex=await API.lessonIndex()}catch(e){S.lindex=[]}}

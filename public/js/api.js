@@ -141,6 +141,9 @@ function SupabaseAPI(url,key){
     async payRequest(o){const r=await req("/rest/v1/payment_requests",{method:"POST",body:{method:"binance",plan:o.plan||"",days:o.days||30,amount:o.amount||"",order_id:o.order_id,note:o.note||""},headers:{Prefer:"return=representation"}});return r&&r[0]},
     myPayments(){if(!sess||!sess.user)return Promise.resolve([]);return sel("payment_requests",`&user_id=eq.${sess.user.id}&order=created_at.desc`)},
     adminPayments(){return rpc("admin_payments")},
+    myFeedback(){if(!sess||!sess.user)return Promise.resolve([]);return req(`/rest/v1/module_feedback?select=module_id&user_id=eq.${sess.user.id}`)},
+    async sendFeedback(o){await req("/rest/v1/module_feedback",{method:"POST",body:{module_id:o.module_id,rating:o.rating,liked:o.liked,improve:o.improve}})},
+    adminFeedback(){return rpc("admin_module_feedback")},
     reviewPayment(id,approve,days,note){return rpc("review_payment",{pid:id,approve,p_days:days==null?null:days,p_note:note||""})},
     async files(){const r=await req("/storage/v1/object/list/media",{method:"POST",body:{prefix:"",limit:200,sortBy:{column:"created_at",order:"desc"}}});return(r||[]).map(f=>({name:f.name,url:`${url}/storage/v1/object/public/media/${f.name}`,size:f.metadata&&f.metadata.size}))},
   };
@@ -195,7 +198,7 @@ function LocalAPI(){
       const a=db.answers.find(x=>x.exercise_id===id)||{};return{zone:a.zone??null,sl:a.sl??null,answer:a.answer||{},explain:a.explain||"",demo_left:prem?null:5-p.demo_used}},
     async progressGet(){return db.progress.find(x=>x.user_id===uid)||null},
     async progressSave(xp,data){const i=db.progress.findIndex(x=>x.user_id===uid);const o={user_id:uid,xp,data,updated_at:now()};if(i>=0)db.progress[i]=o;else db.progress.push(o);save()},
-    async leaderboard(){return db.progress.map(g=>{const p=db.profiles.find(x=>x.id===g.user_id)||{};return{username:p.username||"alumno",avatar_url:p.avatar_url||null,country:p.country||"",xp:g.xp,lessons:Object.values((g.data||{}).done||{}).filter(d=>d.passed).length,is_me:g.user_id===uid}}).sort((a,b)=>b.xp-a.xp).slice(0,50)},
+    async leaderboard(){return db.progress.map(g=>{const p=db.profiles.find(x=>x.id===g.user_id)||{};return{username:p.username||"alumno",avatar_url:p.avatar_url||null,country:p.country||"",xp:g.xp,lessons:Object.values((g.data||{}).done||{}).filter(d=>d.passed).length,is_me:g.user_id===uid,premium:!!(p.premium_until&&new Date(p.premium_until)>new Date()),_x:p.role==="admin"||p.banned}}).filter(x=>!x._x&&x.xp>0).sort((a,b)=>b.xp-a.xp).slice(0,100)},
     async posts(){return db.posts.filter(p=>!p.premium_only||this.isPremium()).sort((a,b)=>(b.pinned-a.pinned)||String(b.created_at).localeCompare(a.created_at))},
     async post(id){return(await this.posts()).find(p=>p.id===id)||null},
     async comments(pid){if(!uid)return[];return db.comments.filter(c=>c.post_id===pid).sort((a,b)=>String(a.created_at).localeCompare(b.created_at)).map(c=>{const p=db.profiles.find(x=>x.id===c.user_id)||{};return{id:c.id,body:c.body,created_at:c.created_at,username:p.username||"alumno",avatar_url:p.avatar_url||null,mine:c.user_id===uid,is_admin:p.role==="admin"}})},
@@ -241,6 +244,11 @@ function LocalAPI(){
       if(db.payments.some(x=>x.status!=="rechazado"&&x.order_id.toLowerCase()===oid.toLowerCase()))throw new Error("Ese ID de orden ya fue registrado.");
       if(db.payments.filter(x=>x.user_id===uid&&x.status==="pendiente").length>=3)throw new Error("Ya tienes 3 pagos por confirmar. Espera a que los revisemos.");
       const r={id:uuid(),user_id:uid,method:"binance",plan:o.plan||"",days:o.days||30,amount:o.amount||"",order_id:oid,note:o.note||"",status:"pendiente",admin_note:"",created_at:now(),reviewed_at:null};db.payments.push(r);save();return r},
+    async myFeedback(){return(db.feedback||[]).filter(x=>x.user_id===uid).map(x=>({module_id:x.module_id}))},
+    async sendFeedback(o){if(!uid)throw new Error("Inicia sesión");db.feedback=db.feedback||[];if(db.feedback.some(x=>x.user_id===uid&&x.module_id===o.module_id))throw new Error("Ya dejaste tu reseña de este módulo");
+      db.feedback.push({id:"f"+Date.now(),user_id:uid,module_id:o.module_id,rating:o.rating,liked:o.liked,improve:o.improve,created_at:new Date().toISOString()});save()},
+    async adminFeedback(){need();return(db.feedback||[]).map(f=>{const p=db.profiles.find(x=>x.id===f.user_id)||{};const m=db.modules.find(x=>x.id===f.module_id)||{};
+      return Object.assign({},f,{module_title:m.title||"",username:p.username||"",country:p.country||"",premium:!!(p.premium_until&&new Date(p.premium_until)>new Date())})}).sort((a,b)=>String(b.created_at).localeCompare(a.created_at))},
     async myPayments(){return(db.payments||[]).filter(x=>x.user_id===uid).sort((a,b)=>String(b.created_at).localeCompare(a.created_at))},
     async adminPayments(){need();return(db.payments||[]).map(r=>{const p=db.profiles.find(x=>x.id===r.user_id)||{};const u=db.users.find(x=>x.id===r.user_id)||{};return Object.assign({},r,{username:p.username,email:u.email,premium_until:p.premium_until})}).sort((a,b)=>((b.status==="pendiente")-(a.status==="pendiente"))||String(b.created_at).localeCompare(a.created_at))},
     async reviewPayment(id,approve,days,note){need();const r=(db.payments||[]).find(x=>x.id===id);if(!r)throw new Error("El pago no existe");if(r.status!=="pendiente")throw new Error("Este pago ya fue revisado");

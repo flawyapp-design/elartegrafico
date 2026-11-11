@@ -451,15 +451,19 @@ create policy "avatars cambia propio" on storage.objects for update using (bucke
 drop policy if exists "avatars borra propio" on storage.objects;
 create policy "avatars borra propio" on storage.objects for delete using (bucket_id = 'avatars' and ((storage.foldername(name))[1] = auth.uid()::text or public.is_admin()));
 
--- mostrar la foto en ranking, comentarios, opiniones y lista de alumnos
+-- mostrar la foto en ranking, comentarios, opiniones y lista de alumnos (ranking público con placa premium)
 drop function if exists public.leaderboard();
-create function public.leaderboard() returns table(username text, xp int, lessons int, is_me boolean, avatar_url text, country text)
+create function public.leaderboard() returns table(username text, xp int, lessons int, is_me boolean, avatar_url text, country text, premium boolean)
 language sql stable security definer set search_path = public as $$
-  select p.username, g.xp, coalesce((select count(*) from jsonb_each(g.data->'done') d where (d.value->>'passed')::boolean),0)::int, g.user_id = auth.uid(), p.avatar_url, p.country
+  select p.username, g.xp,
+         coalesce((select count(*) from jsonb_each(g.data->'done') d where (d.value->>'passed')::boolean),0)::int,
+         coalesce(g.user_id = auth.uid(), false), p.avatar_url, p.country,
+         coalesce(p.premium_until > now(), false)
   from public.progress g join public.profiles p on p.id = g.user_id
-  where not p.banned order by g.xp desc limit 50
+  where not p.banned and p.role <> 'admin' and g.xp > 0
+  order by g.xp desc limit 100
 $$;
-grant execute on function public.leaderboard() to authenticated;
+grant execute on function public.leaderboard() to anon, authenticated;
 
 drop function if exists public.post_comments(uuid);
 create function public.post_comments(pid uuid) returns table(id uuid, body text, created_at timestamptz, username text, mine boolean, is_admin boolean, avatar_url text)
@@ -480,11 +484,51 @@ $$;
 grant execute on function public.public_reviews() to anon, authenticated;
 
 drop function if exists public.admin_users();
-create function public.admin_users() returns table(id uuid, username text, email text, role text, premium_until timestamptz, demo_used int, banned boolean, created_at timestamptz, xp int, avatar_url text)
+create function public.admin_users() returns table(id uuid, username text, email text, role text, premium_until timestamptz, demo_used int, banned boolean, created_at timestamptz, xp int, avatar_url text, country text)
 language plpgsql stable security definer set search_path = public as $$
 begin
   if not public.is_admin() then raise exception 'solo admin'; end if;
-  return query select p.id, p.username, u.email::text, p.role, p.premium_until, p.demo_used, p.banned, p.created_at, coalesce(g.xp,0), p.avatar_url
+  return query select p.id, p.username, u.email::text, p.role, p.premium_until, p.demo_used, p.banned, p.created_at, coalesce(g.xp,0), p.avatar_url, p.country
     from public.profiles p join auth.users u on u.id = p.id left join public.progress g on g.user_id = p.id order by p.created_at desc;
 end $$;
 grant execute on function public.admin_users() to authenticated;
+
+
+alter table public.modules add column if not exists ask_feedback boolean not null default true;
+
+create table if not exists public.module_feedback (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  module_id uuid not null references public.modules(id) on delete cascade,
+  rating int not null check (rating between 1 and 5),
+  liked text not null check (char_length(liked) between 3 and 1500),
+  improve text not null check (char_length(improve) between 3 and 1500),
+  created_at timestamptz not null default now(),
+  unique (user_id, module_id)
+);
+create index if not exists module_feedback_mod_idx on public.module_feedback (module_id, created_at desc);
+alter table public.module_feedback enable row level security;
+
+drop policy if exists "reseñas: ver las propias" on public.module_feedback;
+create policy "reseñas: ver las propias" on public.module_feedback for select
+  using (user_id = auth.uid() or public.is_admin());
+drop policy if exists "reseñas: dejar la propia" on public.module_feedback;
+create policy "reseñas: dejar la propia" on public.module_feedback for insert
+  with check (user_id = auth.uid());
+drop policy if exists "reseñas: admin" on public.module_feedback;
+create policy "reseñas: admin" on public.module_feedback for all
+  using (public.is_admin()) with check (public.is_admin());
+
+-- lista para el admin (con usuario, país y módulo)
+drop function if exists public.admin_module_feedback();
+create function public.admin_module_feedback() returns table(id uuid, module_id uuid, module_title text, username text, country text,
+  premium boolean, rating int, liked text, improve text, created_at timestamptz)
+language plpgsql stable security definer set search_path = public as $$
+begin
+  if not public.is_admin() then raise exception 'solo admin'; end if;
+  return query select f.id, f.module_id, m.title, p.username, p.country, coalesce(p.premium_until > now(), false),
+    f.rating, f.liked, f.improve, f.created_at
+  from public.module_feedback f join public.profiles p on p.id = f.user_id join public.modules m on m.id = f.module_id
+  order by f.created_at desc limit 1000;
+end $$;
+grant execute on function public.admin_module_feedback() to authenticated;

@@ -3,7 +3,7 @@
 "use strict";
 const A=window.AGAPP;const {$,$$,esc,API,S,toast,busy,fmtT,fmtDate,fmtDT,TZ,MARKETS,MNAME,h1Bars,m5Bars,idxAt,avgRange,toC,Chart,app}=A;
 let tab="resumen";
-const TABS=[["resumen","Estadísticas"],["sitio","Sitio y textos"],["banners","Banners"],["contenido","Módulos y lecciones"],["ejercicios","Ejercicios"],["noticias","Noticias"],["opiniones","Opiniones"],["pagos","Pagos"],["alumnos","Alumnos"],["archivos","Archivos"],["legal","Legal"]];
+const TABS=[["resumen","Estadísticas"],["sitio","Sitio y textos"],["banners","Banners"],["contenido","Módulos y lecciones"],["ejercicios","Ejercicios"],["noticias","Noticias"],["opiniones","Opiniones"],["resenas","Reseñas de módulos"],["pagos","Pagos"],["alumnos","Alumnos"],["archivos","Archivos"],["legal","Legal"]];
 A.ROUTES.admin=sub=>{
   if(!A.admin()){app.innerHTML=`<div class="empty">Esta sección es solo para administradores.<a class="btn sm" href="#inicio">Volver</a></div>`;return}
   if(sub&&TABS.some(t=>t[0]===sub))tab=sub;
@@ -15,7 +15,7 @@ A.ROUTES.admin=sub=>{
   $$("[data-t]").forEach(b=>b.onclick=()=>{location.hash="#admin-"+b.dataset.t});
   $("#acSw").onclick=()=>{const host=$("#acSw").parentElement;A.confirmInline(host,closed?"¿Abrir la academia a todos los alumnos?":"¿Cerrar la academia mientras subes el contenido?",async()=>{
     const ns=Object.assign({},S.site,{academyClosed:!closed});try{await API.saveSite(ns);S.site=ns;A.applySite();toast(closed?"Academia abierta":"Academia cerrada para alumnos");A.ROUTES.admin(tab)}catch(x){toast(x.message);A.ROUTES.admin(tab)}})};
-  ({resumen,sitio,banners,contenido,ejercicios,noticias,opiniones,pagos,alumnos,archivos,legal})[tab]();
+  ({resumen,sitio,banners,contenido,ejercicios,noticias,opiniones,resenas,pagos,alumnos,archivos,legal})[tab]();
   API.adminPayments().then(l=>{const n=(l||[]).filter(x=>x.status==="pendiente").length;const b=document.querySelector('[data-t="pagos"]');if(b&&n)b.innerHTML=`Pagos <span class="tag pub">${n}</span>`}).catch(()=>{});
 };
 const H=()=>$("#adm");
@@ -147,11 +147,12 @@ async function contenido(){
       <div class="two"><label for="mS">Estado<select id="mS"><option value="borrador">Borrador (no lo ven los alumnos)</option><option value="publicado">Publicado</option></select></label><label for="mK">Orden obligatorio<select id="mK"><option value="1">Exige terminar el módulo anterior</option><option value="0">Libre</option></select></label></div>
       <div class="two"><label for="mP">¿Se puede saltar?<select id="mP"><option value="0">No: hay que aprobarlo para seguir</option><option value="1">Opcional: no bloquea los módulos siguientes</option></select></label>
         <label for="mPN">Mensaje para el alumno (si es opcional)<input id="mPN" value="${esc(m.optional_note||"")}" placeholder="Si ya tienes cuenta en Deriv y MT5, puedes saltarlo."></label></div>
+      <label for="mF">Reseña al terminar<select id="mF"><option value="1">Obligatoria: al terminar el módulo deja su reseña para seguir</option><option value="0">No pedir reseña en este módulo</option></select></label>
       <div class="two"><label for="mA">Disponibilidad para alumnos<select id="mA"><option value="1">Disponible (desbloqueado)</option><option value="0">Bloqueado: se ve en el temario como “Próximamente”</option></select></label>
         <label for="mW">Desbloquear automáticamente el (opcional)<input id="mW" type="datetime-local" value="${m.open_at?new Date(new Date(m.open_at).getTime()-5*3600e3).toISOString().slice(0,16):""}"><span class="dim" style="font-weight:400">Hora Colombia. Si eliges fecha, el módulo se abre solo ese día aunque esté bloqueado.</span></label></div>
       <div class="row"><button class="btn gold" id="ms">Guardar módulo</button><span id="md"><button type="button" class="btn sm bad" id="mdb">Eliminar módulo</button></span></div></form>`;
-    $("#mS").value=m.status;$("#mK").value=m.locked?"1":"0";$("#mP").value=m.optional?"1":"0";$("#mA").value=m.available===false?"0":"1";
-    $("#fm").onsubmit=async e=>{e.preventDefault();try{busy($("#ms"),true);await API.saveModule({id:m.id,title:$("#mT").value.trim()||"Sin título",descr:$("#mD").value.trim(),category:$("#mC").value.trim()||"Fundamentos",level:$("#mL").value.trim(),sort:+$("#mO").value||1,status:$("#mS").value,locked:$("#mK").value==="1",...(("optional" in m)||$("#mP").value==="1"?{optional:$("#mP").value==="1",optional_note:$("#mPN").value.trim()}:{}),available:$("#mA").value==="1",open_at:$("#mW").value?new Date($("#mW").value+":00-05:00").toISOString():null});toast("Módulo guardado");reload()}catch(x){toast(x.message)}finally{busy($("#ms"),false)}};
+    $("#mS").value=m.status;$("#mK").value=m.locked?"1":"0";$("#mP").value=m.optional?"1":"0";$("#mF").value=m.ask_feedback===false?"0":"1";$("#mA").value=m.available===false?"0":"1";
+    $("#fm").onsubmit=async e=>{e.preventDefault();try{busy($("#ms"),true);await API.saveModule({id:m.id,title:$("#mT").value.trim()||"Sin título",descr:$("#mD").value.trim(),category:$("#mC").value.trim()||"Fundamentos",level:$("#mL").value.trim(),sort:+$("#mO").value||1,status:$("#mS").value,locked:$("#mK").value==="1",...(("optional" in m)||$("#mP").value==="1"?{optional:$("#mP").value==="1",optional_note:$("#mPN").value.trim()}:{}),available:$("#mA").value==="1",...(("ask_feedback" in m)||$("#mF").value==="0"?{ask_feedback:$("#mF").value==="1"}:{}),open_at:$("#mW").value?new Date($("#mW").value+":00-05:00").toISOString():null});toast("Módulo guardado");reload()}catch(x){toast(x.message)}finally{busy($("#ms"),false)}};
     $("#mdb").onclick=()=>A.confirmInline($("#md"),"¿Eliminar el módulo con todas sus lecciones y ejercicios?",async()=>{await API.delModule(m.id);sel={};toast("Módulo eliminado");reload()})}
   if(sel.t==="l"){const l=les.find(x=>x.id===sel.id);if(!l)return;
     ed.innerHTML=`<form class="form" id="fl"><div class="sec-h"><h3>Lección</h3><a class="btn sm ghost" href="#leccion-${esc(l.id)}">Ver como alumno</a></div>
@@ -298,13 +299,36 @@ async function pagos(){
   $$("[data-no]").forEach(b=>b.onclick=()=>{const id=b.dataset.no;A.confirmInline($(`[data-w="${id}"]`),"¿Rechazar este pago? (no encontraste el pago o el monto no coincide)",async()=>{try{await API.reviewPayment(id,false,null,"No encontramos el pago con ese ID de orden");toast("Pago rechazado")}catch(e){toast(e.message)}pagos()})});
 }
 
+/* ---------- reseñas de módulos ---------- */
+async function resenas(){
+  H().innerHTML='<div class="muted">Cargando…</div>';let list=[];
+  try{list=await API.adminFeedback()}catch(e){H().innerHTML=`<div class="empty">No se pudieron cargar las reseñas. Si aún no lo hiciste, corre <b>supabase/resenas_modulos.sql</b> en Supabase.<span class="dim">${esc(e.message)}</span></div>`;return}
+  const est=n=>`<span class="fb-st" aria-label="${n} de 5">${"★".repeat(n)}<i>${"★".repeat(5-n)}</i></span>`;
+  const mods=[...new Map(list.map(f=>[f.module_id,f.module_title])).entries()];
+  let fm="",fr=0;
+  const draw=()=>{const f=list.filter(x=>(!fm||x.module_id===fm)&&(!fr||x.rating<=fr));
+    $("#rsL").innerHTML=f.map(x=>`<article class="fb-item"><header>${est(x.rating)}<b>${esc(x.username)}</b> ${A.flag(x.country||"")}${x.premium?A.premTag():""}<span class="dim">${esc(x.module_title)} · ${fmtDate(x.created_at)}</span></header>
+      <div class="two"><div><span class="eyebrow">Cómo le pareció</span><p>${esc(x.liked)}</p></div><div><span class="eyebrow">Qué mejorar</span><p>${esc(x.improve)}</p></div></div></article>`).join("")||'<div class="muted">Sin reseñas con ese filtro.</div>'};
+  const res=mods.map(([id,t])=>{const xs=list.filter(f=>f.module_id===id);const av=xs.reduce((s,f)=>s+f.rating,0)/xs.length;return `<div class="fb-mod"><b>${esc(t)}</b><span><span class="mono">${av.toFixed(1)}</span> ${est(Math.round(av))}</span><span class="dim">${xs.length} reseña${xs.length===1?"":"s"}</span></div>`}).join("");
+  H().innerHTML=`<div class="panel"><div class="sec-h"><h3>Reseñas de módulos (${list.length})</h3><span class="muted">Privadas: solo las ves tú</span></div>
+    ${list.length?`<div class="fb-mods">${res}</div>
+    <div class="ufil" style="grid-template-columns:1fr 1fr"><select id="rsM" aria-label="Módulo"><option value="">Todos los módulos</option>${mods.map(([id,t])=>`<option value="${esc(id)}">${esc(t)}</option>`).join("")}</select>
+      <select id="rsR" aria-label="Estrellas"><option value="0">Todas las calificaciones</option><option value="3">3 estrellas o menos (para mejorar)</option><option value="2">2 estrellas o menos</option></select></div>
+    <div id="rsL" class="fb-list"></div>`:'<div class="empty">Aún no hay reseñas. Aparecerán aquí cuando los alumnos terminen un módulo.</div>'}</div>`;
+  if(list.length){$("#rsM").onchange=()=>{fm=$("#rsM").value;draw()};$("#rsR").onchange=()=>{fr=+$("#rsR").value;draw()};draw()}
+}
+
 /* ---------- alumnos ---------- */
 async function alumnos(){
   H().innerHTML='<div class="muted">Cargando…</div>';let list=[];try{list=await API.users()}catch(e){H().innerHTML=`<div class="empty">${esc(e.message)}</div>`;return}
   const isP=u=>u.premium_until&&new Date(u.premium_until)>new Date();
-  let q="";const draw=()=>{const f=list.filter(u=>!q||(u.username+" "+u.email).toLowerCase().includes(q));
-    $("#ut").innerHTML=f.map(u=>`<tr><td>${u.avatar_url?`<img class="avi" src="${esc(u.avatar_url)}" alt="" style="width:26px;height:26px;vertical-align:middle;margin-right:6px">`:""}<b>${esc(u.username)}</b>${u.role==="admin"?' <span class="tag pub">Admin</span>':""}${u.banned?' <span class="tag">Suspendido</span>':""}<br><span class="dim">${esc(u.email||"")}</span></td>
-      <td>${isP(u)?`<span class="tag pub">Premium</span><br><span class="dim">hasta ${fmtDate(u.premium_until)}</span>`:'<span class="tag">Gratis</span>'}</td><td class="n">${u.xp||0}</td><td class="n">${u.demo_used||0}/5</td><td class="dim">${fmtDate(u.created_at)}</td>
+  const venc=u=>u.premium_until&&new Date(u.premium_until)<=new Date();
+  let q="",fil="todos",pais="";const draw=()=>{const f=list.filter(u=>(!q||(u.username+" "+u.email).toLowerCase().includes(q))
+      &&(fil==="todos"||(fil==="premium"&&isP(u))||(fil==="gratis"&&!isP(u))||(fil==="vencido"&&venc(u))||(fil==="suspendido"&&u.banned))
+      &&(!pais||(pais==="-"?!u.country:u.country===pais)));
+    $("#uN").textContent=f.length===list.length?"":`Mostrando ${f.length} de ${list.length}`;
+    $("#ut").innerHTML=f.map(u=>`<tr><td>${u.avatar_url?`<img class="avi" src="${esc(u.avatar_url)}" alt="" style="width:26px;height:26px;vertical-align:middle;margin-right:6px">`:""}<b>${esc(u.username)}</b> ${A.flag(u.country||"")}${u.role==="admin"?' <span class="tag pub">Admin</span>':""}${u.banned?' <span class="tag">Suspendido</span>':""}<br><span class="dim">${esc(u.email||"")}</span></td>
+      <td>${isP(u)?A.premTag()+`<br><span class="dim">hasta ${fmtDate(u.premium_until)}</span>`:venc(u)?`<span class="tag">Vencido</span><br><span class="dim">el ${fmtDate(u.premium_until)}</span>`:'<span class="tag">Gratis</span>'}</td><td class="n">${u.xp||0}</td><td class="n">${u.demo_used||0}/5</td><td class="dim">${fmtDate(u.created_at)}</td>
       <td><div class="row"><button class="btn sm ok" data-add="${esc(u.id)}:30">+30 días</button><button class="btn sm" data-add="${esc(u.id)}:90">+90 días</button><input type="date" data-date="${esc(u.id)}" aria-label="Premium hasta" style="background:var(--bg2);border:1px solid var(--line2);border-radius:8px;padding:5px;color:var(--fg)">${isP(u)?`<button class="btn sm" data-rm="${esc(u.id)}">Quitar premium</button>`:""}
         <button class="btn sm ghost" data-ban="${esc(u.id)}">${u.banned?"Reactivar":"Suspender"}</button><button class="btn sm ghost" data-demo="${esc(u.id)}">Reiniciar prueba</button>${u.id!==(API.user()||{}).id?`<button class="btn sm ghost" data-role="${esc(u.id)}">${u.role==="admin"?"Quitar admin":"Hacer admin"}</button>`:""}</div></td></tr>`).join("")||'<tr><td colspan="6" class="muted">Sin resultados.</td></tr>';
     const set=async(id,patch,msg)=>{try{await API.setUser(id,patch);Object.assign(list.find(u=>u.id===id),patch);toast(msg);draw()}catch(x){toast(x.message)}};
@@ -315,9 +339,12 @@ async function alumnos(){
     $$("[data-demo]").forEach(b=>b.onclick=()=>set(b.dataset.demo,{demo_used:0},"Prueba gratis reiniciada"));
     $$("[data-role]").forEach(b=>b.onclick=()=>{const u=list.find(x=>x.id===b.dataset.role);set(u.id,{role:u.role==="admin"?"user":"admin"},"Rol actualizado")})};
   H().innerHTML=`<div class="panel"><div class="sec-h"><h3>Alumnos (${list.length})</h3><span class="muted">${list.filter(isP).length} premium activos</span></div>
-    <input id="uq" placeholder="Buscar por usuario o correo" style="background:var(--bg2);border:1px solid var(--line2);border-radius:10px;padding:10px 12px;color:var(--fg)">
+    <div class="ufil"><input id="uq" placeholder="Buscar por usuario o correo">
+      <select id="uf" aria-label="Filtrar por acceso"><option value="todos">Todos</option><option value="premium">Premium activos (${list.filter(isP).length})</option><option value="gratis">Gratis (${list.filter(u=>!isP(u)).length})</option><option value="vencido">Premium vencido (${list.filter(venc).length})</option><option value="suspendido">Suspendidos (${list.filter(u=>u.banned).length})</option></select>
+      <select id="up" aria-label="Filtrar por país"><option value="">Todos los países</option>${[...new Set(list.map(u=>u.country).filter(Boolean))].sort().map(c=>`<option>${esc(c)}</option>`).join("")}<option value="-">Sin país</option></select></div>
+    <div id="uN" class="dim" style="font-size:13px"></div>
     <div class="scroll"><table class="tbl"><thead><tr><th>Alumno</th><th>Acceso</th><th style="text-align:right">Puntos</th><th style="text-align:right">Prueba</th><th>Registro</th><th>Acciones</th></tr></thead><tbody id="ut"></tbody></table></div></div>`;
-  $("#uq").oninput=()=>{q=$("#uq").value.toLowerCase();draw()};draw();
+  $("#uq").oninput=()=>{q=$("#uq").value.toLowerCase();draw()};$("#uf").onchange=()=>{fil=$("#uf").value;draw()};$("#up").onchange=()=>{pais=$("#up").value;draw()};draw();
 }
 
 /* ---------- archivos ---------- */
