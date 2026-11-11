@@ -1100,3 +1100,12 @@ nav.main .mnav-sw a.on{color:#1b1405!important;background:linear-gradient(180deg
 }
 .podio{grid-template-columns:repeat(3,minmax(0,1fr))}.pod b{max-width:100%;min-width:0}.pod .pav{max-width:100%}
 @media (max-width:640px){.tbl.rk{table-layout:fixed;width:100%}.tbl.rk th:first-child,.tbl.rk td:first-child{width:38px}.tbl.rk th:last-child,.tbl.rk td:last-child{width:76px}.tbl.rk td .who-cell{overflow:hidden;max-width:100%}.tbl.rk td .who-cell .avi{flex:none}}
+/* menú "Más" del celular: hoja que sube desde abajo (la barra superior no puede tener blur o el menú queda atrapado arriba) */
+@media (max-width:860px){
+  .top{backdrop-filter:none;-webkit-backdrop-filter:none;background:rgba(6,11,26,.97)}
+  :root[data-theme="light"] .top{background:rgba(253,248,238,.98)}
+  nav.main{left:0;right:0;bottom:calc(62px + env(safe-area-inset-bottom,0px));top:auto;max-height:calc(100dvh - 130px);padding-top:22px;animation:sheetUp .22s ease}
+  nav.main::before{content:"";position:absolute;top:8px;left:50%;width:40px;height:4px;margin-left:-20px;border-radius:4px;background:var(--line2)}
+  body.sheet-open::after{content:"";position:fixed;inset:0;z-index:45;background:rgba(2,5,14,.55)}
+}
+@keyframes sheetUp{from{transform:translateY(30px);opacity:0}to{transform:none;opacity:1}}

@@ -151,7 +151,9 @@ function renderNav(){document.body.classList.toggle("is-acad",!!ACAD);
     :(rw?[["inicio","home","Inicio"],["retos","bolt","Retos"],["@acad","acad","Academia"],["ranking","trophy","Ranking"]]:[["inicio","home","Inicio"],["comunidad","chat","Comunidad"],["@acad","acad","Academia"],["premium","crown","Premium"]]);
   let tb=$("#tabbar");if(!tb){tb=document.createElement("nav");tb.id="tabbar";tb.className="tabbar";tb.setAttribute("aria-label","Accesos rápidos");document.body.appendChild(tb)}
   tb.innerHTML=TB.map(([k,ic,t])=>`<a href="${k==="@acad"?toAcad("inicio"):"#"+k}" class="${r===k?"on":""}${k==="@acad"?" tb-acad":""}">${ico(ic,22)}<span>${t}</span></a>`).join("")+`<button type="button" id="tbMore" aria-label="Más opciones">${u&&p?avatar(p,26):ico("gear",22)}<span>${u&&p?"Más":"Menú"}</span></button>`;
-  $("#tbMore").onclick=()=>{const o=$("#nav").classList.toggle("open");$("#menuBtn").setAttribute("aria-expanded",String(o));if(o)window.scrollTo({top:0,behavior:"smooth"})};
+  $("#tbMore").onclick=e=>{e.stopPropagation();const o=$("#nav").classList.toggle("open");document.body.classList.toggle("sheet-open",o);$("#menuBtn").setAttribute("aria-expanded",String(o))};
+  if(!window.__sheetClose){window.__sheetClose=1;document.addEventListener("click",e=>{const n=$("#nav");if(!n||!n.classList.contains("open")||!document.body.classList.contains("sheet-open"))return;
+    if(!n.contains(e.target)||e.target.closest("a")){n.classList.remove("open");document.body.classList.remove("sheet-open")}})}
   $("#nav").innerHTML=msw+L.map(([k,t])=>`<a href="#${k}" class="${r===k?"on":""}"><span class="mi">${ico(NI[k]||"news",20)}</span>${t}</a>`).join("")+other+mus+
     (u&&p?`<div class="dd" id="dd"><button aria-haspopup="true" aria-expanded="false" id="ddb">${avatar(p,28)}<span>${esc(p.username)}</span>${premium()?'<span class="prem-badge">Premium</span>':""}</button>
       <div class="menu" hidden>
@@ -189,7 +191,7 @@ function renderFoot(){const s=S.site;
 let sid;try{sid=sessionStorage.getItem("ag_sid")||Math.random().toString(36).slice(2,12);sessionStorage.setItem("ag_sid",sid)}catch(e){sid=Math.random().toString(36).slice(2,12)}
 const ROUTES={};
 function route(keep){
-  clear();$("#nav").classList.remove("open");const h=(location.hash||"#inicio").slice(1)||"inicio";if(keep!==true)window.scrollTo(0,0);
+  clear();$("#nav").classList.remove("open");document.body.classList.remove("sheet-open");const h=(location.hash||"#inicio").slice(1)||"inicio";if(keep!==true)window.scrollTo(0,0);
   const [k,...rest]=h.split("-");const arg=rest.join("-");
   if(!ACAD&&ACAD_R.has(k)){location.href=toAcad(h);return}
   if(ACAD&&MAIN_R.has(k)){location.href=toMain(h);return}
