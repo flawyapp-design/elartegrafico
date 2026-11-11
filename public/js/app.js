@@ -485,7 +485,8 @@ ROUTES.reto=async id=>{
   const send=async ans=>{try{const r=await API.submitChallenge(c.id,ans);show(r);toast(r.place?`+${r.points} puntos`:"Respuesta enviada");setTimeout(()=>ROUTES.reto(c.id),1800)}catch(x){toast(x.message)}};
   $$("[data-o]").forEach(b=>b.onclick=()=>{if(!can)return;$$("[data-o]").forEach(x=>{x.disabled=true;x.classList.toggle("pick",x===b)});send({option:+b.dataset.o})});
   if(c.kind!=="opcion"&&c.market){try{const H=await h1Bars(c.market);const end=idxAt(H.bars,c.chart_t||H.bars[H.bars.length-1].t);const C=Chart.makeChart($(".rt-chart .cv"));
-      const bars=H.bars.slice(Math.max(0,end-90),end+1);C.setData(toC(bars),H.dec);C.setRange(bars.length-70,bars.length+6);cleanup.push(()=>C.destroy&&C.destroy());
+      const rev=(c.correct!=null||c.zone!=null)?36:0;const bars=H.bars.slice(Math.max(0,end-90),end+1+rev);C.setData(toC(bars),H.dec);C.setRange(bars.length-70,bars.length+6);cleanup.push(()=>C.destroy&&C.destroy());
+      if(rev){const h=$(".rt-chart .chint");if(h)h.textContent="Así siguió el precio después de la última vela del reto";if(C.addMarker)C.addMarker({time:H.bars[end].t+TZ,text:"Aquí cerraba el reto"});else C.addLine&&C.addLine({price:H.bars[end].c,color:"rgba(200,208,222,.55)",lineWidth:1,lineStyle:"dotted",title:"Precio al cierre del reto"})}
       if(c.zone!=null){C.addLine({price:c.zone,color:"#f3d88f",lineWidth:2,title:"Zona correcta",band:c.tol?c.zone+c.tol:null,bandColor:"rgba(216,176,98,.16)"});if(c.tol)C.addLine({price:c.zone-c.tol,color:"rgba(243,216,143,.5)",lineWidth:1,lineStyle:"dotted"})}
       if(c.kind==="zona"){const ma=c.answer||null;let mine=null,ln=null;
         if(can){C.onClick(p=>{mine=p;if(ln)C.removeLine(ln);ln=C.addLine({price:p,color:"#c8d0de",lineWidth:2,lineStyle:"dashed",draggable:true,title:"Tu zona"});$("#rzv").textContent="Tu zona: "+p.toFixed(H.dec)+" · puedes arrastrarla";$("#rzOk").disabled=false});
