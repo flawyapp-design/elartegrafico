@@ -274,15 +274,15 @@ const DISC={title:"La comunidad de El Arte Gráfico",text:"Un espacio para trade
 
 /* ---------- bloques del inicio ---------- */
 const TEMARIO=[["Bienvenida e introducción",5,"Introducción"],["La plataforma: Deriv y MT5",6,"Básico"],["Velas japonesas",5,"Básico"],["Estructura del mercado",6,"Básico"],
-  ["Fractales y zonas",6,"Intermedio"],["Las entradas: Inicio, Punta y Aislada",7,"Intermedio"],["Stop loss en M5 y manejo de la operación",6,"Intermedio"],
+  ["Fractales y zonas",6,"Intermedio"],["Las entradas: Inicio, Punta y Aislada",7,"Intermedio"],["Stop loss y manejo de la operación",6,"Intermedio"],
   ["Gestión del riesgo",6,"Gestión"],["Psicología y rachas",5,"Gestión"],["Boom y Crash a fondo",6,"Avanzado"],["Tu plan de trading y tu diario",5,"Avanzado"],
   ["Medir tu estrategia con datos",5,"Avanzado"],["Examen final",3,"Evaluación"]];
 const ICON_TT='<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M16.6 5.8A4.3 4.3 0 0 1 15.5 3h-3.1v12.4a2.6 2.6 0 1 1-2.6-2.6c.3 0 .5 0 .8.1V9.7a5.8 5.8 0 1 0 4.9 5.7V9.1a7.4 7.4 0 0 0 4.3 1.4V7.4a4.3 4.3 0 0 1-3.2-1.6z"/></svg>';
 
-/* gráfico animado: zona en H1 → stop en M5 → repetición (ilustrativo) */
+/* gráfico animado: zona → stop loss → repetición (ilustrativo) */
 function demoChart(host){if(!host)return;
-  const st=["Marca la zona en H1","Baja a M5 y pon tu stop loss","Mira la repetición vela por vela"];
-  host.innerHTML=`<div class="dm-top"><span class="dm-mk">Boom 1000</span><span class="dm-tf"><b data-tf="H1">H1</b><b data-tf="M5">M5</b></span></div><canvas aria-hidden="true"></canvas>
+  const st=["Lee la estructura y marca tu zona","Define tu entrada y tu stop loss","Mira la repetición vela por vela"];
+  host.innerHTML=`<div class="dm-top"><span class="dm-mk">Boom 1000</span></div><canvas aria-hidden="true"></canvas>
     <ol class="dm-steps">${st.map((t,i)=>`<li data-s="${i}"><i>${i+1}</i>${esc(t)}</li>`).join("")}</ol><span class="dm-note">Ilustración de un ejercicio de la academia</span>`;
   const cv=$("canvas",host),cx=cv.getContext("2d");
   let sd=11;const rnd=()=>(sd=(sd*16807)%2147483647)/2147483647;
@@ -309,23 +309,22 @@ function demoChart(host){if(!host)return;
     pre.slice(0,nPre).forEach(candle);post.slice(0,nPost).forEach((b,i)=>candle(b,pre.length+i));
     if(sa>0){cx.strokeStyle=`rgba(232,76,92,${sa})`;cx.setLineDash([5,4]);cx.lineWidth=1.5;cx.beginPath();cx.moveTo(X(19)-dx/2,Y(sl));cx.lineTo(X(19)-dx/2+((W-50)-(X(19)-dx/2))*sa,Y(sl));cx.stroke();cx.setLineDash([])}
     const tag=(y,txt,bg,fg,a)=>{if(a<=0)return;cx.globalAlpha=fade*a;cx.font="600 11px Inter,system-ui,sans-serif";const w=cx.measureText(txt).width+12;cx.fillStyle=bg;cx.beginPath();cx.roundRect?cx.roundRect(W-w-2,y-9,w,18,5):cx.rect(W-w-2,y-9,w,18);cx.fill();cx.fillStyle=fg;cx.fillText(txt,W-w+4,y+4);cx.globalAlpha=fade};
-    tag(Y(zHi)-2,"Zona H1","#d8b062","#1c1404",za);tag(Y(sl)+2,"SL M5","#e84c5c","#fff",sa);
+    tag(Y(zHi)-2,"Zona","#d8b062","#1c1404",za);tag(Y(sl)+2,"Stop loss","#e84c5c","#fff",sa);
     if(nPost>ent&&ent>=0){const x=X(pre.length+ent),y=Y(zHi);cx.fillStyle="#d8b062";cx.beginPath();cx.arc(x,y,4.5,0,7);cx.fill()}
     const ra=ease((t-9)/.6);if(ra>0){cx.globalAlpha=fade*ra;const txt=`+${R.toFixed(1)} R`;cx.font="800 22px Inter,system-ui,sans-serif";const w=cx.measureText(txt).width+26,x=W/2-w/2,y=16;
       cx.fillStyle="rgba(46,196,134,.16)";cx.strokeStyle="#2ec486";cx.lineWidth=1.5;cx.beginPath();cx.roundRect?cx.roundRect(x,y,w,38,10):cx.rect(x,y,w,38);cx.fill();cx.stroke();cx.fillStyle="#7df0bd";cx.fillText(txt,x+13,y+27);cx.globalAlpha=1}
     cx.globalAlpha=1;
     const step=t<2.1?-1:t<3.7?0:t<5.2?1:2;$$(".dm-steps li",host).forEach(li=>li.classList.toggle("on",+li.dataset.s===step));
-    $$(".dm-tf b",host).forEach(b=>b.classList.toggle("on",b.dataset.tf===(t>=3.7&&t<5.2?"M5":"H1")));
     if(!red)raf=requestAnimationFrame(frame)};
   raf=requestAnimationFrame(frame);cleanup.push(()=>cancelAnimationFrame(raf));
 }
 function aboutBlock(host){if(!host)return;const s=S.site;if(s.aboutHide){host.remove();return}
   const name=s.aboutName||s.name||"El Arte Gráfico";
-  const items=s.aboutItems&&s.aboutItems.length?s.aboutItems:["Método propio para Boom y Crash, con reglas claras","Zona en H1 y stop loss en M5: lo mismo que ves en mis videos","Práctica en gráficas reales, no solo teoría"];
+  const items=s.aboutItems&&s.aboutItems.length?s.aboutItems:["Método propio para Boom y Crash, con reglas claras","Estructura, zonas, entradas y gestión: lo mismo que ves en mis videos","Práctica en gráficas reales, no solo teoría"];
   const tk=s.aboutTiktok||"https://www.tiktok.com/@el_arte_grafico";
   host.innerHTML=`<div class="about"><div class="about-ph${s.aboutPhoto?" foto":""}"><img src="${esc(s.aboutPhoto||s.logoFullUrl||"assets/logo_circle.webp")}" alt="${esc(name)}" loading="lazy"></div>
     <div class="about-t"><span class="eyebrow">${esc(s.aboutTitle||"Quién te enseña")}</span><h2>${esc(name)}</h2>
-      <p class="muted">${esc(s.aboutText||"Soy el creador de El Arte Gráfico. En TikTok comparto mis análisis de Boom y Crash; aquí enseño el método completo, paso a paso: cómo encuentro mis zonas en H1, dónde pongo el stop loss en M5 y cómo gestiono el riesgo. Sin promesas de dinero fácil: reglas claras y mucha práctica.")}</p>
+      <p class="muted">${esc(s.aboutText||"Soy el creador de El Arte Gráfico. En TikTok comparto mis análisis de Boom y Crash; aquí enseño el método completo, paso a paso: cómo leo la estructura, cómo encuentro mis zonas, cómo y cuándo entro, dónde pongo el stop loss y cómo gestiono el riesgo. Sin promesas de dinero fácil: reglas claras y mucha práctica.")}</p>
       <ul class="checks">${items.map(i=>`<li>${esc(i)}</li>`).join("")}</ul>
       ${(s.aboutStats||[]).length?`<div class="cstats">${s.aboutStats.map(c=>`<div><b class="mono">${esc(c.v)}</b><span>${esc(c.t)}</span></div>`).join("")}</div>`:""}
       <div class="row"><a class="btn ghost btn-ic" href="${esc(tk)}" target="_blank" rel="noopener">${ICON_TT}<span>Verme en TikTok</span></a></div></div></div>`}
@@ -703,7 +702,7 @@ function reviewsHTML(list,compact){if(!list.length)return `<div class="empty">To
 /* ---------- prueba gratis ---------- */
 async function demoSection(){
   const box=$("#demoBox");if(!box)return;
-  if(!logged()){box.innerHTML=`<div class="panel demo-cta"><div><h3>5 gráficas de prueba gratis</h3><p class="muted">Crea tu cuenta y practica con gráficas reales: marca la zona, baja a M5 para el stop loss y mira la repetición.</p></div><div class="row"><a class="btn gold" href="#registro">Crear cuenta gratis</a><a class="btn ghost" href="#entrar">Ya tengo cuenta</a></div></div>`;return}
+  if(!logged()){box.innerHTML=`<div class="panel demo-cta"><div><h3>5 gráficas de prueba gratis</h3><p class="muted">Crea tu cuenta y practica con gráficas reales: marca la zona, pon tu stop loss y mira la repetición.</p></div><div class="row"><a class="btn gold" href="#registro">Crear cuenta gratis</a><a class="btn ghost" href="#entrar">Ya tengo cuenta</a></div></div>`;return}
   const p=API.profile()||{};const left=premium()?null:Math.max(0,5-(p.demo_used||0));
   $("#demoLeft").textContent=premium()?"Eres premium: práctica ilimitada":`Te quedan ${left} de 5 gráficas`;
   if(left===0){box.innerHTML=`<div class="panel demo-cta"><div><h3>Ya usaste tus 5 gráficas de prueba</h3><p class="muted">Con el acceso premium tienes todas las lecciones y práctica ilimitada.</p></div><a class="btn gold" href="#premium">Ver cómo acceder</a></div>`;return}
