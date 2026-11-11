@@ -125,6 +125,13 @@ function closedView(){const s=S.site,p=API.profile()||{};
     <p class="muted">${esc(s.closedText||"Estamos terminando de montar las lecciones y los ejercicios. Tu cuenta ya quedó creada: cuando abramos, entras con el mismo usuario y tendrás tus 5 gráficas de prueba.")}</p>
     ${p.username?`<span class="pill ok">Registrado como ${esc(p.username)}</span>`:""}
     <div class="row" style="justify-content:center"><a class="btn gold" href="${toMain("inicio")}">Volver a El Arte Gráfico</a>${s.discordUrl?`<a class="btn ghost" href="${esc(s.discordUrl)}" target="_blank" rel="noopener">Unirme al Discord</a>`:`<a class="btn ghost" href="${toMain("comunidad")}">Ver la comunidad</a>`}</div></section>`}
+/* ---------- modo claro / oscuro ---------- */
+function getTheme(){return document.documentElement.getAttribute("data-theme")==="light"?"light":"dark"}
+function setTheme(t){const r=document.documentElement;if(t==="light")r.setAttribute("data-theme","light");else r.removeAttribute("data-theme");
+  try{localStorage.setItem("ag_theme",t)}catch(e){}const m=document.querySelector('meta[name=theme-color]');if(m)m.setAttribute("content",t==="light"?"#f4f6fb":"#060b1a");
+  const b=$("#themeBtn");if(b){b.setAttribute("aria-label",t==="light"?"Cambiar a modo oscuro":"Cambiar a modo claro")}
+  window.dispatchEvent(new Event("ag-theme"))}
+document.addEventListener("click",e=>{if(e.target.closest&&e.target.closest("#themeBtn"))setTheme(getTheme()==="light"?"dark":"light")});
 function renderNav(){
   let r=(location.hash||"#inicio").slice(1).split("-")[0];if(r==="noticias"||r==="nota")r="comunidad";
   const L=ACAD?[["inicio","Mi panel"],["academia","Temario"],["practica","Práctica"],["ranking","Ranking"]].concat(premium()?[]:[["prueba","Prueba gratis"]])
@@ -353,7 +360,7 @@ async function memberHome(){
   <section class="mh-grid">
     <div class="panel"><div class="sec-h"><h3>Novedades</h3><a href="#comunidad">Ver todo</a></div><div id="mhNews" class="mh-news"><div class="muted">Cargando…</div></div></div>
     <div class="mh-side">
-      <div class="panel mh-plan">${prem?`<span class="mt-i gold">${ico("crown")}</span><div><b>Tu plan Premium</b><span class="muted">${dias!=null&&dias<36500?`Te quedan <b>${dias}</b> día${dias===1?"":"s"} · hasta ${fmtDate(p.premium_until)}`:"Acceso completo a la academia"}</span></div>${dias!=null&&dias<=7?'<a class="btn sm gold" href="#premium">Renovar</a>':""}`
+      <div class="panel mh-plan">${prem?`<span class="mt-i gold">${ico("crown")}</span><div><b>Tu plan Premium</b><span class="muted">${dias!=null&&dias<3650?`Te quedan <b>${dias}</b> día${dias===1?"":"s"} · hasta ${fmtDate(p.premium_until)}`:"Acceso completo a la academia"}</span></div>${dias!=null&&dias<=7?'<a class="btn sm gold" href="#premium">Renovar</a>':""}`
         :`<span class="mt-i gold">${ico("crown")}</span><div><b>Desbloquea toda la academia</b><span class="muted">Todos los módulos, práctica ilimitada y tu placa dorada en el ranking.</span></div><a class="btn sm gold" href="#precios-mh">Ver planes</a>`}</div>
       <div class="panel"><div class="sec-h"><h3>Ranking</h3><a href="${toAcad("ranking")}">Completo</a></div><div id="mhRk" class="muted">Cargando…</div></div>
     </div>
