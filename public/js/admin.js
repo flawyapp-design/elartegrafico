@@ -3,7 +3,7 @@
 "use strict";
 const A=window.AGAPP;const {$,$$,esc,API,S,toast,busy,fmtT,fmtDate,fmtDT,TZ,MARKETS,MNAME,h1Bars,m5Bars,idxAt,avgRange,toC,Chart,app}=A;
 let tab="resumen";
-const TABS=[["resumen","Estadísticas"],["sitio","Sitio y textos"],["banners","Banners"],["contenido","Módulos y lecciones"],["ejercicios","Ejercicios"],["noticias","Noticias"],["opiniones","Opiniones"],["resenas","Reseñas de módulos"],["pagos","Pagos"],["alumnos","Alumnos"],["archivos","Archivos"],["legal","Legal"]];
+const TABS=[["resumen","Estadísticas"],["sitio","Sitio y textos"],["banners","Banners"],["contenido","Módulos y lecciones"],["ejercicios","Ejercicios"],["noticias","Noticias"],["opiniones","Opiniones"],["resenas","Reseñas de módulos"],["pagos","Pagos"],["alumnos","Alumnos"],["archivos","Archivos"],["notif","Notificaciones"],["legal","Legal"]];
 A.ROUTES.admin=sub=>{
   if(!A.admin()){app.innerHTML=`<div class="empty">Esta sección es solo para administradores.<a class="btn sm" href="#inicio">Volver</a></div>`;return}
   if(sub&&TABS.some(t=>t[0]===sub))tab=sub;
@@ -15,7 +15,7 @@ A.ROUTES.admin=sub=>{
   $$("[data-t]").forEach(b=>b.onclick=()=>{location.hash="#admin-"+b.dataset.t});
   $("#acSw").onclick=()=>{const host=$("#acSw").parentElement;A.confirmInline(host,closed?"¿Abrir la academia a todos los alumnos?":"¿Cerrar la academia mientras subes el contenido?",async()=>{
     const ns=Object.assign({},S.site,{academyClosed:!closed});try{await API.saveSite(ns);S.site=ns;A.applySite();toast(closed?"Academia abierta":"Academia cerrada para alumnos");A.ROUTES.admin(tab)}catch(x){toast(x.message);A.ROUTES.admin(tab)}})};
-  ({resumen,sitio,banners,contenido,ejercicios,noticias,opiniones,resenas,pagos,alumnos,archivos,legal})[tab]();
+  ({resumen,sitio,banners,contenido,ejercicios,noticias,opiniones,resenas,pagos,alumnos,archivos,notif,legal})[tab]();
   API.adminPayments().then(l=>{const n=(l||[]).filter(x=>x.status==="pendiente").length;const b=document.querySelector('[data-t="pagos"]');if(b&&n)b.innerHTML=`Pagos <span class="tag pub">${n}</span>`}).catch(()=>{});
 };
 const H=()=>$("#adm");
@@ -36,6 +36,28 @@ async function resumen(){
       ${daily.map((d,i)=>{const h=d.views/mx*Hh,hu=d.visitors/mx*Hh;return `<rect x="${i*bw+2}" y="${Hh-h}" width="${bw-4}" height="${h}" fill="#2b4282"><title>${d.d}: ${d.views} vistas, ${d.visitors} visitantes, ${d.signups} registros</title></rect><rect x="${i*bw+bw*.3}" y="${Hh-hu}" width="${bw*.4}" height="${hu}" fill="#d8b062"/>${d.signups?`<circle cx="${i*bw+bw/2}" cy="${Hh-h-7}" r="3.5" fill="#35c4a2"/>`:""}${i%5===0?`<text x="${i*bw+bw/2}" y="${Hh+16}" fill="#64739a" font-size="10" text-anchor="middle">${String(d.d).slice(5)}</text>`:""}`}).join("")}</svg></div></div>
     <div class="two"><div class="panel"><h3>Páginas más visitadas (30 días)</h3>${(s.pages||[]).length?`<table class="tbl">${s.pages.map(p=>`<tr><td>${esc(p.path)}</td><td class="n">${p.n}</td></tr>`).join("")}</table>`:'<div class="muted">Sin datos todavía.</div>'}</div>
       <div class="panel"><h3>Lecciones con más horas vistas</h3>${(s.top_lessons||[]).length?`<table class="tbl">${s.top_lessons.map(p=>`<tr><td>${esc(p.title)}</td><td class="n">${p.hours} h</td></tr>`).join("")}</table>`:'<div class="muted">Sin datos todavía.</div>'}</div></div>`;
+}
+
+/* ---------- notificaciones ---------- */
+const DEST=()=>[["Inicio de El Arte Gráfico",A.absUrl("main","inicio")],["Comunidad",A.absUrl("main","comunidad")],["Panel de la academia",A.absUrl("academia","inicio")],["Temario",A.absUrl("academia","academia")],["Práctica",A.absUrl("academia","practica")],["Premium",A.absUrl("main","premium")]];
+async function notif(){
+  let st={total:0,premium:0,gratis:0};try{st=await API.adminPushStats()}catch(e){}
+  H().innerHTML=`<div class="split"><form class="panel form" id="nf">
+      <div class="kv"><div><b>${st.total}</b><span>alumnos con notificaciones</span></div><div><b>${st.premium}</b><span>premium</span></div><div><b>${st.gratis}</b><span>cuenta gratis</span></div></div>
+      <label for="nT">Título<input id="nT" maxlength="80" placeholder="Nuevo módulo disponible"></label>
+      <label for="nB">Mensaje<textarea id="nB" maxlength="200" style="min-height:80px" placeholder="Ya puedes ver “Gestión del riesgo” en la academia."></textarea></label>
+      <div class="two"><label for="nD">Al tocarla abre<select id="nD">${DEST().map(([t,u])=>`<option value="${esc(u)}">${esc(t)}</option>`).join("")}<option value="">Otro enlace…</option></select></label>
+        <label for="nA">Enviar a<select id="nA"><option value="todos">Todos</option><option value="premium">Solo premium</option><option value="gratis">Solo cuentas gratis</option></select></label></div>
+      <label for="nU" id="nUl" hidden>Enlace<input id="nU" placeholder="https://academia.elartegrafico.com/#modulo-..."></label>
+      <div class="row"><button class="btn gold" id="ns">Enviar notificación</button><span class="muted" id="nr"></span></div>
+      <p class="dim" style="font-size:13px;margin:0">Solo la reciben quienes activaron las notificaciones (en Mi cuenta o en el aviso del inicio). No abuses: 1 a 3 por semana es lo ideal.</p></form>
+    <div class="panel"><h3>Vista previa</h3><div class="npv"><img src="assets/icon-192.png" alt="" width="40" height="40"><div><b id="pvT">Nuevo módulo disponible</b><span id="pvB">Ya puedes ver “Gestión del riesgo” en la academia.</span><small>elartegrafico.com · ahora</small></div></div>
+      <h3 style="margin-top:18px">Para que te lleguen a ti</h3><p class="muted" style="font-size:14px">Entra a <b>Mi cuenta → App y notificaciones</b> en tu celular y actívalas. En iPhone primero agrega la app a la pantalla de inicio desde Safari.</p></div></div>`;
+  const pv=()=>{$("#pvT").textContent=$("#nT").value||"Nuevo módulo disponible";$("#pvB").textContent=$("#nB").value||"Ya puedes ver “Gestión del riesgo” en la academia."};$("#nT").oninput=pv;$("#nB").oninput=pv;
+  $("#nD").onchange=()=>{$("#nUl").hidden=$("#nD").value!==""};
+  $("#nf").onsubmit=async e=>{e.preventDefault();const title=$("#nT").value.trim(),body=$("#nB").value.trim(),url=$("#nD").value||$("#nU").value.trim();
+    if(!title)return toast("Escribe un título");if(!/^https:\/\//.test(url)&&!/^http:\/\/localhost/.test(url))return toast("El enlace debe empezar por https://");
+    try{busy($("#ns"),true);const r=await API.sendPush({title,body,url,audience:$("#nA").value});$("#nr").textContent=`Enviadas: ${r.sent}${r.failed?` · fallidas: ${r.failed}`:""}${r.removed?` · ${r.removed} dispositivos ya no existían y se quitaron`:""}`;toast("Notificación enviada")}catch(x){toast(x.message)}finally{busy($("#ns"),false)}};
 }
 
 /* ---------- legal ---------- */
@@ -258,10 +280,13 @@ async function noticias(){
     <div class="row">${fileBtn("pI","Imagen de portada")}<input id="pU" value="${esc(p.image_url||"")}" placeholder="o URL de imagen" style="flex:1;min-width:180px"></div></div>
     <label for="pB">Contenido<textarea id="pB" style="min-height:220px">${esc(p.body||"")}</textarea></label>
     <div class="three"><label style="display:flex;gap:8px;align-items:center;color:var(--fg)"><input type="checkbox" id="pPin" style="width:auto" ${p.pinned?"checked":""}> Fijar arriba</label><label style="display:flex;gap:8px;align-items:center;color:var(--fg)"><input type="checkbox" id="pPr" style="width:auto" ${p.premium_only?"checked":""}> Solo premium</label><label style="display:flex;gap:8px;align-items:center;color:var(--fg)"><input type="checkbox" id="pCo" style="width:auto" ${p.allow_comments!==false?"checked":""}> Permitir comentarios</label></div>
+    <label style="display:flex;gap:8px;align-items:center;color:var(--fg)"><input type="checkbox" id="pNt" style="width:auto"> Enviar notificación a los alumnos al publicar</label>
     <div class="row"><button class="btn gold" id="ps">Publicar</button>${p.id?`<a class="btn ghost" href="#nota-${esc(p.id)}">Ver</a><span id="pd"><button type="button" class="btn sm bad" id="pdb">Eliminar</button></span>`:""}</div></form>`;
     bindUpload("pI",u=>$("#pU").value=u);
     $("#pf").onsubmit=async e=>{e.preventDefault();const o={title:$("#pT").value.trim()||"Sin título",category:$("#pC").value.trim()||"Noticia",image_url:$("#pU").value.trim(),body:$("#pB").value,pinned:$("#pPin").checked,premium_only:$("#pPr").checked,allow_comments:$("#pCo").checked};if(p.id)o.id=p.id;
-      try{busy($("#ps"),true);await API.savePost(o);toast("Publicación guardada");noticias()}catch(x){toast(x.message)}finally{busy($("#ps"),false)}};
+      try{busy($("#ps"),true);await API.savePost(o);toast("Publicación guardada");
+        if($("#pNt").checked){try{const r=await API.sendPush({title:o.title.slice(0,80),body:(o.category||"Comunidad")+" · toca para leer",url:A.absUrl("main","comunidad"),audience:o.premium_only?"premium":"todos"});toast(`Notificación enviada a ${r.sent} dispositivos`)}catch(x){toast("Publicado, pero la notificación falló: "+x.message)}}
+        noticias()}catch(x){toast(x.message)}finally{busy($("#ps"),false)}};
     const d=$("#pdb");if(d)d.onclick=()=>A.confirmInline($("#pd"),"¿Eliminar la publicación y sus comentarios?",async()=>{await API.delPost(p.id);toast("Publicación eliminada");noticias()})};
   $("#np").onclick=()=>edit({});$$("[data-p]").forEach(b=>b.onclick=()=>edit(list.find(p=>p.id===b.dataset.p)));
 }

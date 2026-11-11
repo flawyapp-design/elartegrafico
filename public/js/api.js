@@ -125,6 +125,14 @@ function SupabaseAPI(url,key){
     async uploadAvatar(blob){if(!sess||!sess.user)throw new Error("Inicia sesión");const name=`${sess.user.id}/a-${Date.now()}.webp`;
       await req(`/storage/v1/object/avatars/${name}`,{method:"POST",body:blob,isFile:true,headers:{"Content-Type":blob.type||"image/webp","x-upsert":"true"}});
       return `${url}/storage/v1/object/public/avatars/${name}`},
+    async pushKey(){let k=null;try{k=await rpc("push_public_key")}catch(e){}if(k)return k;
+      const r=await raw("/functions/v1/send-push",{method:"POST",body:{action:"setup"}});if(r.ok&&r.j&&r.j.publicKey)return r.j.publicKey;
+      throw new Error("Las notificaciones aún no están activadas en el servidor.")},
+    savePushSub(sub,ua){const j=sub.toJSON();return rpc("save_push_sub",{p_endpoint:j.endpoint,p_p256dh:j.keys.p256dh,p_auth:j.keys.auth,p_ua:ua||""})},
+    async delPushSub(endpoint){if(!sess||!sess.user)return;try{await req(`/rest/v1/push_subs?endpoint=eq.${encodeURIComponent(endpoint)}`,{method:"DELETE"})}catch(e){}},
+    adminPushStats(){return rpc("admin_push_stats").then(r=>r&&r[0]||{total:0,premium:0,gratis:0})},
+    async sendPush(o){const r=await raw("/functions/v1/send-push",{method:"POST",body:o});
+      if(!r.ok)throw new Error((r.j&&(r.j.error||r.j.message))||(r.status===404?"Falta publicar la función send-push en Supabase.":"No se pudo enviar ("+r.status+")"));return r.j},
     async updateMyProfile(o){await rpc("update_my_profile",{p_avatar:o.avatar_url||"",p_bio:o.bio||"",p_country:o.country||""});await this.loadProfile()},
     publicStats(){return rpc("public_stats")},
     publicReviews(){return rpc("public_reviews")},
@@ -218,6 +226,10 @@ function LocalAPI(){
     async upload(file){need();if(file.size>3*1024*1024)throw new Error("En el modo de prueba solo se aceptan archivos de hasta 3 MB.");
       const url=await new Promise((ok,no)=>{const r=new FileReader();r.onload=()=>ok(r.result);r.onerror=no;r.readAsDataURL(file)});db.files.unshift({name:file.name,url,size:file.size});save();return url},
     async files(){return db.files},
+    async pushKey(){throw new Error("Las notificaciones solo funcionan en la web real (elartegrafico.com).")},
+    async savePushSub(){},async delPushSub(){},
+    async adminPushStats(){return{total:0,premium:0,gratis:0}},
+    async sendPush(){throw new Error("En el modo de prueba no se envían notificaciones. Pruébalo en la web real.")},
     async uploadAvatar(blob){return await new Promise((ok,no)=>{const r=new FileReader();r.onload=()=>ok(r.result);r.onerror=no;r.readAsDataURL(blob)})},
     async updateMyProfile(o){const p=me();if(!p)throw new Error("Inicia sesión");p.avatar_url=o.avatar_url||null;p.bio=String(o.bio||"").slice(0,160);p.country=String(o.country||"").slice(0,40);save()},
     async publicStats(){const ap=db.reviews.filter(r=>r.approved);return{students:db.profiles.length,lessons:db.lessons.filter(l=>l.status==="publicado").length,exercises:db.exercises.length,rating:ap.length?Math.round(10*ap.reduce((s,r)=>s+r.rating,0)/ap.length)/10:null,reviews:ap.length}},

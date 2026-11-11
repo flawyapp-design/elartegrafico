@@ -102,9 +102,10 @@ function renderNav(){
     (u&&p?`<div class="dd" id="dd"><button aria-haspopup="true" aria-expanded="false" id="ddb">${avatar(p,28)}<span>${esc(p.username)}</span>${premium()?'<span class="prem-badge">Premium</span>':""}</button>
       <div class="menu" hidden><div class="who">${esc(p.email||"")}<br>${esc(lv.name)} · ${S.prog?S.prog.xp:0} pts</div>
       ${ACAD?`<a href="#perfil">Mi progreso y cuenta</a><a href="#ranking">Ranking</a><a href="${toMain("inicio")}">Ir a El Arte Gráfico</a>`:`<a href="${toAcad("inicio")}">Ir a la academia</a><a href="#perfil">Mi cuenta y foto</a><a href="#comunidad">Comunidad</a>`}
-      ${premium()?"":'<a href="#premium">Hazte premium</a>'}${admin()?'<a href="#admin">Administración</a>':""}<button id="logout">Cerrar sesión</button></div></div>`
+      ${premium()?"":'<a href="#premium">Hazte premium</a>'}${isStandalone()?"":'<button type="button" id="ddInst">Instalar la app</button>'}${admin()?'<a href="#admin">Administración</a>':""}<button id="logout">Cerrar sesión</button></div></div>`
      :`<div class="userbox"><a class="btn sm ghost" href="${toMain("entrar")}">Ingresar</a><a class="btn sm gold" href="${toMain("registro")}">Crear cuenta</a></div>`);
   const dd=$("#dd");if(dd){const b=$("#ddb"),m=$(".menu",dd);b.onclick=e=>{e.stopPropagation();m.hidden=!m.hidden;b.setAttribute("aria-expanded",String(!m.hidden))};document.addEventListener("click",()=>{m.hidden=true},{once:true});
+    const di=$("#ddInst");if(di)di.onclick=e=>{e.stopPropagation();m.hidden=true;installApp()};
     $("#logout").onclick=async()=>{await API.signOut();S.prog=blankProg();toast("Sesión cerrada");if(ACAD){location.href=toMain("inicio");return}location.hash="#inicio";renderNav();route()}}
 }
 $("#menuBtn").onclick=()=>{const o=$("#nav").classList.toggle("open");$("#menuBtn").setAttribute("aria-expanded",String(o))};
@@ -197,6 +198,7 @@ async function mainHome(){
   const s=S.site,p=API.profile();
   const dItems=(s.discordItems&&s.discordItems.length?s.discordItems:DISC.items);
   app.innerHTML=`${logged()&&p?`<section class="welcome"><a class="welcome-av" href="#perfil" title="Mi cuenta">${avatar(p,56)}</a><div style="flex:1;min-width:200px"><span class="eyebrow">Tu cuenta</span><h2>Hola, ${esc(p.username)}</h2><p class="muted">${closedAcad()&&!admin()?"Tu cuenta ya quedó creada. La academia abre muy pronto: te avisaremos por aquí y en la comunidad.":premium()?"Tienes acceso premium a toda la academia.":`Cuenta gratis · tienes ${Math.max(0,5-(p.demo_used||0))} de 5 gráficas de prueba en la academia.`}</p></div>${closedAcad()&&!admin()?'<span class="pill">Academia: próximamente</span>':`<a class="btn gold" href="${toAcad("inicio")}">Ir a la academia</a>`}</section>`:""}
+  <div id="appCard"></div>
   <section id="hero"></section><section class="statband" id="stats"></section>
   <section class="sec"><div class="disc">
     <div class="disc-main"><span class="eyebrow">Comunidad</span><h2>${esc(s.discordTitle||DISC.title)}</h2><p class="muted">${esc(s.discordText||DISC.text)}</p>
@@ -212,7 +214,7 @@ async function mainHome(){
   <section class="sec"><div class="sec-h"><div><span class="eyebrow">Mercados</span><h2>Empezamos por sintéticos. Vamos por todo el mercado.</h2></div><a href="#mercados">Ver mercados</a></div><div class="mkts" id="mkts"></div></section>
   <section class="sec"><div class="sec-h"><div><span class="eyebrow">Opiniones</span><h2>Lo que dicen los alumnos</h2></div><a href="#opiniones">Ver todas</a></div><div id="revs"></div></section>
   <section class="cta-band" id="premiumBand"></section>`;
-  API.slides("home").then(sl=>slider($("#hero"),sl)).catch(()=>slider($("#hero"),[]));statsBand();
+  API.slides("home").then(sl=>slider($("#hero"),sl)).catch(()=>slider($("#hero"),[]));statsBand();appCard($("#appCard"));
   if(s.discordUrl)discordCounts(s.discordUrl).then(d=>{const h=$("#cstats");if(!h||!d||!d.members)return;
     h.insertAdjacentHTML("afterbegin",`<div><b class="mono">${fmtN(d.members)}</b><span>miembros en Discord</span></div>${d.online?`<div><b class="mono"><i class="live"></i>${fmtN(d.online)}</b><span>conectados ahora</span></div>`:""}`)});
   $("#cards").innerHTML=(s.cards||[]).map((c,i)=>`<div class="card"><span class="k">${String(i+1).padStart(2,"0")}</span><h3>${esc(c.title)}</h3><p>${esc(c.text)}</p></div>`).join("");
@@ -232,11 +234,12 @@ async function academyHome(){
       <div class="muted">${esc(lv.name)} · <span class="mono">${g.xp} pts</span>${lv.to?` · faltan ${lv.to-g.xp} para el siguiente nivel`:""}</div><div class="bar"><i style="width:${pct}%"></i></div></div>
     <div class="dash-a">${premium()?(nx?`<a class="btn gold" href="#leccion-${esc(nx.id)}">Continuar: ${esc(nx.title)}</a>`:'<a class="btn gold" href="#practica">Ir a práctica</a>'):'<a class="btn gold" href="#premium">Hazte premium</a>'}</div></section>
   ${premium()?(m=>m?fbCard(m):"")(S.modules.find(needFb)):""}
+  <div id="appCard"></div>
   <div class="kv"><div><b>${passed}${total?` / ${total}`:""}</b><span>lecciones aprobadas</span></div><div><b>${g.practice.n}</b><span>ejercicios resueltos</span></div><div><b>${g.practice.n?Math.round(100*g.practice.ok/g.practice.n):0}%</b><span>aciertos</span></div><div><b>${g.streak||0}</b><span>días seguidos</span></div></div>
   ${premium()?"":`<section class="sec" id="prueba"><div class="sec-h"><div><span class="eyebrow">Prueba gratis</span><h2>Tus gráficas de prueba</h2></div><span class="muted" id="demoLeft"></span></div><div id="demoBox"></div></section>`}
   <section class="sec"><div class="sec-h"><div><span class="eyebrow">Temario</span><h2>Ruta de aprendizaje</h2></div><a href="#academia">Ver temario completo</a></div><div id="syl"></div></section>
   ${premium()?`<section class="sec"><div class="two"><div class="panel"><h3>Práctica libre</h3><p class="muted">Ejercicios sueltos para entrenar el ojo. Suman puntos para el ranking.</p><div class="row"><a class="btn" href="#practica">Practicar ahora</a></div></div><div class="panel"><div class="sec-h"><h3>Ranking</h3><a href="#ranking">Ver completo</a></div><div id="rkMini" class="muted">Cargando…</div></div></div></section>`:`<section class="sec"><div class="panel"><div class="sec-h"><h3>Ranking de alumnos</h3><a href="#ranking">Ver completo</a></div><div id="rkMini" class="muted">Cargando…</div></div></section><section class="cta-band">${premiumBand()}</section>`}`;
-  syllabus($("#syl"),premium()?0:6);if(!premium())demoSection();
+  syllabus($("#syl"),premium()?0:6);if(!premium())demoSection();appCard($("#appCard"));
   API.leaderboard().then(r=>{if(!$("#rkMini"))return;$("#rkMini").innerHTML=r.length?`<table class="tbl rk">${r.slice(0,5).map((x,i)=>`<tr class="${x.is_me?"me ":""}${x.premium?"prem":""}"><td class="mono">${i<3?["🥇","🥈","🥉"][i]:i+1}</td><td><span class="who-cell">${avatar(x,24)}<span>${esc(x.username)}</span>${flag(x.country)}${x.premium?premTag():""}</span></td><td class="n">${x.xp}</td></tr>`).join("")}</table>`:'<div class="muted">Aún no hay alumnos en el ranking.</div>'}).catch(()=>{});
 }
 function marketsHTML(list,compact){const g={};list.forEach(m=>{(g[m.cat]=g[m.cat]||[]).push(m)});
@@ -515,11 +518,13 @@ ROUTES.perfil=()=>{if(!logged()){location.hash="#entrar";return}const p=API.prof
       <div class="two"><label for="aB">Sobre ti (opcional)<textarea id="aB" maxlength="160" style="min-height:76px" placeholder="Ej.: Opero Boom 1000 desde 2025. Aprendiendo a esperar mi zona.">${esc(p.bio||"")}</textarea><span class="dim" id="aBn" style="font-weight:400"></span></label>
         <label for="aC">País<select id="aC"><option value="">Prefiero no decirlo</option>${COUNTRIES.map(c=>`<option ${p.country===c?"selected":""}>${esc(c)}</option>`).join("")}</select></label></div>
       <div class="row"><button class="btn gold" id="aS">Guardar cambios</button></div></form></section>
+    <section class="sec"><h2>App y notificaciones</h2><div id="appSet"></div></section>
     <section class="sec"><h2>Mi progreso</h2>
     <div class="lvl"><div class="medal">${lv.i+1}</div><div style="display:grid;gap:8px;min-width:0"><h2>${esc(lv.name)}</h2><div class="bar"><i style="width:${pct}%"></i></div><div class="muted mono">${g.xp} pts${lv.to?` · faltan ${lv.to-g.xp} para el siguiente nivel`:""}</div></div></div>
     <div class="kv" style="margin-top:14px"><div><b>${Object.values(g.done).filter(d=>d.passed).length}</b><span>lecciones aprobadas</span></div><div><b>${g.practice.n}</b><span>ejercicios resueltos</span></div><div><b>${g.practice.n?Math.round(100*g.practice.ok/g.practice.n):0}%</b><span>aciertos</span></div><div><b>${g.streak||0}</b><span>días seguidos</span></div></div></section>
     <section class="sec"><h2>Logros</h2><div class="badges">${ACH.map(a=>`<div class="badge ${g.ach.includes(a.id)?"on":""}"><b>${esc(a.t)}</b><span>${g.ach.includes(a.id)?"Conseguido":"Pendiente"}</span></div>`).join("")}</div></section>
     <section class="sec"><h2>Seguridad</h2><div class="panel"><form class="form" id="pf" style="max-width:420px"><label for="np">Cambiar contraseña<input id="np" type="password" minlength="8" autocomplete="new-password"></label><button class="btn" id="npg">Guardar contraseña</button></form></div></section>`;
+  appSettings($("#appSet"));
   let av=p.avatar_url||"";const bn=()=>$("#aBn").textContent=`${$("#aB").value.length}/160`;bn();$("#aB").oninput=bn;
   $("#avF").onchange=async e=>{const f=e.target.files[0];if(!f)return;if(!/^image\/(jpeg|png|webp)$/.test(f.type))return toast("Usa una imagen JPG, PNG o WebP");if(f.size>12*1024*1024)return toast("La imagen es muy pesada (máx. 12 MB)");
     try{toast("Subiendo foto…");const b=await squareImage(f);av=await API.uploadAvatar(b);$("#avPrev").innerHTML=avatar({username:p.username,avatar_url:av},112);await API.updateMyProfile({avatar_url:av,bio:$("#aB").value.trim(),country:$("#aC").value});renderNav();toast("Foto actualizada")}catch(x){toast(x.message||"No se pudo subir la foto")}};
@@ -540,14 +545,57 @@ ROUTES.legal=key=>{const docs=window.AG_LEGAL||[];key=key||"terminos";const d=le
 ROUTES.prueba=()=>{location.hash="#inicio";setTimeout(()=>{const p=$("#prueba");p&&p.scrollIntoView({behavior:"smooth"})},350)};
 
 /* exportar para los otros archivos */
-window.AGAPP={flag,premTag,legalText,modOpen,modState,SITE,ACAD,link,toAcad,toMain,S,API,$,$$,esc,md,toast,busy,fmtT,fmtDate,fmtDT,TZ,MARKETS,MNAME,h1Bars,m5Bars,idxAt,avgRange,toC,Chart,cleanupPush:f=>cleanup.push(f),route,ROUTES,app,premium,admin,logged,confirmInline,loadContent:()=>loadContent(),renderFoot:()=>renderFoot(),applySite:()=>applySite()};
+window.AGAPP={absUrl,enablePush,flag,premTag,legalText,modOpen,modState,SITE,ACAD,link,toAcad,toMain,S,API,$,$$,esc,md,toast,busy,fmtT,fmtDate,fmtDT,TZ,MARKETS,MNAME,h1Bars,m5Bars,idxAt,avgRange,toC,Chart,cleanupPush:f=>cleanup.push(f),route,ROUTES,app,premium,admin,logged,confirmInline,loadContent:()=>loadContent(),renderFoot:()=>renderFoot(),applySite:()=>applySite()};
 
 /* ---------- arranque ---------- */
 async function loadContent(){try{S.modules=await API.modules()}catch(e){S.modules=[]}try{S.lindex=await API.lessonIndex()}catch(e){S.lindex=[]}}
 function applySite(){const s=S.site,n=s.name||"El Arte Gráfico";$("#brandName").textContent=n.toUpperCase();if(s.logoUrl)$("#logoMark").src=s.logoUrl;
   $("#brandSub").textContent=ACAD?"ACADEMY":"TRADING · COMUNIDAD";document.body.dataset.site=SITE;
   document.title=ACAD?n+" Academy":n+" · Trading, educación y comunidad";renderFoot()}
+/* ---------- app instalable + notificaciones ---------- */
+const PWA={evt:null,reg:null};
+const isStandalone=()=>matchMedia("(display-mode: standalone)").matches||navigator.standalone===true;
+const isIOS=()=>/iphone|ipad|ipod/i.test(navigator.userAgent)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1);
+const pushSupported=()=>"serviceWorker" in navigator&&"PushManager" in window&&"Notification" in window;
+window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();PWA.evt=e;document.querySelectorAll("[data-install]").forEach(b=>b.hidden=false)});
+window.addEventListener("appinstalled",()=>{PWA.evt=null;toast("App instalada. Búscala en tu pantalla de inicio.")});
+function absUrl(site,hash){const l=link(site,hash);return /^https?:/.test(l)?l:location.origin+location.pathname+location.search+l}
+async function pushState(){if(!pushSupported())return isIOS()&&!isStandalone()?"ios-install":"unsupported";
+  if(Notification.permission==="denied")return"denied";
+  try{const reg=PWA.reg||await navigator.serviceWorker.ready;const sub=await reg.pushManager.getSubscription();return sub&&Notification.permission==="granted"?"on":"off"}catch(e){return"off"}}
+const b64u=s=>{const p="=".repeat((4-s.length%4)%4),b=atob((s+p).replace(/-/g,"+").replace(/_/g,"/"));return Uint8Array.from([...b].map(c=>c.charCodeAt(0)))};
+async function enablePush(){
+  if(!logged()){toast("Inicia sesión para activar las notificaciones");return false}
+  if(!pushSupported()){if(isIOS()&&!isStandalone())installHelp();else toast("Este navegador no permite notificaciones");return false}
+  const perm=await Notification.requestPermission();if(perm!=="granted"){toast(perm==="denied"?"Bloqueaste las notificaciones. Actívalas en los ajustes del navegador.":"No se activaron las notificaciones");return false}
+  try{const reg=PWA.reg||await navigator.serviceWorker.ready;const key=await API.pushKey();
+    let sub=await reg.pushManager.getSubscription();if(!sub)sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:b64u(key)});
+    await API.savePushSub(sub,navigator.userAgent);toast("Notificaciones activadas");return true}catch(e){toast(e.message||"No se pudieron activar");return false}}
+async function disablePush(){try{const reg=PWA.reg||await navigator.serviceWorker.ready;const sub=await reg.pushManager.getSubscription();if(sub){await API.delPushSub(sub.endpoint);await sub.unsubscribe()}toast("Notificaciones desactivadas")}catch(e){toast(e.message)}}
+function installHelp(){const ios=isIOS();
+  const m=document.createElement("div");m.className="modal";m.innerHTML=`<div class="modal-box" role="dialog" aria-modal="true" aria-label="Instalar la app"><img src="assets/icon-192.png" alt="" width="64" height="64" style="border-radius:16px">
+    <h3>Instala El Arte Gráfico</h3>${ios?`<ol class="steps-ol"><li>Toca el botón <b>Compartir</b> <span class="kbd">⬆︎</span> abajo en Safari.</li><li>Elige <b>“Agregar a inicio”</b>.</li><li>Abre la app desde tu pantalla de inicio y activa las notificaciones en <b>Mi cuenta</b>.</li></ol><p class="dim">En iPhone hay que usar Safari. Las notificaciones solo funcionan con la app agregada al inicio.</p>`
+    :`<ol class="steps-ol"><li>Abre el menú del navegador <span class="kbd">⋮</span>.</li><li>Elige <b>“Instalar app”</b> o <b>“Agregar a pantalla de inicio”</b>.</li></ol>`}<button class="btn gold" data-close>Entendido</button></div>`;
+  document.body.appendChild(m);const close=()=>m.remove();m.onclick=e=>{if(e.target===m||e.target.hasAttribute("data-close"))close()}}
+async function installApp(){if(PWA.evt){PWA.evt.prompt();try{await PWA.evt.userChoice}catch(e){}PWA.evt=null;return}installHelp()}
+/* tarjeta "instala la app / activa notificaciones" (se puede cerrar) */
+async function appCard(host){if(!host||!logged())return;let hid=false;try{hid=localStorage.getItem("ag_appcard_off")==="1"}catch(e){}if(hid)return;
+  const ps=await pushState();const inst=isStandalone();if(inst&&(ps==="on"||ps==="denied"||ps==="unsupported"))return;
+  host.innerHTML=`<div class="appcard"><img src="assets/icon-192.png" alt="" width="52" height="52"><div class="t"><b>${inst?"Activa las notificaciones":"Lleva El Arte Gráfico en tu celular"}</b><span class="muted">${inst?"Te avisamos cuando salga un módulo nuevo, una clase en vivo o una publicación importante.":"Instala la app y activa las notificaciones para enterarte de módulos nuevos, clases en vivo y avisos."}</span></div>
+    <div class="row">${inst?"":`<button class="btn sm gold" data-ac="inst">Instalar app</button>`}${ps==="off"||ps==="ios-install"?`<button class="btn sm${inst?" gold":""}" data-ac="push">Activar notificaciones</button>`:""}<button class="btn sm ghost" data-ac="x" aria-label="Cerrar">✕</button></div></div>`;
+  $("[data-ac=x]",host).onclick=()=>{try{localStorage.setItem("ag_appcard_off","1")}catch(e){}host.innerHTML=""};
+  const i=$("[data-ac=inst]",host);if(i)i.onclick=installApp;const pb=$("[data-ac=push]",host);if(pb)pb.onclick=async()=>{if(await enablePush())appCard(host)}}
+/* sección en Mi cuenta */
+async function appSettings(host){if(!host)return;const ps=await pushState();const inst=isStandalone();
+  const st={on:'<span class="pill ok">Activadas en este dispositivo</span>',off:'<span class="pill">Desactivadas</span>',denied:'<span class="pill">Bloqueadas en el navegador</span>',"ios-install":'<span class="pill">Primero agrega la app a tu inicio</span>',unsupported:'<span class="pill">Este navegador no las permite</span>'}[ps];
+  host.innerHTML=`<div class="panel" style="display:grid;gap:12px"><div class="row" style="justify-content:space-between"><div style="display:grid;gap:4px"><b>Notificaciones</b><span class="muted" style="font-size:14px">Módulos nuevos, clases en vivo y avisos importantes. Se activan por dispositivo (celular y computador por separado).</span></div>${st}</div>
+    <div class="row">${ps==="on"?'<button class="btn sm ghost" data-ps="off">Desactivar en este dispositivo</button>':ps==="off"?'<button class="btn sm gold" data-ps="on">Activar notificaciones</button>':ps==="denied"?'<span class="dim" style="font-size:13.5px">Para activarlas, permite las notificaciones de elartegrafico.com en los ajustes del navegador y recarga.</span>':""}
+      ${inst?'<span class="pill ok">Estás usando la app</span>':`<button class="btn sm" data-ps="inst">Instalar la app</button>`}</div></div>`;
+  const on=$("[data-ps=on]",host),off=$("[data-ps=off]",host),ins=$("[data-ps=inst]",host);
+  if(on)on.onclick=async()=>{await enablePush();appSettings(host)};if(off)off.onclick=async()=>{await disablePush();appSettings(host)};if(ins)ins.onclick=installApp}
+
 async function boot(){
+  if("serviceWorker" in navigator&&location.protocol!=="file:")navigator.serviceWorker.register("/sw.js").then(r=>{PWA.reg=r}).catch(()=>{});
   if(API.mode==="local")$("#localbar").innerHTML=`<div class="localbar"><div class="wrap"><b>Modo de prueba</b><span>Los datos se guardan solo en este navegador. Administrador de prueba: admin@elartegrafico.com · admin1234</span><button id="rstLocal">Reiniciar datos de prueba</button></div></div>`;
   const r=$("#rstLocal");if(r)r.onclick=()=>API.resetLocal();
   let rec=false;try{rec=(await API.init()).recovery}catch(e){}
