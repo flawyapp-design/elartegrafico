@@ -24,7 +24,7 @@ const premium=()=>API.isPremium(), admin=()=>API.isAdmin(), logged=()=>!!API.use
 /* prueba gratis: módulos marcados como "free" durante los primeros días de la cuenta */
 const trialDays=()=>{const d=(S.site||{}).trialDays;return d==null||d===""?7:Math.max(0,+d||0)};
 const trialLeft=()=>{if(!logged()||premium())return 0;const p=API.profile()||{},u=API.user()||{};const c=Math.max(new Date(p.created_at||u.created_at||Date.now()).getTime(),(S.site||{}).trialFrom?new Date(S.site.trialFrom).getTime():0);return Math.max(0,Math.ceil((c+trialDays()*864e5-Date.now())/864e5))};
-const inTrial=()=>trialLeft()>0;
+const inTrial=()=>!closedAcad()&&trialLeft()>0;
 const canMod=m=>premium()||(!!m&&!!m.free&&inTrial());
 /* ---------- dos sitios con el mismo código: elartegrafico.com (principal) y academia.elartegrafico.com ---------- */
 const HOST=location.hostname,PROD=/(^|\.)elartegrafico\.com$/.test(HOST);
@@ -387,7 +387,7 @@ function retagGuide(){const s=S.site||{},link=(s.derivRefUrl||"").trim(),code=(s
     </ol>
     ${link?`<a class="btn ghost sm" href="${esc(link)}" target="_blank" rel="noopener sponsored">Ver nuestro enlace de socio</a>`:""}</details>`}
 function freeCard(o={}){const d=trialDays(),fm=(S.modules||[]).filter(m=>m.free&&m.status!=="borrador");if(!d||!fm.length||premium())return"";
-  const cta=!logged()?`<a class="btn" href="${toMain("registro")}">Empezar gratis</a>`:inTrial()?`<a class="btn" href="${toAcad("inicio")}">Ir a mi clase gratis</a>`:'<span class="btn disabled" aria-disabled="true">Tu prueba ya terminó</span>';
+  const cta=!logged()?`<a class="btn" href="${toMain("registro")}">Empezar gratis</a>`:closedAcad()?'<span class="btn disabled" aria-disabled="true">Empieza cuando abra la academia</span>':inTrial()?`<a class="btn" href="${toAcad("inicio")}">Ir a mi clase gratis</a>`:'<span class="btn disabled" aria-disabled="true">Tu prueba ya terminó</span>';
   return `<div class="price free"><span class="price-tag free-tag">Sin tarjeta</span><h3>Prueba gratis</h3><div class="price-v"><b>0</b><span>USD</span></div><span class="dim">por ${d} días${logged()&&inTrial()?` · te quedan ${trialLeft()}`:""}</span>
     <ul class="checks"><li>${fm.length>1?"Módulos":"Módulo"} ${fm.map(m=>`“${esc(m.title)}”`).join(" y ")} completo</li><li>5 gráficas de práctica</li><li>Retos diarios y ranking</li><li>Noticias de la comunidad</li></ul>${cta}</div>`}
 function pricingBlock(host,o={}){if(!host)return;const s=S.site;const pl=(s.plans||[]).filter(x=>x&&x.name&&x.price);if(!pl.length||(premium()&&!o.page)){host.remove();return}const off=o.off??!!s.paymentsOff;

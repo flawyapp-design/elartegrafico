@@ -29,7 +29,7 @@ A.ROUTES.admin=sub=>{
   $$("[data-t]").forEach(b=>b.onclick=()=>{location.hash="#admin-"+b.dataset.t});
   $("#admMb").onclick=()=>{const n=$(".adm-nav"),o=n.classList.toggle("open");$("#admMb").setAttribute("aria-expanded",String(o))};
   $("#acSw").onclick=()=>{const host=$("#acSw").parentElement;A.confirmInline(host,closed?"¿Abrir la academia a todos?":"¿Cerrar la academia?",async()=>{
-    const ns=Object.assign({},S.site,{academyClosed:!closed});try{await API.saveSite(ns);S.site=ns;A.applySite();toast(closed?"Academia abierta":"Academia cerrada para alumnos");A.ROUTES.admin(tab)}catch(x){toast(x.message);A.ROUTES.admin(tab)}})};
+    const ns=Object.assign({},S.site,{academyClosed:!closed},closed?{trialFrom:new Date().toISOString()}:{});try{await API.saveSite(ns);S.site=ns;A.applySite();toast(closed?"Academia abierta · la prueba gratis de 7 días empieza hoy para todos":"Academia cerrada para alumnos");A.ROUTES.admin(tab)}catch(x){toast(x.message);A.ROUTES.admin(tab)}})};
   ({resumen,sitio,banners,contenido,ejercicios,noticias,opiniones,resenas,pagos,alumnos,archivos,notif,legal,retos,afiliados,canjes,rpuntos})[tab]();
   const badge=(k,n)=>{const b=document.querySelector(`[data-badge="${k}"]`);if(b&&n){b.textContent=n;b.classList.add("on")}};
   if(API.adminAffiliates)API.adminAffiliates().then(l=>badge("afiliados",(l||[]).filter(x=>x.status==="pendiente").length)).catch(()=>{});
