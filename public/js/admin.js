@@ -464,7 +464,7 @@ async function retos(){
 async function afiliados(){
   let list=[];try{list=await API.adminAffiliates()}catch(e){H().innerHTML=`<div class="empty">No se pudieron cargar. ¿Ya corriste <b>supabase/retos.sql</b>?<span class="dim">${esc(e.message)}</span></div>`;return}
   let pinfo={total:0};try{pinfo=await API.adminPartnerInfo()||pinfo}catch(e){}
-  const grab=t=>{const T=String(t||"").replace(/-\s*\n\s*/g,"-").toUpperCase();return [...new Set([...(T.match(/\b[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}\b/g)||[]),...(T.match(/\bD-[A-Z0-9]{7}\b/g)||[]),...(T.match(/\b[A-Z]{1,5}\d{4,12}\b/g)||[]).filter(x=>!/^(USD|EUR|COP|USDT|MT)\d/.test(x))])]};
+  const grab=t=>{const T=String(t||"").replace(/-\s*\n\s*/g,"-").toUpperCase();return [...new Set([...(T.match(/\b[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}\b/g)||[]),...(T.match(/\bD-[A-Z0-9]{7}\b/g)||[]),...(T.replace(/[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}/g," ").replace(/D-[A-Z0-9]{7}/g," ").match(/(?<![\w-])[A-Z]{1,5}\d{4,12}\b/g)||[]).filter(x=>!/^(USD|EUR|COP|USDT|MT)\d/.test(x))])]};
   let f="pendiente";const ES={pendiente:'<span class="pill gold">Por verificar</span>',verificado:'<span class="pill ok">Verificado</span>',rechazado:'<span class="pill">Rechazado</span>'};
   const draw=()=>{const L=list.filter(a=>f==="todos"||a.status===f);
     const nOld=list.filter(a=>a.status==="pendiente"&&a.in_list==="antiguo").length;
