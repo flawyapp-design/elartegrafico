@@ -21,15 +21,15 @@ const blankProg=()=>({xp:0,done:{},streak:0,lastDay:"",practice:{n:0,ok:0,row:0,
 /* cada ejercicio da puntos solo la primera vez (repetirlo no suma más) */
 function exXP(ex,pts){if(!pts||!ex)return;S.prog.px=S.prog.px||[];const k=ex.id||"";if(k&&S.prog.px.includes(k))return;if(k){S.prog.px.push(k);if(S.prog.px.length>3000)S.prog.px=S.prog.px.slice(-3000)}addXP(pts)}
 /* modo prueba del admin: ver la página como un alumno (gratis, en prueba gratis o premium) sin cambiar de usuario */
-const VIEWS={gratis:"Alumno gratis",prueba:"Alumno en prueba gratis",premium:"Alumno premium"};
+const VIEWS={gratis:"Alumno gratis",prueba:"Alumno en prueba gratis",curso:"Alumno con un curso",cobre:"Suscriptor Cobre",plata:"Suscriptor Plata",oro:"Suscriptor Oro"};
 const viewAs=()=>{if(!API.isAdmin())return"";let v="";try{v=sessionStorage.getItem("ag_view_as")||""}catch(e){}return VIEWS[v]?v:""};
 const setViewAs=v=>{try{v?sessionStorage.setItem("ag_view_as",v):sessionStorage.removeItem("ag_view_as")}catch(e){}};
-const premium=()=>{const v=viewAs();return v?v==="premium":API.isPremium()}, admin=()=>API.isAdmin()&&!viewAs(), logged=()=>!!API.user();
+const premium=()=>{const v=viewAs();return v?["cobre","plata","oro"].includes(v):API.isPremium()}, admin=()=>API.isAdmin()&&!viewAs(), logged=()=>!!API.user();
 /* prueba gratis: módulos marcados como "free" durante los primeros días de la cuenta */
 const trialDays=()=>{const d=(S.site||{}).trialDays;return d==null||d===""?7:Math.max(0,+d||0)};
 const trialLeft=()=>{if(viewAs()==="prueba")return trialDays();if(viewAs()==="gratis")return 0;if(!logged()||premium())return 0;const p=API.profile()||{},u=API.user()||{};const c=Math.max(new Date(p.created_at||u.created_at||Date.now()).getTime(),(S.site||{}).trialFrom?new Date(S.site.trialFrom).getTime():0);return Math.max(0,Math.ceil((c+trialDays()*864e5-Date.now())/864e5))};
 const inTrial=()=>!closedAcad()&&trialLeft()>0;
-const canMod=m=>premium()||(!!m&&!!m.free&&inTrial());
+const canMod=m=>premium()||(!!m&&ownsCourse(m.course_id))||(!!m&&!!m.free&&inTrial());
 /* ---------- dos sitios con el mismo código: elartegrafico.com (principal) y academia.elartegrafico.com ---------- */
 const HOST=location.hostname,PROD=/(^|\.)elartegrafico\.com$/.test(HOST);
 const SITE=PROD?(/^academia\./.test(HOST)?"academia":"main"):(new URLSearchParams(location.search).get("sitio")==="academia"?"academia":"main");
@@ -40,7 +40,7 @@ function link(site,hash){hash=hash||"inicio";if(site===SITE)return"#"+hash;
   return location.pathname+(site==="academia"?"?sitio=academia"+(vq?"&"+vq:""):(vq?"?"+vq:""))+"#"+hash}
 try{const v=new URLSearchParams(location.search).get("ver");if(v)sessionStorage.setItem("ag_view_as",v)}catch(e){}
 const ACAD_R=new Set(["academia","modulo","leccion","practica","prueba","progreso","logros"]);
-const MAIN_R=new Set(["entrar","registro","recuperar","noticias","comunidad","nota","opiniones","mercados","legal","terminos","privacidad","retos","reto","ranking","puntos"]);
+const MAIN_R=new Set(["oro","entrar","registro","recuperar","noticias","comunidad","nota","opiniones","mercados","legal","terminos","privacidad","retos","reto","ranking","puntos"]);
 const toAcad=h=>link("academia",h),toMain=h=>link("main",h);
 
 /* ---------- utilidades UI ---------- */
@@ -82,7 +82,21 @@ const avatar=(o,sz=32,cls="")=>{o=o||{};const n=(o.username||"?")[0].toUpperCase
     :`<span class="avi ini ${cls}" style="width:${sz}px;height:${sz}px;font-size:${Math.round(sz*.42)}px" aria-hidden="true">${esc(n)}</span>`};
 const ISO={"Colombia":"co","México":"mx","Argentina":"ar","Chile":"cl","Perú":"pe","Ecuador":"ec","Venezuela":"ve","Bolivia":"bo","Uruguay":"uy","Paraguay":"py","Panamá":"pa","Costa Rica":"cr","Guatemala":"gt","Honduras":"hn","El Salvador":"sv","Nicaragua":"ni","República Dominicana":"do","Puerto Rico":"pr","Cuba":"cu","España":"es","Estados Unidos":"us"};
 const flag=c=>{const k=ISO[c];return k?`<img class="flag" src="https://flagcdn.com/w40/${k}.png" srcset="https://flagcdn.com/w80/${k}.png 2x" width="22" height="16" alt="" title="${esc(c)}" loading="lazy" onerror="this.outerHTML='<span class=&quot;flag-t&quot; title=&quot;${esc(c)}&quot;>${k.toUpperCase()}</span>'">`:""};
-const premTag=()=>'<span class="prem-tag" title="Alumno premium"><svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true"><path fill="currentColor" d="M3 8l4.5 4L12 5l4.5 7L21 8l-2 11H5z"/></svg>Premium</span>';
+const TIERS={cobre:{n:"Cobre",i:"🟤",r:1},plata:{n:"Plata",i:"⚪",r:2},oro:{n:"Oro",i:"🟡",r:3}};
+const tierOfDays=d=>d>=300?"oro":d>=150?"plata":"cobre";
+const premTag=pl=>`<span class="prem-tag${TIERS[pl]?" t-"+pl:""}" title="${TIERS[pl]?"Suscriptor "+TIERS[pl].n:"Alumno premium"}"><svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true"><path fill="currentColor" d="M3 8l4.5 4L12 5l4.5 7L21 8l-2 11H5z"/></svg>${TIERS[pl]?TIERS[pl].n:"Premium"}</span>`;
+const myPlan=()=>{const v=viewAs();if(TIERS[v])return v;if(v)return"";if(!premium())return"";const p=API.profile()||{};return TIERS[p.plan]?p.plan:(API.isAdmin()?"oro":"cobre")};
+const planRank=()=>(TIERS[myPlan()]||{}).r||0;
+const PLAN_NUM={cobre:1,plata:2,oro:3};
+const canSeePost=p=>{if(admin())return true;if(!p.premium_only&&!p.min_plan)return true;return planRank()>=Math.max(1,PLAN_NUM[p.min_plan]||0)};
+const postsVis=()=>API.posts().then(L=>(L||[]).filter(canSeePost));
+/* cursos comprados (de por vida) */
+const ownsCourse=cid=>{if(!cid)return false;if(viewAs()==="curso")return cid===((S.courses||[])[0]||{}).id;if(viewAs())return false;return !!(S.myCourses&&S.myCourses.has(cid))};
+const ownedCourses=()=>(S.courses||[]).filter(c=>ownsCourse(c.id));
+const courseLessons=c=>{const ms=new Set((S.modules||[]).filter(m=>m.course_id===c.id).map(m=>m.id));return (S.lindex||[]).filter(l=>ms.has(l.module_id))};
+const graduated=c=>{const ls=courseLessons(c);return ls.length>0&&ls.every(l=>S.prog&&S.prog.done[l.id]&&S.prog.done[l.id].passed)};
+const courseTag=c=>`<span class="crs-tag${graduated(c)?" grad":""}" style="--cc:${esc(c.color||"#d8b062")}" title="Curso ${esc(c.title)}">${esc(c.icon||"🎓")} ${graduated(c)?"✓ Graduado · ":""}${esc(c.title)}</span>`;
+const myCourseTags=()=>ownedCourses().map(courseTag).join("");
 const COUNTRIES=["Colombia","México","Argentina","Chile","Perú","Ecuador","Venezuela","Bolivia","Uruguay","Paraguay","Panamá","Costa Rica","Guatemala","Honduras","El Salvador","Nicaragua","República Dominicana","Puerto Rico","Cuba","España","Estados Unidos","Otro"];
 /* ---------- completar perfil: foto y país (paso a paso) ---------- */
 function onboard(){
@@ -105,7 +119,7 @@ function onboard(){
       <div class="onb-cs">${COUNTRIES.filter(c=>c!=="Otro").map(c=>`<button type="button" class="${pais===c?"on":""}" data-c="${esc(c)}">${flag(c)}<span>${esc(c)}</span></button>`).join("")}<button type="button" data-c="Otro" class="${pais==="Otro"?"on":""}"><span class="flag-t">🌎</span><span>Otro</span></button></div>
       <div class="onb-act"><button type="button" class="btn gold" id="onbN" ${pais?"":"disabled"}>Continuar</button></div></div>`;
     else el.innerHTML=`<div class="onb-card">${dots}<span class="eyebrow">¡Listo!</span><h2 id="onbT">Así te ven los demás</h2>
-      <div class="onb-prev">${avatar({username:p.username,avatar_url:av},44)}<b>${esc(p.username)}</b>${flag(pais)}${premium()?premTag():""}<span class="mono dim">${(S.prog&&S.prog.xp)||0} pts</span></div>
+      <div class="onb-prev">${avatar({username:p.username,avatar_url:av},44)}<b>${esc(p.username)}</b>${flag(pais)}${premium()?premTag(myPlan()):""}<span class="mono dim">${(S.prog&&S.prog.xp)||0} pts</span></div>
       <p class="muted">Puedes cambiar tu foto y tu país cuando quieras en Configuración.</p>
       <div class="onb-act"><button type="button" class="btn gold" id="onbX">Empezar</button></div></div>`;
     const f=$("#onbF",el);if(f)f.onchange=async e=>{const fl=e.target.files[0];if(!fl)return;try{toast("Subiendo foto…");av=await API.uploadAvatar(await squareImage(fl));await save();toast("Foto lista");k++;draw()}catch(x){toast(x.message)}};
@@ -132,7 +146,7 @@ function saveProg(){if(logged()&&S.loaded)setTimeout(()=>{try{checkAch("acad",ac
 async function loadProg(){S.prog=blankProg();S.fb=new Set();if(!logged())return;
   API.myFeedback().then(r=>{S.fb=new Set((r||[]).map(x=>x.module_id));S.fbOff=false}).catch(()=>{S.fbOff=true});try{const r=await API.progressGet();if(r&&r.data)S.prog=Object.assign(blankProg(),r.data,{xp:r.xp||r.data.xp||0})}catch(e){}}
 function ach(id){if(!S.prog.ach.includes(id)){S.prog.ach.push(id);const a=ACH.find(x=>x.id===id);}}
-function addXP(n){const lv0=levelOf(S.prog.xp||0).i;S.prog.xp=(S.prog.xp||0)+n;{const L=levelOf(S.prog.xp);if(L.i>lv0&&logged())setTimeout(()=>pop({icon:"up",kicker:"¡Subiste de nivel!",title:`Nivel ${L.i+1} · ${L.name}`,text:`Ya llevas ${S.prog.xp} puntos. ${L.to?`El próximo nivel es a los ${L.to}.`:"Llegaste al nivel máximo."}`,confetti:true,ms:5000}),900)}const d=todayKey();if(S.prog.lastDay!==d){const y=new Date(Date.now()+TZ*1000-864e5).toISOString().slice(0,10);S.prog.streak=S.prog.lastDay===y?(S.prog.streak||0)+1:1;S.prog.bestStreak=Math.max(S.prog.bestStreak||0,S.prog.streak);S.prog.lastDay=d;if(S.prog.streak>=3)ach("constancia")}saveProg()}
+function addXP(n){if(planRank()>=2)n*=2;const lv0=levelOf(S.prog.xp||0).i;S.prog.xp=(S.prog.xp||0)+n;{const L=levelOf(S.prog.xp);if(L.i>lv0&&logged())setTimeout(()=>pop({icon:"up",kicker:"¡Subiste de nivel!",title:`Nivel ${L.i+1} · ${L.name}`,text:`Ya llevas ${S.prog.xp} puntos. ${L.to?`El próximo nivel es a los ${L.to}.`:"Llegaste al nivel máximo."}`,confetti:true,ms:5000}),900)}const d=todayKey();if(S.prog.lastDay!==d){const y=new Date(Date.now()+TZ*1000-864e5).toISOString().slice(0,10);S.prog.streak=S.prog.lastDay===y?(S.prog.streak||0)+1:1;S.prog.bestStreak=Math.max(S.prog.bestStreak||0,S.prog.streak);S.prog.lastDay=d;if(S.prog.streak>=3)ach("constancia")}saveProg()}
 function registerAnswer(kind,res){const p=S.prog.practice;p.n++;if(res==="ok"){p.ok++;p.row++;ach("primera");if(kind==="no-operar")ach("paciencia")}else p.row=0;p.best=Math.max(p.best,p.row);if(p.ok>=10)ach("diez");if(p.row>=5)ach("racha5");if(p.n>=100)ach("cien");saveProg()}
 
 /* ---------- navegación ---------- */
@@ -189,21 +203,21 @@ function sideState(){let off=false;try{off=localStorage.getItem("ag_side_off")==
 document.addEventListener("click",e=>{if(e.target.closest&&e.target.closest("#sideHide")){try{localStorage.setItem("ag_side_off","1")}catch(x){}sideState();window.dispatchEvent(new Event("resize"))}});
 function viewBar(){let b=$("#viewBar");const v=viewAs();if(!v){if(b)b.remove();document.body.classList.remove("viewing");return}
   if(!b){b=document.createElement("div");b.id="viewBar";b.className="view-bar";document.body.appendChild(b)}document.body.classList.add("viewing");
-  b.innerHTML=`<span>👁 <b>Modo prueba:</b> así ve la página un</span><select aria-label="Ver como">${Object.entries(VIEWS).map(([k,t])=>`<option value="${k}"${k===v?" selected":""}>${t.replace("Alumno ","alumno ")}</option>`).join("")}</select><a class="btn sm gold" href="${toMain("admin")}">Volver a admin</a>`;
+  b.innerHTML=`<span>👁 <b>Modo prueba:</b> así ve la página un</span><select aria-label="Ver como">${Object.entries(VIEWS).map(([k,t])=>`<option value="${k}"${k===v?" selected":""}>${t.replace("Alumno ","alumno ").replace("Suscriptor ","suscriptor ")}</option>`).join("")}</select><a class="btn sm gold" href="${toMain("admin")}">Volver a admin</a>`;
   $("select",b).onchange=e=>{setViewAs(e.target.value);renderNav();route()}}
 window.AGVIEW=v=>{setViewAs(v);viewBar();renderNav();location.hash="#inicio";route()};
 function renderNav(){sideState();viewBar();document.body.classList.toggle("is-acad",!!ACAD);
   let r=(location.hash||"#inicio").slice(1).split("-")[0];if(r==="noticias"||r==="nota")r="comunidad";
   const rw=rewardsOn()||admin();
   const L=ACAD?[["inicio","Mi panel"],["academia","Temario"],["practica","Práctica"],["logros","Logros"],["progreso","Progreso"]].concat(premium()?[]:[["prueba","Prueba gratis"]])
-             :[["inicio","Inicio"]].concat(rw?[["retos","Retos"],["ranking","Ranking"]]:[]).concat([["comunidad","Comunidad"],["opiniones","Opiniones"],["mercados","Mercados"],["premium","Premium"]]);
+             :[["inicio","Inicio"]].concat(rw?[["retos","Retos"],["ranking","Ranking"]]:[]).concat(logged()?[["oro","Sala Oro"]]:[]).concat([["comunidad","Comunidad"],["opiniones","Opiniones"],["mercados","Mercados"],["premium","Premium"]]);
   if(ACAD&&closedAcad()&&!admin())L.length=0;
   const u=API.user(),p=API.profile();const lv=levelOf((S.prog&&S.prog.xp)||0);
   const other=ACAD?`<a class="navx" href="${toMain("inicio")}">El Arte Gráfico ↗</a>`:(u&&p?`<a class="btn sm gold navacad" href="${toAcad("inicio")}">Ir a la academia</a>`:"");
-  const NI={inicio:"home",comunidad:"chat",opiniones:"star",mercados:"chart",premium:"crown",academia:"acad",practica:"chart",ranking:"trophy",prueba:"play",retos:"bolt",progreso:"layers",puntos:"card",logros:"medal"};
+  const NI={oro:"crown",inicio:"home",comunidad:"chat",opiniones:"star",mercados:"chart",premium:"crown",academia:"acad",practica:"chart",ranking:"trophy",prueba:"play",retos:"bolt",progreso:"layers",puntos:"card",logros:"medal"};
   const msw=`<div class="mnav-sw" role="group" aria-label="Elige sección"><a class="${ACAD?"":"on"}" href="${ACAD?toMain("inicio"):"#inicio"}"${ACAD?"":' aria-current="true"'}>${ico("home",20)}<span><b>El Arte Gráfico</b><small>Comunidad y noticias</small></span></a><a class="${ACAD?"on":""}" href="${ACAD?"#inicio":toAcad("inicio")}"${ACAD?' aria-current="true"':""}>${ico("acad",20)}<span><b>Academia</b><small>Lecciones y práctica</small></span></a></div>
     <div class="mnav-here"><i></i>Estás en ${ACAD?"<b>la Academia</b>":"<b>El Arte Gráfico</b>"}</div>`;
-  const mus=u&&p?`<div class="mnav-user"><a class="mnu-me" href="#perfil">${avatar(p,40)}<span><b>${esc(p.username)}</b><small>${esc(lv.name)} · ${S.prog?S.prog.xp:0} pts</small></span>${premium()?premTag():""}</a>
+  const mus=u&&p?`<div class="mnav-user"><a class="mnu-me" href="#perfil">${avatar(p,40)}<span><b>${esc(p.username)}</b><small>${esc(lv.name)} · ${S.prog?S.prog.xp:0} pts</small></span>${premium()?premTag(myPlan()):""}</a>
       <div class="mnu-links"><a href="#perfil">${ico("gear",18)}Configuración</a>${premium()?"":`<a href="${toMain("premium")}">${ico("crown",18)}Hazte premium</a>`}${admin()?`<a href="${toMain("admin")}">${ico("news",18)}Administración</a>`:""}<button type="button" id="logout2">Cerrar sesión</button></div></div>`
     :`<div class="mnav-user"><div class="mnu-links two"><a class="btn ghost" href="${toMain("entrar")}">Ingresar</a><a class="btn gold" href="${toMain("registro")}">Crear cuenta</a></div></div>`;
   /* selector fijo arriba (celular): siempre se ve si estás en El Arte Gráfico o en la Academia */
@@ -218,10 +232,10 @@ function renderNav(){sideState();viewBar();document.body.classList.toggle("is-ac
   if(!window.__sheetClose){window.__sheetClose=1;document.addEventListener("click",e=>{const n=$("#nav");if(!n||!n.classList.contains("open")||!document.body.classList.contains("sheet-open"))return;
     if(!n.contains(e.target)||e.target.closest("a")){n.classList.remove("open");document.body.classList.remove("sheet-open")}})}
   $("#nav").innerHTML=msw+L.map(([k,t])=>`<a href="#${k}" class="${r===k?"on":""}"><span class="mi">${ico(NI[k]||"news",20)}</span>${t}</a>`).join("")+other+mus+
-    (u&&p?`<div class="dd" id="dd"><button aria-haspopup="true" aria-expanded="false" id="ddb">${avatar(p,28)}<span>${esc(p.username)}</span>${premium()?'<span class="prem-badge">Premium</span>':""}</button>
+    (u&&p?`<div class="dd" id="dd"><button aria-haspopup="true" aria-expanded="false" id="ddb">${avatar(p,28)}<span>${esc(p.username)}</span>${premium()?`<span class="prem-badge t-${myPlan()}">${(TIERS[myPlan()]||{n:"Premium"}).n}</span>`:ownedCourses().length?`<span class="prem-badge crs" style="--cc:${esc(ownedCourses()[0].color)}">Curso</span>`:""}</button>
       <div class="menu" hidden>
         <a class="dm-head" href="#perfil">${avatar(p,46)}<span class="dm-id"><b>${esc(p.username)} ${flag(p.country||"")}</b><small>${esc(p.email||"")}</small></span></a>
-        <div class="dm-lv"><div class="dm-lvr"><span>${premium()?premTag():'<span class="tag">Cuenta gratis</span>'}${p.affiliate?affTag():""}<span class="dim">${esc(lv.name)}</span></span><b class="mono">${S.prog?S.prog.xp:0} pts</b></div>
+        <div class="dm-lv"><div class="dm-lvr"><span>${premium()?premTag(myPlan()):myCourseTags()||'<span class="tag">Cuenta gratis</span>'}${p.affiliate?affTag():""}<span class="dim">${esc(lv.name)}</span></span><b class="mono">${S.prog?S.prog.xp:0} pts</b></div>
           <div class="bar"><i style="width:${lv.to?Math.round(100*(((S.prog&&S.prog.xp)||0)-lv.from)/(lv.to-lv.from)):100}%"></i></div></div>
         <div class="dm-items">
           <a href="${ACAD?"#perfil":"#perfil"}">${ico("gear",18)}<span>Configuración</span></a>
@@ -401,17 +415,26 @@ function freeCard(o={}){const d=trialDays(),fm=(S.modules||[]).filter(m=>m.free&
   const cta=!logged()?`<a class="btn" href="${toMain("registro")}">Empezar gratis</a>`:closedAcad()?'<span class="btn disabled" aria-disabled="true">Empieza cuando abra la academia</span>':inTrial()?`<a class="btn" href="${toAcad("inicio")}">Ir a mi clase gratis</a>`:'<span class="btn disabled" aria-disabled="true">Tu prueba ya terminó</span>';
   return `<div class="price free"><span class="price-tag free-tag">Sin tarjeta</span><h3>Prueba gratis</h3><div class="price-v"><b>0</b><span>USD</span></div><span class="dim">por ${d} días${logged()&&inTrial()?` · te quedan ${trialLeft()}`:""}</span>
     <ul class="checks"><li>${fm.length>1?"Módulos":"Módulo"} ${fm.map(m=>`“${esc(m.title)}”`).join(" y ")} completo</li><li>5 gráficas de práctica</li><li>Retos diarios y ranking</li><li>Noticias de la comunidad</li></ul>${cta}</div>`}
-function pricingBlock(host,o={}){if(!host)return;const s=S.site;const pl=(s.plans||[]).filter(x=>x&&x.name&&x.price);if(!pl.length||(premium()&&!o.page)){host.remove();return}const off=o.off??!!s.paymentsOff;
+const TIER_ITEMS={
+  cobre:["Todos los cursos de la academia","Práctica ilimitada en gráficas reales","Zona exclusiva: novedades, tutoriales y actualizaciones","Comentar en la comunidad","Placa Cobre en tu perfil"],
+  plata:["Todo lo de Cobre","Doble XP: subes de nivel el doble de rápido","Publicaciones solo Plata y Oro (análisis)","Placa Plata en tu perfil"],
+  oro:["Todo lo de Plata","👑 Sala Oro: lives privados y operativas","🎡 Ruleta diaria (sin apostar nada)","Acceso anticipado a cursos nuevos","Placa Oro y nombre dorado"]};
+function pricingBlock(host,o={}){if(!host)return;const s=S.site;const pl=(s.plans||[]).filter(x=>x&&x.name&&x.price);const cs=(S.courses||[]).filter(c=>c.status!=="borrador");
+  if((!pl.length&&!cs.length)||(premium()&&!o.page)){host.remove();return}const off=o.off??!!s.paymentsOff;
   const num=x=>{const m=String(x).replace(",",".").match(/\d+(\.\d+)?/);return m?parseFloat(m[0]):NaN};const cur=x=>String(x).replace(/[\d.,\s]+/g," ").trim()||"USD";
-  const base=pl.find(x=>x.days<=31),bm=base?num(base.price)/(base.days/30):NaN;const fav=pl.length===3?1:pl.length>3?Math.floor(pl.length/2):-1;
-  const items=(s.premiumItems||[]).slice(0,4);
-  host.innerHTML=`${o.page?"":`<div class="sec-h"><div><span class="eyebrow">Precios</span><h2>Elige tu plan</h2></div><a href="#premium">Cómo pagar</a></div>`}
-    <div class="prices${freeCard(o)?" has-free":""}">${freeCard(o)}${pl.map((x,i)=>{const v=num(x.price),pm=v/(x.days/30),ah=isFinite(bm)&&x.days>31&&pm<bm?Math.round(100*(1-pm/bm)):0;
-      return `<div class="price${i===fav?" fav":""}">${i===fav?'<span class="price-tag">Más elegido</span>':""}<h3>${esc(x.name)}</h3><div class="price-v"><b>${esc(String(x.price).replace(/\s*[A-Za-z]+$/,""))}</b><span>${esc(cur(x.price))}</span></div>
+  const base=pl.find(x=>x.days<=31),bm=base?num(base.price)/(base.days/30):NaN;
+  const btn=(lbl,attr,gold)=>off?'<span class="btn disabled" aria-disabled="true">Disponible pronto</span>':o.page?`<button type="button" class="btn ${gold?"gold":""}" ${attr}>${lbl}</button>`:`<a class="btn ${gold?"gold":""}" href="${toMain("premium")}">${lbl}</a>`;
+  const plans=pl.map((x,i)=>{const t=tierOfDays(+x.days||30),T=TIERS[t],v=num(x.price),pm=v/(x.days/30),ah=isFinite(bm)&&x.days>31&&pm<bm?Math.round(100*(1-pm/bm)):0;
+      return `<div class="price tier-${t}${t==="plata"?" fav":""}">${t==="plata"?'<span class="price-tag">Más elegido</span>':t==="oro"?'<span class="price-tag oro-tag">Mejor valor</span>':""}<h3><span class="tier-i">${T.i}</span> ${T.n}</h3><span class="dim tier-d">${esc(x.name)}</span><div class="price-v"><b>${esc(String(x.price).replace(/\s*[A-Za-z]+$/,""))}</b><span>${esc(cur(x.price))}</span></div>
         <span class="dim">${x.days>31&&isFinite(pm)?`≈ ${pm.toFixed(pm<10?1:0).replace(".0","")} ${esc(cur(x.price))} al mes`:"pago único por 30 días"}</span>${ah?`<span class="pill ok">Ahorras ${ah}%</span>`:""}
-        <ul class="checks">${items.map(t=>`<li>${esc(t)}</li>`).join("")}</ul>${off?'<span class="btn disabled" aria-disabled="true">Disponible pronto</span>':o.page?`<button type="button" class="btn ${i===fav?"gold":""}" data-pick="${i}">Elegir ${esc(x.name)}</button>`:`<a class="btn ${i===fav?"gold":""}" href="${toMain("premium")}">Elegir ${esc(x.name)}</a>`}</div>`}).join("")}</div>
-    <p class="dim price-foot">${off?"Los pagos están pausados por ahora: te avisaremos cuando abran.":"Pagas con Binance Pay en USDT y activamos tu premium al confirmar el pago."}${o.page||freeCard(o)?"":" ¿Quieres probar antes? Con tu cuenta gratis tienes 5 gráficas de prueba."}</p>`;
-  $$("[data-pick]",host).forEach(b=>b.onclick=()=>{const sel=$("#pP");const k=pl[+b.dataset.pick];if(sel){const j=(S.site.plans||[]).findIndex(x=>x.name===k.name);if(j>=0)sel.value=String(j)}const t=$("#pay");if(t)t.scrollIntoView({behavior:"smooth",block:"start"})})}
+        <ul class="checks">${TIER_ITEMS[t].map(t2=>`<li>${esc(t2)}</li>`).join("")}</ul>${myPlan()===t&&premium()?'<span class="pill ok">Tu plan actual</span>':""}${btn("Elegir "+T.n,`data-pick="${i}"`,t!=="cobre")}</div>`}).join("");
+  const courses=cs.map(c=>{const mine=ownsCourse(c.id);return `<div class="price crs-card" style="--cc:${esc(c.color||"#d8b062")}"><span class="price-tag crs-ptag">Pago único</span><h3><span class="tier-i">${esc(c.icon||"🎓")}</span> Curso ${esc(c.title)}</h3><span class="dim tier-d">De por vida</span><div class="price-v"><b>${esc(String(c.price||"40 USD").replace(/\s*[A-Za-z]+$/,""))}</b><span>${esc(cur(c.price||"40 USD"))}</span></div><span class="dim">un solo pago, sin mensualidades</span>
+      <ul class="checks"><li>Todo el curso ${esc(c.title)}: videos y ejercicios</li><li>Sus actualizaciones incluidas</li><li>Medallas del curso</li><li>Placa del curso y ✓ Graduado al terminarlo</li><li class="no">Sin zona exclusiva ni Sala Oro</li></ul>${mine?'<span class="pill ok">Ya es tuyo</span>':btn("Comprar curso",`data-pickc="${esc(c.id)}"`,false)}</div>`}).join("");
+  host.innerHTML=`${o.page?"":`<div class="sec-h"><div><span class="eyebrow">Precios</span><h2>Elige tu plan</h2></div><a href="#premium">Cómo pagar</a></div>`}
+    <div class="prices${freeCard(o)?" has-free":""}">${freeCard(o)}${plans}${courses}</div>
+    <p class="dim price-foot">${off?"Los pagos están pausados por ahora: te avisaremos cuando abran.":"Pagas con Binance Pay en USDT y activamos tu plan o tu curso al confirmar el pago."} La suscripción incluye <b>todos</b> los cursos; el curso suelto es solo ese curso, para siempre.</p>`;
+  $$("[data-pick]",host).forEach(b=>b.onclick=()=>{const sel=$("#pP");const k=pl[+b.dataset.pick];if(sel){const j=(S.site.plans||[]).findIndex(x=>x.name===k.name);if(j>=0)sel.value="p:"+j}const t=$("#pay");if(t)t.scrollIntoView({behavior:"smooth",block:"start"})});
+  $$("[data-pickc]",host).forEach(b=>b.onclick=()=>{const sel=$("#pP");if(sel)sel.value="c:"+b.dataset.pickc;const t=$("#pay");if(t)t.scrollIntoView({behavior:"smooth",block:"start"})})}
 const FAQ_DEF=[["¿Necesito experiencia?","No. El temario empieza desde cero: qué es un bróker, cómo leer las velas y la estructura del mercado, hasta el método completo."],
   ["¿Con cuánto dinero empiezo?","Puedes aprender y practicar en una cuenta demo sin poner dinero. Cuando pases a real, el módulo de gestión del riesgo te enseña a calcular el lote según el tamaño de tu cuenta."],
   ["¿Funciona desde el celular?","Sí. La academia y los ejercicios funcionan en el navegador del celular y la puedes instalar como app."],
@@ -466,7 +489,7 @@ async function memberHome(){
     <div class="mh-bg" aria-hidden="true"></div>
     <div class="mh-id"><a class="mh-av" href="#perfil" title="Configuración">${avatar(p,84)}<span class="lvchip" title="${esc(lv.name)}">${lv.i+1}</span></a>
       <div class="mh-t"><span class="eyebrow">${saludo()}</span><h1>${esc(p.username||"trader")} ${flag(p.country||"")}</h1>
-        <div class="mh-chips">${prem?premTag():'<span class="tag">Cuenta gratis</span>'}${p.affiliate?affTag():""}<span class="tag">${esc(lv.name)}</span>${admin()?'<span class="tag pub">Admin</span>':""}</div></div></div>
+        <div class="mh-chips">${prem?premTag(myPlan()):myCourseTags()||'<span class="tag">Cuenta gratis</span>'}${p.affiliate?affTag():""}<span class="tag">${esc(lv.name)}</span>${admin()?'<span class="tag pub">Admin</span>':""}</div></div></div>
     <div class="mh-cta">${cta}</div>
     <div class="mh-bars">
       <div><div class="mh-bl"><span>Avance en la academia</span><b class="mono">${apct}%</b></div><div class="bar"><i style="width:${apct}%"></i></div></div>
@@ -486,7 +509,7 @@ async function memberHome(){
   ${promoBlock()}
   ${prem?"":'<section class="sec" id="precios-mh"></section>'}`;
   appCard($("#appCard"));if(!prem)pricingBlock($("#precios-mh"));
-  API.posts().then(ps=>{const h=$("#mhNews");if(!h)return;h.innerHTML=ps.slice(0,4).map(x=>`<a class="mn" href="#nota-${esc(x.id)}">${x.image_url?`<span class="mn-img" style="background-image:url('${esc(x.image_url)}')"></span>`:`<span class="mn-img none">${ico("news",20)}</span>`}<span class="mn-t"><span class="dim">${fmtDate(x.created_at)} · ${esc(x.category||"Noticia")}</span><b>${esc(x.title)}</b></span></a>`).join("")||'<div class="muted">Pronto publicaremos novedades.</div>'}).catch(()=>{const h=$("#mhNews");if(h)h.innerHTML='<div class="muted">No se pudieron cargar las novedades.</div>'});
+  postsVis().then(ps=>{const h=$("#mhNews");if(!h)return;h.innerHTML=ps.slice(0,4).map(x=>`<a class="mn" href="#nota-${esc(x.id)}">${x.image_url?`<span class="mn-img" style="background-image:url('${esc(x.image_url)}')"></span>`:`<span class="mn-img none">${ico("news",20)}</span>`}<span class="mn-t"><span class="dim">${fmtDate(x.created_at)} · ${esc(x.category||"Noticia")}</span><b>${esc(x.title)}</b></span></a>`).join("")||'<div class="muted">Pronto publicaremos novedades.</div>'}).catch(()=>{const h=$("#mhNews");if(h)h.innerHTML='<div class="muted">No se pudieron cargar las novedades.</div>'});
   (rewardsOn()||admin()?API.rewardsBoard("mes").then(r=>r.map(x=>Object.assign(x,{v:x.points+" pts"}))):API.progressBoard().then(r=>r.map(x=>Object.assign(x,{v:x.lessons+" lecc."})))).then(r=>{const h=$("#mhRk");if(!h)return;const k=r.findIndex(x=>x.is_me);if($("#mhPos"))$("#mhPos").textContent=k>=0?`Vas en el puesto #${k+1}`:"Juega para aparecer";
     h.innerHTML=r.length?`<table class="tbl rk">${r.slice(0,5).map((x,i)=>`<tr class="${x.is_me?"me ":""}${x.premium?"prem":""}"><td class="mono">${i<3?["🥇","🥈","🥉"][i]:i+1}</td><td><span class="who-cell">${avatar(x,24)}<span>${esc(x.username)}</span>${flag(x.country)}${x.affiliate?affTag():""}</span></td><td class="n">${esc(x.v)}</td></tr>`).join("")}</table>${k>=5?`<div class="mh-me">Tú: puesto #${k+1} · ${esc(r[k].v)}</div>`:""}`:'<div class="muted">Todavía no hay nadie aquí. ¡Sé el primero!</div>'}).catch(()=>{const h=$("#mhRk");if(h)h.textContent="No se pudo cargar."});
 }
@@ -495,7 +518,7 @@ async function memberHome(){
    RETOS DIARIOS · PUNTOS · AFILIADOS · CANJES (sitio principal)
    ===================================================================== */
 const RW=()=>(S.site&&S.site.rewards)||{};
-const rewardsOn=()=>!!RW().enabled;
+const rewardsOn=()=>RW().enabled!==false;
 const affTag=()=>'<span class="aff-tag" title="Afiliado verificado de Deriv"><svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.2 4.2L19 7"/></svg>Afiliado</span>';
 const ptsUsd=p=>{const r=Math.max(1,+RW().ptsPerUsd||100);return (p/r).toLocaleString("es-CO",{style:"currency",currency:"USD",minimumFractionDigits:2})};
 const KIND={opcion:"Cuestionario",tendencia:"¿Sube o baja?",zona:"Marca la zona"};
@@ -578,6 +601,37 @@ ROUTES.reto=async id=>{
     }catch(e){const b=$(".rt-chart");if(b)b.innerHTML='<div class="empty">No se pudo cargar la gráfica.</div>'}}
   API.challengeWinners(c.id).then(w=>{const h=$("#rtWin");if(!h)return;h.innerHTML=w.length?`<div class="win-list">${w.map(x=>`<div class="win"><span class="win-p">${x.place<=3?["🥇","🥈","🥉"][x.place-1]:"#"+x.place}</span>${avatar(x,34)}<b>${esc(x.username)}</b>${flag(x.country)}${x.affiliate?affTag():""}${x.premium?premTag():""}<span class="mono win-pt">+${x.points}</span></div>`).join("")}</div>`:'<div class="muted">Todavía nadie gana este reto. ¡Puedes ser el primero!</div>'}).catch(()=>{});
 };
+/* ---------- 👑 Sala Oro: lives privados, operativas y ruleta diaria ---------- */
+const WHEEL=[["+50 XP","#2a3f7a"],["+100 XP","#1a2c66"],["Medalla","#7a5a12"],["+250 XP","#2a3f7a"],["+500 XP","#1a2c66"],["+1 día","#14935f"]];
+const MEDALS={trebol:["☘️","Trébol de la suerte"],herradura:["🧲","Herradura"],estrella:["⭐","Estrella fugaz"],cometa:["☄️","Cometa"],diamante:["💎","Diamante"]};
+const bogotaDay=()=>new Date(Date.now()-5*3600e3).toISOString().slice(0,10);
+ROUTES.oro=async()=>{if(!logged()){location.hash="#entrar";return}
+  if(planRank()<3){app.innerHTML=`<section class="oro-hero locked"><div class="oro-crown">👑</div><span class="eyebrow">Exclusivo plan Oro</span><h1>Sala Oro</h1><p class="muted">La parte privada de El Arte Gráfico para los suscriptores Oro.</p>
+      <div class="oro-perks"><div><b>🔴 En vivo privado</b><span>Lives solo para Oro: dudas, análisis y operativa en directo, con la grabación después.</span></div><div><b>📈 Operativas</b><span>Las operaciones que comparto: zona, entrada, stop y cómo terminó.</span></div><div><b>🎡 Ruleta diaria</b><span>Un giro gratis al día: XP, medallas de la suerte y días extra. Nunca pierdes nada.</span></div><div><b>🚀 Acceso anticipado</b><span>Los cursos y módulos nuevos, antes que nadie.</span></div></div>
+      <div class="row" style="justify-content:center"><a class="btn gold" href="#premium">Ver plan Oro</a></div></section>`;return}
+  app.innerHTML=`<section class="oro-hero"><div class="oro-crown">👑</div><span class="eyebrow">Plan Oro</span><h1>Sala Oro</h1><p class="muted">Lives privados, operativas y tu ruleta del día.</p></section>
+    <section class="sec oro-grid"><div class="panel wheel-box"><h2>🎡 Ruleta del día</h2><p class="muted" id="whTxt">Un giro gratis cada día. Siempre ganas algo.</p>
+      <div class="wheel-wrap"><div class="wheel-ptr">▼</div><svg id="wheel" viewBox="-110 -110 220 220" aria-hidden="true">${WHEEL.map(([t,c],i)=>{const a0=(i*60-90)*Math.PI/180,a1=((i+1)*60-90)*Math.PI/180,am=((i+.5)*60-90)*Math.PI/180;
+        return `<path d="M0 0 L${100*Math.cos(a0)} ${100*Math.sin(a0)} A100 100 0 0 1 ${100*Math.cos(a1)} ${100*Math.sin(a1)} Z" fill="${c}" stroke="#d8b062" stroke-width="1.5"/><text x="${62*Math.cos(am)}" y="${62*Math.sin(am)}" fill="#fff" font-size="11" font-weight="800" text-anchor="middle" dominant-baseline="middle" transform="rotate(${i*60+30} ${62*Math.cos(am)} ${62*Math.sin(am)})">${t}</text>`}).join("")}<circle r="16" fill="#d8b062"/><text y="1" font-size="14" text-anchor="middle" dominant-baseline="middle">👑</text></svg></div>
+      <button class="btn gold" id="whGo">Girar</button><div id="whMed" class="wh-med"></div></div>
+      <div class="panel"><h2>🔴 En vivo</h2><div id="oroLive" class="muted">Cargando…</div></div></section>
+    <section class="sec"><div class="sec-h"><h2>📈 Operativas</h2></div><div id="oroOps" class="posts muted">Cargando…</div></section>
+    <section class="sec"><div class="sec-h"><h2>Más de la Sala Oro</h2></div><div id="oroMore" class="posts muted">Cargando…</div></section>`;
+  postsVis().then(L=>{const oro=L.filter(p=>p.min_plan==="oro"),cat=c=>p=>String(p.category||"").toLowerCase().includes(c);
+    const live=oro.filter(cat("vivo")),ops=oro.filter(cat("operativ")),more=oro.filter(p=>!cat("vivo")(p)&&!cat("operativ")(p));
+    $("#oroLive").innerHTML=live.length?live.slice(0,3).map(p=>`<a class="mini" href="#nota-${esc(p.id)}"><span class="dim">${fmtDate(p.created_at)}</span><b>${esc(p.title)}</b></a>`).join(""):'<div class="muted">Aún no hay lives programados. Te avisaremos con una notificación.</div>';
+    $("#oroOps").innerHTML=ops.map(postCard).join("")||'<div class="empty">Pronto compartiré aquí mis operativas.</div>';
+    $("#oroMore").innerHTML=more.map(postCard).join("")||'<div class="muted">Aún no hay más publicaciones.</div>'}).catch(()=>{});
+  let spins=[];try{spins=API.mySpins?await API.mySpins():[]}catch(e){}
+  const med=()=>{const ms=spins.filter(x=>x.prize==="medalla");$("#whMed").innerHTML=ms.length?`<b>Tus medallas de la suerte</b><div class="wh-mlist">${ms.map(x=>{const m=MEDALS[x.label]||["🏅",x.label];return `<span title="${esc(m[1])} · ${fmtDate(x.created_at)}">${m[0]}</span>`}).join("")}</div>`:""};med();
+  const today=spins.find(x=>String(x.day).slice(0,10)===bogotaDay());const go=$("#whGo");
+  if(today){go.disabled=true;go.textContent="Ya giraste hoy · vuelve mañana";$("#whTxt").textContent="Hoy ganaste: "+(today.prize==="medalla"?(MEDALS[today.label]||["",today.label])[1]:today.label)}
+  go.onclick=async()=>{go.disabled=true;let r;try{r=await API.spinRoulette()}catch(x){toast(x.message);go.disabled=false;return}
+    const idx=r.prize==="dia"?5:r.prize==="medalla"?2:({50:0,100:1,250:3,500:4})[r.amount]??0;const wh=$("#wheel");const rot=360*6+(360-(idx*60+30));
+    wh.style.transition="transform 4.2s cubic-bezier(.12,.75,.1,1)";wh.style.transform=`rotate(${rot}deg)`;
+    setTimeout(()=>{if(r.prize==="xp")addXP(Math.floor(r.amount/(planRank()>=2?2:1)));
+      const m=MEDALS[r.label];pop({icon:r.prize==="dia"?"spark":r.prize==="medalla"?"star":"up",kicker:"Ruleta Oro",title:r.prize==="medalla"?`${m?m[0]:"🏅"} ${m?m[1]:r.label}`:r.label,text:r.prize==="dia"?"Sumamos un día más a tu suscripción.":r.prize==="medalla"?"Nueva medalla de la suerte para tu colección.":"Sumado a tu nivel.",confetti:true,ms:5000});
+      spins.unshift(Object.assign({},r,{created_at:new Date().toISOString()}));med();go.textContent="Ya giraste hoy · vuelve mañana";$("#whTxt").textContent="Vuelve mañana por tu próximo giro."},4300)}};
 /* ranking de puntos (El Arte Gráfico) */
 ROUTES.ranking=async per=>{per=per==="total"?"total":"mes";
   const mes=new Date().toLocaleDateString("es-CO",{month:"long",year:"numeric"});
@@ -731,7 +785,7 @@ async function mainHome(){
   {const pb=$("#premiumBand");if(premium())pb.remove();else if(logged())pb.innerHTML=premiumBand();
     else pb.innerHTML=`<div class="pb final"><div><span class="eyebrow">Empieza hoy</span><h2>Crea tu cuenta gratis y prueba el método</h2><p class="muted" style="max-width:60ch;margin-top:8px">Tienes 5 gráficas de prueba para marcar tu zona, poner tu stop loss y ver la repetición. Sin tarjeta y sin compromiso.</p></div><div class="row"><a class="btn gold" href="#registro">Crear cuenta gratis</a><a class="btn ghost" href="#entrar">Ya tengo cuenta</a></div></div>`}
   API.publicReviews().then(r=>{if($("#revs"))$("#revs").innerHTML=reviewsHTML(r.slice(0,3),true)}).catch(()=>{});
-  API.posts().then(p=>{if($("#newsMini"))$("#newsMini").innerHTML=p.slice(0,4).map(x=>`<a class="mini" href="#nota-${esc(x.id)}"><span class="dim">${fmtDate(x.created_at)} · ${esc(x.category||"Noticia")}</span><b>${esc(x.title)}</b></a>`).join("")||'<div class="muted">Pronto publicaremos noticias y actualizaciones.</div>'}).catch(()=>{if($("#newsMini"))$("#newsMini").innerHTML='<div class="muted">Sin publicaciones por ahora.</div>'});
+  postsVis().then(p=>{if($("#newsMini"))$("#newsMini").innerHTML=p.slice(0,4).map(x=>`<a class="mini" href="#nota-${esc(x.id)}"><span class="dim">${fmtDate(x.created_at)} · ${esc(x.category||"Noticia")}</span><b>${esc(x.title)}</b></a>`).join("")||'<div class="muted">Pronto publicaremos noticias y actualizaciones.</div>'}).catch(()=>{if($("#newsMini"))$("#newsMini").innerHTML='<div class="muted">Sin publicaciones por ahora.</div>'});
 }
 
 /* ---------- panel de la academia ---------- */
@@ -739,9 +793,9 @@ function trialNext(){for(const m of S.modules.filter(x=>x.free&&modOpen(x))){con
 function trialCard(){const d=trialLeft(),ms=S.modules.filter(x=>x.free&&modOpen(x));if(!ms.length)return"";const ls=S.lindex.filter(l=>ms.some(m=>m.id===l.module_id)),ok=ls.filter(l=>S.prog.done[l.id]&&S.prog.done[l.id].passed).length;
   return `<section class="trial-card"><div class="tc-ic">🎁</div><div class="tc-t"><span class="eyebrow">Prueba gratis · ${d===1?"último día":`te quedan ${d} días`}</span><h3>${ms.map(m=>esc(m.title)).join(" · ")}</h3><p class="muted">Tienes acceso completo a ${ms.length>1?"estos módulos":"este módulo"}: videos, ejercicios y medallas. Llevas ${ok} de ${ls.length} lecciones.</p>
     <div class="bar"><i style="width:${ls.length?Math.round(100*ok/ls.length):0}%"></i></div></div><div class="tc-a"><a class="btn gold" href="${(trialNext()?"#leccion-"+esc(trialNext().id):"#modulo-"+esc(ms[0].id))}">${ok?"Seguir":"Empezar"}</a><a class="btn ghost sm" href="${toMain("premium")}">Ver planes</a></div></section>`}
-function nextLesson(){for(const m of S.modules){if(!modOpen(m)||m.optional)continue;const ls=S.lindex.filter(l=>l.module_id===m.id).sort((a,b)=>(a.sort||0)-(b.sort||0));for(const l of ls){if(!(S.prog.done[l.id]&&S.prog.done[l.id].passed))return l}}return null}
+function nextLesson(){for(const m of S.modules){if(!modOpen(m)||m.optional||!canMod(m))continue;const ls=S.lindex.filter(l=>l.module_id===m.id).sort((a,b)=>(a.sort||0)-(b.sort||0));for(const l of ls){if(!(S.prog.done[l.id]&&S.prog.done[l.id].passed))return l}}return null}
 async function academyHome(){
-  const p=API.profile()||{},g=S.prog,lv=levelOf(g.xp);const pct=lv.to?Math.round(100*(g.xp-lv.from)/(lv.to-lv.from)):100;const tri=inTrial(),nx=premium()?nextLesson():tri?trialNext():null;
+  const p=API.profile()||{},g=S.prog,lv=levelOf(g.xp);const pct=lv.to?Math.round(100*(g.xp-lv.from)/(lv.to-lv.from)):100;const own=premium()||ownedCourses().length>0,tri=inTrial(),nx=own?nextLesson():tri?trialNext():null;
   const passed=Object.values(g.done).filter(d=>d.passed).length,total=S.lindex.length;
   const prem=premium(),apct=total?Math.round(100*passed/total):0,acc=g.practice.n?Math.round(100*g.practice.ok/g.practice.n):0,demo=Math.max(0,5-(p.demo_used||0));
   const tiles=[["acad","Temario",`${passed} de ${total} lecciones`,"#academia"],["chart","Práctica",prem?"Gráficas ilimitadas":`${demo} gráficas de prueba`,prem?"#practica":"#prueba"],
@@ -750,8 +804,8 @@ async function academyHome(){
     <div class="mh-bg" aria-hidden="true"></div>
     <div class="mh-id"><a class="mh-av" href="#perfil" title="Configuración">${avatar(p,84)}<span class="lvchip" title="${esc(lv.name)}">${lv.i+1}</span></a>
       <div class="mh-t"><span class="eyebrow">${saludo()} · Academia</span><h1>${esc(p.username||"")} ${flag(p.country||"")}</h1>
-        <div class="mh-chips">${prem?premTag():'<span class="tag">Cuenta gratis</span>'}${p.affiliate?affTag():""}<span class="tag">${esc(lv.name)}</span></div></div></div>
-    <div class="mh-cta">${prem?(nx?`<a class="btn gold btn-ic" href="#leccion-${esc(nx.id)}">${ico("play",18)}<span>Continuar: ${esc(nx.title)}</span></a>`:'<a class="btn gold" href="#practica">Ir a práctica</a>'):`${tri&&nx?`<a class="btn gold btn-ic" href="#leccion-${esc(nx.id)}">${ico("play",18)}<span>Clase gratis: ${esc(nx.title)}</span></a>`:`<a class="btn gold" href="#prueba">Probar gratis (${demo} de 5)</a>`}<a class="btn ghost" href="${toMain("premium")}">Hazte premium</a>`}</div>
+        <div class="mh-chips">${prem?premTag(myPlan()):myCourseTags()||'<span class="tag">Cuenta gratis</span>'}${p.affiliate?affTag():""}<span class="tag">${esc(lv.name)}</span></div></div></div>
+    <div class="mh-cta">${own?(nx?`<a class="btn gold btn-ic" href="#leccion-${esc(nx.id)}">${ico("play",18)}<span>Continuar: ${esc(nx.title)}</span></a>`:'<a class="btn gold" href="#practica">Ir a práctica</a>'):`${tri&&nx?`<a class="btn gold btn-ic" href="#leccion-${esc(nx.id)}">${ico("play",18)}<span>Clase gratis: ${esc(nx.title)}</span></a>`:`<a class="btn gold" href="#prueba">Probar gratis (${demo} de 5)</a>`}<a class="btn ghost" href="${toMain("premium")}">Hazte premium</a>`}</div>
     <div class="mh-bars">
       <div><div class="mh-bl"><span>Lecciones aprobadas: ${passed}${total?` de ${total}`:""}</span><b class="mono">${apct}%</b></div><div class="bar"><i style="width:${apct}%"></i></div></div>
       <div><div class="mh-bl"><span>${lv.to?`Nivel ${lv.i+2} en ${lv.to-g.xp} pts`:"Nivel máximo"}</span><b class="mono">${pct}%</b></div><div class="bar"><i style="width:${pct}%"></i></div></div>
@@ -800,7 +854,7 @@ function mediaVideo(u,poster){u=String(u||"").trim();if(!/^https:\/\//.test(u))r
   if(/\.(mp4|webm|mov|m4v)(\?|$)/i.test(u))return `<div class="pvid"><video controls playsinline preload="metadata"${poster?` poster="${esc(poster)}"`:""} src="${esc(u)}"></video></div>`;
   return ""}
 
-const postCard=p=>`<a class="post${p.image_url||p.video_url?"":" noimg"}" href="#nota-${esc(p.id)}">${p.image_url?`<div class="thumb" style="background-image:url('${esc(p.image_url)}')">${p.video_url?'<span class="vplay" aria-label="Video">▶</span>':""}</div>`:p.video_url?'<div class="thumb vthumb"><span class="vplay" aria-label="Video">▶</span></div>':""}<div style="display:grid;gap:6px;align-content:start;min-width:0"><div class="row"><span class="tag">${esc(p.category||"Noticia")}</span>${p.pinned?'<span class="tag pub">Fijado</span>':""}${p.premium_only?'<span class="tag">Premium</span>':""}<span class="dim" style="font-size:13px">${fmtDate(p.created_at)}</span></div><h3>${esc(p.title)}</h3><p class="muted clamp">${esc(String(p.body||"").slice(0,220))}</p></div></a>`;
+const postCard=p=>`<a class="post${p.image_url||p.video_url?"":" noimg"}" href="#nota-${esc(p.id)}">${p.image_url?`<div class="thumb" style="background-image:url('${esc(p.image_url)}')">${p.video_url?'<span class="vplay" aria-label="Video">▶</span>':""}</div>`:p.video_url?'<div class="thumb vthumb"><span class="vplay" aria-label="Video">▶</span></div>':""}<div style="display:grid;gap:6px;align-content:start;min-width:0"><div class="row"><span class="tag">${esc(p.category||"Noticia")}</span>${p.pinned?'<span class="tag pub">Fijado</span>':""}${p.min_plan==="oro"?'<span class="tag t-oro">👑 Sala Oro</span>':p.min_plan==="plata"?'<span class="tag t-plata">Plata y Oro</span>':p.premium_only?'<span class="tag">Suscriptores</span>':""}<span class="dim" style="font-size:13px">${fmtDate(p.created_at)}</span></div><h3>${esc(p.title)}</h3><p class="muted clamp">${esc(String(p.body||"").slice(0,220))}</p></div></a>`;
 function reviewsHTML(list,compact){if(!list.length)return `<div class="empty">Todavía no hay opiniones publicadas.${logged()?'<a class="btn sm" href="#opiniones">Escribir la primera</a>':""}</div>`;
   return `<div class="revs ${compact?"compact":""}">${list.map(r=>`<figure class="rev"><div class="stars" aria-label="${r.rating} de 5">${stars(r.rating)}</div><blockquote>${esc(r.body||"")}</blockquote><figcaption>${avatar(r,30)}<b>${esc(r.username)}</b>${r.premium?'<span class="tag pub">Premium</span>':""}<span class="dim">${fmtDate(r.created_at)}</span></figcaption></figure>`).join("")}</div>`}
 
@@ -877,9 +931,9 @@ async function afterLogin(){await API.loadProfile();await loadProg();await loadC
 
 /* ---------- mercados / premium ---------- */
 ROUTES.mercados=()=>{app.innerHTML=`<div class="pagehead"><span class="eyebrow">Mercados</span><h1>Un método, varios mercados</h1><p class="muted">Empezamos con los índices sintéticos Boom y Crash, con práctica en gráficas reales. Después llegan Step Index, Volatility, Forex y metales.</p></div><div class="mkts big">${marketsHTML(S.site.markets||[],false)}</div>`};
-ROUTES.premium=()=>{const s=S.site;const plans=(s.plans||[]).filter(x=>x&&x.name);const off=!!s.paymentsOff;const bin=!off&&!!(s.binancePayId&&plans.length);const pf=API.profile()||{};
+ROUTES.premium=()=>{const s=S.site;const plans=(s.plans||[]).filter(x=>x&&x.name);const off=!!s.paymentsOff;const bin=!off&&!!(s.binancePayId&&(plans.length||(S.courses||[]).length));const pf=API.profile()||{};
   app.innerHTML=`<div class="pagehead"><span class="eyebrow">Premium</span><h1>${esc(s.premiumTitle||"Hazte premium")}</h1><p class="muted">${esc(s.premiumText||"")}</p></div>
-  ${premium()?`<div class="note ok-note">Ya eres premium${pf.premium_until&&new Date(pf.premium_until).getFullYear()<2090?` hasta el <b>${fmtDate(pf.premium_until)}</b>`:""}. Si pagas otro plan, los días se suman a los que te quedan.</div>`:""}
+  ${premium()?`<div class="note ok-note">Eres suscriptor ${(TIERS[myPlan()]||{n:"premium"}).n}${pf.premium_until&&new Date(pf.premium_until).getFullYear()<2090?` hasta el <b>${fmtDate(pf.premium_until)}</b>`:""}. Si pagas otro plan, los días se suman a los que te quedan.</div>`:""}
   ${off?`<div class="panel pay-off"><span class="mt-i">${ico("crown")}</span><div><h3>Los pagos están pausados por ahora</h3><p class="muted">Estamos preparando la apertura. Te avisaremos por la comunidad${s.discordUrl?" y el Discord":""} cuando puedas activar tu plan.${s.contact?` Si tienes dudas escríbenos: <b class="sel">${esc(s.contact)}</b>`:""}</p></div></div>`:""}
   <section class="sec" id="pmPlans"></section>
   ${off?""
@@ -900,14 +954,14 @@ ROUTES.premium=()=>{const s=S.site;const plans=(s.plans||[]).filter(x=>x&&x.name
   const estado={pendiente:'<span class="pill gold">Por confirmar</span>',aprobado:'<span class="pill ok">Aprobado</span>',rechazado:'<span class="pill">Rechazado</span>'};
   const draw=async()=>{let mine=[];try{mine=await API.myPayments()}catch(e){}
     host.innerHTML=`<form class="form" id="pf" novalidate><h3 style="margin-top:6px">Registrar mi pago</h3>
-      <div class="two"><label for="pP">Plan que pagaste<select id="pP">${plans.map((x,i)=>`<option value="${i}">${esc(x.name)} · ${esc(x.price)}</option>`).join("")}</select></label>
+      <div class="two"><label for="pP">Qué pagaste<select id="pP">${plans.map((x,i)=>`<option value="p:${i}">${(TIERS[tierOfDays(+x.days||30)]||{}).n||""} · ${esc(x.name)} · ${esc(x.price)}</option>`).join("")}${(S.courses||[]).filter(c=>c.status!=="borrador"&&!ownsCourse(c.id)).map(c=>`<option value="c:${esc(c.id)}">Curso ${esc(c.title)} · ${esc(c.price||"40 USD")} · de por vida</option>`).join("")}</select></label>
       <label for="pO">ID de orden de Binance<input id="pO" inputmode="numeric" autocomplete="off" placeholder="Ej.: 382947561029384756" maxlength="80"></label></div>
       <label for="pN">Nota (opcional)<input id="pN" maxlength="300" placeholder="Ej.: pagué desde la cuenta de mi hermano"></label>
       <div class="err" id="pE" role="alert"></div><div class="row"><button class="btn gold" id="pB">Registrar pago</button></div></form>
       ${mine.length?`<h3>Mis pagos</h3><div class="list">${mine.map(r=>`<div class="item"><span class="txt"><b>${esc(r.plan)} · ${esc(r.amount)}</b><span>ID ${esc(r.order_id)} · ${fmtDT(r.created_at)}${r.status==="rechazado"&&r.admin_note?` · ${esc(r.admin_note)}`:""}</span></span>${estado[r.status]||""}</div>`).join("")}</div>`:""}`;
-    $("#pf").onsubmit=async e=>{e.preventDefault();const pl=plans[+$("#pP").value]||plans[0];const oid=$("#pO").value.replace(/\s+/g,"");
+    $("#pf").onsubmit=async e=>{e.preventDefault();const pv=$("#pP").value||"p:0";const crs=pv.startsWith("c:")?(S.courses||[]).find(c=>c.id===pv.slice(2)):null;const pl=crs?{name:"Curso "+crs.title,days:30,price:crs.price||"40 USD"}:(plans[+pv.slice(2)]||plans[0]);const oid=$("#pO").value.replace(/\s+/g,"");
       if(!/^[A-Za-z0-9-]{4,80}$/.test(oid)){$("#pE").textContent="Escribe el ID de orden tal como sale en Binance (solo números y letras).";return}
-      try{busy($("#pB"),true);await API.payRequest({plan:pl.name,days:pl.days,amount:pl.price,order_id:oid,note:$("#pN").value.trim()});pop({icon:"coin",kicker:"Pago registrado",title:"Estamos confirmando tu pago",text:"Te avisamos apenas activemos tu premium."});draw()}
+      try{busy($("#pB"),true);await API.payRequest({plan:pl.name,days:pl.days,amount:pl.price,order_id:oid,note:$("#pN").value.trim(),course_id:crs?crs.id:null});pop({icon:"coin",kicker:"Pago registrado",title:"Estamos confirmando tu pago",text:"Te avisamos apenas activemos tu premium."});draw()}
       catch(x){$("#pE").textContent=/duplicate|unique|ya fue registrado/i.test(x.message)?"Ese ID de orden ya fue registrado.":x.message}finally{const b=$("#pB");if(b)busy(b,false)}}};
   draw()};
 
@@ -1023,9 +1077,9 @@ ROUTES.practica=async()=>{
 /* ---------- comunidad ---------- */
 ROUTES.comunidad=()=>ROUTES.noticias();
 ROUTES.noticias=async()=>{app.innerHTML=`<div class="pagehead"><span class="eyebrow">Comunidad</span><h1>Noticias y actualizaciones</h1><p class="muted">Anuncios, cambios del método y conversación de la comunidad.${premium()?"":" Comentar es exclusivo para alumnos premium."}</p></div><div class="posts" id="pl"><div class="muted">Cargando…</div></div>`;
-  try{const p=await API.posts();$("#pl").innerHTML=p.map(postCard).join("")||'<div class="empty">Todavía no hay publicaciones.</div>'}catch(e){$("#pl").innerHTML='<div class="empty">No se pudieron cargar las noticias.</div>'}};
+  try{const p=await postsVis();$("#pl").innerHTML=p.map(postCard).join("")||'<div class="empty">Todavía no hay publicaciones.</div>'}catch(e){$("#pl").innerHTML='<div class="empty">No se pudieron cargar las noticias.</div>'}};
 ROUTES.nota=async id=>{app.innerHTML='<div class="muted">Cargando…</div>';let p=null;try{p=await API.post(id)}catch(e){}
-  if(!p){app.innerHTML=`<div class="empty">Esta publicación no existe o es solo para premium.<a class="btn sm" href="#comunidad">Ver publicaciones</a></div>`;return}
+  if(p&&!canSeePost(p))p=null;if(!p){app.innerHTML=`<div class="empty">Esta publicación no existe o es solo para suscriptores.<a class="btn sm" href="#comunidad">Ver publicaciones</a></div>`;return}
   app.innerHTML=`<div class="crumbs"><a href="#comunidad">Comunidad</a><span>/</span><span>${esc(p.category||"Noticia")}</span></div>
    <article class="article"><div class="pagehead"><span class="eyebrow">${esc(p.category||"Noticia")} · ${fmtDate(p.created_at)}</span><h1>${esc(p.title)}</h1></div>${p.video_url&&mediaVideo(p.video_url,p.image_url)?mediaVideo(p.video_url,p.image_url):p.image_url?`<div class="cover" style="background-image:url('${esc(p.image_url)}')"></div>`:""}<div class="prose">${md(p.body)}</div></article>
    <section class="sec"><h2>Comentarios</h2><div id="cl" class="list"></div><div id="cf"></div></section>`;hlsInit(app);
@@ -1107,7 +1161,7 @@ ROUTES.admin.__lazy=true;
 window.AGAPP={pop,mediaVideo,hlsInit,ico,avatar,affTag,absUrl,enablePush,flag,premTag,legalText,modOpen,modState,SITE,ACAD,link,toAcad,toMain,S,API,$,$$,esc,md,toast,busy,fmtT,fmtDate,fmtDT,TZ,MARKETS,MNAME,h1Bars,m5Bars,idxAt,avgRange,toC,Chart,cleanupPush:f=>cleanup.push(f),route,ROUTES,app,premium,admin,logged,confirmInline,loadContent:()=>loadContent(),renderFoot:()=>renderFoot(),applySite:()=>applySite()};
 
 /* ---------- arranque ---------- */
-async function loadContent(){const [m,l]=await Promise.all([API.modules().catch(()=>[]),API.lessonIndex().catch(()=>[])]);S.modules=m||[];S.lindex=l||[]}
+async function loadContent(){const [m,l,c,mc]=await Promise.all([API.modules().catch(()=>[]),API.lessonIndex().catch(()=>[]),(API.courses?API.courses():Promise.resolve([])).catch(()=>[]),(API.myCourses&&logged()?API.myCourses():Promise.resolve([])).catch(()=>[])]);S.modules=m||[];S.lindex=l||[];S.courses=c||[];S.myCourses=new Set((mc||[]).map(x=>x.course_id||x))}
 function applySite(){const s=S.site,n=s.name||"El Arte Gráfico";$("#brandName").textContent=n.toUpperCase();if(s.logoUrl)$("#logoMark").src=s.logoUrl;
   $("#brandSub").textContent=ACAD?"ACADEMY":"TRADING · COMUNIDAD";document.body.dataset.site=SITE;
   document.title=ACAD?n+" Academy":n+" · Trading, educación y comunidad";renderFoot();analytics()}

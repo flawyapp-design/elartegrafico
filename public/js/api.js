@@ -148,7 +148,14 @@ function SupabaseAPI(url,key){
     setReview(id,patch){return req(`/rest/v1/reviews?id=eq.${id}`,{method:"PATCH",body:patch,headers:{Prefer:"return=minimal"}})},
     delReview(id){return del("reviews",id)},
     // pagos (Binance, semiautomático)
-    async payRequest(o){const r=await req("/rest/v1/payment_requests",{method:"POST",body:{method:"binance",plan:o.plan||"",days:o.days||30,amount:o.amount||"",order_id:o.order_id,note:o.note||""},headers:{Prefer:"return=representation"}});return r&&r[0]},
+    async payRequest(o){const body={method:"binance",plan:o.plan||"",days:o.days||30,amount:o.amount||"",order_id:o.order_id,note:o.note||""};if(o.course_id)body.course_id=o.course_id;const r=await req("/rest/v1/payment_requests",{method:"POST",body,headers:{Prefer:"return=representation"}});return r&&r[0]},
+    // cursos, planes y Sala Oro
+    courses(){return sel("courses","&order=sort.asc,created_at.asc")},
+    myCourses(){if(!sess||!sess.user)return Promise.resolve([]);return req(`/rest/v1/user_courses?select=course_id&user_id=eq.${sess.user.id}`)},
+    spinRoulette(){return rpc("spin_roulette")},
+    mySpins(){if(!sess||!sess.user)return Promise.resolve([]);return sel("roulette_spins",`&user_id=eq.${sess.user.id}&order=created_at.desc&limit=60`)},
+    saveCourse(c){return ups("courses",c)},delCourse(id){return del("courses",id)},
+    async adminGrantCourse(uid,cid,on){if(on)await req("/rest/v1/user_courses",{method:"POST",body:{user_id:uid,course_id:cid,source:"admin"},headers:{Prefer:"resolution=ignore-duplicates,return=minimal"}});else await req(`/rest/v1/user_courses?user_id=eq.${uid}&course_id=eq.${cid}`,{method:"DELETE"})},
     myPayments(){if(!sess||!sess.user)return Promise.resolve([]);return sel("payment_requests",`&user_id=eq.${sess.user.id}&order=created_at.desc`)},
     adminPayments(){return rpc("admin_payments")},
     myFeedback(){if(!sess||!sess.user)return Promise.resolve([]);return req(`/rest/v1/module_feedback?select=module_id&user_id=eq.${sess.user.id}`)},
@@ -230,7 +237,16 @@ function LocalAPI(){
     async progressGet(){return db.progress.find(x=>x.user_id===uid)||null},
     async progressSave(xp,data){const i=db.progress.findIndex(x=>x.user_id===uid);const o={user_id:uid,xp,data,updated_at:now()};if(i>=0)db.progress[i]=o;else db.progress.push(o);save()},
     async leaderboard(){return db.progress.map(g=>{const p=db.profiles.find(x=>x.id===g.user_id)||{};return{username:p.username||"alumno",avatar_url:p.avatar_url||null,country:p.country||"",xp:g.xp,lessons:Object.values((g.data||{}).done||{}).filter(d=>d.passed).length,is_me:g.user_id===uid,premium:!!(p.premium_until&&new Date(p.premium_until)>new Date()),_x:p.role==="admin"||p.banned}}).filter(x=>!x._x&&x.xp>0).sort((a,b)=>b.xp-a.xp).slice(0,100)},
-    async posts(){return db.posts.filter(p=>!p.premium_only||this.isPremium()).sort((a,b)=>(b.pinned-a.pinned)||String(b.created_at).localeCompare(a.created_at))},
+    async courses(){db.courses=db.courses||[{id:"crs-boom",title:"Boom y Crash",descr:"El método completo de El Arte Gráfico para operar Boom y Crash.",color:"#e84c5c",icon:"🎯",price:"40 USD",status:"publicado",sort:1}];db.modules.forEach(m=>{if(!m.course_id)m.course_id=db.courses[0].id});return db.courses.filter(c=>c.status==="publicado"||adm())},
+    async myCourses(){return(db.ucourses||[]).filter(x=>x.user_id===uid)},
+    async spinRoulette(){const p=me();if(!p)throw new Error("Inicia sesión");const pr=adm()?3:({oro:3,plata:2,cobre:1})[p.plan]||0;if(!isPrem(p)&&!adm()||pr<3)throw new Error("La ruleta diaria es exclusiva del plan Oro");
+      const d=new Date(Date.now()-5*3600e3).toISOString().slice(0,10);db.spins=db.spins||[];if(db.spins.some(x=>x.user_id===uid&&x.day===d))throw new Error("Ya giraste hoy. Vuelve mañana");
+      const x=Math.random();let r;if(x<.32)r={prize:"xp",amount:50,label:"+50 XP"};else if(x<.55)r={prize:"xp",amount:100,label:"+100 XP"};else if(x<.67)r={prize:"xp",amount:250,label:"+250 XP"};else if(x<.74)r={prize:"xp",amount:500,label:"+500 XP"};else if(x<.95)r={prize:"medalla",amount:0,label:["trebol","herradura","estrella","cometa","diamante"][Math.floor(Math.random()*5)]};else r={prize:"dia",amount:1,label:"+1 día de suscripción"};
+      db.spins.push(Object.assign({user_id:uid,day:d,created_at:now()},r));save();return Object.assign({day:d},r)},
+    async mySpins(){return(db.spins||[]).filter(x=>x.user_id===uid).slice().reverse()},
+    async saveCourse(c){need();db.courses=db.courses||[];return up(db.courses,c)},async delCourse(id){need();db.courses=(db.courses||[]).filter(c=>c.id!==id);save()},
+    async adminGrantCourse(u,cid,on){need();db.ucourses=(db.ucourses||[]).filter(x=>!(x.user_id===u&&x.course_id===cid));if(on)db.ucourses.push({user_id:u,course_id:cid});save()},
+    async posts(){const rk=adm()?3:isPrem(me())?(({oro:3,plata:2,cobre:1})[(me()||{}).plan]||1):0;return db.posts.filter(p=>(!p.premium_only&&!p.min_plan)||rk>=Math.max(1,({oro:3,plata:2,cobre:1})[p.min_plan]||0)).sort((a,b)=>(b.pinned-a.pinned)||String(b.created_at).localeCompare(a.created_at))},
     async post(id){return(await this.posts()).find(p=>p.id===id)||null},
     async comments(pid){if(!uid)return[];return db.comments.filter(c=>c.post_id===pid).sort((a,b)=>String(a.created_at).localeCompare(b.created_at)).map(c=>{const p=db.profiles.find(x=>x.id===c.user_id)||{};return{id:c.id,body:c.body,created_at:c.created_at,username:p.username||"alumno",avatar_url:p.avatar_url||null,mine:c.user_id===uid,is_admin:p.role==="admin"}})},
     async addComment(post_id,body){if(!this.isPremium())throw new Error("Solo los alumnos premium pueden comentar.");db.comments.push({id:uuid(),post_id,user_id:uid,body,created_at:now()});save()},
@@ -244,7 +260,7 @@ function LocalAPI(){
     async saveExercise(e,a){need();const x=await up(db.exercises,e);const i=db.answers.findIndex(y=>y.exercise_id===x.id);const o=Object.assign({exercise_id:x.id},a);if(i>=0)db.answers[i]=o;else db.answers.push(o);save();return x},
     async delExercise(id){need();db.answers=db.answers.filter(a=>a.exercise_id!==id);return rm("exercises",id)},
     savePost(p){need();return up(db.posts,p)},delPost(id){need();db.comments=db.comments.filter(c=>c.post_id!==id);return rm("posts",id)},
-    async users(){need();return db.profiles.map(p=>{const u=db.users.find(x=>x.id===p.id)||{};const g=db.progress.find(x=>x.user_id===p.id);return Object.assign({},p,{email:u.email,xp:g?g.xp:0})})},
+    async users(){need();return db.profiles.map(p=>{const u=db.users.find(x=>x.id===p.id)||{};const g=db.progress.find(x=>x.user_id===p.id);return Object.assign({},p,{email:u.email,xp:g?g.xp:0,courses:(db.ucourses||[]).filter(x=>x.user_id===p.id).map(x=>x.course_id)})})},
     async adminReset(user,what,fb,demo){need();let n=0;db.progress.forEach(g=>{if(user&&g.user_id!==user)return;n++;const rv=((g.data||{}).rv||0)+1;g.xp=0;
         g.data=what==="puntos"?Object.assign({},g.data,{xp:0,rv,px:[]}):{rv}});
       if(fb)db.feedback=(db.feedback||[]).filter(f=>user&&f.user_id!==user);
@@ -282,7 +298,7 @@ function LocalAPI(){
       const oid=String(o.order_id||"").trim();if(oid.length<4)throw new Error("Escribe el ID de orden de Binance.");
       if(db.payments.some(x=>x.status!=="rechazado"&&x.order_id.toLowerCase()===oid.toLowerCase()))throw new Error("Ese ID de orden ya fue registrado.");
       if(db.payments.filter(x=>x.user_id===uid&&x.status==="pendiente").length>=3)throw new Error("Ya tienes 3 pagos por confirmar. Espera a que los revisemos.");
-      const r={id:uuid(),user_id:uid,method:"binance",plan:o.plan||"",days:o.days||30,amount:o.amount||"",order_id:oid,note:o.note||"",status:"pendiente",admin_note:"",created_at:now(),reviewed_at:null};db.payments.push(r);save();return r},
+      const r={id:uuid(),user_id:uid,method:"binance",plan:o.plan||"",days:o.days||30,amount:o.amount||"",order_id:oid,note:o.note||"",course_id:o.course_id||null,status:"pendiente",admin_note:"",created_at:now(),reviewed_at:null};db.payments.push(r);save();return r},
     async myFeedback(){return(db.feedback||[]).filter(x=>x.user_id===uid).map(x=>({module_id:x.module_id}))},
     async sendFeedback(o){if(!uid)throw new Error("Inicia sesión");db.feedback=db.feedback||[];if(db.feedback.some(x=>x.user_id===uid&&x.module_id===o.module_id))throw new Error("Ya dejaste tu reseña de este módulo");
       db.feedback.push({id:"f"+Date.now(),user_id:uid,module_id:o.module_id,rating:o.rating,liked:o.liked,improve:o.improve,created_at:new Date().toISOString()});save()},
@@ -341,7 +357,7 @@ function LocalAPI(){
     async myPayments(){return(db.payments||[]).filter(x=>x.user_id===uid).sort((a,b)=>String(b.created_at).localeCompare(a.created_at))},
     async adminPayments(){need();return(db.payments||[]).map(r=>{const p=db.profiles.find(x=>x.id===r.user_id)||{};const u=db.users.find(x=>x.id===r.user_id)||{};return Object.assign({},r,{username:p.username,email:u.email,premium_until:p.premium_until})}).sort((a,b)=>((b.status==="pendiente")-(a.status==="pendiente"))||String(b.created_at).localeCompare(a.created_at))},
     async reviewPayment(id,approve,days,note){need();const r=(db.payments||[]).find(x=>x.id===id);if(!r)throw new Error("El pago no existe");if(r.status!=="pendiente")throw new Error("Este pago ya fue revisado");
-      let hasta=null;if(approve){const d=days||r.days;const p=db.profiles.find(x=>x.id===r.user_id);const base=Math.max(Date.now(),p.premium_until?new Date(p.premium_until).getTime():0);hasta=new Date(base+d*864e5).toISOString();p.premium_until=hasta;r.days=d}
+      let hasta=null;if(approve&&r.course_id){db.ucourses=db.ucourses||[];if(!db.ucourses.some(x=>x.user_id===r.user_id&&x.course_id===r.course_id))db.ucourses.push({user_id:r.user_id,course_id:r.course_id});approve="curso"}if(approve===true){const d=days||r.days;const pp=db.profiles.find(x=>x.id===r.user_id);const np=d>=300?"oro":d>=150?"plata":"cobre";const R={oro:3,plata:2,cobre:1};if(!(pp.premium_until&&new Date(pp.premium_until)>new Date()&&(R[pp.plan]||0)>R[np]))pp.plan=np;const p=db.profiles.find(x=>x.id===r.user_id);const base=Math.max(Date.now(),p.premium_until?new Date(p.premium_until).getTime():0);hasta=new Date(base+d*864e5).toISOString();p.premium_until=hasta;r.days=d}
       Object.assign(r,{status:approve?"aprobado":"rechazado",admin_note:note||"",reviewed_at:now()});save();return{status:r.status,premium_until:hasta}},
     resetLocal(){localStorage.removeItem(KEY);localStorage.removeItem("ag_local_uid");location.reload()},
   };

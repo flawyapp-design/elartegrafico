@@ -4,14 +4,14 @@
 "use strict";
 const A=window.AGAPP;const {$,$$,esc,API,S,toast,busy,fmtT,fmtDate,fmtDT,TZ,MARKETS,MNAME,h1Bars,m5Bars,idxAt,avgRange,toC,Chart,app}=A;
 let tab="resumen";
-const GROUPS=[["General",["resumen"]],["Academia",["contenido","ejercicios","banners","noticias","archivos"]],["Retos y puntos",["retos","afiliados","canjes","rpuntos"]],["Alumnos",["alumnos","pagos","resenas","opiniones","notif"]],["Sitio",["sitio","legal"]]];
-const TICO={retos:"bolt",afiliados:"users",canjes:"card",rpuntos:"gear",resumen:"chart",sitio:"site",banners:"image",contenido:"layers",ejercicios:"acad",noticias:"news",opiniones:"star",resenas:"msg",pagos:"card",alumnos:"users",archivos:"folder",notif:"bell",legal:"scale"};
-const TDESC={retos:"Crea el reto del día: cuestionario, ¿sube o baja? o marcar la zona. Los primeros en acertar ganan puntos.",afiliados:"Verifica quién abrió su cuenta de Deriv con tu enlace de socio: ganan los puntos completos.",
+const GROUPS=[["General",["resumen"]],["Academia",["cursos","contenido","ejercicios","banners","noticias","archivos"]],["Retos y puntos",["retos","afiliados","canjes","rpuntos"]],["Alumnos",["alumnos","pagos","resenas","opiniones","notif"]],["Sitio",["sitio","legal"]]];
+const TICO={cursos:"acad",retos:"bolt",afiliados:"users",canjes:"card",rpuntos:"gear",resumen:"chart",sitio:"site",banners:"image",contenido:"layers",ejercicios:"acad",noticias:"news",opiniones:"star",resenas:"msg",pagos:"card",alumnos:"users",archivos:"folder",notif:"bell",legal:"scale"};
+const TDESC={cursos:"Cursos que se venden sueltos (de por vida) y cómo se ven los planes Cobre, Plata y Oro.",retos:"Crea el reto del día: cuestionario, ¿sube o baja? o marcar la zona. Los primeros en acertar ganan puntos.",afiliados:"Verifica quién abrió su cuenta de Deriv con tu enlace de socio: ganan los puntos completos.",
   canjes:"Solicitudes para cambiar puntos por dinero: paga y márcalas.",rpuntos:"Activa los retos, define cuánto vale cada punto y el mínimo para canjear.",resumen:"Cómo va la academia: alumnos, visitas y actividad.",sitio:"Textos, portada, precios, enlaces y datos de contacto de la web.",banners:"Imágenes y mensajes del carrusel de la portada y del ingreso.",
   contenido:"Módulos, lecciones, videos y el orden del temario.",ejercicios:"Gráficas, cálculos y preguntas de cada lección y de la práctica.",noticias:"Publicaciones de la comunidad y avisos.",
   opiniones:"Opiniones públicas de los alumnos: aprueba u oculta.",resenas:"Lo que dicen los alumnos al terminar cada módulo (privado).",pagos:"Pagos de Binance por confirmar y el historial.",
   alumnos:"Cuentas, premium, puntos y avance de cada alumno.",archivos:"Imágenes y archivos subidos.",notif:"Envía avisos al celular de los alumnos.",legal:"Términos, privacidad y avisos legales."};
-const TABS=[["retos","Retos diarios"],["afiliados","Afiliados Deriv"],["canjes","Canjes"],["rpuntos","Ajustes de puntos"],["resumen","Estadísticas"],["sitio","Sitio y textos"],["banners","Banners"],["contenido","Módulos y lecciones"],["ejercicios","Ejercicios"],["noticias","Noticias"],["opiniones","Opiniones"],["resenas","Reseñas de módulos"],["pagos","Pagos"],["alumnos","Alumnos"],["archivos","Archivos"],["notif","Notificaciones"],["legal","Legal"]];
+const TABS=[["cursos","Cursos y planes"],["retos","Retos diarios"],["afiliados","Afiliados Deriv"],["canjes","Canjes"],["rpuntos","Ajustes de puntos"],["resumen","Estadísticas"],["sitio","Sitio y textos"],["banners","Banners"],["contenido","Módulos y lecciones"],["ejercicios","Ejercicios"],["noticias","Noticias"],["opiniones","Opiniones"],["resenas","Reseñas de módulos"],["pagos","Pagos"],["alumnos","Alumnos"],["archivos","Archivos"],["notif","Notificaciones"],["legal","Legal"]];
 A.ROUTES.admin=sub=>{
   if(!A.admin()){app.innerHTML=`<div class="empty">Esta sección es solo para administradores.<a class="btn sm" href="#inicio">Volver</a></div>`;return}
   if(sub&&TABS.some(t=>t[0]===sub))tab=sub;
@@ -21,9 +21,12 @@ A.ROUTES.admin=sub=>{
     <aside class="adm-side">
       <div class="adm-brand"><span class="eyebrow">Administración</span><b>Panel de control</b></div>
       <details class="adm-view"><summary class="btn sm">👁 Modo prueba: ver como alumno</summary><div class="adm-view-m">
-        <button type="button" data-va="gratis"><b>Alumno gratis</b><small>Cuenta nueva sin prueba ni premium</small></button>
+        <button type="button" data-va="gratis"><b>Alumno gratis</b><small>Sin prueba, sin plan ni cursos</small></button>
         <button type="button" data-va="prueba"><b>En prueba gratis</b><small>Con el módulo de prueba abierto</small></button>
-        <button type="button" data-va="premium"><b>Alumno premium</b><small>Todo el contenido abierto</small></button>
+        <button type="button" data-va="curso"><b>Con un curso</b><small>Compró el curso suelto (de por vida)</small></button>
+        <button type="button" data-va="cobre"><b>🟤 Cobre</b><small>Suscripción de 1 mes</small></button>
+        <button type="button" data-va="plata"><b>⚪ Plata</b><small>Suscripción de 6 meses</small></button>
+        <button type="button" data-va="oro"><b>🟡 Oro</b><small>12 meses, con Sala Oro y ruleta</small></button>
         <span class="dim">No cambia tu cuenta. Para salir toca "Volver a admin".</span></div></details>
       <div class="adm-st ${closed?"off":"on"}"><span class="dot"></span><div><b>Academia ${closed?"cerrada":"abierta"}</b><small>${closed?"Solo tú la ves":"Los alumnos pueden entrar"}</small></div><button class="btn sm ${closed?"gold":"bad"}" id="acSw">${closed?"Abrir":"Cerrar"}</button></div>
       <button type="button" class="adm-mbtn" id="admMb" aria-expanded="false">${ico(TICO[tab]||"news",20)}<span><small>Sección</small><b>${cur[1]}</b></span><i>▾</i></button>
@@ -36,7 +39,7 @@ A.ROUTES.admin=sub=>{
   $("#admMb").onclick=()=>{const n=$(".adm-nav"),o=n.classList.toggle("open");$("#admMb").setAttribute("aria-expanded",String(o))};
   $("#acSw").onclick=()=>{const host=$("#acSw").parentElement;A.confirmInline(host,closed?"¿Abrir la academia a todos?":"¿Cerrar la academia?",async()=>{
     const ns=Object.assign({},S.site,{academyClosed:!closed},closed?{trialFrom:new Date().toISOString()}:{});try{await API.saveSite(ns);S.site=ns;A.applySite();toast(closed?"Academia abierta · la prueba gratis de 7 días empieza hoy para todos":"Academia cerrada para alumnos");A.ROUTES.admin(tab)}catch(x){toast(x.message);A.ROUTES.admin(tab)}})};
-  ({resumen,sitio,banners,contenido,ejercicios,noticias,opiniones,resenas,pagos,alumnos,archivos,notif,legal,retos,afiliados,canjes,rpuntos})[tab]();
+  ({cursos,resumen,sitio,banners,contenido,ejercicios,noticias,opiniones,resenas,pagos,alumnos,archivos,notif,legal,retos,afiliados,canjes,rpuntos})[tab]();
   const badge=(k,n)=>{const b=document.querySelector(`[data-badge="${k}"]`);if(b&&n){b.textContent=n;b.classList.add("on")}};
   if(API.adminAffiliates)API.adminAffiliates().then(l=>badge("afiliados",(l||[]).filter(x=>x.status==="pendiente").length)).catch(()=>{});
   if(API.adminRedemptions)API.adminRedemptions().then(l=>badge("canjes",(l||[]).filter(x=>x.status==="pendiente").length)).catch(()=>{});
@@ -219,13 +222,14 @@ async function contenido(){
       <div class="two"><label for="mS">Estado<select id="mS"><option value="borrador">Borrador (no lo ven los alumnos)</option><option value="publicado">Publicado</option></select></label><label for="mK">Orden obligatorio<select id="mK"><option value="1">Exige terminar el módulo anterior</option><option value="0">Libre</option></select></label></div>
       <div class="two"><label for="mP">¿Se puede saltar?<select id="mP"><option value="0">No: hay que aprobarlo para seguir</option><option value="1">Opcional: no bloquea los módulos siguientes</option></select></label>
         <label for="mPN">Mensaje para el alumno (si es opcional)<input id="mPN" value="${esc(m.optional_note||"")}" placeholder="Si ya tienes cuenta en Deriv y MT5, puedes saltarlo."></label></div>
+      ${(S.courses||[]).length?`<label for="mCu">Curso al que pertenece<select id="mCu"><option value="">Sin curso (solo suscriptores)</option>${S.courses.map(c=>`<option value="${esc(c.id)}">${esc(c.icon||"")} ${esc(c.title)}</option>`).join("")}</select></label>`:""}
       <label for="mFr">Prueba gratis<select id="mFr"><option value="0">Solo premium</option><option value="1">Incluido en la prueba gratis (las cuentas nuevas lo ven sus primeros días)</option></select></label>
       <label for="mF">Reseña al terminar<select id="mF"><option value="1">Obligatoria: al terminar el módulo deja su reseña para seguir</option><option value="0">No pedir reseña en este módulo</option></select></label>
       <div class="two"><label for="mA">Disponibilidad para alumnos<select id="mA"><option value="1">Disponible (desbloqueado)</option><option value="0">Bloqueado: se ve en el temario como “Próximamente”</option></select></label>
         <label for="mW">Desbloquear automáticamente el (opcional)<input id="mW" type="datetime-local" value="${m.open_at?new Date(new Date(m.open_at).getTime()-5*3600e3).toISOString().slice(0,16):""}"><span class="dim" style="font-weight:400">Hora Colombia. Si eliges fecha, el módulo se abre solo ese día aunque esté bloqueado.</span></label></div>
       <div class="row"><button class="btn gold" id="ms">Guardar módulo</button><span id="md"><button type="button" class="btn sm bad" id="mdb">Eliminar módulo</button></span></div></form>`;
-    $("#mS").value=m.status;$("#mK").value=m.locked?"1":"0";$("#mP").value=m.optional?"1":"0";$("#mF").value=m.ask_feedback===false?"0":"1";$("#mA").value=m.available===false?"0":"1";$("#mFr").value=m.free?"1":"0";
-    $("#fm").onsubmit=async e=>{e.preventDefault();try{busy($("#ms"),true);await API.saveModule({id:m.id,title:$("#mT").value.trim()||"Sin título",descr:$("#mD").value.trim(),category:$("#mC").value.trim()||"Fundamentos",level:$("#mL").value.trim(),sort:+$("#mO").value||1,status:$("#mS").value,locked:$("#mK").value==="1",...(("optional" in m)||$("#mP").value==="1"?{optional:$("#mP").value==="1",optional_note:$("#mPN").value.trim()}:{}),available:$("#mA").value==="1",...(("free" in m)||$("#mFr").value==="1"?{free:$("#mFr").value==="1"}:{}),...(("ask_feedback" in m)||$("#mF").value==="0"?{ask_feedback:$("#mF").value==="1"}:{}),open_at:$("#mW").value?new Date($("#mW").value+":00-05:00").toISOString():null});toast("Módulo guardado");reload()}catch(x){toast(x.message)}finally{busy($("#ms"),false)}};
+    $("#mS").value=m.status;$("#mK").value=m.locked?"1":"0";$("#mP").value=m.optional?"1":"0";$("#mF").value=m.ask_feedback===false?"0":"1";$("#mA").value=m.available===false?"0":"1";$("#mFr").value=m.free?"1":"0";if($("#mCu"))$("#mCu").value=m.course_id||"";
+    $("#fm").onsubmit=async e=>{e.preventDefault();try{busy($("#ms"),true);await API.saveModule({id:m.id,title:$("#mT").value.trim()||"Sin título",descr:$("#mD").value.trim(),category:$("#mC").value.trim()||"Fundamentos",level:$("#mL").value.trim(),sort:+$("#mO").value||1,status:$("#mS").value,locked:$("#mK").value==="1",...(("optional" in m)||$("#mP").value==="1"?{optional:$("#mP").value==="1",optional_note:$("#mPN").value.trim()}:{}),available:$("#mA").value==="1",...(("free" in m)||$("#mFr").value==="1"?{free:$("#mFr").value==="1"}:{}),...($("#mCu")?{course_id:$("#mCu").value||null}:{}),...(("ask_feedback" in m)||$("#mF").value==="0"?{ask_feedback:$("#mF").value==="1"}:{}),open_at:$("#mW").value?new Date($("#mW").value+":00-05:00").toISOString():null});toast("Módulo guardado");reload()}catch(x){toast(x.message)}finally{busy($("#ms"),false)}};
     $("#mdb").onclick=()=>A.confirmInline($("#md"),"¿Eliminar el módulo con todas sus lecciones y ejercicios?",async()=>{await API.delModule(m.id);sel={};toast("Módulo eliminado");reload()})}
   if(sel.t==="l"){const l=les.find(x=>x.id===sel.id);if(!l)return;
     ed.innerHTML=`<form class="form" id="fl"><div class="sec-h"><h3>Lección</h3><a class="btn sm ghost" href="#leccion-${esc(l.id)}">Ver como alumno</a></div>
@@ -327,20 +331,20 @@ async function noticias(){
   let list=[];try{list=await API.posts()}catch(e){}
   H().innerHTML=`<div class="split"><div class="panel"><div class="sec-h"><h3>Publicaciones</h3><button class="btn sm gold" id="np">Nueva publicación</button></div><div class="list">${list.map(p=>`<button class="item" data-p="${esc(p.id)}" style="text-align:left;cursor:pointer"><span class="txt"><b>${esc(p.title)}</b><span>${esc(p.category)} · ${fmtDate(p.created_at)}${p.pinned?" · fijada":""}${p.premium_only?" · premium":""}</span></span></button>`).join("")||'<div class="muted">Sin publicaciones.</div>'}</div></div><div class="panel" id="pe"><div class="muted">Elige una publicación o crea una nueva.</div></div></div>`;
   const edit=p=>{$("#pe").innerHTML=`<form class="form" id="pf"><h3>${p.id?"Editar publicación":"Nueva publicación"}</h3>
-    <label for="pT">Título<input id="pT" value="${esc(p.title||"")}"></label><div class="two"><label for="pC">Categoría<input id="pC" list="pcats" value="${esc(p.category||"Noticia")}"><datalist id="pcats"><option value="Noticia"><option value="Anuncio"><option value="Actualización"><option value="Análisis"><option value="Comunidad"></datalist></label>
+    <label for="pT">Título<input id="pT" value="${esc(p.title||"")}"></label><div class="two"><label for="pC">Categoría<input id="pC" list="pcats" value="${esc(p.category||"Noticia")}"><datalist id="pcats"><option value="Noticia"><option value="Anuncio"><option value="Actualización"><option value="Análisis"><option value="Comunidad"><option value="En vivo"><option value="Operativa"></datalist></label>
     <div class="row">${fileBtn("pI","Imagen de portada")}<input id="pU" value="${esc(p.image_url||"")}" placeholder="o URL de imagen" style="flex:1;min-width:180px"></div></div>
     <label for="pV">Video (opcional)<span class="dim" style="font-weight:400"> · súbelo aquí (hasta 50 MB) o pega un enlace de Bunny (sirve el de "playlist.m3u8" o el de "embed"), YouTube o un .mp4</span></label>
     <div class="row"><label class="btn sm" for="pVf" style="cursor:pointer">Subir video</label><input id="pVf" type="file" hidden accept="video/mp4,video/webm,video/quicktime"><input id="pV" value="${esc(p.video_url||"")}" placeholder="https://iframe.mediadelivery.net/embed/… o https://youtu.be/…" style="flex:1;min-width:200px"></div>
     <div id="pVp"></div>
     <label for="pB">Contenido<textarea id="pB" style="min-height:220px">${esc(p.body||"")}</textarea></label>
-    <div class="three"><label style="display:flex;gap:8px;align-items:center;color:var(--fg)"><input type="checkbox" id="pPin" style="width:auto" ${p.pinned?"checked":""}> Fijar arriba</label><label style="display:flex;gap:8px;align-items:center;color:var(--fg)"><input type="checkbox" id="pPr" style="width:auto" ${p.premium_only?"checked":""}> Solo premium</label><label style="display:flex;gap:8px;align-items:center;color:var(--fg)"><input type="checkbox" id="pCo" style="width:auto" ${p.allow_comments!==false?"checked":""}> Permitir comentarios</label></div>
+    <div class="three"><label style="display:flex;gap:8px;align-items:center;color:var(--fg)"><input type="checkbox" id="pPin" style="width:auto" ${p.pinned?"checked":""}> Fijar arriba</label><label for="pAu">Quién la ve<select id="pAu"><option value="">Todos</option><option value="sus">Suscriptores (Cobre, Plata y Oro)</option><option value="plata">Solo Plata y Oro</option><option value="oro">👑 Solo Oro (Sala Oro)</option></select></label><label style="display:flex;gap:8px;align-items:center;color:var(--fg)"><input type="checkbox" id="pCo" style="width:auto" ${p.allow_comments!==false?"checked":""}> Permitir comentarios</label></div>
     <label style="display:flex;gap:8px;align-items:center;color:var(--fg)"><input type="checkbox" id="pNt" style="width:auto" ${p.id?"":"checked"}> Avisar a los alumnos con una notificación${p.id?" (es una edición: márcalo solo si el cambio es importante)":""}</label>
     <div class="row"><button class="btn gold" id="ps">Publicar</button>${p.id?`<a class="btn ghost" href="#nota-${esc(p.id)}">Ver</a><span id="pd"><button type="button" class="btn sm bad" id="pdb">Eliminar</button></span>`:""}</div></form>`;
-    bindUpload("pI",u=>$("#pU").value=u);
+    bindUpload("pI",u=>$("#pU").value=u);$("#pAu").value=p.min_plan==="oro"?"oro":p.min_plan==="plata"?"plata":p.premium_only?"sus":"";
     const vprev=()=>{const u=$("#pV").value.trim();$("#pVp").innerHTML=u?A.mediaVideo(u,$("#pU").value.trim()):"";A.hlsInit($("#pVp"))};$("#pV").oninput=vprev;vprev();
     $("#pVf").onchange=async e=>{const f=e.target.files[0];if(!f)return;if(f.size>50*1024*1024){toast("El video pesa más de 50 MB. Súbelo a Bunny o YouTube y pega el enlace.");return}
       toast("Subiendo video… no cierres esta página");try{const u=await API.upload(f);$("#pV").value=u;vprev();toast("Video subido")}catch(x){toast(x.message)}};
-    $("#pf").onsubmit=async e=>{e.preventDefault();const o={title:$("#pT").value.trim()||"Sin título",category:$("#pC").value.trim()||"Noticia",image_url:$("#pU").value.trim(),body:$("#pB").value,pinned:$("#pPin").checked,premium_only:$("#pPr").checked,allow_comments:$("#pCo").checked};if(p.id)o.id=p.id;{const v=$("#pV").value.trim();if(v||p.video_url)o.video_url=v}
+    $("#pf").onsubmit=async e=>{e.preventDefault();const o={title:$("#pT").value.trim()||"Sin título",category:$("#pC").value.trim()||"Noticia",image_url:$("#pU").value.trim(),body:$("#pB").value,pinned:$("#pPin").checked,premium_only:$("#pAu").value!=="",allow_comments:$("#pCo").checked};if(p.id)o.id=p.id;{const v=$("#pV").value.trim();if(v||p.video_url)o.video_url=v}{const au=$("#pAu").value;if(au==="plata"||au==="oro"||p.min_plan)o.min_plan=(au==="plata"||au==="oro")?au:""}
       try{busy($("#ps"),true);const saved=await API.savePost(o);toast("Publicación guardada");
         if($("#pNt").checked){const pid=(saved&&saved.id)||o.id;const plain=String(o.body||"").replace(/[#*_>`\[\]()!-]+/g," ").replace(/\s+/g," ").trim();
           try{const r=await API.sendPush({title:(p.id?"Actualización: ":(o.category==="Anuncio"?"📢 ":"Nueva publicación: "))+o.title.slice(0,64),body:plain.slice(0,140)||"Toca para leerla en la comunidad.",url:A.absUrl("main",pid?"nota-"+pid:"comunidad"),audience:o.premium_only?"premium":"todos",tag:"post-"+(pid||"")});
@@ -393,7 +397,7 @@ async function pagos(){
 /* ---------- RETOS Y PUNTOS ---------- */
 const toLoc=d=>d?new Date(new Date(d).getTime()-5*3600e3).toISOString().slice(0,16):"";       // hora de Colombia
 const fromLoc=v=>v?new Date(v+":00-05:00").toISOString():null;
-const RWc=()=>Object.assign({enabled:false,teaser:false,ptsPerUsd:100,minRedeem:500,redeemOpen:false,halfIfNotAffiliate:true},(S.site||{}).rewards||{});
+const RWc=()=>Object.assign({enabled:true,teaser:false,ptsPerUsd:100,minRedeem:500,redeemOpen:false,halfIfNotAffiliate:true},(S.site||{}).rewards||{});
 const KNAME={opcion:"Cuestionario",tendencia:"¿Sube o baja?",zona:"Marca la zona"};
 async function retos(){
   let list=[];try{list=await API.adminChallenges()}catch(e){H().innerHTML=`<div class="empty">No se pudieron cargar los retos. ¿Ya corriste <b>supabase/retos.sql</b> en Supabase?<span class="dim">${esc(e.message)}</span></div>`;return}
@@ -569,13 +573,14 @@ async function alumnos(){
     $("#ut").innerHTML=f.map(u=>`<article class="ucard${u.banned?" ban":""}">
       <div class="uc-who">${A.avatar?A.avatar(u,44):""}<div><b>${esc(u.username)} ${A.flag(u.country||"")}${u.role==="admin"?' <span class="tag pub">Admin</span>':""}${u.banned?' <span class="tag">Suspendido</span>':""}</b><span class="dim">${esc(u.email||"")}</span></div></div>
       <div class="uc-st">
-        <div><small>Acceso</small>${isP(u)?A.premTag()+`<span class="dim">hasta ${fmtDate(u.premium_until)}</span>`:venc(u)?`<span class="tag">Vencido</span><span class="dim">el ${fmtDate(u.premium_until)}</span>`:'<span class="tag">Gratis</span>'}</div>
+        <div><small>Acceso</small>${isP(u)?A.premTag(u.plan)+`<span class="dim">hasta ${fmtDate(u.premium_until)}</span>`:venc(u)?`<span class="tag">Vencido</span><span class="dim">el ${fmtDate(u.premium_until)}</span>`:'<span class="tag">Gratis</span>'}${(u.courses||[]).map(cid=>{const c=(S.courses||[]).find(x=>x.id===cid);return c?`<span class="crs-tag" style="--cc:${esc(c.color)}">${esc(c.icon||"")} ${esc(c.title)}</span>`:""}).join("")}</div>
         <div><small>Puntos</small><b class="mono">${u.xp||0}</b></div><div><small>Prueba</small><b class="mono">${u.demo_used||0}/5</b></div><div><small>Registro</small><span>${fmtDate(u.created_at)}</span></div></div>
       <div class="uc-act row">
         <button class="btn sm ok" data-add="${esc(u.id)}:30">+30 días</button><button class="btn sm" data-add="${esc(u.id)}:90">+90 días</button>
         <label class="uc-date"><span>Hasta</span><input type="date" data-date="${esc(u.id)}" aria-label="Premium hasta"></label>
         <details class="uc-more"><summary class="btn sm ghost">Más ▾</summary><div class="uc-menu">
-          ${isP(u)?`<button class="btn sm" data-rm="${esc(u.id)}">Quitar premium</button>`:""}
+          ${isP(u)?`<button class="btn sm" data-rm="${esc(u.id)}">Quitar premium</button><label class="uc-plan">Placa<select data-plan="${esc(u.id)}"><option value="cobre">🟤 Cobre</option><option value="plata">⚪ Plata</option><option value="oro">🟡 Oro</option></select></label>`:""}
+          ${(S.courses||[]).map(c=>{const has=(u.courses||[]).includes(c.id);return `<button class="btn sm ${has?"ghost":""}" data-crs="${esc(u.id)}|${esc(c.id)}|${has?0:1}">${has?"Quitar":"Dar"} curso ${esc(c.title)}</button>`}).join("")}
           <button class="btn sm ghost" data-ban="${esc(u.id)}">${u.banned?"Reactivar cuenta":"Suspender cuenta"}</button><button class="btn sm ghost" data-demo="${esc(u.id)}">Reiniciar prueba gratis</button>
           <button class="btn sm ghost" data-rxp="${esc(u.id)}">Reiniciar puntos</button><button class="btn sm bad" data-rall="${esc(u.id)}">Reiniciar avance</button>
           ${u.id!==(API.user()||{}).id?`<button class="btn sm ghost" data-role="${esc(u.id)}">${u.role==="admin"?"Quitar admin":"Hacer admin"}</button>`:""}</div></details>
@@ -584,6 +589,8 @@ async function alumnos(){
     $$("[data-add]").forEach(b=>b.onclick=()=>{const [id,d]=b.dataset.add.split(":");const u=list.find(x=>x.id===id);const base=isP(u)?new Date(u.premium_until):new Date();base.setDate(base.getDate()+(+d));set(id,{premium_until:base.toISOString()},`Premium hasta ${fmtDate(base)}`)});
     $$("[data-date]").forEach(i=>i.onchange=()=>{if(i.value)set(i.dataset.date,{premium_until:new Date(i.value+"T23:59:00-05:00").toISOString()},"Fecha de premium actualizada")});
     $$("[data-rm]").forEach(b=>b.onclick=()=>set(b.dataset.rm,{premium_until:null},"Premium retirado"));
+    $$("[data-plan]").forEach(sl=>{const u=list.find(x=>x.id===sl.dataset.plan);sl.value=u&&u.plan?u.plan:"cobre";sl.onchange=()=>set(sl.dataset.plan,{plan:sl.value},"Placa actualizada")});
+    $$("[data-crs]").forEach(b=>b.onclick=async()=>{const [uid,cid,on]=b.dataset.crs.split("|");try{await API.adminGrantCourse(uid,cid,on==="1");const u=list.find(x=>x.id===uid);u.courses=(u.courses||[]).filter(x=>x!==cid);if(on==="1")u.courses.push(cid);toast(on==="1"?"Curso entregado (de por vida)":"Curso retirado");draw()}catch(x){toast(x.message)}});
     $$("[data-ban]").forEach(b=>b.onclick=()=>{const u=list.find(x=>x.id===b.dataset.ban);set(u.id,{banned:!u.banned},u.banned?"Cuenta reactivada":"Cuenta suspendida")});
     $$("[data-demo]").forEach(b=>b.onclick=()=>set(b.dataset.demo,{demo_used:0},"Prueba gratis reiniciada"));
     const reset=(id,what)=>{const u=list.find(x=>x.id===id);const host=$(`[data-rxp="${id}"]`).closest(".uc-menu");
@@ -607,6 +614,27 @@ async function alumnos(){
     if($("#rgC").value.trim().toUpperCase()!=="REINICIAR"){toast("Escribe REINICIAR para confirmar");$("#rgC").focus();return}
     try{busy($("#rgGo"),true);const n=await API.adminReset(null,what,$("#rgF").checked,$("#rgD").checked);toast(`Listo: ${n} alumno${n===1?"":"s"} reiniciado${n===1?"":"s"}`);A.ROUTES.admin("alumnos")}catch(x){toast(x.message)}finally{busy($("#rgGo"),false)}};
   $("#uq").oninput=()=>{q=$("#uq").value.toLowerCase();draw()};$("#uf").onchange=()=>{fil=$("#uf").value;draw()};$("#up").onchange=()=>{pais=$("#up").value;draw()};draw();
+}
+
+/* ---------- cursos y planes ---------- */
+async function cursos(){let L=[];try{L=await API.courses()}catch(e){H().innerHTML=`<div class="empty">No se pudieron cargar los cursos. ¿Ya corriste <b>supabase/planes_cursos.sql</b>?<span class="dim">${esc(e.message)}</span></div>`;return}
+  const mods=S.modules||[];
+  H().innerHTML=`<div class="note">Los suscriptores <b>Cobre, Plata y Oro</b> ven <b>todos</b> los cursos. El curso suelto se compra una vez y es del alumno <b>de por vida</b>. Los precios y los días de Cobre (1 mes), Plata (6 meses) y Oro (12 meses) se editan en <a href="#admin-sitio">Sitio → Planes</a>: el nombre del plan sale de los días (hasta 149 = Cobre, 150-299 = Plata, 300 o más = Oro).</div>
+    <div class="split"><div class="panel"><div class="sec-h"><h3>Cursos</h3><button class="btn sm gold" id="ncu">Nuevo curso</button></div>
+      <div class="list">${L.map(c=>`<button class="item" data-cu="${esc(c.id)}" style="text-align:left;cursor:pointer"><span class="ico" style="background:${esc(c.color)};color:#fff">${esc(c.icon||"🎓")}</span><span class="txt"><b>${esc(c.title)}</b><span>${esc(c.price||"")} · ${mods.filter(m=>m.course_id===c.id).length} módulos${c.status==="borrador"?" · borrador":""}</span></span></button>`).join("")||'<div class="muted">Aún no hay cursos.</div>'}</div></div>
+    <div class="panel" id="cue"><div class="muted">Elige un curso o crea uno nuevo.</div></div></div>`;
+  const edit=c=>{$("#cue").innerHTML=`<form class="form" id="cuf"><h3>${c.id?"Editar curso":"Nuevo curso"}</h3>
+      <label for="cuT">Nombre<input id="cuT" maxlength="80" value="${esc(c.title||"")}" placeholder="Ej.: Step Index"></label>
+      <div class="three"><label for="cuI">Icono<input id="cuI" maxlength="4" value="${esc(c.icon||"🎓")}"></label><label for="cuC">Color de la placa<input id="cuC" type="color" value="${esc(c.color||"#5b8cff")}"></label><label for="cuP">Precio<input id="cuP" maxlength="30" value="${esc(c.price||"40 USD")}"></label></div>
+      <label for="cuD">Descripción<textarea id="cuD" maxlength="400" style="min-height:70px">${esc(c.descr||"")}</textarea></label>
+      <div class="two"><label for="cuS">Estado<select id="cuS"><option value="publicado">Publicado (se vende)</option><option value="borrador">Borrador (no se ve)</option></select></label><label for="cuO">Orden<input id="cuO" type="number" value="${c.sort||1}"></label></div>
+      <p class="dim" style="margin:0">Vista de la placa: <span class="crs-tag" id="cuPrev" style="--cc:${esc(c.color||"#5b8cff")}">${esc(c.icon||"🎓")} ${esc(c.title||"Curso")}</span> · Para meter módulos en este curso, ábrelos en <a href="#admin-contenido">Módulos y lecciones</a> y elige el curso.</p>
+      <div class="row"><button class="btn gold" id="cuSv">Guardar curso</button>${c.id?`<span id="cuDl"><button type="button" class="btn sm bad" id="cuDb">Eliminar</button></span>`:""}</div></form>`;
+    $("#cuS").value=c.status||"publicado";const pv=()=>{const b=$("#cuPrev");b.style.setProperty("--cc",$("#cuC").value);b.textContent=($("#cuI").value||"🎓")+" "+($("#cuT").value||"Curso")};["cuT","cuI","cuC"].forEach(k=>$("#"+k).oninput=pv);
+    $("#cuf").onsubmit=async e=>{e.preventDefault();const o={title:$("#cuT").value.trim(),icon:$("#cuI").value.trim()||"🎓",color:$("#cuC").value,price:$("#cuP").value.trim()||"40 USD",descr:$("#cuD").value.trim(),status:$("#cuS").value,sort:+$("#cuO").value||1};if(c.id)o.id=c.id;
+      if(o.title.length<2){toast("Ponle nombre al curso");return}try{busy($("#cuSv"),true);await API.saveCourse(o);toast("Curso guardado");await A.loadContent();cursos()}catch(x){toast(x.message)}finally{const b=$("#cuSv");if(b)busy(b,false)}};
+    const d=$("#cuDb");if(d)d.onclick=()=>A.confirmInline($("#cuDl"),"¿Eliminar el curso? Sus módulos quedan sin curso y los alumnos que lo compraron lo pierden.",async()=>{await API.delCourse(c.id);toast("Curso eliminado");await A.loadContent();cursos()})};
+  $("#ncu").onclick=()=>edit({});$$("[data-cu]").forEach(b=>b.onclick=()=>edit(L.find(c=>c.id===b.dataset.cu)));
 }
 
 /* ---------- archivos ---------- */
