@@ -412,7 +412,7 @@ let discCache=null;async function discordCounts(u){const c=discordCode(u);if(!c)
   try{const r=await fetch(`https://discord.com/api/v10/invites/${c}?with_counts=true`);if(!r.ok)return null;const j=await r.json();discCache={members:j.approximate_member_count,online:j.approximate_presence_count,name:j.guild&&j.guild.name};return discCache}catch(e){return null}}
 const fmtN=n=>n>=1e6?(n/1e6).toFixed(1).replace(".0","")+"M":n>=1e4?Math.round(n/1e3)+"K":n>=1e3?(n/1e3).toFixed(1).replace(".0","")+"K":String(n);
 const statsBand=()=>API.publicStats().then(st=>{if(!$("#stats"))return;$("#stats").innerHTML=[[st.students,"alumnos registrados"],[TEMARIO.length,"módulos en el temario"],[st.exercises,"ejercicios en gráficas reales"],[st.rating?st.rating.toFixed(1)+" / 5":"—",st.reviews?`calificación · ${st.reviews} opiniones`:"calificación"]].map(([v,t])=>`<div><b class="mono">${esc(v??0)}</b><span>${t}</span></div>`).join("")}).catch(()=>{});
-const DISC={title:"La comunidad de El Arte Gráfico",text:"Un espacio para traders que operan con reglas: análisis del día, dudas resueltas, avisos del método y acompañamiento entre alumnos.",items:["Análisis y zonas compartidas a diario","Avisos de actualizaciones y nuevas lecciones","Resolución de dudas con el equipo","Comunidad de alumnos que practican el mismo método"]};
+const DISC={title:"La comunidad de El Arte Gráfico",text:"Un espacio para traders que operan con reglas: análisis del día, dudas resueltas, avisos del método y acompañamiento entre alumnos.",items:["Análisis y zonas compartidas a diario","Avisos de actualizaciones y nuevas lecciones","Sala Oro: chat privado, lives y operativas para Oro y Diamond","Mensajes privados con El Arte Gráfico para resolver tus dudas"]};
 
 /* ---------- bloques del inicio ---------- */
 const TEMARIO=[["Bienvenida e introducción",5,"Introducción"],["La plataforma: Deriv y MT5",6,"Básico"],["Velas japonesas",5,"Básico"],["Estructura del mercado",6,"Básico"],
@@ -514,8 +514,10 @@ function pricingBlock(host,o={}){if(!host)return;const s=S.site;const pl=(s.plan
 const FAQ_DEF=[["¿Necesito experiencia?","No. El temario empieza desde cero: qué es un bróker, cómo leer las velas y la estructura del mercado, hasta el método completo."],
   ["¿Con cuánto dinero empiezo?","Puedes aprender y practicar en una cuenta demo sin poner dinero. Cuando pases a real, el módulo de gestión del riesgo te enseña a calcular el lote según el tamaño de tu cuenta."],
   ["¿Funciona desde el celular?","Sí. La academia y los ejercicios funcionan en el navegador del celular y la puedes instalar como app."],
-  ["¿Cómo pago?","Con Binance Pay en USDT. Registras el pago en la página Premium y activamos tu acceso cuando lo confirmamos."],
-  ["¿Puedo probar antes de pagar?","Sí. Con tu cuenta gratis tienes 5 gráficas de prueba para ver cómo funcionan los ejercicios."],
+  ["¿Qué planes hay?","Cobre (1 mes), Plata (6 meses), Oro (12 meses) y Diamond. Todos incluyen la academia completa; desde Plata tienes doble XP, desde Oro entras a la Sala Oro (chat privado, lives y operativas) y Diamond tiene acceso a todo. Si solo quieres el curso de Boom y Crash, lo compras una vez y es tuyo."],
+  ["¿Cómo pago?","Con Binance Pay en USDT. Registras el número de orden en la página Premium y activamos tu plan o tu curso cuando confirmamos el pago. No hay cobros automáticos."],
+  ["¿Puedo probar antes de pagar?","Sí. Con tu cuenta gratis tienes 5 gráficas de prueba y, cuando la academia esté abierta, 7 días gratis del módulo de introducción."],
+  ["¿Cómo funcionan los retos?","Cada día sale un reto gratis. Tienes unas horas para responder y al cierre se revelan la respuesta y los primeros 5 en acertar, que ganan puntos canjeables por USDT. No necesitas pagar ni depositar para participar."],
   ["¿Me garantizan ganancias?","No. Esto es formación. Operar índices sintéticos tiene un riesgo alto y nadie puede garantizarte resultados; por eso practicamos en demo y con gestión del riesgo."]];
 function faqBlock(host){if(!host)return;const f=(S.site.faq||[]).length?S.site.faq.map(x=>[x.q,x.a]):FAQ_DEF;
   host.innerHTML=f.map(([q,a])=>`<details class="fq"><summary>${esc(q)}</summary><p class="muted">${esc(a)}</p></details>`).join("")}
@@ -613,11 +615,11 @@ function revealPop(c){if(!c||!c.closed||!c.answered)return false;const k="ag_rv_
   else pop({icon:"x",tone:"red",kicker:"Resultado del reto",title:"Esta vez no era",text:"Mira la respuesta y la explicación, y vuelve por el próximo reto."});return true}
 /* bloque publicitario: El Arte Gráfico te paga por participar */
 function promoBlock(){if(!rewardsOn()&&!RW().teaser)return"";const on=rewardsOn(),c=RW();
-  return `<section class="promo"><div class="promo-t"><span class="eyebrow">${on?"Retos diarios · Gana dinero":"Muy pronto"}</span><h2>El Arte Gráfico te paga por participar</h2>
-    <p>Cada día publicamos un reto: un cuestionario, adivinar la tendencia o marcar la zona. <b>Los primeros ${5} en acertar ganan puntos</b> y cada mes los cambias por dinero${c.ptsPerUsd?` (${c.ptsPerUsd} puntos = 1 USD)`:""}.</p>
-    <ul class="promo-l"><li>${ico("trophy",18)}Top 5 del día gana puntos</li><li>${ico("card",18)}Canjea cada mes por USDT</li><li>${ico("star",18)}Afiliados de Deriv ganan el doble</li></ul>
+  return `<section class="promo"><div class="promo-t"><span class="eyebrow">${on?"Retos diarios · Gana USDT":"Muy pronto"}</span><h2>Acierta el reto. Gana dinero.</h2>
+    <p>Cada día sale un reto: un cuestionario, adivinar la tendencia o marcar la zona. Tienes <b>${RW().revealHours||3} horas</b> para responder y nadie sabe si ganó hasta el final: ahí se revelan <b>los primeros 5 en acertar</b>, que ganan puntos para cambiar por dinero cada mes${c.ptsPerUsd?` (${c.ptsPerUsd} puntos = 1 USD)`:""}.</p>
+    <ul class="promo-l"><li>${ico("trophy",18)}Top 5 de cada reto gana puntos</li><li>${ico("bolt",18)}Resultados con suspenso al cierre</li><li>${ico("card",18)}Canjea cada mes por USDT</li><li>${ico("star",18)}Afiliados de Deriv ganan el doble</li></ul>
     <div class="row">${on?`<a class="btn gold" href="${toMain("retos")}">Ver el reto de hoy</a><a class="btn ghost" href="${toMain("ranking")}">Ranking</a>`:`<span class="pill gold">Te avisaremos cuando empiece</span>`}</div></div>
-    <div class="promo-art" aria-hidden="true"><div class="pa-coin">$</div><div class="pa-card"><b>Reto del día</b><span>¿Sube o baja?</span><i></i><i></i><i></i></div><div class="pa-badge">+100 pts</div></div></section>`}
+    <div class="promo-art" aria-hidden="true"><div class="pa-coin">$</div><div class="pa-card"><b>Reto del día</b><span>¿Sube o baja?</span><i></i><i></i><i></i></div><div class="pa-badge">+100 pts</div><div class="pa-cd mono">2:59:59</div></div></section>`}
 /* lista de retos */
 ROUTES.retos=async()=>{
   if(!rewardsOn()&&!admin()){app.innerHTML=`<div class="pagehead"><span class="eyebrow">Retos diarios</span><h1>Muy pronto</h1><p class="muted">Estamos preparando los retos diarios con premios. Te avisaremos por las notificaciones y la comunidad.</p></div>${promoBlock()}`;return}
@@ -931,7 +933,7 @@ async function mainHome(){
   $("#cards").innerHTML=(s.cards||[]).map((c,i)=>`<div class="card"><span class="k">${String(i+1).padStart(2,"0")}</span><h3>${esc(c.title)}</h3><p>${esc(c.text)}</p></div>`).join("");
   $("#mkts").innerHTML=marketsHTML(s.markets||[],true);
   {const pb=$("#premiumBand");if(premium())pb.remove();else if(logged())pb.innerHTML=premiumBand();
-    else pb.innerHTML=`<div class="pb final"><div><span class="eyebrow">Empieza hoy</span><h2>Crea tu cuenta gratis y prueba el método</h2><p class="muted" style="max-width:60ch;margin-top:8px">Tienes 5 gráficas de prueba para marcar tu zona, poner tu stop loss y ver la repetición. Sin tarjeta y sin compromiso.</p></div><div class="row"><a class="btn gold" href="#registro">Crear cuenta gratis</a><a class="btn ghost" href="#entrar">Ya tengo cuenta</a></div></div>`}
+    else pb.innerHTML=`<div class="pb final"><div><span class="eyebrow">Empieza hoy</span><h2>Crea tu cuenta gratis y prueba el método</h2><p class="muted" style="max-width:60ch;margin-top:8px">Tienes 5 gráficas de prueba para marcar tu zona, poner tu stop loss y ver la repetición, y puedes jugar el reto del día desde ya. Sin tarjeta y sin compromiso.</p></div><div class="row"><a class="btn gold" href="#registro">Crear cuenta gratis</a><a class="btn ghost" href="#entrar">Ya tengo cuenta</a></div></div>`}
   API.publicReviews().then(r=>{if($("#revs"))$("#revs").innerHTML=reviewsHTML(r.slice(0,3),true)}).catch(()=>{});
   postsVis().then(p=>{if($("#newsMini"))$("#newsMini").innerHTML=p.slice(0,4).map(x=>`<a class="mini" href="#nota-${esc(x.id)}"><span class="dim">${fmtDate(x.created_at)} · ${esc(x.category||"Noticia")}</span><b>${esc(x.title)}</b></a>`).join("")||'<div class="muted">Pronto publicaremos noticias y actualizaciones.</div>'}).catch(()=>{if($("#newsMini"))$("#newsMini").innerHTML='<div class="muted">Sin publicaciones por ahora.</div>'});
 }

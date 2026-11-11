@@ -1509,3 +1509,7 @@ body.pf-open{overflow:hidden}
 @media (max-width:860px){.room{height:calc(100dvh - 250px);border-radius:16px;margin:0 -4px}.oro-seg{max-width:none}}
 @media (max-width:860px){.oro-hero.sm{display:none}.room{height:calc(100dvh - 64px - 96px - 70px - env(safe-area-inset-bottom,0px));min-height:360px}}
 .room{scroll-margin-top:76px}.oro-seg a{white-space:nowrap}
+@media (min-width:701px){.slide .bgimg{background-position:right center}}
+.pa-cd{position:absolute;left:4px;bottom:0;padding:8px 14px;border-radius:12px;font-weight:800;font-size:18px;color:#f3d88f;background:rgba(6,11,26,.85);border:1px solid rgba(216,176,98,.55);box-shadow:0 10px 26px -10px rgba(216,176,98,.6);animation:paCd 2s ease-in-out infinite}
+@keyframes paCd{50%{box-shadow:0 10px 34px -6px rgba(216,176,98,.9)}}
+@media (prefers-reduced-motion:reduce){.pa-cd{animation:none}}
