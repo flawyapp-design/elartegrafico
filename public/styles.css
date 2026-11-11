@@ -1236,3 +1236,21 @@ nav.main .mnav-sw a.on{color:#1b1405!important;background:linear-gradient(180deg
   nav.main .dd .menu .dm-lvr .dim,nav.main .dd .menu .dm-lvr b{white-space:nowrap}
 }
 .sec-h{min-width:0}.panel>*{min-width:0}
+
+/* selector fijo El Arte Gráfico | Academia en la barra superior (solo celular) */
+.top-sw{display:none}
+@media (max-width:860px){
+  .top .brand>span{display:none}.top .brand{padding-right:0!important;flex:none}
+  .top-sw{display:grid;grid-template-columns:1fr 1fr;gap:3px;padding:3px;flex:1;min-width:0;max-width:340px;border-radius:13px;background:var(--bg);border:1px solid var(--line2)}
+  .top-sw a{display:flex;align-items:center;justify-content:center;gap:6px;min-width:0;padding:8px 6px;border-radius:10px;color:var(--muted);font-size:13px;font-weight:700;text-decoration:none!important;white-space:nowrap}
+  .top-sw a span{overflow:hidden;text-overflow:ellipsis}
+  .top-sw a svg{flex:none}
+  .top-sw a.on{color:#1b1405;background:linear-gradient(180deg,#f3d88f,#d8b062);box-shadow:0 6px 14px -8px rgba(216,176,98,.8)}
+  .top .wrap{gap:10px}
+  .theme-btn{margin-left:auto;flex:none}
+  nav.main .mnav-sw{display:none!important}
+}
+@media (max-width:360px){.top-sw a svg{display:none}.top-sw a{font-size:12.5px}}
+:root[data-theme="light"] .top-sw{background:#fff7ea;border-color:#dcc9a3}
+@media (max-width:860px){.top{background:rgb(6,11,26)!important}:root[data-theme="light"] .top{background:rgb(253,248,238)!important}}
+@media (max-width:380px){.top .wrap{gap:7px}.top .brand img{width:34px!important;height:34px!important}.top-sw a{padding:8px 4px;font-size:12.5px;letter-spacing:-.01em}.theme-btn{width:34px;height:34px;margin-right:0}}

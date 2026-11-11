@@ -153,6 +153,9 @@ function renderNav(){sideState();document.body.classList.toggle("is-acad",!!ACAD
   const mus=u&&p?`<div class="mnav-user"><a class="mnu-me" href="#perfil">${avatar(p,40)}<span><b>${esc(p.username)}</b><small>${esc(lv.name)} · ${S.prog?S.prog.xp:0} pts</small></span>${premium()?premTag():""}</a>
       <div class="mnu-links"><a href="#perfil">${ico("gear",18)}Configuración</a>${premium()?"":`<a href="${toMain("premium")}">${ico("crown",18)}Hazte premium</a>`}${admin()?`<a href="${toMain("admin")}">${ico("news",18)}Administración</a>`:""}<button type="button" id="logout2">Cerrar sesión</button></div></div>`
     :`<div class="mnav-user"><div class="mnu-links two"><a class="btn ghost" href="${toMain("entrar")}">Ingresar</a><a class="btn gold" href="${toMain("registro")}">Crear cuenta</a></div></div>`;
+  /* selector fijo arriba (celular): siempre se ve si estás en El Arte Gráfico o en la Academia */
+  let ts=$("#topSw");if(!ts){ts=document.createElement("div");ts.id="topSw";ts.className="top-sw";ts.setAttribute("role","group");ts.setAttribute("aria-label","Sección");const br=$(".top .brand");br.parentNode.insertBefore(ts,br.nextSibling)}
+  ts.innerHTML=`<a class="${ACAD?"":"on"}" href="${ACAD?toMain("inicio"):"#inicio"}"${ACAD?"":' aria-current="true"'}>${ico("home",16)}<span>Arte Gráfico</span></a><a class="${ACAD?"on":""}" href="${ACAD?"#inicio":toAcad("inicio")}"${ACAD?' aria-current="true"':""}>${ico("acad",16)}<span>Academia</span></a>`;
   /* barra inferior tipo app (celular) */
   const TB=ACAD?[["inicio","home","Panel"],["academia","acad","Temario"],["practica","chart","Práctica"],["progreso","layers","Progreso"]]
     :(rw?[["inicio","home","Inicio"],["retos","bolt","Retos"],["@acad","acad","Academia"],["ranking","trophy","Ranking"]]:[["inicio","home","Inicio"],["comunidad","chat","Comunidad"],["@acad","acad","Academia"],["premium","crown","Premium"]]);
