@@ -32,7 +32,29 @@ const MAIN_R=new Set(["entrar","registro","recuperar","noticias","comunidad","no
 const toAcad=h=>link("academia",h),toMain=h=>link("main",h);
 
 /* ---------- utilidades UI ---------- */
-let toastT;function toast(m){let t=$(".toast");if(!t){t=document.createElement("div");t.className="toast";t.setAttribute("role","status");document.body.appendChild(t)}t.textContent=m;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>t.hidden=true,2800)}
+let toastT;function toast(m,type){let t=$(".toast");if(!t){t=document.createElement("div");t.className="toast";t.setAttribute("role","status");document.body.appendChild(t)}
+  type=type||(/^(no |error|primero|inicia|bloque|mínimo|máx|elige|escribe|usa una|ya respond|este reto|ese reto|la imagen|vuelve a|te faltan|los retos|tu cuenta)/i.test(String(m))?"warn":/subiendo|cargando|enviando/i.test(String(m))?"wait":"ok");
+  t.className="toast t-"+type;t.innerHTML=`<i>${POPI[type==="warn"?"warn":type==="wait"?"dots":"check"]}</i><span>${esc(m)}</span>`;t.hidden=false;t.classList.remove("in");void t.offsetWidth;t.classList.add("in");clearTimeout(toastT);toastT=setTimeout(()=>{t.classList.remove("in");setTimeout(()=>{if(!t.classList.contains("in"))t.hidden=true},300)},3000)}
+/* ventanas de celebración: mismo estilo que los logros (una a la vez) */
+const POPI={check:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
+  warn:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 7v6"/><circle cx="12" cy="17" r=".6" fill="currentColor"/><circle cx="12" cy="12" r="9.5"/></svg>',
+  dots:'<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="6" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="18" cy="12" r="2"/></svg>',
+  trophy:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 4h8v5a4 4 0 0 1-8 0z"/><path d="M8 6H5a3 3 0 0 0 3 4M16 6h3a3 3 0 0 1-3 4M12 13v4M8.5 20h7M10 17h4"/></svg>',
+  up:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V6M6 11l6-6 6 6"/><path d="M5 20h14" opacity=".5"/></svg>',
+  coin:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><path d="M14.5 9.2c-.5-.8-1.4-1.2-2.5-1.2-1.5 0-2.5.8-2.5 1.9 0 2.6 5 1.4 5 4.1 0 1.1-1 2-2.6 2-1.2 0-2.1-.5-2.6-1.3M12 6.5v1.5M12 16v1.5"/></svg>',
+  send:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 3L10 14"/><path d="M21 3l-7 18-4-7-7-4z"/></svg>',
+  x:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M7 7l10 10M17 7L7 17"/></svg>',
+  star:'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"/></svg>',
+  bell:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20.5a2.2 2.2 0 0 0 4 0"/></svg>',
+  spark:'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.5l1.9 6.1 6.1 1.9-6.1 1.9L12 18.5l-1.9-6.1L4 10.5l6.1-1.9z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z" opacity=".7"/></svg>'};
+let popQ=Promise.resolve();
+function popShow(build,ms,confetti){popQ=popQ.then(()=>new Promise(res=>{const el=document.createElement("div");el.className="ach-pop";el.setAttribute("role","status");el.innerHTML=build();
+  if(confetti&&!matchMedia("(prefers-reduced-motion: reduce)").matches){const cf=document.createElement("div");cf.className="confeti";const C=["#f3d88f","#d8b062","#2ec486","#5b8cff","#ffffff","#e84c5c"];
+    cf.innerHTML=Array.from({length:34},(_,i)=>`<i style="--x:${Math.round(Math.cos(i*2.4)*(120+Math.random()*160))}px;--y:${Math.round(-60-Math.random()*150)}px;--r:${Math.round(Math.random()*720-360)}deg;--d:${(.9+Math.random()*.7).toFixed(2)}s;--c:${C[i%C.length]};--w:${4+Math.round(Math.random()*5)}px"></i>`).join("");el.appendChild(cf)}
+  const close=()=>{if(el.classList.contains("out"))return;el.classList.add("out");setTimeout(()=>{el.remove();res()},480)};el.onclick=close;
+  document.body.appendChild(el);setTimeout(close,ms||4200)}))}
+function pop(o){o=Object.assign({icon:"star",tone:"gold",kicker:"",title:"",text:"",confetti:false,ms:4200},o);
+  popShow(()=>`<div class="ach-pop-c pop-${o.tone}"><span class="pop-ic">${POPI[o.icon]||POPI.star}</span><div><small>${esc(o.kicker)}</small><b>${esc(o.title)}</b>${o.text?`<span>${esc(o.text)}</span>`:""}</div></div>`,o.ms,o.confetti)}
 function md(txt){const lines=String(txt||"").split(/\r?\n/);let out="",list=false;
   const inl=s=>esc(s).replace(/\*\*(.+?)\*\*/g,"<b>$1</b>").replace(/(https?:\/\/[^\s<]+)/g,'<a href="$1" target="_blank" rel="noopener">$1</a>');
   for(const l of lines){if(/^\s*[-•]\s+/.test(l)){if(!list){out+="<ul>";list=true}out+="<li>"+inl(l.replace(/^\s*[-•]\s+/,""))+"</li>";continue}
@@ -97,8 +119,8 @@ let saveT=null;
 function saveProg(){if(logged()&&S.loaded)setTimeout(()=>{try{checkAch("acad",acadAch())}catch(e){}},300);try{localStorage.setItem("ag_prog_"+(API.user()||{id:"anon"}).id,JSON.stringify(S.prog))}catch(e){}renderNav();clearTimeout(saveT);saveT=setTimeout(()=>{if(logged())API.progressSave(S.prog.xp,S.prog).catch(()=>{})},800)}
 async function loadProg(){S.prog=blankProg();S.fb=new Set();if(!logged())return;
   API.myFeedback().then(r=>{S.fb=new Set((r||[]).map(x=>x.module_id));S.fbOff=false}).catch(()=>{S.fbOff=true});try{const r=await API.progressGet();if(r&&r.data)S.prog=Object.assign(blankProg(),r.data,{xp:r.xp||r.data.xp||0})}catch(e){}}
-function ach(id){if(!S.prog.ach.includes(id)){S.prog.ach.push(id);const a=ACH.find(x=>x.id===id);if(a)setTimeout(()=>toast("Logro: "+a.t),700)}}
-function addXP(n){S.prog.xp=(S.prog.xp||0)+n;const d=todayKey();if(S.prog.lastDay!==d){const y=new Date(Date.now()+TZ*1000-864e5).toISOString().slice(0,10);S.prog.streak=S.prog.lastDay===y?(S.prog.streak||0)+1:1;S.prog.bestStreak=Math.max(S.prog.bestStreak||0,S.prog.streak);S.prog.lastDay=d;if(S.prog.streak>=3)ach("constancia")}saveProg()}
+function ach(id){if(!S.prog.ach.includes(id)){S.prog.ach.push(id);const a=ACH.find(x=>x.id===id);}}
+function addXP(n){const lv0=levelOf(S.prog.xp||0).i;S.prog.xp=(S.prog.xp||0)+n;{const L=levelOf(S.prog.xp);if(L.i>lv0&&logged())setTimeout(()=>pop({icon:"up",kicker:"¡Subiste de nivel!",title:`Nivel ${L.i+1} · ${L.name}`,text:`Ya llevas ${S.prog.xp} puntos. ${L.to?`El próximo nivel es a los ${L.to}.`:"Llegaste al nivel máximo."}`,confetti:true,ms:5000}),900)}const d=todayKey();if(S.prog.lastDay!==d){const y=new Date(Date.now()+TZ*1000-864e5).toISOString().slice(0,10);S.prog.streak=S.prog.lastDay===y?(S.prog.streak||0)+1:1;S.prog.bestStreak=Math.max(S.prog.bestStreak||0,S.prog.streak);S.prog.lastDay=d;if(S.prog.streak>=3)ach("constancia")}saveProg()}
 function registerAnswer(kind,res){const p=S.prog.practice;p.n++;if(res==="ok"){p.ok++;p.row++;ach("primera");if(kind==="no-operar")ach("paciencia")}else p.row=0;p.best=Math.max(p.best,p.row);if(p.ok>=10)ach("diez");if(p.row>=5)ach("racha5");if(p.n>=100)ach("cien");saveProg()}
 
 /* ---------- navegación ---------- */
@@ -482,7 +504,10 @@ ROUTES.reto=async id=>{
       :`<div class="result bad"><b class="big">No era esa</b><div>Mañana hay otro reto. ¡Sigue practicando en la academia!</div></div>`};
   if(c.answered)show({correct:c.my_correct,place:c.my_place,points:c.my_points,affiliate:(API.profile()||{}).affiliate,full_points:c.points});
   if(c.explain)res.insertAdjacentHTML("beforeend",`<div class="note" style="margin-top:12px"><b>Explicación:</b> ${esc(c.explain)}</div>`);
-  const send=async ans=>{try{const r=await API.submitChallenge(c.id,ans);show(r);toast(r.place?`+${r.points} puntos`:"Respuesta enviada");setTimeout(()=>ROUTES.reto(c.id),1800)}catch(x){toast(x.message)}};
+  const send=async ans=>{try{const r=await API.submitChallenge(c.id,ans);show(r);
+    if(r.correct&&r.place)pop({icon:"trophy",kicker:`¡Acertaste! · Puesto #${r.place}`,title:`+${r.points} puntos`,text:!r.affiliate&&r.points<r.full_points?`Verifícate como afiliado y gana los ${r.full_points} completos.`:"Quedaste entre los ganadores del reto.",confetti:true,ms:5000});
+    else if(r.correct)pop({icon:"check",tone:"blue",kicker:"Acertaste",title:"Pero ya se llenaron los cupos",text:"Activa las notificaciones y sé de los primeros mañana."});
+    else pop({icon:"x",tone:"red",kicker:"No era esa",title:"Mañana hay otro reto",text:"Mira la explicación cuando cierre y sigue practicando."});setTimeout(()=>ROUTES.reto(c.id),1800)}catch(x){toast(x.message)}};
   $$("[data-o]").forEach(b=>b.onclick=()=>{if(!can)return;$$("[data-o]").forEach(x=>{x.disabled=true;x.classList.toggle("pick",x===b)});send({option:+b.dataset.o})});
   if(c.kind!=="opcion"&&c.market){try{const H=await h1Bars(c.market);const end=idxAt(H.bars,c.chart_t||H.bars[H.bars.length-1].t);const C=Chart.makeChart($(".rt-chart .cv"));
       const rev=(c.correct!=null||c.zone!=null)?36:0;const bars=H.bars.slice(Math.max(0,end-90),end+1+rev);C.setData(toC(bars),H.dec);C.setRange(bars.length-70,bars.length+6);cleanup.push(()=>C.destroy&&C.destroy());
@@ -519,14 +544,14 @@ ROUTES.puntos=async arg=>{if(!logged()){location.hash="#entrar";return}
     :`<form class="form" id="cf"><div class="two"><label for="cP">Puntos a canjear<input id="cP" type="number" min="${mn}" max="${r.balance}" step="1" value="${r.balance}"></label><label>Recibes<b class="mono" id="cU" style="font-size:22px">${ptsUsd(r.balance)}</b></label></div>
        <label for="cA">Tu Binance Pay ID o correo de Binance<input id="cA" maxlength="120" required placeholder="Ej.: 123456789"></label><button class="btn gold" id="cS">Enviar solicitud de canje</button><p class="dim" style="font-size:13px;margin:0">Revisamos y pagamos los canjes en los días siguientes al cierre del mes.</p></form>`);
   const cf=$("#cf");if(cf){$("#cP").oninput=()=>$("#cU").textContent=ptsUsd(Math.max(0,+$("#cP").value||0));
-    cf.onsubmit=async e=>{e.preventDefault();try{busy($("#cS"),true);await API.requestRedemption(+$("#cP").value,"binance",$("#cA").value.trim());toast("Solicitud enviada");ROUTES.puntos()}catch(x){toast(x.message)}finally{const b=$("#cS");if(b)busy(b,false)}}}
+    cf.onsubmit=async e=>{e.preventDefault();try{busy($("#cS"),true);const _p=+$("#cP").value;await API.requestRedemption(_p,"binance",$("#cA").value.trim());pop({icon:"coin",kicker:"Canje enviado",title:`${_p} puntos → ${ptsUsd(_p)}`,text:"Lo revisamos y te enviamos el pago por Binance. Te avisamos cuando esté pagado.",confetti:true,ms:5200});ROUTES.puntos()}catch(x){toast(x.message)}finally{const b=$("#cS");if(b)busy(b,false)}}}
   const st=r.affiliate;$("#afl").innerHTML=`<h3>Afiliado de Deriv ${p.affiliate?affTag():""}</h3><p class="muted">Si abriste tu cuenta de Deriv con el enlace de El Arte Gráfico, eres afiliado: <b>ganas los puntos completos</b> en cada reto (los demás reciben la mitad) y te sale la etiqueta de afiliado.</p>`+
     (st==="verificado"?`<div class="note ok-note">Verificado · ID de Deriv <b class="mono">${esc(r.deriv_id||"")}</b></div>`
     :st==="pendiente"?`<div class="note">Tu solicitud está en revisión · ID <b class="mono">${esc(r.deriv_id||"")}</b>. Revisamos que estés en nuestra red de socios de Deriv.</div>`
     :`${st==="rechazado"?`<div class="note">No pudimos verificar el ID <b class="mono">${esc(r.deriv_id||"")}</b>${r.affiliate_note?`: ${esc(r.affiliate_note)}`:""}. Revisa y vuelve a enviarlo.</div>`:""}
       <form class="form" id="af"><label for="aD">Tu ID de cliente de Deriv<input id="aD" maxlength="40" required placeholder="Ej.: CR1234567" autocomplete="off"></label><button class="btn gold" id="aS">Enviar para verificar</button>
       <p class="dim" style="font-size:13px;margin:0">Lo encuentras en Deriv, arriba a la derecha (empieza por CR). ¿Aún no tienes cuenta? ${S.site.derivRefUrl?`<a href="${esc(S.site.derivRefUrl)}" target="_blank" rel="noopener sponsored">Ábrela con nuestro enlace</a>.`:"Pide el enlace en la comunidad."}</p></form>`);
-  const af=$("#af");if(af)af.onsubmit=async e=>{e.preventDefault();try{busy($("#aS"),true);await API.requestAffiliate($("#aD").value);toast("Solicitud enviada");ROUTES.puntos("afiliado")}catch(x){toast(x.message)}finally{const b=$("#aS");if(b)busy(b,false)}};
+  const af=$("#af");if(af)af.onsubmit=async e=>{e.preventDefault();try{busy($("#aS"),true);await API.requestAffiliate($("#aD").value);pop({icon:"send",tone:"green",kicker:"Verificación enviada",title:"Revisamos tu ID de Deriv",text:"Cuando te aprobemos ganas los puntos completos y te sale la etiqueta de afiliado."});ROUTES.puntos("afiliado")}catch(x){toast(x.message)}finally{const b=$("#aS");if(b)busy(b,false)}};
   const H=r.redemptions||[];const ES={pendiente:'<span class="pill gold">En revisión</span>',pagado:'<span class="pill ok">Pagado</span>',rechazado:'<span class="pill">Rechazado</span>'};
   $("#hist").innerHTML=`<h3>Mis canjes</h3>`+(H.length?`<div class="tree">${H.map(x=>`<div class="item"><span class="txt"><b>${x.points} puntos · ${ptsUsd(x.points)}</b><span>${fmtDate(x.created_at)}${x.admin_note?` · ${esc(x.admin_note)}`:""}</span></span>${ES[x.status]||""}</div>`).join("")}</div>`:'<div class="muted">Aún no has hecho canjes.</div>');
   if(arg==="afiliado")setTimeout(()=>{const a=$("#afl");if(a)a.scrollIntoView({behavior:"smooth",block:"start"})},200);
@@ -596,12 +621,10 @@ function achHero(list,title,sub){const on=list.filter(a=>a.on),pct=Math.round(10
       <div class="ach-show">${on.length?on.slice(-8).map(a=>`<span title="${esc(a.t)}">${medal(a,44)}</span>`).join(""):'<span class="muted">Aún no tienes medallas: la primera está muy cerca.</span>'}</div>
       ${next?`<div class="ach-next">${medal(next,40)}<div><small>Próximo logro</small><b>${esc(next.t)}</b><span class="muted">${esc(next.d)} · ${next.cur}/${next.goal}</span></div></div>`:'<div class="ach-next done"><b>¡Tienes todos los logros!</b></div>'}</div></div>`}
 /* celebración al desbloquear */
-function celebrate(a){const el=document.createElement("div");el.className="ach-pop";el.setAttribute("role","status");
-  el.innerHTML=`<div class="ach-pop-c">${medal(Object.assign({},a,{on:true}),72)}<div><small>¡Logro desbloqueado! · ${TIER_N[a.tier]}</small><b>${esc(a.t)}</b><span>${esc(a.d)}</span></div></div>`;
-  document.body.appendChild(el);setTimeout(()=>el.classList.add("out"),4200);setTimeout(()=>el.remove(),4800)}
+function celebrate(a){popShow(()=>`<div class="ach-pop-c">${medal(Object.assign({},a,{on:true}),72)}<div><small>¡Logro desbloqueado! · ${TIER_N[a.tier]}</small><b>${esc(a.t)}</b><span>${esc(a.d)}</span></div></div>`,4200,a.tier==="oro"||a.tier==="diamante")}
 function checkAch(kind,list){const key=`ag_ach_${kind}_${(API.user()||{}).id||"anon"}`;let seen=null;try{seen=JSON.parse(localStorage.getItem(key)||"null")}catch(e){}
   const on=list.filter(a=>a.on).map(a=>a.id);try{localStorage.setItem(key,JSON.stringify(on))}catch(e){}
-  if(!seen)return;on.filter(id=>!seen.includes(id)).slice(0,3).forEach((id,i)=>setTimeout(()=>celebrate(list.find(a=>a.id===id)),600+i*1600))}
+  if(!seen)return;on.filter(id=>!seen.includes(id)).slice(0,3).forEach((id,i)=>setTimeout(()=>celebrate(list.find(a=>a.id===id)),600+i*50))}
 function acadAch(){return evalAch(ACAD_ACH,acadStats())}
 /* página de logros (academia) */
 ROUTES.logros=()=>{if(!logged()){location.hash="#entrar";return}const L=acadAch();checkAch("acad",L);
@@ -761,7 +784,7 @@ async function authView(mode,arg){
         if(!$("#uT").checked)throw new Error("Para crear tu cuenta debes aceptar los términos, el aviso de riesgo y la política de datos.");
         const r=await API.signUp({username:u,email,password:p,captcha:cap&&cap.token()});
         if(r.confirm){box.innerHTML=head+`<div class="okmsg">Te enviamos un correo a <b>${esc(email)}</b> para confirmar tu cuenta. Ábrelo y luego ingresa.</div><a class="btn" href="#entrar">Ir a ingresar</a>`;return}
-        await afterLogin();toast("Cuenta creada. Bienvenido.");done();
+        await afterLogin();pop({icon:"spark",kicker:"Cuenta creada",title:"¡Bienvenido a El Arte Gráfico!",text:"Tienes 5 gráficas de prueba gratis y el reto del día esperándote.",confetti:true,ms:5200});done();
       }else if(mode==="in"){await API.signIn({email,password:$("#uP").value,captcha:cap&&cap.token()});await afterLogin();toast("Bienvenido");done();}
       else{await API.recover(email,cap&&cap.token());box.innerHTML=head+`<div class="okmsg">Si existe una cuenta con ese correo, te llegará un enlace para crear una contraseña nueva.</div><a class="btn" href="#entrar">Volver</a>`}
     }catch(x){err.textContent=x.message||"No se pudo completar.";cap&&cap.reset()}finally{busy(go,false)}};
@@ -803,7 +826,7 @@ ROUTES.premium=()=>{const s=S.site;const plans=(s.plans||[]).filter(x=>x&&x.name
       ${mine.length?`<h3>Mis pagos</h3><div class="list">${mine.map(r=>`<div class="item"><span class="txt"><b>${esc(r.plan)} · ${esc(r.amount)}</b><span>ID ${esc(r.order_id)} · ${fmtDT(r.created_at)}${r.status==="rechazado"&&r.admin_note?` · ${esc(r.admin_note)}`:""}</span></span>${estado[r.status]||""}</div>`).join("")}</div>`:""}`;
     $("#pf").onsubmit=async e=>{e.preventDefault();const pl=plans[+$("#pP").value]||plans[0];const oid=$("#pO").value.replace(/\s+/g,"");
       if(!/^[A-Za-z0-9-]{4,80}$/.test(oid)){$("#pE").textContent="Escribe el ID de orden tal como sale en Binance (solo números y letras).";return}
-      try{busy($("#pB"),true);await API.payRequest({plan:pl.name,days:pl.days,amount:pl.price,order_id:oid,note:$("#pN").value.trim()});toast("Pago registrado. Te avisamos al activarlo.");draw()}
+      try{busy($("#pB"),true);await API.payRequest({plan:pl.name,days:pl.days,amount:pl.price,order_id:oid,note:$("#pN").value.trim()});pop({icon:"coin",kicker:"Pago registrado",title:"Estamos confirmando tu pago",text:"Te avisamos apenas activemos tu premium."});draw()}
       catch(x){$("#pE").textContent=/duplicate|unique|ya fue registrado/i.test(x.message)?"Ese ID de orden ya fue registrado.":x.message}finally{const b=$("#pB");if(b)busy(b,false)}}};
   draw()};
 
@@ -835,7 +858,7 @@ ROUTES.leccion=async id=>{
   videoBlock($("#vid"),l);
   let exs=[];try{exs=await API.exercises({lessonId:id})}catch(e){}
   const sec=$("#exsec");if(!sec)return;
-  if(!exs.length){sec.innerHTML=`<div class="note">Esta lección no tiene ejercicios.</div><div><button class="btn gold" id="seen">Marcar como completada</button></div>`;$("#seen").onclick=()=>{passLesson(l,100);toast("Lección completada");if(needFb(m))sec.insertAdjacentHTML("beforeend",fbCard(m))};return}
+  if(!exs.length){sec.innerHTML=`<div class="note">Esta lección no tiene ejercicios.</div><div><button class="btn gold" id="seen">Marcar como completada</button></div>`;$("#seen").onclick=()=>{passLesson(l,100);if(needFb(m))sec.insertAdjacentHTML("beforeend",fbCard(m))};return}
   let i=0,res=[];const min=l.min_score||80;
   const draw=async()=>{if(!$("#exsec"))return;
     sec.innerHTML=`<div class="sec-h"><h2>Ejercicios</h2><span class="mono muted">${Math.min(i+1,exs.length)} / ${exs.length}</span></div><div class="dots">${exs.map((_,j)=>`<i class="${res[j]||""} ${j===i?"cur":""}"></i>`).join("")}</div><div id="exh"></div>`;
@@ -848,7 +871,9 @@ ROUTES.leccion=async id=>{
   draw();
 };
 function passLesson(l,sc){const prev=S.prog.done[l.id]||{best:0,passed:false};const passed=prev.passed||sc>=(l.min_score||80);S.prog.done[l.id]={best:Math.max(prev.best||0,sc),passed,at:Date.now()};
-  if(passed&&!prev.passed){ach("leccion");addXP(30);if(modProgress(l.module_id)>=1){ach("modulo");addXP(60)}}else saveProg()}
+  if(passed&&!prev.passed){pop({icon:"check",tone:"green",kicker:"Lección aprobada · +30 pts",title:l.title||"Lección",text:sc>=100&&!(l.min_score)?"¡Vas muy bien! Sigue con la próxima.":`Sacaste ${sc}%. Ya puedes seguir con la próxima lección.`});ach("leccion");
+    const mdone=modProgress(l.module_id)>=1;if(mdone){const mm=(S.modules||[]).find(x=>x.id===l.module_id);pop({icon:"trophy",kicker:"¡Módulo terminado! · +60 pts",title:(mm&&mm.title)||"Módulo completo",text:mm&&needFb(mm)?"Déjanos tu reseña para abrir el siguiente módulo.":"Ya tienes abierto el siguiente módulo.",confetti:true,ms:5200})}
+    addXP(30);if(mdone){ach("modulo");addXP(60)}}else saveProg()}
 ROUTES.resena=id=>{if(!logged()){location.hash="#entrar";return}
   const m=S.modules.find(x=>x.id===id);if(!m){location.hash="#academia";return}
   if(S.fb.has(id)){app.innerHTML=`<div class="empty">Ya dejaste tu reseña de “${esc(m.title)}”. ¡Gracias!<a class="btn sm" href="#academia">Ver temario</a></div>`;return}
@@ -865,7 +890,7 @@ ROUTES.resena=id=>{if(!logged()){location.hash="#entrar";return}
   $$("#fbf [data-r]").forEach(b=>{b.onclick=()=>{r=+b.dataset.r;pint(r)};b.onmouseenter=()=>pint(+b.dataset.r);b.onmouseleave=()=>pint(r)});
   $("#fbf").onsubmit=async e=>{e.preventDefault();if(!r){toast("Elige de 1 a 5 estrellas");return}
     const liked=$("#fbL").value.trim(),improve=$("#fbI").value.trim();if(liked.length<10||improve.length<10){toast("Escribe al menos una frase en cada pregunta");return}
-    try{busy($("#fbS"),true);await API.sendFeedback({module_id:id,rating:r,liked,improve});S.fb.add(id);toast("¡Gracias por tu reseña!");location.hash=sig?"#modulo-"+sig.id:"#academia"}
+    try{busy($("#fbS"),true);await API.sendFeedback({module_id:id,rating:r,liked,improve});S.fb.add(id);pop({icon:"star",kicker:"¡Gracias por tu reseña!",title:"Siguiente módulo desbloqueado",text:"Tu opinión nos ayuda a mejorar cada lección."});location.hash=sig?"#modulo-"+sig.id:"#academia"}
     catch(x){if(/duplicate|unique|Ya dejaste/i.test(x.message)){S.fb.add(id);location.hash=sig?"#modulo-"+sig.id:"#academia";return}toast(x.message)}finally{busy($("#fbS"),false)}};
 };
 const paywall=()=>`<div class="cta-band">${premiumBand()}</div>`;
@@ -943,7 +968,7 @@ ROUTES.opiniones=async()=>{
     <label for="rb">Comentario<textarea id="rb" maxlength="1500" placeholder="¿Qué te ha parecido la academia?">${esc(m?m.body:"")}</textarea></label><div class="row"><button class="btn gold" id="rg">${m?"Actualizar opinión":"Enviar opinión"}</button></div></form></div>`;
   const paint=()=>$$("[data-r]").forEach(b=>{b.classList.toggle("on",+b.dataset.r<=rating);b.setAttribute("aria-checked",String(+b.dataset.r===rating))});paint();
   $$("[data-r]").forEach(b=>b.onclick=()=>{rating=+b.dataset.r;paint()});
-  $("#rf").onsubmit=async e=>{e.preventDefault();if(!rating)return toast("Elige de 1 a 5 estrellas");try{busy($("#rg"),true);await API.saveReview(rating,$("#rb").value.trim());toast("Gracias. Tu opinión quedó en revisión.");ROUTES.opiniones()}catch(x){toast(x.message)}finally{busy($("#rg"),false)}};
+  $("#rf").onsubmit=async e=>{e.preventDefault();if(!rating)return toast("Elige de 1 a 5 estrellas");try{busy($("#rg"),true);await API.saveReview(rating,$("#rb").value.trim());pop({icon:"star",kicker:"¡Gracias por tu opinión!",title:"Quedó en revisión",text:"La publicamos apenas la revisemos."});ROUTES.opiniones()}catch(x){toast(x.message)}finally{busy($("#rg"),false)}};
 };
 ROUTES.progreso=async()=>{app.innerHTML=`<div class="pagehead"><span class="eyebrow">Academia</span><h1>Tabla de progreso</h1><p class="muted">Quién va más adelante en el temario, por lecciones aprobadas. Aquí no hay puntos: solo avance.</p></div><div id="rk" class="muted">Cargando…</div>`;
   try{const r=await API.progressBoard();const yo=r.find(x=>x.is_me);const tot=S.lindex.length;
@@ -1010,7 +1035,7 @@ const isStandalone=()=>matchMedia("(display-mode: standalone)").matches||navigat
 const isIOS=()=>/iphone|ipad|ipod/i.test(navigator.userAgent)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1);
 const pushSupported=()=>"serviceWorker" in navigator&&"PushManager" in window&&"Notification" in window;
 window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();PWA.evt=e;document.querySelectorAll("[data-install]").forEach(b=>b.hidden=false)});
-window.addEventListener("appinstalled",()=>{PWA.evt=null;toast("App instalada. Búscala en tu pantalla de inicio.")});
+window.addEventListener("appinstalled",()=>{PWA.evt=null;pop({icon:"spark",kicker:"App instalada",title:"Ya la tienes en tu pantalla de inicio",text:"Ábrela desde ahí como cualquier app."})});
 function absUrl(site,hash){const l=link(site,hash);return /^https?:/.test(l)?l:location.origin+location.pathname+location.search+l}
 async function pushState(){if(!pushSupported())return isIOS()&&!isStandalone()?"ios-install":"unsupported";
   if(Notification.permission==="denied")return"denied";
@@ -1027,7 +1052,7 @@ async function enablePush(){
   const perm=await Notification.requestPermission();if(perm!=="granted"){toast(perm==="denied"?"Bloqueaste las notificaciones. Actívalas en los ajustes del navegador.":"No se activaron las notificaciones");return false}
   try{const reg=await swReg();const key=await API.pushKey();
     let sub=await reg.pushManager.getSubscription();if(!sub)sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:b64u(key)});
-    await API.savePushSub(sub,navigator.userAgent);toast("Notificaciones activadas");return true}catch(e){toast(e.message||"No se pudieron activar");return false}}
+    await API.savePushSub(sub,navigator.userAgent);pop({icon:"bell",tone:"green",kicker:"Notificaciones activadas",title:"Te avisamos primero",text:"Cada reto nuevo y cada módulo nuevo te llegan al celular."});return true}catch(e){toast(e.message||"No se pudieron activar");return false}}
 async function disablePush(){try{const reg=await swReg();const sub=await reg.pushManager.getSubscription();if(sub){await API.delPushSub(sub.endpoint);await sub.unsubscribe()}toast("Notificaciones desactivadas")}catch(e){toast(e.message)}}
 function installHelp(){const ios=isIOS();
   const m=document.createElement("div");m.className="modal";m.innerHTML=`<div class="modal-box" role="dialog" aria-modal="true" aria-label="Instalar la app"><img src="assets/icon-192.png" alt="" width="64" height="64" style="border-radius:16px">
@@ -1063,5 +1088,5 @@ async function boot(){
   if(rec)location.hash="#nueva-clave";
   route();
 }
-window.AGBOOT=boot;
+window.AGBOOT=boot;window.AGPOP=(o)=>pop(o);window.AGTOAST=(m,t)=>toast(m,t);
 })();
