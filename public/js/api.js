@@ -170,7 +170,7 @@ function SupabaseAPI(url,key){
     adminChallengeEntries(id){return rpc("admin_challenge_entries",{p_id:id})},
     adminAffiliates(){return rpc("admin_affiliates")},
     reviewAffiliate(uid,ok,note){return rpc("review_affiliate",{p_user:uid,p_ok:!!ok,p_note:note||""})},
-    adminPartnerImport(ids,rep){return rpc("admin_partner_import",{p_ids:ids,p_replace:!!rep})},adminPartnerInfo(){return rpc("admin_partner_info")},
+    adminPartnerImport(ids,monthly,tier){return rpc("admin_partner_import",{p_ids:ids,p_monthly:!!monthly,p_tier:tier==="antiguo"?"antiguo":"activo"})},adminPartnerApproveOld(){return rpc("admin_partner_approve_old")},adminPartnerInfo(){return rpc("admin_partner_info")},
     adminRedemptions(){return rpc("admin_redemptions")},
     reviewRedemption(id,paid,note){return rpc("review_redemption",{p_id:id,p_paid:!!paid,p_note:note||""})},
     reviewPayment(id,approve,days,note){return rpc("review_payment",{pid:id,approve,p_days:days==null?null:days,p_note:note||""})},
@@ -319,17 +319,22 @@ function LocalAPI(){
     async requestAffiliate(d){if(!uid)throw new Error("Inicia sesión");d=String(d||"").replace(/\s/g,"").toUpperCase();if(d.length<3)throw new Error("Escribe tu ID de cliente de Deriv (ej.: CR1234567)");db.affiliates=db.affiliates||[];
       if(db.affiliates.some(a=>a.deriv_id===d&&a.user_id!==uid&&a.status!=="rechazado"))throw new Error("Ese ID de Deriv ya está registrado por otra cuenta");
       const a=db.affiliates.find(x=>x.user_id===uid);if(a&&a.status==="verificado")throw new Error("Ya eres afiliado verificado");
-      const inl=(db.partners||[]).includes(d),st=inl?"verificado":"pendiente",nt=inl?"Verificado automáticamente con la lista de socios":"";
+      const inl=(db.ptier||{})[d]==="activo",st=inl?"verificado":"pendiente",nt=inl?"Verificado automáticamente con la lista de socios":"";
       if(a)Object.assign(a,{deriv_id:d,status:st,admin_note:nt,created_at:now()});else db.affiliates.push({user_id:uid,deriv_id:d,status:st,admin_note:nt,created_at:now()});if(inl){const p=me();if(p)p.affiliate=true}save();return{status:st}},
-    async adminPartnerImport(ids,rep){need();const L=[...new Set((ids||[]).map(x=>String(x).replace(/\s/g,"").toUpperCase()).filter(x=>/^[A-Z]{1,5}[0-9]{3,12}$/.test(x)||/^[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}$/.test(x)||/^D-[A-Z0-9]{5,10}$/.test(x)))];db.partners=rep?[]:(db.partners||[]);let add=0;L.forEach(x=>{if(!db.partners.includes(x)){db.partners.push(x);add++}});
-      let ok=0;(db.affiliates||[]).forEach(a=>{if((a.status==="pendiente"||a.status==="rechazado")&&db.partners.includes(String(a.deriv_id).toUpperCase())){Object.assign(a,{status:"verificado",admin_note:"Verificado automáticamente con la lista de socios",reviewed_at:now()});const p=db.profiles.find(x=>x.id===a.user_id);if(p)p.affiliate=true;ok++}});save();return{received:L.length,added:add,approved:ok,total:db.partners.length}},
-    async adminPartnerInfo(){need();return{total:(db.partners||[]).length,updated:null}},
+    async adminPartnerImport(ids,monthly,tier){need();tier=tier==="antiguo"?"antiguo":"activo";const L=[...new Set((ids||[]).map(x=>String(x).replace(/\s/g,"").toUpperCase()).filter(x=>/^[A-Z]{1,5}[0-9]{3,12}$/.test(x)||/^[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}$/.test(x)||/^D-[A-Z0-9]{5,10}$/.test(x)))];
+      db.ptier=db.ptier||{};(db.partners||[]).forEach(x=>{if(!db.ptier[x])db.ptier[x]="activo"});delete db.partners;let moved=0,saved=0;
+      if(tier==="activo"&&monthly)Object.keys(db.ptier).forEach(k=>{if(db.ptier[k]==="activo"&&!L.includes(k)){db.ptier[k]="antiguo";moved++}});
+      L.forEach(x=>{if(tier==="activo"){db.ptier[x]="activo";saved++}else if(!db.ptier[x]){db.ptier[x]="antiguo";saved++}});
+      let ok=0;(db.affiliates||[]).forEach(a=>{if((a.status==="pendiente"||a.status==="rechazado")&&db.ptier[String(a.deriv_id).toUpperCase()]==="activo"){Object.assign(a,{status:"verificado",admin_note:"Verificado automáticamente con la lista de socios activos",reviewed_at:now()});const p=db.profiles.find(x=>x.id===a.user_id);if(p)p.affiliate=true;ok++}});save();
+      const v=Object.values(db.ptier);return{received:L.length,saved,moved_old:moved,approved:ok,active:v.filter(x=>x==="activo").length,old:v.filter(x=>x==="antiguo").length}},
+    async adminPartnerInfo(){need();const v=Object.values(db.ptier||{});return{total:v.length,active:v.filter(x=>x==="activo").length,old:v.filter(x=>x==="antiguo").length,updated:null}},
+    async adminPartnerApproveOld(){need();let n=0;(db.affiliates||[]).forEach(a=>{if(a.status==="pendiente"&&(db.ptier||{})[String(a.deriv_id).toUpperCase()]==="antiguo"){Object.assign(a,{status:"verificado",admin_note:"Autorizado por el admin (lista antigua de socios)",reviewed_at:now()});const p=db.profiles.find(x=>x.id===a.user_id);if(p)p.affiliate=true;n++}});save();return n},
     async adminChallenges(){need();return(db.challenges||[]).slice().sort((a,b)=>String(b.starts_at).localeCompare(a.starts_at))},
     async challengeKey(id){return((db.ckeys||{})[id])||null},
     async saveChallenge(c,key){need();db.challenges=db.challenges||[];const r=await up(db.challenges,c);db.ckeys=db.ckeys||{};db.ckeys[r.id]=Object.assign({challenge_id:r.id},key);save();return r},
     async delChallenge(id){need();return rm("challenges",id)},
     async adminChallengeEntries(id){need();return(db.centries||[]).filter(e=>e.challenge_id===id).map(e=>{const p=db.profiles.find(x=>x.id===e.user_id)||{};return Object.assign({},e,{username:p.username,country:p.country})})},
-    async adminAffiliates(){need();return(db.affiliates||[]).map(a=>{const p=db.profiles.find(x=>x.id===a.user_id)||{},u=db.users.find(x=>x.id===a.user_id)||{};return Object.assign({},a,{username:p.username,email:u.email,country:p.country})})},
+    async adminAffiliates(){need();return(db.affiliates||[]).map(a=>{const p=db.profiles.find(x=>x.id===a.user_id)||{},u=db.users.find(x=>x.id===a.user_id)||{};return Object.assign({},a,{username:p.username,email:u.email,country:p.country,in_list:(db.ptier||{})[String(a.deriv_id).toUpperCase()]||null})})},
     async reviewAffiliate(u,ok,note){need();const a=(db.affiliates||[]).find(x=>x.user_id===u);if(!a)throw new Error("Esa solicitud no existe");Object.assign(a,{status:ok?"verificado":"rechazado",admin_note:note||"",reviewed_at:now()});const p=db.profiles.find(x=>x.id===u);if(p)p.affiliate=!!ok;save()},
     async adminRedemptions(){need();return(db.redemptions||[]).map(r=>{const p=db.profiles.find(x=>x.id===r.user_id)||{},u=db.users.find(x=>x.id===r.user_id)||{};return Object.assign({},r,{username:p.username,email:u.email,affiliate:!!p.affiliate})}).sort((a,b)=>((b.status==="pendiente")-(a.status==="pendiente"))||String(b.created_at).localeCompare(a.created_at))},
     async reviewRedemption(id,paid,note){need();const r=(db.redemptions||[]).find(x=>x.id===id);if(!r||r.status!=="pendiente")throw new Error("Ese canje ya fue revisado");Object.assign(r,{status:paid?"pagado":"rechazado",admin_note:note||"",reviewed_at:now()});save()},
