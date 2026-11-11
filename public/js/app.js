@@ -92,12 +92,14 @@ const PLAN_NUM={cobre:1,plata:2,oro:3,diamond:4};
 const canSeePost=p=>{if(admin())return true;if(!p.premium_only&&!p.min_plan)return true;return planRank()>=Math.max(1,PLAN_NUM[p.min_plan]||0)};
 const postsVis=()=>API.posts().then(L=>(L||[]).filter(canSeePost));
 /* cursos comprados (de por vida) */
-const ownsCourse=cid=>{if(!cid)return false;if(viewAs()==="curso")return cid===((S.courses||[])[0]||{}).id;if(viewAs())return false;return !!(S.myCourses&&S.myCourses.has(cid))};
+const isBase=cid=>!!(S.courses||[]).find(c=>c.id===cid&&c.base);
+const ownsCourse=cid=>{if(!cid)return false;if(viewAs()==="curso")return isBase(cid)||cid===((S.courses||[]).find(c=>!c.base)||{}).id;if(viewAs())return false;
+  if(isBase(cid))return logged();return !!(S.myCourses&&S.myCourses.has(cid))};
 const ownedCourses=()=>(S.courses||[]).filter(c=>ownsCourse(c.id));
 const courseLessons=c=>{const ms=new Set((S.modules||[]).filter(m=>m.course_id===c.id).map(m=>m.id));return (S.lindex||[]).filter(l=>ms.has(l.module_id))};
 const graduated=c=>{const ls=courseLessons(c);return ls.length>0&&ls.every(l=>S.prog&&S.prog.done[l.id]&&S.prog.done[l.id].passed)};
 const courseTag=c=>`<span class="crs-tag${graduated(c)?" grad":""}" style="--cc:${esc(c.color||"#d8b062")}" title="Curso ${esc(c.title)}">${esc(c.icon||"🎓")} ${graduated(c)?"✓ Graduado · ":""}${esc(c.title)}</span>`;
-const myCourseTags=()=>ownedCourses().map(courseTag).join("");
+const myCourseTags=()=>ownedCourses().filter(c=>!c.base||graduated(c)).map(courseTag).join("");
 const COUNTRIES=["Colombia","México","Argentina","Chile","Perú","Ecuador","Venezuela","Bolivia","Uruguay","Paraguay","Panamá","Costa Rica","Guatemala","Honduras","El Salvador","Nicaragua","República Dominicana","Puerto Rico","Cuba","Brasil","Haití","Belice","Estados Unidos","Canadá","España","Italia","Francia","Suiza","Portugal","Alemania","Reino Unido","Países Bajos","Bélgica","Austria","Irlanda","Suecia","Noruega","Dinamarca","Luxemburgo","Andorra","Polonia","Australia","Emiratos Árabes Unidos","Japón","Otro"];
 /* ---------- completar perfil: foto y país (paso a paso) ---------- */
 function onboard(){
@@ -533,7 +535,11 @@ function retagGuide(){const s=S.site||{},link=(s.derivRefUrl||"").trim(),code=(s
       <li><b>Vuelve aquí y envía tu ID</b> en el formulario de arriba. Si ya está en nuestra lista de socios, quedas verificado al instante; si no, lo revisamos en pocos días.</li>
     </ol>
     ${link?`<a class="btn ghost sm" href="${esc(link)}" target="_blank" rel="noopener sponsored">Ver nuestro enlace de socio</a>`:""}</details>`}
-function freeCard(o={}){const d=trialDays(),fm=(S.modules||[]).filter(m=>m.free&&m.status!=="borrador");if(!d||!fm.length||premium())return"";
+function freeCard(o={}){const bc=(S.courses||[]).find(c=>c.base&&c.status!=="borrador");
+  if(bc&&!premium()){const cta=!logged()?`<a class="btn" href="${toMain("registro")}">Crear cuenta gratis</a>`:closedAcad()?'<span class="btn disabled" aria-disabled="true">Empieza cuando abra la academia</span>':`<a class="btn" href="${toAcad("academia")}">Ir a ${esc(bc.title)}</a>`;
+    return `<div class="price free"><span class="price-tag free-tag">Sin tarjeta</span><h3>${esc(bc.icon||"📚")} Gratis</h3><div class="price-v"><b>0</b><span>USD</span></div><span class="dim">para siempre, solo con tu cuenta</span>
+      <ul class="checks"><li>Curso <b>${esc(bc.title)}</b> completo</li><li>5 gráficas de práctica</li><li>Retos diarios con premios y ranking</li><li>Noticias de la comunidad</li></ul>${cta}</div>`}
+  const d=trialDays(),fm=(S.modules||[]).filter(m=>m.free&&m.status!=="borrador");if(!d||!fm.length||premium())return"";
   const cta=!logged()?`<a class="btn" href="${toMain("registro")}">Empezar gratis</a>`:closedAcad()?'<span class="btn disabled" aria-disabled="true">Empieza cuando abra la academia</span>':inTrial()?`<a class="btn" href="${toAcad("inicio")}">Ir a mi clase gratis</a>`:'<span class="btn disabled" aria-disabled="true">Tu prueba ya terminó</span>';
   return `<div class="price free"><span class="price-tag free-tag">Sin tarjeta</span><h3>Prueba gratis</h3><div class="price-v"><b>0</b><span>USD</span></div><span class="dim">por ${d} días${logged()&&inTrial()?` · te quedan ${trialLeft()}`:""}</span>
     <ul class="checks"><li>${fm.length>1?"Módulos":"Módulo"} ${fm.map(m=>`“${esc(m.title)}”`).join(" y ")} completo</li><li>5 gráficas de práctica</li><li>Retos diarios y ranking</li><li>Noticias de la comunidad</li></ul>${cta}</div>`}
@@ -542,7 +548,7 @@ const TIER_ITEMS={
   plata:["Todo lo de Cobre","Doble XP: subes de nivel el doble de rápido","Publicaciones solo Plata y Oro (análisis)","Placa Plata en tu perfil"],
   oro:["Todo lo de Plata","👑 Sala Oro: lives privados y operativas","Acceso anticipado a cursos nuevos","Placa Oro y nombre dorado"],
   diamond:["♾️ Vitalicio: pagas una vez y es para siempre","💎 Acceso a TODO: todos los cursos y los que salgan","Todo lo de Oro: Sala Oro, lives y operativas","Todas las publicaciones exclusivas","Doble XP","Placa Diamond 💎"]};
-function pricingBlock(host,o={}){if(!host)return;const s=S.site;const pl=(s.plans||[]).filter(x=>x&&x.name&&x.price);const cs=(S.courses||[]).filter(c=>c.status!=="borrador");
+function pricingBlock(host,o={}){if(!host)return;const s=S.site;const pl=(s.plans||[]).filter(x=>x&&x.name&&x.price);const cs=(S.courses||[]).filter(c=>c.status!=="borrador"&&!c.base),bases=(S.courses||[]).filter(c=>c.status!=="borrador"&&c.base);
   if((!pl.length&&!cs.length)||(premium()&&!o.page)){host.remove();return}const off=o.off??!!s.paymentsOff;
   const num=x=>{const m=String(x).replace(",",".").match(/\d+(\.\d+)?/);return m?parseFloat(m[0]):NaN};const cur=x=>String(x).replace(/[\d.,\s]+/g," ").trim()||"USD";
   const base=pl.find(x=>x.days<=31),bm=base?num(base.price)/(base.days/30):NaN;
@@ -555,7 +561,7 @@ function pricingBlock(host,o={}){if(!host)return;const s=S.site;const pl=(s.plan
       <ul class="checks"><li>Todo el curso ${esc(c.title)}: videos y ejercicios</li><li>Sus actualizaciones incluidas</li><li>Medallas del curso</li><li>Placa del curso y ✓ Graduado al terminarlo</li><li class="no">Sin zona exclusiva ni Sala Oro</li></ul>${mine?'<span class="pill ok">Ya es tuyo</span>':btn("Comprar curso",`data-pickc="${esc(c.id)}"`,false)}</div>`}).join("");
   host.innerHTML=`${o.page?"":`<div class="sec-h"><div><span class="eyebrow">Precios</span><h2>Elige tu plan</h2></div><a href="#premium">Cómo pagar</a></div>`}
     <div class="prices${freeCard(o)?" has-free":""}">${freeCard(o)}${plans}${courses}</div>
-    <p class="dim price-foot">${off?"Los pagos están pausados por ahora: te avisaremos cuando abran.":"Pagas con Binance Pay en USDT y activamos tu plan o tu curso al confirmar el pago."} La suscripción incluye <b>todos</b> los cursos; el curso suelto es solo ese curso, para siempre.</p>`;
+    <p class="dim price-foot">${off?"Los pagos están pausados por ahora: te avisaremos cuando abran.":"Pagas con Binance Pay en USDT y activamos tu plan o tu curso al confirmar el pago."} La suscripción incluye <b>todos</b> los cursos; el curso suelto es solo ese curso, para siempre.${bases.length?` El curso <b>${esc(bases.map(b=>b.title).join(" y "))}</b> es gratis con tu cuenta.`:""}</p>`;
   $$("[data-pick]",host).forEach(b=>b.onclick=()=>{const sel=$("#pP");const k=pl[+b.dataset.pick];if(sel){const j=(S.site.plans||[]).findIndex(x=>x.name===k.name);if(j>=0)sel.value="p:"+j}const t=$("#pay");if(t)t.scrollIntoView({behavior:"smooth",block:"start"})});
   $$("[data-pickc]",host).forEach(b=>b.onclick=()=>{const sel=$("#pP");if(sel)sel.value="c:"+b.dataset.pickc;const t=$("#pay");if(t)t.scrollIntoView({behavior:"smooth",block:"start"})})}
 const FAQ_DEF=[["¿Necesito experiencia?","No. El temario empieza desde cero: qué es un bróker, cómo leer las velas y la estructura del mercado, hasta el método completo."],
@@ -1033,7 +1039,7 @@ async function syllabus(host,limit){
   let n=0;host.innerHTML=Object.entries(groups).map(([cat,ms])=>{if(limit&&n>=limit)return"";return `<div class="syl-cat"><h3 class="cat">${esc(cat)}</h3><div class="grid">${ms.map(m=>{if(limit&&n>=limit)return"";n++;const ls=idx.filter(l=>l.module_id===m.id);const pr=modProgress(m.id,ls);
     const op=modOpen(m,true);
     return `<a class="mod ${op?"":"soon-mod"}" href="#modulo-${esc(m.id)}"><span class="num">${esc(m.level||cat)}</span><h3>${esc(m.title)}</h3><p>${esc(m.descr||"")}</p>
-      <div class="meta"><span>${ls.length} ${ls.length===1?"lección":"lecciones"}</span>${m.optional?'<span class="tag pub">Opcional</span>':""}${m.free&&!premium()&&trialDays()?'<span class="tag free-t">Prueba gratis</span>':""}${op?"":`<span class="tag lock">${esc(modState(m))}</span>`}${premium()||!op?"":'<span class="tag">Premium</span>'}${m.status!=="publicado"?'<span class="tag">Borrador</span>':""}</div>${premium()?`<div class="bar"><i style="width:${Math.round(pr*100)}%"></i></div>`:""}</a>`}).join("")}</div></div>`}).join("")}
+      <div class="meta"><span>${ls.length} ${ls.length===1?"lección":"lecciones"}</span>${m.optional?'<span class="tag pub">Opcional</span>':""}${m.free&&!premium()&&trialDays()?'<span class="tag free-t">Prueba gratis</span>':""}${op?"":`<span class="tag lock">${esc(modState(m))}</span>`}${premium()||!op?"":isBase(m.course_id)?'<span class="tag free-t">Gratis</span>':canMod(m)?"":'<span class="tag">Premium</span>'}${m.status!=="publicado"?'<span class="tag">Borrador</span>':""}</div>${premium()||(logged()&&canMod(m))?`<div class="bar"><i style="width:${Math.round(pr*100)}%"></i></div>`:""}</a>`}).join("")}</div></div>`}).join("")}
 function modProgress(mid,ls){ls=ls||S.lindex.filter(l=>l.module_id===mid);if(!ls.length||!S.prog)return 0;return ls.filter(l=>S.prog.done[l.id]&&S.prog.done[l.id].passed).length/ls.length}
 /* reproducir enlaces .m3u8 (Bunny "playlist.m3u8") también en Chrome/Android con hls.js */
 let hlsP=null;
@@ -1153,7 +1159,7 @@ ROUTES.premium=()=>{const s=S.site;const plans=(s.plans||[]).filter(x=>x&&x.name
   const estado={pendiente:'<span class="pill gold">Por confirmar</span>',aprobado:'<span class="pill ok">Aprobado</span>',rechazado:'<span class="pill">Rechazado</span>'};
   const draw=async()=>{let mine=[];try{mine=await API.myPayments()}catch(e){}
     host.innerHTML=`<form class="form" id="pf" novalidate><h3 style="margin-top:6px">Registrar mi pago</h3>
-      <div class="two"><label for="pP">Qué pagaste<select id="pP">${plans.map((x,i)=>`<option value="p:${i}">${(TIERS[tierOfPlan(x)]||{}).n||""} · ${esc(x.name)} · ${esc(x.price)}</option>`).join("")}${(S.courses||[]).filter(c=>c.status!=="borrador"&&!ownsCourse(c.id)).map(c=>`<option value="c:${esc(c.id)}">Curso ${esc(c.title)} · ${esc(c.price||"40 USD")} · de por vida</option>`).join("")}</select></label>
+      <div class="two"><label for="pP">Qué pagaste<select id="pP">${plans.map((x,i)=>`<option value="p:${i}">${(TIERS[tierOfPlan(x)]||{}).n||""} · ${esc(x.name)} · ${esc(x.price)}</option>`).join("")}${(S.courses||[]).filter(c=>c.status!=="borrador"&&!c.base&&!ownsCourse(c.id)).map(c=>`<option value="c:${esc(c.id)}">Curso ${esc(c.title)} · ${esc(c.price||"40 USD")} · de por vida</option>`).join("")}</select></label>
       <label for="pO">ID de orden de Binance<input id="pO" inputmode="numeric" autocomplete="off" placeholder="Ej.: 382947561029384756" maxlength="80"></label></div>
       <label for="pN">Nota (opcional)<input id="pN" maxlength="300" placeholder="Ej.: pagué desde la cuenta de mi hermano"></label>
       <div class="err" id="pE" role="alert"></div><div class="row"><button class="btn gold" id="pB">Registrar pago</button></div></form>
@@ -1165,7 +1171,7 @@ ROUTES.premium=()=>{const s=S.site;const plans=(s.plans||[]).filter(x=>x&&x.name
   draw()};
 
 /* ---------- academia ---------- */
-ROUTES.academia=()=>{app.innerHTML=`<div class="pagehead"><span class="eyebrow">Academia</span><h1>Temario</h1><p class="muted">Avanza en orden: cada lección se aprueba con sus ejercicios y cada módulo se desbloquea al terminar el anterior.</p>${premium()?"":`<div class="note">Puedes ver el temario completo. Las lecciones y los ejercicios son para alumnos premium. <a href="#premium">Ver cómo acceder</a></div>`}</div><div id="syl"></div>`;syllabus($("#syl"))};
+ROUTES.academia=()=>{app.innerHTML=`<div class="pagehead"><span class="eyebrow">Academia</span><h1>Temario</h1><p class="muted">Avanza en orden: cada lección se aprueba con sus ejercicios y cada módulo se desbloquea al terminar el anterior.</p>${premium()?"":`<div class="note">${(S.courses||[]).some(c=>c.base)?`El curso <b>${esc((S.courses||[]).filter(c=>c.base).map(c=>c.title).join(" y "))}</b> es gratis y completo ${logged()?"con tu cuenta":`creando tu cuenta`}. El resto del temario es para alumnos con plan o con el curso.`:"Puedes ver el temario completo. Las lecciones y los ejercicios son para alumnos premium."} <a href="${logged()?"#premium":toMain("registro")}">${logged()?"Ver cómo acceder":"Crear cuenta gratis"}</a></div>`}</div><div id="syl"></div>`;syllabus($("#syl"))};
 ROUTES.modulo=id=>{const m=S.modules.find(x=>x.id===id);if(!m){app.innerHTML=`<div class="empty">Ese módulo no existe.<a class="btn sm" href="#academia">Ver temario</a></div>`;return}
   const ok=canMod(m),trial=!premium()&&ok;const ls=S.lindex.filter(l=>l.module_id===id);const prev=prevReq(m);const closedM=!modOpen(m);const locked=closedM||(ok&&modLocked(m));
   app.innerHTML=`<div class="crumbs"><a href="#academia">Temario</a><span>/</span><span>${esc(m.category||"")}</span></div><div class="pagehead"><span class="eyebrow">${esc(m.level||m.category||"Módulo")}</span><h1>${esc(m.title)}</h1><p class="muted">${esc(m.descr||"")}</p>${ok?`<div class="bar" style="max-width:420px"><i style="width:${Math.round(modProgress(id)*100)}%"></i></div>`:""}</div>
