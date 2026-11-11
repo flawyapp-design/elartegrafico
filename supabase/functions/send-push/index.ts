@@ -3,8 +3,13 @@
 import webpush from "npm:web-push@3.6.7";
 
 const URL_ = Deno.env.get("SUPABASE_URL")!;
-const SR = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const ANON = Deno.env.get("SUPABASE_ANON_KEY")!;
+const pick = (legacy: string, json: string) => {
+  const v = Deno.env.get(legacy);
+  if (v) return v;
+  try { const o = JSON.parse(Deno.env.get(json) || "{}"); return o.default || Object.values(o)[0] || ""; } catch { return ""; }
+};
+const SR = pick("SUPABASE_SERVICE_ROLE_KEY", "SUPABASE_SECRET_KEYS") as string;
+const ANON = pick("SUPABASE_ANON_KEY", "SUPABASE_PUBLISHABLE_KEYS") as string;
 const cors = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-client-info",
