@@ -420,7 +420,7 @@ const TIER_ITEMS={
   cobre:["Todos los cursos de la academia","Práctica ilimitada en gráficas reales","Zona exclusiva: novedades, tutoriales y actualizaciones","Comentar en la comunidad","Placa Cobre en tu perfil"],
   plata:["Todo lo de Cobre","Doble XP: subes de nivel el doble de rápido","Publicaciones solo Plata y Oro (análisis)","Placa Plata en tu perfil"],
   oro:["Todo lo de Plata","👑 Sala Oro: lives privados y operativas","Acceso anticipado a cursos nuevos","Placa Oro y nombre dorado"],
-  diamond:["💎 Acceso a TODO: todos los cursos y los que salgan","Todo lo de Oro: Sala Oro, lives y operativas","Todas las publicaciones exclusivas","Doble XP","🎡 Ruleta diaria exclusiva (sin apostar nada)","Placa Diamond 💎"]};
+  diamond:["💎 Acceso a TODO: todos los cursos y los que salgan","Todo lo de Oro: Sala Oro, lives y operativas","Todas las publicaciones exclusivas","Doble XP","Placa Diamond 💎"]};
 function pricingBlock(host,o={}){if(!host)return;const s=S.site;const pl=(s.plans||[]).filter(x=>x&&x.name&&x.price);const cs=(S.courses||[]).filter(c=>c.status!=="borrador");
   if((!pl.length&&!cs.length)||(premium()&&!o.page)){host.remove();return}const off=o.off??!!s.paymentsOff;
   const num=x=>{const m=String(x).replace(",",".").match(/\d+(\.\d+)?/);return m?parseFloat(m[0]):NaN};const cur=x=>String(x).replace(/[\d.,\s]+/g," ").trim()||"USD";
@@ -625,10 +625,10 @@ const MEDALS={trebol:["☘️","Trébol de la suerte"],herradura:["🧲","Herrad
 const bogotaDay=()=>new Date(Date.now()-5*3600e3).toISOString().slice(0,10);
 ROUTES.oro=async()=>{if(!logged()){location.hash="#entrar";return}
   if(planRank()<3){app.innerHTML=`<section class="oro-hero locked"><div class="oro-crown">👑</div><span class="eyebrow">Exclusivo plan Oro</span><h1>Sala Oro</h1><p class="muted">La parte privada de El Arte Gráfico para los suscriptores Oro.</p>
-      <div class="oro-perks"><div><b>🔴 En vivo privado</b><span>Lives solo para Oro: dudas, análisis y operativa en directo, con la grabación después.</span></div><div><b>📈 Operativas</b><span>Las operaciones que comparto: zona, entrada, stop y cómo terminó.</span></div><div><b>💎 ¿Quieres todo?</b><span>Con Diamond tienes la Sala Oro, todos los cursos y la ruleta diaria exclusiva.</span></div><div><b>🚀 Acceso anticipado</b><span>Los cursos y módulos nuevos, antes que nadie.</span></div></div>
+      <div class="oro-perks"><div><b>🔴 En vivo privado</b><span>Lives solo para Oro: dudas, análisis y operativa en directo, con la grabación después.</span></div><div><b>📈 Operativas</b><span>Las operaciones que comparto: zona, entrada, stop y cómo terminó.</span></div><div><b>💎 ¿Quieres todo?</b><span>Con Diamond tienes la Sala Oro, todos los cursos y todas las publicaciones exclusivas.</span></div><div><b>🚀 Acceso anticipado</b><span>Los cursos y módulos nuevos, antes que nadie.</span></div></div>
       <div class="row" style="justify-content:center"><a class="btn gold" href="#premium">Ver plan Oro</a></div></section>`;return}
-  app.innerHTML=`<section class="oro-hero"><div class="oro-crown">👑</div><span class="eyebrow">Plan Oro</span><h1>Sala Oro</h1><p class="muted">Lives privados y operativas${planRank()>=4?", y tu ruleta Diamond del día":""}.</p></section>
-    <section class="sec oro-grid">${planRank()>=4?`<div class="panel wheel-box"><h2>🎡 Ruleta del día</h2><p class="muted" id="whTxt">Un giro gratis cada día. Siempre ganas algo.</p>
+  app.innerHTML=`<section class="oro-hero"><div class="oro-crown">👑</div><span class="eyebrow">Plan Oro</span><h1>Sala Oro</h1><p class="muted">Lives privados y operativas.</p></section>
+    <section class="sec oro-grid">${false?`<div class="panel wheel-box"><h2>🎡 Ruleta del día</h2><p class="muted" id="whTxt">Un giro gratis cada día. Siempre ganas algo.</p>
       <div class="wheel-wrap"><div class="wheel-ptr">▼</div><svg id="wheel" viewBox="-110 -110 220 220" aria-hidden="true">${WHEEL.map(([t,c],i)=>{const a0=(i*60-90)*Math.PI/180,a1=((i+1)*60-90)*Math.PI/180,am=((i+.5)*60-90)*Math.PI/180;
         return `<path d="M0 0 L${100*Math.cos(a0)} ${100*Math.sin(a0)} A100 100 0 0 1 ${100*Math.cos(a1)} ${100*Math.sin(a1)} Z" fill="${c}" stroke="#d8b062" stroke-width="1.5"/><text x="${62*Math.cos(am)}" y="${62*Math.sin(am)}" fill="#fff" font-size="11" font-weight="800" text-anchor="middle" dominant-baseline="middle" transform="rotate(${i*60+30} ${62*Math.cos(am)} ${62*Math.sin(am)})">${t}</text>`}).join("")}<circle r="16" fill="#d8b062"/><text y="1" font-size="14" text-anchor="middle" dominant-baseline="middle">👑</text></svg></div>
       <button class="btn gold" id="whGo">Girar</button><div id="whMed" class="wh-med"></div></div>`:""}
@@ -640,7 +640,7 @@ ROUTES.oro=async()=>{if(!logged()){location.hash="#entrar";return}
     $("#oroLive").innerHTML=live.length?live.slice(0,3).map(p=>`<a class="mini" href="#nota-${esc(p.id)}"><span class="dim">${fmtDate(p.created_at)}</span><b>${esc(p.title)}</b></a>`).join(""):'<div class="muted">Aún no hay lives programados. Te avisaremos con una notificación.</div>';
     $("#oroOps").innerHTML=ops.map(postCard).join("")||'<div class="empty">Pronto compartiré aquí mis operativas.</div>';
     $("#oroMore").innerHTML=more.map(postCard).join("")||'<div class="muted">Aún no hay más publicaciones.</div>'}).catch(()=>{});
-  if(planRank()<4)return;
+  return;
   let spins=[];try{spins=API.mySpins?await API.mySpins():[]}catch(e){}
   const med=()=>{const ms=spins.filter(x=>x.prize==="medalla");$("#whMed").innerHTML=ms.length?`<b>Tus medallas de la suerte</b><div class="wh-mlist">${ms.map(x=>{const m=MEDALS[x.label]||["🏅",x.label];return `<span title="${esc(m[1])} · ${fmtDate(x.created_at)}">${m[0]}</span>`}).join("")}</div>`:""};med();
   const today=spins.find(x=>String(x.day).slice(0,10)===bogotaDay());const go=$("#whGo");

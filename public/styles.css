@@ -1406,3 +1406,4 @@ nav.main .mnav-sw a.on{color:#1b1405!important;background:linear-gradient(180deg
 .price.tier-diamond{border-color:rgba(143,227,255,.75);background:linear-gradient(180deg,rgba(143,227,255,.12),rgba(185,166,255,.06) 40%,transparent 65%),var(--card);box-shadow:0 0 44px -12px rgba(143,227,255,.55)}
 .price-tag.dia-tag{background:linear-gradient(135deg,#8fe3ff,#b9a6ff);color:#0b1838}
 .uc-give select{min-width:170px}
+.oro-grid{grid-template-columns:1fr!important}

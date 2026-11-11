@@ -27,7 +27,7 @@ A.ROUTES.admin=sub=>{
         <button type="button" data-va="cobre"><b>🟤 Cobre</b><small>Suscripción de 1 mes</small></button>
         <button type="button" data-va="plata"><b>⚪ Plata</b><small>Suscripción de 6 meses</small></button>
         <button type="button" data-va="oro"><b>🟡 Oro</b><small>12 meses, con Sala Oro</small></button>
-        <button type="button" data-va="diamond"><b>💎 Diamond</b><small>Acceso a todo, con ruleta</small></button>
+        <button type="button" data-va="diamond"><b>💎 Diamond</b><small>Acceso a todo</small></button>
         <span class="dim">No cambia tu cuenta. Para salir toca "Volver a admin".</span></div></details>
       <div class="adm-st ${closed?"off":"on"}"><span class="dot"></span><div><b>Academia ${closed?"cerrada":"abierta"}</b><small>${closed?"Solo tú la ves":"Los alumnos pueden entrar"}</small></div><button class="btn sm ${closed?"gold":"bad"}" id="acSw">${closed?"Abrir":"Cerrar"}</button></div>
       <button type="button" class="adm-mbtn" id="admMb" aria-expanded="false">${ico(TICO[tab]||"news",20)}<span><small>Sección</small><b>${cur[1]}</b></span><i>▾</i></button>
