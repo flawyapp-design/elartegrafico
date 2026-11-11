@@ -35,10 +35,10 @@ const HOST=location.hostname,PROD=/(^|\.)elartegrafico\.com$/.test(HOST);
 const SITE=PROD?(/^academia\./.test(HOST)?"academia":"main"):(new URLSearchParams(location.search).get("sitio")==="academia"?"academia":"main");
 const ACAD=SITE==="academia";
 function link(site,hash){hash=hash||"inicio";if(site===SITE)return"#"+hash;
-  let vq="";try{const v=sessionStorage.getItem("ag_view_as");if(v&&!/^admin/.test(hash))vq="ver="+encodeURIComponent(v)}catch(e){}
+  let vq="";try{const v=sessionStorage.getItem("ag_view_as");if(v&&!/^admin/.test(hash))vq="ver="+encodeURIComponent(v);else if(window.AGAPI&&AGAPI.isAdmin&&AGAPI.isAdmin())vq="ver=admin"}catch(e){}
   if(PROD){const base=HOST.replace(/^(www\.|academia\.)/,"");return"https://"+(site==="academia"?"academia.":"")+base+"/"+(vq?"?"+vq:"")+"#"+hash}
   return location.pathname+(site==="academia"?"?sitio=academia"+(vq?"&"+vq:""):(vq?"?"+vq:""))+"#"+hash}
-try{const v=new URLSearchParams(location.search).get("ver");if(v)sessionStorage.setItem("ag_view_as",v)}catch(e){}
+try{const q=new URLSearchParams(location.search),v=q.get("ver");if(q.has("ver")){if(v&&v!=="admin")sessionStorage.setItem("ag_view_as",v);else sessionStorage.removeItem("ag_view_as");q.delete("ver");const qs=q.toString();history.replaceState(null,"",location.pathname+(qs?"?"+qs:"")+location.hash)}}catch(e){}
 const ACAD_R=new Set(["academia","modulo","leccion","practica","prueba","progreso","logros"]);
 const MAIN_R=new Set(["oro","entrar","registro","recuperar","noticias","comunidad","nota","opiniones","mercados","legal","terminos","privacidad","retos","reto","ranking","puntos"]);
 const toAcad=h=>link("academia",h),toMain=h=>link("main",h);
@@ -167,7 +167,7 @@ function pageList(box,per){const items=[...box.children].filter(x=>!x.classList.
 function autoPage(root){root=root||app;if(!root)return;PAGE_RULES.forEach(([q,per])=>root.querySelectorAll(q).forEach(b=>{if(b.closest("[data-nopage]")||b.closest("form"))return;pageList(b,per)}))}
 {let pgT=null;new MutationObserver(ms=>{if(ms.every(m=>(m.target.closest&&m.target.closest(".pager"))||[...m.addedNodes,...m.removedNodes].every(x=>x.nodeType===1&&x.classList.contains("pager"))))return;clearTimeout(pgT);pgT=setTimeout(()=>autoPage(app),60)}).observe(app,{childList:true,subtree:true})}
 function clear(){cleanup.forEach(f=>{try{f()}catch(e){}});cleanup=[];const n=document.getElementById("admNote");if(n)n.remove()}
-const closedAcad=()=>!!(S.site&&S.site.academyClosed);
+const closedAcad=()=>!!(S.site&&S.site.academyClosed)&&!API.isAdmin();
 /* módulo disponible: a mano (available) o por fecha (open_at). Sin la columna (SQL viejo) se considera abierto. */
 function modOpen(m,ignoreAdmin){if(!m)return false;if(!ignoreAdmin&&admin())return true;if(m.available!==false)return true;return !!(m.open_at&&new Date(m.open_at)<=new Date())}
 /* orden obligatorio: con «Exige terminar el módulo anterior», el módulo se abre al aprobar todo el anterior
@@ -204,8 +204,9 @@ function sideState(){let off=false;try{off=localStorage.getItem("ag_side_off")==
 document.addEventListener("click",e=>{if(e.target.closest&&e.target.closest("#sideHide")){try{localStorage.setItem("ag_side_off","1")}catch(x){}sideState();window.dispatchEvent(new Event("resize"))}});
 function viewBar(){let b=$("#viewBar");const v=viewAs();if(!v){if(b)b.remove();document.body.classList.remove("viewing");return}
   if(!b){b=document.createElement("div");b.id="viewBar";b.className="view-bar";document.body.appendChild(b)}document.body.classList.add("viewing");
-  b.innerHTML=`<span>👁 <b>Modo prueba:</b> así ve la página un</span><select aria-label="Ver como">${Object.entries(VIEWS).map(([k,t])=>`<option value="${k}"${k===v?" selected":""}>${t.replace("Alumno ","alumno ").replace("Suscriptor ","suscriptor ")}</option>`).join("")}</select><a class="btn sm gold" href="${toMain("admin")}">Volver a admin</a>`;
-  $("select",b).onchange=e=>{setViewAs(e.target.value);renderNav();route()}}
+  b.innerHTML=`<span>👁 <b>Modo prueba:</b> así ve la página un</span><select aria-label="Ver como">${Object.entries(VIEWS).map(([k,t])=>`<option value="${k}"${k===v?" selected":""}>${t.replace("Alumno ","alumno ").replace("Suscriptor ","suscriptor ")}</option>`).join("")}</select><button type="button" class="btn sm gold" id="vbOut">Volver a admin</button>${S.site&&S.site.academyClosed?'<small class="vb-note">La academia sigue cerrada para los alumnos; aquí la ves abierta.</small>':""}`;
+  $("select",b).onchange=e=>{setViewAs(e.target.value);renderNav();route()};
+  $("#vbOut",b).onclick=()=>{setViewAs("");viewBar();renderNav();const u=link("main","admin");if(/^https?:/.test(u))location.href=u.replace("/#","/?ver=admin#");else{location.hash="#admin";route()}}}
 window.AGVIEW=v=>{setViewAs(v);viewBar();renderNav();location.hash="#inicio";route()};
 function renderNav(){sideState();viewBar();document.body.classList.toggle("is-acad",!!ACAD);
   let r=(location.hash||"#inicio").slice(1).split("-")[0];if(r==="noticias"||r==="nota")r="comunidad";

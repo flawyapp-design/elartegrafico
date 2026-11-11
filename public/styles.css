@@ -1407,3 +1407,5 @@ nav.main .mnav-sw a.on{color:#1b1405!important;background:linear-gradient(180deg
 .price-tag.dia-tag{background:linear-gradient(135deg,#8fe3ff,#b9a6ff);color:#0b1838}
 .uc-give select{min-width:170px}
 .oro-grid{grid-template-columns:1fr!important}
+/* modo prueba: barra abajo para no tapar la página */
+.view-bar{top:auto;bottom:16px}.view-bar .vb-note{flex-basis:100%;text-align:center;color:#f3d88f;font-size:12px}
