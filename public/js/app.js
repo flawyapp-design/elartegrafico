@@ -351,7 +351,7 @@ const ICON_TT='<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true
 /* gráfico animado: zona → stop loss → repetición (ilustrativo) */
 function demoChart(host){if(!host)return;
   const st=["Lee la estructura y marca tu zona","Define tu entrada y tu stop loss","Mira la repetición vela por vela"];
-  host.innerHTML=`<div class="dm-top"><span class="dm-mk">Boom 1000</span></div><canvas aria-hidden="true"></canvas>
+  host.innerHTML=`<div class="dm-top"><span class="dm-mk">Boom 1000</span></div><div class="dm-cv"><canvas aria-hidden="true"></canvas></div>
     <ol class="dm-steps">${st.map((t,i)=>`<li data-s="${i}"><i>${i+1}</i>${esc(t)}</li>`).join("")}</ol><span class="dm-note">Ilustración de un ejercicio de la academia</span>`;
   const cv=$("canvas",host),cx=cv.getContext("2d");
   let sd=11;const rnd=()=>(sd=(sd*16807)%2147483647)/2147483647;

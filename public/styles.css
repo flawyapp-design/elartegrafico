@@ -1409,3 +1409,7 @@ nav.main .mnav-sw a.on{color:#1b1405!important;background:linear-gradient(180deg
 .oro-grid{grid-template-columns:1fr!important}
 /* modo prueba: barra abajo para no tapar la página */
 .view-bar{top:auto;bottom:16px}.view-bar .vb-note{flex-basis:100%;text-align:center;color:#f3d88f;font-size:12px}
+/* gráfica del inicio: el lienzo no empuja el tamaño de la tarjeta (en Safari crecía sin fin) */
+.demo-card .dm-cv{position:relative;min-height:220px;min-width:0;overflow:hidden}
+.demo-card .dm-cv canvas{position:absolute;inset:0;width:100%;height:100%;min-height:0}
+@media (max-width:560px){.demo-card .dm-cv{min-height:0;height:200px}}
