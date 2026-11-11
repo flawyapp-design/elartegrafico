@@ -212,11 +212,11 @@ function renderNav(){sideState();viewBar();document.body.classList.toggle("is-ac
   let r=(location.hash||"#inicio").slice(1).split("-")[0];if(r==="noticias"||r==="nota")r="comunidad";
   const rw=rewardsOn()||admin();
   const L=ACAD?[["inicio","Mi panel"],["academia","Temario"],["practica","Práctica"],["logros","Logros"],["progreso","Progreso"]].concat(premium()?[]:[["prueba","Prueba gratis"]])
-             :[["inicio","Inicio"]].concat(rw?[["retos","Retos"],["ranking","Ranking"]]:[]).concat(logged()?[["oro","Sala Oro"]]:[]).concat([["comunidad","Comunidad"],["opiniones","Opiniones"],["mercados","Mercados"],["premium","Premium"]]);
+             :[["inicio","Inicio"]].concat(rw?[["retos","Retos"],["ranking","Ranking"]]:[]).concat(logged()?[["oro","Sala Oro"],["mensajes","Mensajes"]]:[]).concat([["comunidad","Comunidad"],["opiniones","Opiniones"],["mercados","Mercados"],["premium","Premium"]]);
   if(ACAD&&closedAcad()&&!admin())L.length=0;
   const u=API.user(),p=API.profile();const lv=levelOf((S.prog&&S.prog.xp)||0);
   const other=ACAD?`<a class="navx" href="${toMain("inicio")}">El Arte Gráfico ↗</a>`:(u&&p?`<a class="btn sm gold navacad" href="${toAcad("inicio")}">Ir a la academia</a>`:"");
-  const NI={oro:"crown",inicio:"home",comunidad:"chat",opiniones:"star",mercados:"chart",premium:"crown",academia:"acad",practica:"chart",ranking:"trophy",prueba:"play",retos:"bolt",progreso:"layers",puntos:"card",logros:"medal"};
+  const NI={mensajes:"chat",oro:"crown",inicio:"home",comunidad:"chat",opiniones:"star",mercados:"chart",premium:"crown",academia:"acad",practica:"chart",ranking:"trophy",prueba:"play",retos:"bolt",progreso:"layers",puntos:"card",logros:"medal"};
   const msw=`<div class="mnav-sw" role="group" aria-label="Elige sección"><a class="${ACAD?"":"on"}" href="${ACAD?toMain("inicio"):"#inicio"}"${ACAD?"":' aria-current="true"'}>${ico("home",20)}<span><b>El Arte Gráfico</b><small>Comunidad y noticias</small></span></a><a class="${ACAD?"on":""}" href="${ACAD?"#inicio":toAcad("inicio")}"${ACAD?' aria-current="true"':""}>${ico("acad",20)}<span><b>Academia</b><small>Lecciones y práctica</small></span></a></div>
     <div class="mnav-here"><i></i>Estás en ${ACAD?"<b>la Academia</b>":"<b>El Arte Gráfico</b>"}</div>`;
   const mus=u&&p?`<div class="mnav-user"><a class="mnu-me" href="#perfil">${avatar(p,40)}<span><b>${esc(p.username)}</b><small>${esc(lv.name)} · ${S.prog?S.prog.xp:0} pts</small></span>${premium()?premTag(myPlan()):""}</a>
@@ -233,7 +233,7 @@ function renderNav(){sideState();viewBar();document.body.classList.toggle("is-ac
   $("#tbMore").onclick=e=>{e.stopPropagation();const o=$("#nav").classList.toggle("open");document.body.classList.toggle("sheet-open",o);$("#menuBtn").setAttribute("aria-expanded",String(o))};
   if(!window.__sheetClose){window.__sheetClose=1;document.addEventListener("click",e=>{const n=$("#nav");if(!n||!n.classList.contains("open")||!document.body.classList.contains("sheet-open"))return;
     if(!n.contains(e.target)||e.target.closest("a")){n.classList.remove("open");document.body.classList.remove("sheet-open")}})}
-  $("#nav").innerHTML=msw+L.map(([k,t])=>`<a href="#${k}" class="${r===k?"on":""}"><span class="mi">${ico(NI[k]||"news",20)}</span>${t}</a>`).join("")+other+mus+
+  $("#nav").innerHTML=msw+L.map(([k,t])=>`<a href="#${k}" class="${r===k?"on":""}"><span class="mi">${ico(NI[k]||"news",20)}</span>${t}${k==="mensajes"&&S.dm&&S.dm.unread?`<em class="nbadge">${S.dm.unread}</em>`:""}</a>`).join("")+other+mus+
     (u&&p?`<div class="dd" id="dd"><button aria-haspopup="true" aria-expanded="false" id="ddb">${avatar(p,28)}<span>${esc(p.username)}</span>${premium()?`<span class="prem-badge t-${myPlan()}">${(TIERS[myPlan()]||{n:"Premium"}).n}</span>`:ownedCourses().length?`<span class="prem-badge crs" style="--cc:${esc(ownedCourses()[0].color)}">Curso</span>`:""}</button>
       <div class="menu" hidden>
         <a class="dm-head" href="#perfil">${avatar(p,46)}<span class="dm-id"><b>${esc(p.username)} ${flag(p.country||"")}</b><small>${esc(p.email||"")}</small></span></a>
@@ -243,7 +243,7 @@ function renderNav(){sideState();viewBar();document.body.classList.toggle("is-ac
           <a href="${ACAD?"#perfil":"#perfil"}">${ico("gear",18)}<span>Configuración</span></a>
           <a href="${ACAD?"#perfil-progreso":"#perfil-progreso"}">${ico("chart",18)}<span>Mi progreso</span></a>
           ${rewardsOn()||admin()?`<a href="${toMain("puntos")}">${ico("card",18)}<span>Mis puntos</span></a><a href="${toMain("ranking")}">${ico("trophy",18)}<span>Ranking de retos</span></a>`:""}
-          ${S.dm&&(S.dm.exists||S.dm.unread)&&!admin()?`<a href="${toMain("mensajes")}">${ico("chat",18)}<span>Mensajes</span>${S.dm.unread?`<em class="nbadge">${S.dm.unread}</em>`:""}</a>`:""}
+          ${!admin()?`<a href="${toMain("mensajes")}">${ico("chat",18)}<span>Mensajes</span>${S.dm&&S.dm.unread?`<em class="nbadge">${S.dm.unread}</em>`:""}</a>`:""}
           <a href="${toAcad("progreso")}">${ico("layers",18)}<span>Tabla de progreso</span></a>
           ${premium()?"":`<a href="${toMain("premium")}" class="dm-gold">${ico("crown",18)}<span>Hazte premium</span></a>`}
           ${isStandalone()?"":`<button type="button" id="ddInst">${ico("play",18)}<span>Instalar la app</span></button>`}
@@ -290,6 +290,7 @@ let dmLast=-1;
 async function dmPoll(){if(!logged()||!API.dmBadge)return;let b=null;try{b=await API.dmBadge()}catch(e){return}if(!b)return;
   const prev=S.dm;S.dm=b;const n=b.unread||0;
   if(!prev||prev.unread!==n||prev.exists!==b.exists)renderNav();
+  {const c0=$(".mh-dm");if(c0&&c0.classList.contains("new")!==(n>0)&&/^(inicio)?$/.test(location.hash.slice(1)))route(true)}
   let c=$("#dmChip");const onChat=b.admin?/^#admin-chat/.test(location.hash):/^#mensajes/.test(location.hash);
   if(n>0&&!onChat){if(!c){c=document.createElement("a");c.id="dmChip";c.className="dm-chip";document.body.appendChild(c)}
     c.href=b.admin?toMain("admin-chat"):toMain("mensajes");c.innerHTML=`${ico("chat",18)}<span>${b.admin?`${n} mensaje${n>1?"s":""} de alumnos`:`Tienes ${n>1?n+" mensajes nuevos":"un mensaje"} de El Arte Gráfico`}</span>`;
@@ -537,6 +538,8 @@ async function memberHome(){
       <div><div class="mh-bl"><span>${lv.to?`Nivel ${lv.i+2} en ${lv.to-(g.xp||0)} pts`:"Nivel máximo"}</span><b class="mono">${lpct}%</b></div><div class="bar"><i style="width:${lpct}%"></i></div></div>
     </div>
   </section>
+  ${admin()?"":`<a class="mh-dm${S.dm&&S.dm.unread?" new":""}" href="${toMain("mensajes")}"><span class="mh-dm-i">${ico("chat",24)}${S.dm&&S.dm.unread?`<em class="nbadge">${S.dm.unread}</em>`:""}</span>
+    <span><b>${S.dm&&S.dm.unread?`Tienes ${S.dm.unread>1?S.dm.unread+" mensajes nuevos":"un mensaje nuevo"}`:"Tus mensajes"}</b><small>${S.dm&&S.dm.unread?"El Arte Gráfico te escribió. Toca para leer y responder.":"Aquí te escribimos si necesitamos algo de ti (tu ID de Deriv, un pago, una duda). Te llega notificación."}</small></span><i>${S.dm&&S.dm.unread?"Leer":"Abrir"} →</i></a>`}
   ${inTrial()?trialCard():""}
   <section class="mh-tiles">${tiles.map(([k,t,d,h,ext])=>`<a class="mt" href="${esc(h)}"${ext?' target="_blank" rel="noopener"':""}><span class="mt-i">${ico(k)}</span><b>${t}</b><span class="dim">${d}</span></a>`).join("")}</section>
   <section class="mh-grid">

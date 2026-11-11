@@ -1449,3 +1449,12 @@ nav.main .mnav-sw a.on{color:#1b1405!important;background:linear-gradient(180deg
 .chat-page .chat{height:calc(100dvh - 330px);min-height:340px}
 :root[data-theme="light"] .msg.them .bub{background:#fff}
 .dm-it,.dm-it *{text-decoration:none!important}
+/* tarjeta de mensajes en el inicio del alumno */
+.mh-dm{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:14px;align-items:center;margin:14px 0;padding:14px 18px;border-radius:18px;border:1px solid var(--line2);background:var(--card);text-decoration:none;color:var(--fg)}
+.mh-dm span{display:grid;gap:2px}.mh-dm small{color:var(--muted);font-size:13px;line-height:1.4}.mh-dm i{font-style:normal;color:var(--gold);font-weight:700;white-space:nowrap}
+.mh-dm-i{position:relative;width:46px;height:46px;border-radius:14px;display:grid!important;place-items:center;background:rgba(216,176,98,.12);color:var(--gold)}
+.mh-dm-i .nbadge{position:absolute;top:-6px;right:-6px;margin:0}
+.mh-dm.new{border-color:rgba(216,176,98,.7);background:linear-gradient(135deg,rgba(216,176,98,.16),transparent 60%),var(--card);box-shadow:0 0 30px -10px rgba(216,176,98,.6)}
+.mh-dm:hover{border-color:var(--gold)}
+#nav a .nbadge{margin-left:auto}
+body.sheet-open .dm-chip{display:none}
