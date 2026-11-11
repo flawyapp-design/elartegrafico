@@ -3,13 +3,14 @@
 "use strict";
 const A=window.AGAPP;const {$,$$,esc,API,S,toast,busy,fmtT,fmtDate,fmtDT,TZ,MARKETS,MNAME,h1Bars,m5Bars,idxAt,avgRange,toC,Chart,app}=A;
 let tab="resumen";
-const GROUPS=[["General",["resumen"]],["Contenido",["contenido","ejercicios","banners","noticias","archivos"]],["Alumnos",["alumnos","pagos","resenas","opiniones","notif"]],["Sitio",["sitio","legal"]]];
-const TICO={resumen:"chart",sitio:"site",banners:"image",contenido:"layers",ejercicios:"acad",noticias:"news",opiniones:"star",resenas:"msg",pagos:"card",alumnos:"users",archivos:"folder",notif:"bell",legal:"scale"};
-const TDESC={resumen:"Cómo va la academia: alumnos, visitas y actividad.",sitio:"Textos, portada, precios, enlaces y datos de contacto de la web.",banners:"Imágenes y mensajes del carrusel de la portada y del ingreso.",
+const GROUPS=[["General",["resumen"]],["Academia",["contenido","ejercicios","banners","noticias","archivos"]],["Retos y puntos",["retos","afiliados","canjes","rpuntos"]],["Alumnos",["alumnos","pagos","resenas","opiniones","notif"]],["Sitio",["sitio","legal"]]];
+const TICO={retos:"bolt",afiliados:"users",canjes:"card",rpuntos:"gear",resumen:"chart",sitio:"site",banners:"image",contenido:"layers",ejercicios:"acad",noticias:"news",opiniones:"star",resenas:"msg",pagos:"card",alumnos:"users",archivos:"folder",notif:"bell",legal:"scale"};
+const TDESC={retos:"Crea el reto del día: cuestionario, ¿sube o baja? o marcar la zona. Los primeros en acertar ganan puntos.",afiliados:"Verifica quién abrió su cuenta de Deriv con tu enlace de socio: ganan los puntos completos.",
+  canjes:"Solicitudes para cambiar puntos por dinero: paga y márcalas.",rpuntos:"Activa los retos, define cuánto vale cada punto y el mínimo para canjear.",resumen:"Cómo va la academia: alumnos, visitas y actividad.",sitio:"Textos, portada, precios, enlaces y datos de contacto de la web.",banners:"Imágenes y mensajes del carrusel de la portada y del ingreso.",
   contenido:"Módulos, lecciones, videos y el orden del temario.",ejercicios:"Gráficas, cálculos y preguntas de cada lección y de la práctica.",noticias:"Publicaciones de la comunidad y avisos.",
   opiniones:"Opiniones públicas de los alumnos: aprueba u oculta.",resenas:"Lo que dicen los alumnos al terminar cada módulo (privado).",pagos:"Pagos de Binance por confirmar y el historial.",
   alumnos:"Cuentas, premium, puntos y avance de cada alumno.",archivos:"Imágenes y archivos subidos.",notif:"Envía avisos al celular de los alumnos.",legal:"Términos, privacidad y avisos legales."};
-const TABS=[["resumen","Estadísticas"],["sitio","Sitio y textos"],["banners","Banners"],["contenido","Módulos y lecciones"],["ejercicios","Ejercicios"],["noticias","Noticias"],["opiniones","Opiniones"],["resenas","Reseñas de módulos"],["pagos","Pagos"],["alumnos","Alumnos"],["archivos","Archivos"],["notif","Notificaciones"],["legal","Legal"]];
+const TABS=[["retos","Retos diarios"],["afiliados","Afiliados Deriv"],["canjes","Canjes"],["rpuntos","Ajustes de puntos"],["resumen","Estadísticas"],["sitio","Sitio y textos"],["banners","Banners"],["contenido","Módulos y lecciones"],["ejercicios","Ejercicios"],["noticias","Noticias"],["opiniones","Opiniones"],["resenas","Reseñas de módulos"],["pagos","Pagos"],["alumnos","Alumnos"],["archivos","Archivos"],["notif","Notificaciones"],["legal","Legal"]];
 A.ROUTES.admin=sub=>{
   if(!A.admin()){app.innerHTML=`<div class="empty">Esta sección es solo para administradores.<a class="btn sm" href="#inicio">Volver</a></div>`;return}
   if(sub&&TABS.some(t=>t[0]===sub))tab=sub;
@@ -19,14 +20,19 @@ A.ROUTES.admin=sub=>{
     <aside class="adm-side">
       <div class="adm-brand"><span class="eyebrow">Administración</span><b>Panel de control</b></div>
       <div class="adm-st ${closed?"off":"on"}"><span class="dot"></span><div><b>Academia ${closed?"cerrada":"abierta"}</b><small>${closed?"Solo tú la ves":"Los alumnos pueden entrar"}</small></div><button class="btn sm ${closed?"gold":"bad"}" id="acSw">${closed?"Abrir":"Cerrar"}</button></div>
+      <button type="button" class="adm-mbtn" id="admMb" aria-expanded="false">${ico(TICO[tab]||"news",20)}<span><small>Sección</small><b>${cur[1]}</b></span><i>▾</i></button>
       <nav class="adm-nav" aria-label="Secciones de administración">${GROUPS.map(([g,ks])=>`<div class="adm-g"><span class="adm-gt">${g}</span>${ks.map(k=>{const t=TABS.find(x=>x[0]===k);return `<button type="button" class="${tab===k?"on":""}" data-t="${k}"${tab===k?' aria-current="page"':""}>${ico(TICO[k]||"news",18)}<span>${t[1]}</span><i class="adm-b" data-badge="${k}"></i></button>`}).join("")}</div>`).join("")}</nav>
     </aside>
     <section class="adm-main"><header class="adm-h"><span class="adm-hi">${ico(TICO[tab]||"news",22)}</span><div><h1>${cur[1]}</h1><p class="muted">${TDESC[tab]||""}</p></div></header><div id="adm"></div></section>
   </div>`;
   $$("[data-t]").forEach(b=>b.onclick=()=>{location.hash="#admin-"+b.dataset.t});
+  $("#admMb").onclick=()=>{const n=$(".adm-nav"),o=n.classList.toggle("open");$("#admMb").setAttribute("aria-expanded",String(o))};
   $("#acSw").onclick=()=>{const host=$("#acSw").parentElement;A.confirmInline(host,closed?"¿Abrir la academia a todos?":"¿Cerrar la academia?",async()=>{
     const ns=Object.assign({},S.site,{academyClosed:!closed});try{await API.saveSite(ns);S.site=ns;A.applySite();toast(closed?"Academia abierta":"Academia cerrada para alumnos");A.ROUTES.admin(tab)}catch(x){toast(x.message);A.ROUTES.admin(tab)}})};
-  ({resumen,sitio,banners,contenido,ejercicios,noticias,opiniones,resenas,pagos,alumnos,archivos,notif,legal})[tab]();
+  ({resumen,sitio,banners,contenido,ejercicios,noticias,opiniones,resenas,pagos,alumnos,archivos,notif,legal,retos,afiliados,canjes,rpuntos})[tab]();
+  const badge=(k,n)=>{const b=document.querySelector(`[data-badge="${k}"]`);if(b&&n){b.textContent=n;b.classList.add("on")}};
+  if(API.adminAffiliates)API.adminAffiliates().then(l=>badge("afiliados",(l||[]).filter(x=>x.status==="pendiente").length)).catch(()=>{});
+  if(API.adminRedemptions)API.adminRedemptions().then(l=>badge("canjes",(l||[]).filter(x=>x.status==="pendiente").length)).catch(()=>{});
   API.adminPayments().then(l=>{const n=(l||[]).filter(x=>x.status==="pendiente").length;const b=document.querySelector('[data-badge="pagos"]');if(b&&n){b.textContent=n;b.classList.add("on")}}).catch(()=>{});
 };
 const H=()=>$("#adm");
@@ -365,6 +371,123 @@ async function pagos(){
   $$("[data-no]").forEach(b=>b.onclick=()=>{const id=b.dataset.no;A.confirmInline($(`[data-w="${id}"]`),"¿Rechazar este pago? (no encontraste el pago o el monto no coincide)",async()=>{try{await API.reviewPayment(id,false,null,"No encontramos el pago con ese ID de orden");toast("Pago rechazado")}catch(e){toast(e.message)}pagos()})});
 }
 
+/* ---------- RETOS Y PUNTOS ---------- */
+const toLoc=d=>d?new Date(new Date(d).getTime()-5*3600e3).toISOString().slice(0,16):"";       // hora de Colombia
+const fromLoc=v=>v?new Date(v+":00-05:00").toISOString():null;
+const RWc=()=>Object.assign({enabled:false,teaser:false,ptsPerUsd:100,minRedeem:500,redeemOpen:false,halfIfNotAffiliate:true},(S.site||{}).rewards||{});
+const KNAME={opcion:"Cuestionario",tendencia:"¿Sube o baja?",zona:"Marca la zona"};
+async function retos(){
+  let list=[];try{list=await API.adminChallenges()}catch(e){H().innerHTML=`<div class="empty">No se pudieron cargar los retos. ¿Ya corriste <b>supabase/retos.sql</b> en Supabase?<span class="dim">${esc(e.message)}</span></div>`;return}
+  const c=RWc(),t=Date.now();
+  const est=x=>x.status!=="publicado"?'<span class="tag">Borrador</span>':new Date(x.starts_at)>t?'<span class="tag">Programado</span>':new Date(x.ends_at)<=t?'<span class="tag">Cerrado</span>':'<span class="tag pub">En juego</span>';
+  H().innerHTML=`${c.enabled?"":`<div class="note admin-note">Los retos están <b>apagados</b> para los alumnos. Puedes crearlos y probarlos; actívalos en <a href="#admin-rpuntos">Ajustes de puntos</a>.</div>`}
+    <div class="split"><div class="panel"><div class="sec-h"><h3>Retos</h3><button class="btn sm gold" id="nr">Nuevo reto</button></div>
+      <div class="list">${list.map(x=>`<button class="item" data-r="${esc(x.id)}" style="text-align:left;cursor:pointer"><span class="txt"><b>${esc(x.title)}</b><span>${KNAME[x.kind]} · ${fmtDT(x.starts_at)}</span></span>${est(x)}</button>`).join("")||'<div class="muted">Aún no hay retos. Crea el primero.</div>'}</div></div>
+      <div class="panel" id="re"><div class="muted">Elige un reto o crea uno nuevo.</div></div></div>`;
+  $("#nr").onclick=()=>edit({kind:"opcion",points:100,max_winners:5,status:"borrador",starts_at:new Date().toISOString(),ends_at:new Date(Date.now()+864e5).toISOString(),options:[]},{});
+  $$("[data-r]").forEach(b=>b.onclick=async()=>{const x=list.find(y=>y.id===b.dataset.r);let k={};try{k=await API.challengeKey(x.id)||{}}catch(e){}edit(x,k)});
+  async function edit(x,k){
+    $("#re").innerHTML=`<form class="form" id="rf"><h3>${x.id?"Editar reto":"Nuevo reto"}</h3>
+      <label for="rT">Título<input id="rT" maxlength="120" value="${esc(x.title||"")}" placeholder="Ej.: ¿Qué hace Boom 1000 después de esta zona?"></label>
+      <div class="two"><label for="rK">Tipo de reto<select id="rK"><option value="opcion">Cuestionario (opciones)</option><option value="tendencia">¿Sube o baja? (gráfica)</option><option value="zona">Marca la zona (gráfica)</option></select></label>
+        <label for="rS">Estado<select id="rS"><option value="borrador">Borrador (no se ve)</option><option value="publicado">Publicado</option></select></label></div>
+      <label for="rQ">Pregunta o instrucción<textarea id="rQ" maxlength="600" style="min-height:70px" placeholder="Ej.: Mira la gráfica de H1. ¿El precio sube o baja en las próximas horas?">${esc(x.question||"")}</textarea></label>
+      <div id="rBody"></div>
+      <label for="rX">Explicación (se muestra cuando el reto cierra)<textarea id="rX" maxlength="600" style="min-height:60px" placeholder="Por qué esa era la respuesta correcta">${esc(k.explain||"")}</textarea></label>
+      <div class="three"><label for="rP">Puntos (afiliados)<input id="rP" type="number" min="1" value="${x.points||100}"></label><label for="rW">Ganadores (cupos)<input id="rW" type="number" min="1" max="100" value="${x.max_winners||5}"></label><label>Sin afiliado<b class="mono" id="rHalf" style="font-size:20px"></b></label></div>
+      <div class="two"><label for="rA">Se publica (hora Colombia)<input id="rA" type="datetime-local" value="${toLoc(x.starts_at)}"></label><label for="rZ">Cierra<input id="rZ" type="datetime-local" value="${toLoc(x.ends_at)}"></label></div>
+      <label class="chk"><input type="checkbox" id="rN" ${x.id?"":"checked"}> Avisar a todos con una notificación al guardar (si está publicado)</label>
+      <div class="row"><button class="btn gold" id="rSv">Guardar reto</button>${x.id?`<span id="rDel"><button type="button" class="btn sm bad" id="rDb">Eliminar</button></span>`:""}</div></form>
+      ${x.id?`<div class="sec-h" style="margin-top:18px"><h3>Respuestas</h3></div><div id="rEn" class="muted">Cargando…</div>`:""}`;
+    $("#rK").value=x.kind||"opcion";$("#rS").value=x.status||"borrador";
+    const half=()=>$("#rHalf").textContent=(RWc().halfIfNotAffiliate?Math.ceil((+$("#rP").value||0)/2):(+$("#rP").value||0))+" pts";$("#rP").oninput=half;half();
+    let zone=k.zone??null,img=x.image_url||"";
+    const body=async()=>{const kind=$("#rK").value;const ops=(x.options&&x.options.length?x.options:(kind==="tendencia"?["Sube","Baja"]:[]));
+      const chartPart=kind!=="opcion"?`<div class="three"><label for="rM">Mercado<select id="rM">${MARKETS.map(m=>`<option value="${m}">${MNAME[m]}</option>`).join("")}</select></label>
+          <label for="rC">Última vela que ven (hora Colombia)<input id="rC" type="datetime-local" value="${x.chart_t?toLoc(x.chart_t*1000):""}"></label><label for="rD">Operación<select id="rD"><option value="buy">Compra</option><option value="sell">Venta</option></select></label></div>
+        <div class="chartbox" style="height:340px"><div class="cv" style="position:absolute;inset:0"></div><div class="chint">${kind==="zona"?"Toca la gráfica para poner la zona correcta":"Vista previa: así la verán (lo gris de la derecha es lo que pasó después)"}</div></div>`:"";
+      $("#rBody").innerHTML=chartPart+(kind==="zona"?`<div class="two"><label for="rZo">Zona correcta (precio)<input id="rZo" type="number" step="any" value="${zone??""}"></label><label for="rTo">Margen permitido (±)<input id="rTo" type="number" step="any" value="${k.tol??""}" placeholder="se sugiere solo"></label></div>`
+        :`<label for="rO">Opciones (una por línea)<textarea id="rO" style="min-height:${kind==="tendencia"?60:110}px">${esc(ops.join("\n"))}</textarea></label><label for="rCo">Respuesta correcta<select id="rCo"></select></label>`)
+        +(kind==="opcion"?`<div class="row">${fileBtn("rI","Imagen (opcional)")}<input id="rIu" value="${esc(img)}" placeholder="o URL de imagen" style="flex:1;min-width:180px"></div>`:"");
+      const fillCo=()=>{const o=$("#rO").value.split("\n").map(s=>s.trim()).filter(Boolean);$("#rCo").innerHTML=o.map((t,i)=>`<option value="${i}">${String.fromCharCode(65+i)} · ${esc(t)}</option>`).join("");if(k.correct!=null&&k.correct<o.length)$("#rCo").value=String(k.correct)};
+      if($("#rO")){$("#rO").oninput=fillCo;fillCo()}
+      if($("#rI"))bindUpload("rI",u=>{img=u;$("#rIu").value=u});
+      if(kind!=="opcion"){$("#rM").value=x.market||"B1000";$("#rD").value=x.side||"buy";
+        const draw=async()=>{const box=$("#rBody .cv");if(!box)return;box.innerHTML="";try{const Hh=await h1Bars($("#rM").value);const tt=$("#rC").value?Math.floor(new Date($("#rC").value+":00-05:00")/1000):Hh.bars[Hh.bars.length-30].t;
+          const e=idxAt(Hh.bars,tt);const bars=Hh.bars.slice(Math.max(0,e-90),Math.min(Hh.bars.length,e+25));const C=Chart.makeChart(box);C.setData(toC(bars),Hh.dec);C.setRange(bars.length-100,bars.length+4);
+          C.setMarkers([{time:Hh.bars[e].t+3600*0+TZ,position:"aboveBar",color:"#f3d88f",shape:"arrowDown",text:"lo que ven"}]);
+          if(!$("#rC").value)$("#rC").value=toLoc(Hh.bars[e].t*1000);
+          if(kind==="zona"){const sug=+(0.35*avgRange(Hh.bars,e)).toFixed(Hh.dec);const ln=()=>{C.clearLines();if(zone!=null)C.addLine({price:zone,color:"#f3d88f",lineWidth:2,title:"Zona correcta",draggable:true})};ln();
+            if(!$("#rTo").value)$("#rTo").placeholder=`sugerido: ${sug}`;C.onClick(p=>{zone=+p.toFixed(Hh.dec);$("#rZo").value=zone;if(!$("#rTo").value)$("#rTo").value=sug;ln()});C.onLineDrag((l,p)=>{zone=+p;$("#rZo").value=p})}}catch(err){box.innerHTML='<div class="empty">No hay velas para ese mercado o fecha.</div>'}};
+        $("#rM").onchange=draw;$("#rC").onchange=draw;draw()}};
+    $("#rK").onchange=body;await body();
+    if(x.id)API.adminChallengeEntries(x.id).then(L=>{const h=$("#rEn");if(!h)return;h.innerHTML=L.length?`<div class="tree">${L.map(e=>`<div class="item"><span class="txt"><b>${esc(e.username)} ${A.flag(e.country||"")}${e.affiliate?" "+A.affTag():""}</b><span>${fmtDT(e.created_at)} · ${e.answer&&e.answer.price!=null?"zona "+e.answer.price:"opción "+String.fromCharCode(65+(+((e.answer||{}).option)||0))}</span></span>${e.place?`<span class="pill ok">#${e.place} · +${e.points}</span>`:e.correct?'<span class="pill">Acertó sin cupo</span>':'<span class="pill">Falló</span>'}</div>`).join("")}</div>`:'<div class="muted">Nadie ha respondido todavía.</div>'}).catch(e=>{const h=$("#rEn");if(h)h.textContent=e.message});
+    if($("#rDb"))$("#rDb").onclick=()=>A.confirmInline($("#rDel"),"¿Eliminar el reto y sus respuestas? Los puntos ganados se pierden.",async()=>{await API.delChallenge(x.id);toast("Reto eliminado");retos()});
+    $("#rf").onsubmit=async e=>{e.preventDefault();const kind=$("#rK").value;
+      const o={title:$("#rT").value.trim()||"Reto del día",kind,question:$("#rQ").value.trim(),status:$("#rS").value,points:Math.max(1,+$("#rP").value||100),max_winners:Math.max(1,Math.min(100,+$("#rW").value||5)),
+        starts_at:fromLoc($("#rA").value)||new Date().toISOString(),ends_at:fromLoc($("#rZ").value)||new Date(Date.now()+864e5).toISOString(),options:[],market:"",chart_t:null,side:"buy",image_url:""};
+      if(x.id)o.id=x.id;const key={correct:null,zone:null,tol:null,explain:$("#rX").value.trim()};
+      if(new Date(o.ends_at)<=new Date(o.starts_at)){toast("La hora de cierre debe ser después de la de publicación");return}
+      if(kind!=="zona"){o.options=$("#rO").value.split("\n").map(s=>s.trim()).filter(Boolean);if(o.options.length<2){toast("Pon al menos 2 opciones");return}key.correct=+$("#rCo").value}
+      if(kind==="opcion")o.image_url=($("#rIu").value||"").trim();
+      if(kind!=="opcion"){o.market=$("#rM").value;o.side=$("#rD").value;o.chart_t=$("#rC").value?Math.floor(new Date($("#rC").value+":00-05:00")/1000):null;if(!o.chart_t){toast("Elige la última vela que verán");return}}
+      if(kind==="zona"){key.zone=$("#rZo").value===""?null:+$("#rZo").value;key.tol=$("#rTo").value===""?null:+$("#rTo").value;if(key.zone==null||!key.tol){toast("Marca la zona correcta y el margen");return}}
+      try{busy($("#rSv"),true);const saved=await API.saveChallenge(o,key);toast("Reto guardado");
+        if($("#rN").checked&&o.status==="publicado"&&API.sendPush){try{await API.sendPush({title:"🎯 Nuevo reto: "+o.title.slice(0,60),body:`Los primeros ${o.max_winners} en acertar ganan ${o.points} puntos. ¡Corre!`,url:A.absUrl("main","reto-"+saved.id),audience:"todos",tag:"reto-"+saved.id});toast("Notificación enviada")}catch(x){toast("Guardado, pero la notificación falló: "+x.message)}}
+        retos()}catch(x){toast(x.message)}finally{const b=$("#rSv");if(b)busy(b,false)}};
+  }
+}
+async function afiliados(){
+  let list=[];try{list=await API.adminAffiliates()}catch(e){H().innerHTML=`<div class="empty">No se pudieron cargar. ¿Ya corriste <b>supabase/retos.sql</b>?<span class="dim">${esc(e.message)}</span></div>`;return}
+  let f="pendiente";const ES={pendiente:'<span class="pill gold">Por verificar</span>',verificado:'<span class="pill ok">Verificado</span>',rechazado:'<span class="pill">Rechazado</span>'};
+  const draw=()=>{const L=list.filter(a=>f==="todos"||a.status===f);
+    H().innerHTML=`<div class="note">Revisa en tu panel de <b>Deriv Partners</b> (Clientes) que el ID esté en tu red. Si está, <b>Verificar</b>: el alumno gana los puntos completos y le sale la etiqueta ${A.affTag()}. Si no, <b>Rechazar</b> y seguirá ganando la mitad.</div>
+      <div class="panel"><div class="sec-h"><h3>Solicitudes de afiliado</h3><div class="seg rk-seg" style="margin:0">${[["pendiente","Por verificar"],["verificado","Verificados"],["rechazado","Rechazados"],["todos","Todos"]].map(([k,t])=>`<a href="javascript:void 0" data-f="${k}" class="${f===k?"on":""}">${t} (${k==="todos"?list.length:list.filter(a=>a.status===k).length})</a>`).join("")}</div></div>
+      <div class="ulist">${L.map(a=>`<article class="ucard"><div class="uc-who"><div><b>${esc(a.username)} ${A.flag(a.country||"")}</b><span class="dim">${esc(a.email||"")}</span></div></div>
+        <div class="uc-st"><div><small>ID de Deriv</small><b class="mono sel">${esc(a.deriv_id)}</b></div><div><small>Estado</small>${ES[a.status]||""}</div><div><small>Enviado</small><span>${fmtDate(a.created_at)}</span></div><div><small>Nota</small><span class="dim">${esc(a.admin_note||"—")}</span></div></div>
+        <div class="uc-act row" data-host="${esc(a.user_id)}"><button class="btn sm" data-cp="${esc(a.deriv_id)}">Copiar ID</button>${a.status!=="verificado"?`<button class="btn sm ok" data-ok="${esc(a.user_id)}">Verificar</button>`:""}${a.status!=="rechazado"?`<button class="btn sm bad" data-no="${esc(a.user_id)}">${a.status==="verificado"?"Quitar afiliado":"Rechazar"}</button>`:""}</div></article>`).join("")||'<div class="muted">No hay solicitudes aquí.</div>'}</div></div>`;
+    $$("[data-f]").forEach(b=>b.onclick=()=>{f=b.dataset.f;draw()});
+    $$("[data-cp]").forEach(b=>b.onclick=async()=>{try{await navigator.clipboard.writeText(b.dataset.cp);toast("ID copiado")}catch(e){}});
+    $$("[data-ok]").forEach(b=>b.onclick=async()=>{try{await API.reviewAffiliate(b.dataset.ok,true,"");toast("Afiliado verificado");list=await API.adminAffiliates();draw()}catch(x){toast(x.message)}});
+    $$("[data-no]").forEach(b=>b.onclick=()=>{const host=b.closest("[data-host]");host.innerHTML=`<input id="nN" placeholder="Motivo (lo verá el alumno)" maxlength="300" style="flex:1;min-width:180px;background:var(--bg2);border:1px solid var(--line2);border-radius:8px;padding:7px;color:var(--fg)"><button class="btn sm bad" id="nY">Confirmar</button><button class="btn sm ghost" id="nC">Cancelar</button>`;
+      $("#nC").onclick=draw;$("#nY").onclick=async()=>{try{await API.reviewAffiliate(b.dataset.no,false,$("#nN").value.trim()||"No aparece en la red de socios");toast("Solicitud rechazada");list=await API.adminAffiliates();draw()}catch(x){toast(x.message)}}})};
+  draw();
+}
+async function canjes(){
+  let list=[];try{list=await API.adminRedemptions()}catch(e){H().innerHTML=`<div class="empty">No se pudieron cargar. ¿Ya corriste <b>supabase/retos.sql</b>?<span class="dim">${esc(e.message)}</span></div>`;return}
+  const c=RWc(),pend=list.filter(r=>r.status==="pendiente"),done=list.filter(r=>r.status!=="pendiente");
+  const tot=pend.reduce((s,r)=>s+(+r.usd||0),0);
+  const card=r=>`<article class="ucard"><div class="uc-who"><div><b>${esc(r.username)}${r.affiliate?" "+A.affTag():""}</b><span class="dim">${esc(r.email||"")}</span></div></div>
+    <div class="uc-st"><div><small>Canje</small><b class="mono">${r.points} pts</b><span class="dim">${Number(r.usd).toLocaleString("es-CO",{style:"currency",currency:"USD"})}</span></div><div><small>Pagar a (${esc(r.method)})</small><b class="mono sel">${esc(r.account)}</b></div><div><small>Saldo actual</small><span class="mono">${r.balance??"—"} pts</span></div><div><small>Fecha</small><span>${fmtDate(r.created_at)}</span>${r.admin_note?`<span class="dim">${esc(r.admin_note)}</span>`:""}</div></div>
+    <div class="uc-act row" data-host="${esc(r.id)}">${r.status==="pendiente"?`<button class="btn sm" data-cp="${esc(r.account)}">Copiar cuenta</button><button class="btn sm ok" data-pay="${esc(r.id)}">Marcar pagado</button><button class="btn sm bad" data-rej="${esc(r.id)}">Rechazar</button>`:r.status==="pagado"?'<span class="pill ok">Pagado</span>':'<span class="pill">Rechazado · puntos devueltos</span>'}</div></article>`;
+  H().innerHTML=`<div class="acad-switch ${c.redeemOpen?"on":"off"}"><div><b>Canjes ${c.redeemOpen?"abiertos":"cerrados"}</b><span class="muted">${c.redeemOpen?"Los alumnos pueden enviar solicitudes de canje ahora.":"Los puntos se acumulan. Abre los canjes una vez al mes (por ejemplo, los primeros días) y ciérralos cuando termines de pagar."}</span></div><button class="btn ${c.redeemOpen?"bad":"gold"}" id="cwSw">${c.redeemOpen?"Cerrar canjes":"Abrir canjes"}</button></div>
+    <div class="panel"><div class="sec-h"><h3>Por pagar (${pend.length})</h3><span class="muted">Total: <b class="mono">${tot.toLocaleString("es-CO",{style:"currency",currency:"USD"})}</b></span></div><p class="muted" style="margin-top:0">Envía el pago por Binance Pay a la cuenta del alumno y luego márcalo como pagado. Si lo rechazas, los puntos vuelven a su saldo.</p><div class="ulist">${pend.map(card).join("")||'<div class="muted">No hay canjes por pagar.</div>'}</div></div>
+    <div class="panel"><div class="sec-h"><h3>Historial</h3></div><div class="ulist">${done.slice(0,100).map(card).join("")||'<div class="muted">Sin canjes revisados.</div>'}</div></div>`;
+  $("#cwSw").onclick=async()=>{const ns=Object.assign({},S.site,{rewards:Object.assign(RWc(),{redeemOpen:!c.redeemOpen})});try{await API.saveSite(ns);S.site=ns;toast(c.redeemOpen?"Canjes cerrados":"Canjes abiertos");canjes()}catch(x){toast(x.message)}};
+  $$("[data-cp]").forEach(b=>b.onclick=async()=>{try{await navigator.clipboard.writeText(b.dataset.cp);toast("Cuenta copiada")}catch(e){}});
+  $$("[data-pay]").forEach(b=>b.onclick=()=>A.confirmInline(b.closest("[data-host]"),"¿Ya enviaste el pago?",async()=>{try{await API.reviewRedemption(b.dataset.pay,true,"");toast("Canje marcado como pagado");canjes()}catch(x){toast(x.message)}}));
+  $$("[data-rej]").forEach(b=>b.onclick=()=>{const host=b.closest("[data-host]");host.innerHTML=`<input id="jN" placeholder="Motivo (lo verá el alumno)" maxlength="300" style="flex:1;min-width:180px;background:var(--bg2);border:1px solid var(--line2);border-radius:8px;padding:7px;color:var(--fg)"><button class="btn sm bad" id="jY">Rechazar</button><button class="btn sm ghost" id="jC">Cancelar</button>`;
+    $("#jC").onclick=canjes;$("#jY").onclick=async()=>{try{await API.reviewRedemption(b.dataset.rej,false,$("#jN").value.trim());toast("Canje rechazado");canjes()}catch(x){toast(x.message)}}});
+}
+function rpuntos(){const c=RWc();
+  H().innerHTML=`<form class="form" id="wf">
+    <h3>Retos diarios</h3>
+    <label class="chk"><input type="checkbox" id="wE" ${c.enabled?"checked":""}> <b>Activar retos y puntos</b> (los alumnos pueden jugar, ganar puntos y ver el ranking)</label>
+    <label class="chk"><input type="checkbox" id="wTz" ${c.teaser?"checked":""}> Mostrar el anuncio “Muy pronto: El Arte Gráfico te paga por participar” aunque estén apagados</label>
+    <label class="chk"><input type="checkbox" id="wH" ${c.halfIfNotAffiliate!==false?"checked":""}> Quien no es afiliado verificado gana la mitad de los puntos</label>
+    <h3>Dinero y canjes</h3>
+    <div class="three"><label for="wR">Puntos por 1 USD<input id="wR" type="number" min="1" value="${c.ptsPerUsd}"></label><label for="wM">Mínimo para canjear (puntos)<input id="wM" type="number" min="1" value="${c.minRedeem}"></label><label>Equivale a<b class="mono" id="wU" style="font-size:20px"></b></label></div>
+    <label class="chk"><input type="checkbox" id="wO" ${c.redeemOpen?"checked":""}> Canjes abiertos ahora (también lo cambias desde <a href="#admin-canjes">Canjes</a>)</label>
+    <div class="note" id="wCalc"></div>
+    <h3>Cómo funciona</h3>
+    <ul class="checks"><li>Publicas un reto en <a href="#admin-retos">Retos diarios</a> y, si quieres, avisas con una notificación.</li><li>Los primeros que aciertan (5 por defecto) ganan puntos: afiliados el 100 %, el resto la mitad.</li><li>Cada mes abres los canjes, los alumnos piden su pago y tú lo marcas pagado en <a href="#admin-canjes">Canjes</a>.</li><li>Las solicitudes de afiliado (ID de Deriv) las apruebas en <a href="#admin-afiliados">Afiliados</a>.</li></ul>
+    <div class="row"><button class="btn gold" id="wS">Guardar ajustes</button></div></form>`;
+  const calc=()=>{const r=Math.max(1,+$("#wR").value||100),m=+$("#wM").value||0;$("#wU").textContent=(m/r).toLocaleString("es-CO",{style:"currency",currency:"USD"});
+    $("#wCalc").innerHTML=`Con retos de 100 puntos y 5 ganadores al día, si todos fueran afiliados repartirías hasta <b>${(500*30/r).toLocaleString("es-CO",{style:"currency",currency:"USD"})}</b> al mes (la mitad si nadie es afiliado). Ajusta los puntos por USD a tu presupuesto.`};
+  $("#wR").oninput=calc;$("#wM").oninput=calc;calc();groupForm($("#wf"));
+  $("#wf").onsubmit=async e=>{e.preventDefault();const ns=Object.assign({},S.site,{rewards:{enabled:$("#wE").checked,teaser:$("#wTz").checked,halfIfNotAffiliate:$("#wH").checked,ptsPerUsd:Math.max(1,+$("#wR").value||100),minRedeem:Math.max(1,+$("#wM").value||500),redeemOpen:$("#wO").checked}});
+    try{busy($("#wS"),true);await API.saveSite(ns);S.site=ns;A.applySite&&A.applySite();toast("Ajustes guardados")}catch(x){toast(x.message)}finally{busy($("#wS"),false)}};
+}
 /* ---------- reseñas de módulos ---------- */
 async function resenas(){
   H().innerHTML='<div class="muted">Cargando…</div>';let list=[];

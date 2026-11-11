@@ -153,6 +153,24 @@ function SupabaseAPI(url,key){
     myFeedback(){if(!sess||!sess.user)return Promise.resolve([]);return req(`/rest/v1/module_feedback?select=module_id&user_id=eq.${sess.user.id}`)},
     async sendFeedback(o){await req("/rest/v1/module_feedback",{method:"POST",body:{module_id:o.module_id,rating:o.rating,liked:o.liked,improve:o.improve}})},
     adminFeedback(){return rpc("admin_module_feedback")},
+    /* retos, puntos, afiliados y canjes */
+    challengesFeed(){return rpc("challenges_feed")},
+    submitChallenge(id,answer){return rpc("submit_challenge",{p_id:id,p_answer:answer})},
+    challengeWinners(id){return rpc("challenge_winners",{p_id:id})},
+    rewardsBoard(period){return rpc("rewards_board",{p_period:period||"mes"})},
+    progressBoard(){return rpc("progress_board")},
+    myRewards(){if(!sess||!sess.user)return Promise.resolve(null);return rpc("my_rewards")},
+    requestRedemption(points,method,account){return rpc("request_redemption",{p_points:points,p_method:method,p_account:account})},
+    requestAffiliate(deriv){return rpc("request_affiliate",{p_deriv:deriv})},
+    adminChallenges(){return sel("challenges","&order=starts_at.desc&limit=200")},
+    async challengeKey(id){const r=await sel("challenge_keys",`&challenge_id=eq.${id}`);return r&&r[0]||null},
+    async saveChallenge(c,key){const r=await ups("challenges",c);await ups("challenge_keys",Object.assign({challenge_id:r.id},key));return r},
+    delChallenge(id){return del("challenges",id)},
+    adminChallengeEntries(id){return rpc("admin_challenge_entries",{p_id:id})},
+    adminAffiliates(){return rpc("admin_affiliates")},
+    reviewAffiliate(uid,ok,note){return rpc("review_affiliate",{p_user:uid,p_ok:!!ok,p_note:note||""})},
+    adminRedemptions(){return rpc("admin_redemptions")},
+    reviewRedemption(id,paid,note){return rpc("review_redemption",{p_id:id,p_paid:!!paid,p_note:note||""})},
     reviewPayment(id,approve,days,note){return rpc("review_payment",{pid:id,approve,p_days:days==null?null:days,p_note:note||""})},
     async files(){const r=await req("/storage/v1/object/list/media",{method:"POST",body:{prefix:"",limit:200,sortBy:{column:"created_at",order:"desc"}}});return(r||[]).map(f=>({name:f.name,url:`${url}/storage/v1/object/public/media/${f.name}`,size:f.metadata&&f.metadata.size}))},
   };
@@ -266,6 +284,41 @@ function LocalAPI(){
       db.feedback.push({id:"f"+Date.now(),user_id:uid,module_id:o.module_id,rating:o.rating,liked:o.liked,improve:o.improve,created_at:new Date().toISOString()});save()},
     async adminFeedback(){need();return(db.feedback||[]).map(f=>{const p=db.profiles.find(x=>x.id===f.user_id)||{};const m=db.modules.find(x=>x.id===f.module_id)||{};
       return Object.assign({},f,{module_title:m.title||"",username:p.username||"",country:p.country||"",premium:!!(p.premium_until&&new Date(p.premium_until)>new Date())})}).sort((a,b)=>String(b.created_at).localeCompare(a.created_at))},
+    /* retos (modo de prueba: misma lógica que el servidor) */
+    async challengesFeed(){const L=db.challenges||[],t=Date.now();return L.filter(c=>c.status==="publicado"&&new Date(c.starts_at)<=t).sort((a,b)=>String(b.starts_at).localeCompare(a.starts_at)).map(c=>{
+      const E=(db.centries||[]).filter(e=>e.challenge_id===c.id),w=E.filter(e=>e.place!=null).length,me=E.find(e=>e.user_id===uid),k=(db.ckeys||{})[c.id]||{};const closed=new Date(c.ends_at)<=t||w>=c.max_winners,show=closed||!!me;
+      return Object.assign({},c,{winners:w,closed,my_correct:me?me.correct:null,my_place:me?me.place:null,my_points:me?me.points:null,answered:!!me,correct:show?k.correct:null,zone:show?k.zone:null,tol:show?k.tol:null,explain:show?k.explain:null})})},
+    async submitChallenge(id,ans){if(!uid)throw new Error("Inicia sesión para participar");const cfg=(db.site||{}).rewards||{};if(!cfg.enabled)throw new Error("Los retos todavía no están activos");
+      const c=(db.challenges||[]).find(x=>x.id===id);if(!c||c.status!=="publicado"||new Date(c.starts_at)>Date.now())throw new Error("Ese reto no está disponible");if(new Date(c.ends_at)<=Date.now())throw new Error("Este reto ya cerró");
+      db.centries=db.centries||[];if(db.centries.some(e=>e.challenge_id===id&&e.user_id===uid))throw new Error("Ya respondiste este reto");
+      const k=(db.ckeys||{})[id]||{},p=me();const ok=c.kind==="zona"?(k.zone!=null&&Math.abs(+ans.price-k.zone)<=(k.tol||0)):(+ans.option===k.correct);
+      const w=db.centries.filter(e=>e.challenge_id===id&&e.place!=null).length;let place=null,pts=0;
+      if(ok&&w<c.max_winners){place=w+1;pts=(p.affiliate||cfg.halfIfNotAffiliate===false)?c.points:Math.ceil(c.points/2)}
+      db.centries.push({id:uuid(),challenge_id:id,user_id:uid,answer:ans,correct:ok,place,points:pts,affiliate:!!p.affiliate,created_at:now()});save();
+      return{correct:ok,place,points:pts,affiliate:!!p.affiliate,full_points:c.points,winners_left:Math.max(0,c.max_winners-w-(place?1:0))}},
+    async challengeWinners(id){return(db.centries||[]).filter(e=>e.challenge_id===id&&e.place!=null).sort(by("place")).map(e=>{const p=db.profiles.find(x=>x.id===e.user_id)||{};return{place:e.place,username:p.username,avatar_url:p.avatar_url,country:p.country,premium:!!(p.premium_until&&new Date(p.premium_until)>new Date()),affiliate:!!p.affiliate,points:e.points,at:e.created_at}})},
+    async rewardsBoard(per){const m=new Date();m.setDate(1);m.setHours(0,0,0,0);const g={};(db.centries||[]).filter(e=>e.points>0&&(per==="total"||new Date(e.created_at)>=m)).forEach(e=>{g[e.user_id]=g[e.user_id]||{pts:0,w:0};g[e.user_id].pts+=e.points;g[e.user_id].w++});
+      return Object.entries(g).map(([u,v])=>{const p=db.profiles.find(x=>x.id===u)||{};return{username:p.username,avatar_url:p.avatar_url,country:p.country,premium:!!(p.premium_until&&new Date(p.premium_until)>new Date()),affiliate:!!p.affiliate,points:v.pts,wins:v.w,is_me:u===uid,_r:p.role}}).filter(x=>x._r!=="admin").sort((a,b)=>b.points-a.points)},
+    async progressBoard(){return db.progress.map(g=>{const p=db.profiles.find(x=>x.id===g.user_id)||{};return{username:p.username,avatar_url:p.avatar_url,country:p.country,premium:!!(p.premium_until&&new Date(p.premium_until)>new Date()),affiliate:!!p.affiliate,lessons:Object.values((g.data||{}).done||{}).filter(d=>d.passed).length,is_me:g.user_id===uid,_x:p.role==="admin"||p.banned}}).filter(x=>!x._x).sort((a,b)=>b.lessons-a.lessons)},
+    async myRewards(){if(!uid)return null;const E=(db.centries||[]).filter(e=>e.user_id===uid),R=(db.redemptions||[]).filter(r=>r.user_id===uid),a=(db.affiliates||[]).find(x=>x.user_id===uid);const m=new Date();m.setDate(1);m.setHours(0,0,0,0);
+      const earned=E.reduce((s,e)=>s+e.points,0);return{balance:earned-R.filter(r=>r.status!=="rechazado").reduce((s,r)=>s+r.points,0),earned,month:E.filter(e=>new Date(e.created_at)>=m).reduce((s,e)=>s+e.points,0),wins:E.filter(e=>e.place!=null).length,played:E.length,affiliate:a?a.status:"ninguno",deriv_id:a&&a.deriv_id,affiliate_note:a&&a.admin_note,redemptions:R.slice().reverse()}},
+    async requestRedemption(points,method,account){const cfg=(db.site||{}).rewards||{};if(!cfg.enabled||!cfg.redeemOpen)throw new Error("Los canjes están cerrados por ahora. Tus puntos se siguen acumulando.");db.redemptions=db.redemptions||[];
+      if(db.redemptions.some(r=>r.user_id===uid&&r.status==="pendiente"))throw new Error("Ya tienes un canje en revisión");const mn=cfg.minRedeem??500,bal=(await this.myRewards()).balance;
+      if(!(points>=mn))throw new Error(`El mínimo para canjear es ${mn} puntos`);if(points>bal)throw new Error(`No tienes puntos suficientes (tienes ${bal})`);
+      const r={id:uuid(),user_id:uid,points,usd:Math.round(points/(cfg.ptsPerUsd||100)*100)/100,method:method||"binance",account,status:"pendiente",admin_note:"",created_at:now()};db.redemptions.push(r);save();return r},
+    async requestAffiliate(d){if(!uid)throw new Error("Inicia sesión");d=String(d||"").replace(/\s/g,"").toUpperCase();if(d.length<3)throw new Error("Escribe tu ID de cliente de Deriv (ej.: CR1234567)");db.affiliates=db.affiliates||[];
+      if(db.affiliates.some(a=>a.deriv_id===d&&a.user_id!==uid&&a.status!=="rechazado"))throw new Error("Ese ID de Deriv ya está registrado por otra cuenta");
+      const a=db.affiliates.find(x=>x.user_id===uid);if(a&&a.status==="verificado")throw new Error("Ya eres afiliado verificado");
+      if(a)Object.assign(a,{deriv_id:d,status:"pendiente",admin_note:"",created_at:now()});else db.affiliates.push({user_id:uid,deriv_id:d,status:"pendiente",admin_note:"",created_at:now()});save();return{status:"pendiente"}},
+    async adminChallenges(){need();return(db.challenges||[]).slice().sort((a,b)=>String(b.starts_at).localeCompare(a.starts_at))},
+    async challengeKey(id){return((db.ckeys||{})[id])||null},
+    async saveChallenge(c,key){need();db.challenges=db.challenges||[];const r=await up(db.challenges,c);db.ckeys=db.ckeys||{};db.ckeys[r.id]=Object.assign({challenge_id:r.id},key);save();return r},
+    async delChallenge(id){need();return rm("challenges",id)},
+    async adminChallengeEntries(id){need();return(db.centries||[]).filter(e=>e.challenge_id===id).map(e=>{const p=db.profiles.find(x=>x.id===e.user_id)||{};return Object.assign({},e,{username:p.username,country:p.country})})},
+    async adminAffiliates(){need();return(db.affiliates||[]).map(a=>{const p=db.profiles.find(x=>x.id===a.user_id)||{},u=db.users.find(x=>x.id===a.user_id)||{};return Object.assign({},a,{username:p.username,email:u.email,country:p.country})})},
+    async reviewAffiliate(u,ok,note){need();const a=(db.affiliates||[]).find(x=>x.user_id===u);if(!a)throw new Error("Esa solicitud no existe");Object.assign(a,{status:ok?"verificado":"rechazado",admin_note:note||"",reviewed_at:now()});const p=db.profiles.find(x=>x.id===u);if(p)p.affiliate=!!ok;save()},
+    async adminRedemptions(){need();return(db.redemptions||[]).map(r=>{const p=db.profiles.find(x=>x.id===r.user_id)||{},u=db.users.find(x=>x.id===r.user_id)||{};return Object.assign({},r,{username:p.username,email:u.email,affiliate:!!p.affiliate})}).sort((a,b)=>((b.status==="pendiente")-(a.status==="pendiente"))||String(b.created_at).localeCompare(a.created_at))},
+    async reviewRedemption(id,paid,note){need();const r=(db.redemptions||[]).find(x=>x.id===id);if(!r||r.status!=="pendiente")throw new Error("Ese canje ya fue revisado");Object.assign(r,{status:paid?"pagado":"rechazado",admin_note:note||"",reviewed_at:now()});save()},
     async myPayments(){return(db.payments||[]).filter(x=>x.user_id===uid).sort((a,b)=>String(b.created_at).localeCompare(a.created_at))},
     async adminPayments(){need();return(db.payments||[]).map(r=>{const p=db.profiles.find(x=>x.id===r.user_id)||{};const u=db.users.find(x=>x.id===r.user_id)||{};return Object.assign({},r,{username:p.username,email:u.email,premium_until:p.premium_until})}).sort((a,b)=>((b.status==="pendiente")-(a.status==="pendiente"))||String(b.created_at).localeCompare(a.created_at))},
     async reviewPayment(id,approve,days,note){need();const r=(db.payments||[]).find(x=>x.id===id);if(!r)throw new Error("El pago no existe");if(r.status!=="pendiente")throw new Error("Este pago ya fue revisado");

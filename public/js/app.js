@@ -27,8 +27,8 @@ const ACAD=SITE==="academia";
 function link(site,hash){hash=hash||"inicio";if(site===SITE)return"#"+hash;
   if(PROD){const base=HOST.replace(/^(www\.|academia\.)/,"");return"https://"+(site==="academia"?"academia.":"")+base+"/#"+hash}
   return location.pathname+(site==="academia"?"?sitio=academia":"")+"#"+hash}
-const ACAD_R=new Set(["academia","modulo","leccion","practica","prueba","ranking"]);
-const MAIN_R=new Set(["entrar","registro","recuperar","noticias","comunidad","nota","opiniones","mercados","legal","terminos","privacidad"]);
+const ACAD_R=new Set(["academia","modulo","leccion","practica","prueba","progreso"]);
+const MAIN_R=new Set(["entrar","registro","recuperar","noticias","comunidad","nota","opiniones","mercados","legal","terminos","privacidad","retos","reto","ranking","puntos"]);
 const toAcad=h=>link("academia",h),toMain=h=>link("main",h);
 
 /* ---------- utilidades UI ---------- */
@@ -134,27 +134,35 @@ function setTheme(t){const r=document.documentElement;if(t==="light")r.setAttrib
 document.addEventListener("click",e=>{if(e.target.closest&&e.target.closest("#themeBtn"))setTheme(getTheme()==="light"?"dark":"light")});
 function renderNav(){document.body.classList.toggle("is-acad",!!ACAD);
   let r=(location.hash||"#inicio").slice(1).split("-")[0];if(r==="noticias"||r==="nota")r="comunidad";
-  const L=ACAD?[["inicio","Mi panel"],["academia","Temario"],["practica","Práctica"],["ranking","Ranking"]].concat(premium()?[]:[["prueba","Prueba gratis"]])
-             :[["inicio","Inicio"],["comunidad","Comunidad"],["opiniones","Opiniones"],["mercados","Mercados"],["premium","Premium"]];
+  const rw=rewardsOn()||admin();
+  const L=ACAD?[["inicio","Mi panel"],["academia","Temario"],["practica","Práctica"],["progreso","Progreso"]].concat(premium()?[]:[["prueba","Prueba gratis"]])
+             :[["inicio","Inicio"]].concat(rw?[["retos","Retos"],["ranking","Ranking"]]:[]).concat([["comunidad","Comunidad"],["opiniones","Opiniones"],["mercados","Mercados"],["premium","Premium"]]);
   if(ACAD&&closedAcad()&&!admin())L.length=0;
   const u=API.user(),p=API.profile();const lv=levelOf((S.prog&&S.prog.xp)||0);
   const other=ACAD?`<a class="navx" href="${toMain("inicio")}">El Arte Gráfico ↗</a>`:(u&&p?`<a class="btn sm gold navacad" href="${toAcad("inicio")}">Ir a la academia</a>`:"");
-  const NI={inicio:"home",comunidad:"chat",opiniones:"star",mercados:"chart",premium:"crown",academia:"acad",practica:"chart",ranking:"trophy",prueba:"play"};
+  const NI={inicio:"home",comunidad:"chat",opiniones:"star",mercados:"chart",premium:"crown",academia:"acad",practica:"chart",ranking:"trophy",prueba:"play",retos:"bolt",progreso:"layers",puntos:"card"};
   const msw=`<div class="mnav-sw" role="group" aria-label="Elige sección"><a class="${ACAD?"":"on"}" href="${ACAD?toMain("inicio"):"#inicio"}"${ACAD?"":' aria-current="true"'}>${ico("home",20)}<span><b>El Arte Gráfico</b><small>Comunidad y noticias</small></span></a><a class="${ACAD?"on":""}" href="${ACAD?"#inicio":toAcad("inicio")}"${ACAD?' aria-current="true"':""}>${ico("acad",20)}<span><b>Academia</b><small>Lecciones y práctica</small></span></a></div>
     <div class="mnav-here"><i></i>Estás en ${ACAD?"<b>la Academia</b>":"<b>El Arte Gráfico</b>"}</div>`;
   const mus=u&&p?`<div class="mnav-user"><a class="mnu-me" href="#perfil">${avatar(p,40)}<span><b>${esc(p.username)}</b><small>${esc(lv.name)} · ${S.prog?S.prog.xp:0} pts</small></span>${premium()?premTag():""}</a>
       <div class="mnu-links"><a href="#perfil">${ico("gear",18)}Configuración</a>${premium()?"":`<a href="${toMain("premium")}">${ico("crown",18)}Hazte premium</a>`}${admin()?`<a href="${toMain("admin")}">${ico("news",18)}Administración</a>`:""}<button type="button" id="logout2">Cerrar sesión</button></div></div>`
     :`<div class="mnav-user"><div class="mnu-links two"><a class="btn ghost" href="${toMain("entrar")}">Ingresar</a><a class="btn gold" href="${toMain("registro")}">Crear cuenta</a></div></div>`;
+  /* barra inferior tipo app (celular) */
+  const TB=ACAD?[["inicio","home","Panel"],["academia","acad","Temario"],["practica","chart","Práctica"],["progreso","layers","Progreso"]]
+    :(rw?[["inicio","home","Inicio"],["retos","bolt","Retos"],["@acad","acad","Academia"],["ranking","trophy","Ranking"]]:[["inicio","home","Inicio"],["comunidad","chat","Comunidad"],["@acad","acad","Academia"],["premium","crown","Premium"]]);
+  let tb=$("#tabbar");if(!tb){tb=document.createElement("nav");tb.id="tabbar";tb.className="tabbar";tb.setAttribute("aria-label","Accesos rápidos");document.body.appendChild(tb)}
+  tb.innerHTML=TB.map(([k,ic,t])=>`<a href="${k==="@acad"?toAcad("inicio"):"#"+k}" class="${r===k?"on":""}${k==="@acad"?" tb-acad":""}">${ico(ic,22)}<span>${t}</span></a>`).join("")+`<button type="button" id="tbMore" aria-label="Más opciones">${u&&p?avatar(p,26):ico("gear",22)}<span>${u&&p?"Más":"Menú"}</span></button>`;
+  $("#tbMore").onclick=()=>{const o=$("#nav").classList.toggle("open");$("#menuBtn").setAttribute("aria-expanded",String(o));if(o)window.scrollTo({top:0,behavior:"smooth"})};
   $("#nav").innerHTML=msw+L.map(([k,t])=>`<a href="#${k}" class="${r===k?"on":""}"><span class="mi">${ico(NI[k]||"news",20)}</span>${t}</a>`).join("")+other+mus+
     (u&&p?`<div class="dd" id="dd"><button aria-haspopup="true" aria-expanded="false" id="ddb">${avatar(p,28)}<span>${esc(p.username)}</span>${premium()?'<span class="prem-badge">Premium</span>':""}</button>
       <div class="menu" hidden>
         <a class="dm-head" href="#perfil">${avatar(p,46)}<span class="dm-id"><b>${esc(p.username)} ${flag(p.country||"")}</b><small>${esc(p.email||"")}</small></span></a>
-        <div class="dm-lv"><div class="dm-lvr"><span>${premium()?premTag():'<span class="tag">Cuenta gratis</span>'}<span class="dim">${esc(lv.name)}</span></span><b class="mono">${S.prog?S.prog.xp:0} pts</b></div>
+        <div class="dm-lv"><div class="dm-lvr"><span>${premium()?premTag():'<span class="tag">Cuenta gratis</span>'}${p.affiliate?affTag():""}<span class="dim">${esc(lv.name)}</span></span><b class="mono">${S.prog?S.prog.xp:0} pts</b></div>
           <div class="bar"><i style="width:${lv.to?Math.round(100*(((S.prog&&S.prog.xp)||0)-lv.from)/(lv.to-lv.from)):100}%"></i></div></div>
         <div class="dm-items">
           <a href="${ACAD?"#perfil":"#perfil"}">${ico("gear",18)}<span>Configuración</span></a>
           <a href="${ACAD?"#perfil-progreso":"#perfil-progreso"}">${ico("chart",18)}<span>Mi progreso</span></a>
-          <a href="${ACAD?"#ranking":toAcad("ranking")}">${ico("trophy",18)}<span>Ranking</span></a>
+          ${rewardsOn()||admin()?`<a href="${toMain("puntos")}">${ico("card",18)}<span>Mis puntos</span></a><a href="${toMain("ranking")}">${ico("trophy",18)}<span>Ranking de retos</span></a>`:""}
+          <a href="${toAcad("progreso")}">${ico("layers",18)}<span>Tabla de progreso</span></a>
           ${premium()?"":`<a href="${toMain("premium")}" class="dm-gold">${ico("crown",18)}<span>Hazte premium</span></a>`}
           ${isStandalone()?"":`<button type="button" id="ddInst">${ico("play",18)}<span>Instalar la app</span></button>`}
           ${admin()?`<a href="${toMain("admin")}">${ico("news",18)}<span>Administración</span></a>`:""}
@@ -353,6 +361,7 @@ const IC={
   card:'<rect x="3" y="6" width="18" height="12.5" rx="2"/><path d="M3 10h18M7 15h3"/>',
   msg:'<path d="M4 5h16v11H9l-5 4z"/>',
   layers:'<path d="M12 4l9 5-9 5-9-5z"/><path d="M3 14l9 5 9-5"/>',
+  bolt:'<path d="M13 3L5 13.5h6L10 21l9-11.5h-6z"/>',
   site:'<rect x="3" y="4.5" width="18" height="15" rx="2"/><path d="M3 9h18M7 6.8h.01M10 6.8h.01"/>'};
 const ico=(k,s=22)=>`<svg viewBox="0 0 24 24" width="${s}" height="${s}" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${IC[k]}</svg>`;
 function saludo(){const h=new Date(Date.now()+TZ*1000).getUTCHours();return h<5?"Buenas noches":h<12?"Buenos días":h<19?"Buenas tardes":"Buenas noches"}
@@ -368,16 +377,15 @@ async function memberHome(){
   const tiles=[
     ["acad","Academia",cerr?"Abre muy pronto":prem?`${pas} de ${total} lecciones`:"Temario y prueba gratis",toAcad("inicio")],
     ["chart","Práctica",prem?"Gráficas reales ilimitadas":`${demo} gráficas de prueba`,toAcad(prem?"practica":"prueba")],
-    ["trophy","Ranking",`<span id="mhPos">Ver mi puesto</span>`,toAcad("ranking")],
+    ...(rewardsOn()||admin()?[["bolt","Reto del día","Gana puntos hoy","#retos"],["trophy","Ranking",`<span id="mhPos">Ver mi puesto</span>`,"#ranking"]]:[["layers","Mi progreso","Tabla de la academia",toAcad("progreso")],["news","Novedades","Publicaciones y avisos","#comunidad"]]),
     ["chat","Comunidad",s.discordUrl?"Entrar al Discord":"Noticias y avisos",s.discordUrl||"#comunidad",!!s.discordUrl],
-    ["news","Novedades","Publicaciones y avisos","#comunidad"],
     ["gear","Configuración","Perfil, app y notificaciones","#perfil"]];
   app.innerHTML=`<div id="appCard"></div>
   <section class="mh">
     <div class="mh-bg" aria-hidden="true"></div>
     <div class="mh-id"><a class="mh-av" href="#perfil" title="Configuración">${avatar(p,84)}<span class="lvchip" title="${esc(lv.name)}">${lv.i+1}</span></a>
       <div class="mh-t"><span class="eyebrow">${saludo()}</span><h1>${esc(p.username||"trader")} ${flag(p.country||"")}</h1>
-        <div class="mh-chips">${prem?premTag():'<span class="tag">Cuenta gratis</span>'}<span class="tag">${esc(lv.name)}</span><span class="tag mono">${g.xp||0} pts</span>${admin()?'<span class="tag pub">Admin</span>':""}</div></div></div>
+        <div class="mh-chips">${prem?premTag():'<span class="tag">Cuenta gratis</span>'}${p.affiliate?affTag():""}<span class="tag">${esc(lv.name)}</span>${admin()?'<span class="tag pub">Admin</span>':""}</div></div></div>
     <div class="mh-cta">${cta}</div>
     <div class="mh-bars">
       <div><div class="mh-bl"><span>Avance en la academia</span><b class="mono">${apct}%</b></div><div class="bar"><i style="width:${apct}%"></i></div></div>
@@ -390,16 +398,125 @@ async function memberHome(){
     <div class="mh-side">
       <div class="panel mh-plan">${prem?`<span class="mt-i gold">${ico("crown")}</span><div><b>Tu plan Premium</b><span class="muted">${dias!=null&&dias<3650?`Te quedan <b>${dias}</b> día${dias===1?"":"s"} · hasta ${fmtDate(p.premium_until)}`:"Acceso completo a la academia"}</span></div>${dias!=null&&dias<=7?'<a class="btn sm gold" href="#premium">Renovar</a>':""}`
         :`<span class="mt-i gold">${ico("crown")}</span><div><b>Desbloquea toda la academia</b><span class="muted">Todos los módulos, práctica ilimitada y tu placa dorada en el ranking.</span></div><a class="btn sm gold" href="#precios-mh">Ver planes</a>`}</div>
-      <div class="panel"><div class="sec-h"><h3>Ranking</h3><a href="${toAcad("ranking")}">Completo</a></div><div id="mhRk" class="muted">Cargando…</div></div>
+      <div class="panel"><div class="sec-h"><h3>${rewardsOn()||admin()?"Ranking de retos":"Tabla de progreso"}</h3><a href="${rewardsOn()||admin()?"#ranking":toAcad("progreso")}">Completo</a></div><div id="mhRk" class="muted">Cargando…</div></div>
     </div>
   </section>
+  ${promoBlock()}
   ${prem?"":'<section class="sec" id="precios-mh"></section>'}`;
   appCard($("#appCard"));if(!prem)pricingBlock($("#precios-mh"));
   API.posts().then(ps=>{const h=$("#mhNews");if(!h)return;h.innerHTML=ps.slice(0,4).map(x=>`<a class="mn" href="#nota-${esc(x.id)}">${x.image_url?`<span class="mn-img" style="background-image:url('${esc(x.image_url)}')"></span>`:`<span class="mn-img none">${ico("news",20)}</span>`}<span class="mn-t"><span class="dim">${fmtDate(x.created_at)} · ${esc(x.category||"Noticia")}</span><b>${esc(x.title)}</b></span></a>`).join("")||'<div class="muted">Pronto publicaremos novedades.</div>'}).catch(()=>{const h=$("#mhNews");if(h)h.innerHTML='<div class="muted">No se pudieron cargar las novedades.</div>'});
-  API.leaderboard().then(r=>{const h=$("#mhRk");if(!h)return;const k=r.findIndex(x=>x.is_me);if($("#mhPos"))$("#mhPos").textContent=k>=0?`Vas en el puesto #${k+1}`:"Suma puntos para aparecer";
-    h.innerHTML=r.length?`<table class="tbl rk">${r.slice(0,5).map((x,i)=>`<tr class="${x.is_me?"me ":""}${x.premium?"prem":""}"><td class="mono">${i<3?["🥇","🥈","🥉"][i]:i+1}</td><td><span class="who-cell">${avatar(x,24)}<span>${esc(x.username)}</span>${flag(x.country)}</span></td><td class="n">${x.xp}</td></tr>`).join("")}</table>${k>=5?`<div class="mh-me">Tú: puesto #${k+1} · ${r[k].xp} pts</div>`:""}`:'<div class="muted">Aún no hay alumnos en el ranking.</div>'}).catch(()=>{const h=$("#mhRk");if(h)h.textContent="No se pudo cargar."});
+  (rewardsOn()||admin()?API.rewardsBoard("mes").then(r=>r.map(x=>Object.assign(x,{v:x.points+" pts"}))):API.progressBoard().then(r=>r.map(x=>Object.assign(x,{v:x.lessons+" lecc."})))).then(r=>{const h=$("#mhRk");if(!h)return;const k=r.findIndex(x=>x.is_me);if($("#mhPos"))$("#mhPos").textContent=k>=0?`Vas en el puesto #${k+1}`:"Juega para aparecer";
+    h.innerHTML=r.length?`<table class="tbl rk">${r.slice(0,5).map((x,i)=>`<tr class="${x.is_me?"me ":""}${x.premium?"prem":""}"><td class="mono">${i<3?["🥇","🥈","🥉"][i]:i+1}</td><td><span class="who-cell">${avatar(x,24)}<span>${esc(x.username)}</span>${flag(x.country)}${x.affiliate?affTag():""}</span></td><td class="n">${esc(x.v)}</td></tr>`).join("")}</table>${k>=5?`<div class="mh-me">Tú: puesto #${k+1} · ${esc(r[k].v)}</div>`:""}`:'<div class="muted">Todavía no hay nadie aquí. ¡Sé el primero!</div>'}).catch(()=>{const h=$("#mhRk");if(h)h.textContent="No se pudo cargar."});
 }
 
+/* =====================================================================
+   RETOS DIARIOS · PUNTOS · AFILIADOS · CANJES (sitio principal)
+   ===================================================================== */
+const RW=()=>(S.site&&S.site.rewards)||{};
+const rewardsOn=()=>!!RW().enabled;
+const affTag=()=>'<span class="aff-tag" title="Afiliado verificado de Deriv"><svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.2 4.2L19 7"/></svg>Afiliado</span>';
+const ptsUsd=p=>{const r=Math.max(1,+RW().ptsPerUsd||100);return (p/r).toLocaleString("es-CO",{style:"currency",currency:"USD",minimumFractionDigits:2})};
+const KIND={opcion:"Cuestionario",tendencia:"¿Sube o baja?",zona:"Marca la zona"};
+function leftTxt(t){const ms=new Date(t)-Date.now();if(ms<=0)return"cerrado";const h=Math.floor(ms/36e5),m=Math.floor(ms%36e5/6e4);return h>=24?`cierra en ${Math.floor(h/24)} d ${h%24} h`:h?`cierra en ${h} h ${m} min`:`cierra en ${m} min`}
+/* bloque publicitario: El Arte Gráfico te paga por participar */
+function promoBlock(){if(!rewardsOn()&&!RW().teaser)return"";const on=rewardsOn(),c=RW();
+  return `<section class="promo"><div class="promo-t"><span class="eyebrow">${on?"Retos diarios · Gana dinero":"Muy pronto"}</span><h2>El Arte Gráfico te paga por participar</h2>
+    <p>Cada día publicamos un reto: un cuestionario, adivinar la tendencia o marcar la zona. <b>Los primeros ${5} en acertar ganan puntos</b> y cada mes los cambias por dinero${c.ptsPerUsd?` (${c.ptsPerUsd} puntos = 1 USD)`:""}.</p>
+    <ul class="promo-l"><li>${ico("trophy",18)}Top 5 del día gana puntos</li><li>${ico("card",18)}Canjea cada mes por USDT</li><li>${ico("star",18)}Afiliados de Deriv ganan el doble</li></ul>
+    <div class="row">${on?`<a class="btn gold" href="${toMain("retos")}">Ver el reto de hoy</a><a class="btn ghost" href="${toMain("ranking")}">Ranking</a>`:`<span class="pill gold">Te avisaremos cuando empiece</span>`}</div></div>
+    <div class="promo-art" aria-hidden="true"><div class="pa-coin">$</div><div class="pa-card"><b>Reto del día</b><span>¿Sube o baja?</span><i></i><i></i><i></i></div><div class="pa-badge">+100 pts</div></div></section>`}
+/* lista de retos */
+ROUTES.retos=async()=>{
+  if(!rewardsOn()&&!admin()){app.innerHTML=`<div class="pagehead"><span class="eyebrow">Retos diarios</span><h1>Muy pronto</h1><p class="muted">Estamos preparando los retos diarios con premios. Te avisaremos por las notificaciones y la comunidad.</p></div>${promoBlock()}`;return}
+  app.innerHTML=`<div class="pagehead"><span class="eyebrow">Retos diarios</span><h1>Juega, acierta y gana</h1><p class="muted">Los primeros ${5} que aciertan cada reto ganan puntos. Los afiliados verificados de Deriv reciben los puntos completos; el resto, la mitad.</p></div>
+    ${admin()&&!rewardsOn()?'<div class="note admin-note">Los retos están apagados para los alumnos. Actívalos en Administración → Retos y puntos → Ajustes.</div>':""}
+    <div id="myPts"></div><section class="sec"><div class="sec-h"><h2>Abiertos ahora</h2><a href="#ranking">Ver ranking</a></div><div id="rtOpen" class="rt-grid"><div class="muted">Cargando…</div></div></section>
+    <section class="sec"><div class="sec-h"><h2>Retos anteriores</h2></div><div id="rtPast" class="rt-list"></div></section>`;
+  ptsCard($("#myPts"));
+  let L=[];try{L=await API.challengesFeed()}catch(e){$("#rtOpen").innerHTML=`<div class="empty">No se pudieron cargar los retos.</div>`;return}
+  const card=c=>{const lib=c.max_winners-c.winners;return `<a class="rt-card${c.answered?" done":""}${c.closed?" closed":""}" href="#reto-${esc(c.id)}">
+    <div class="rt-top"><span class="rt-k">${ico(c.kind==="opcion"?"msg":c.kind==="tendencia"?"chart":"layers",16)}${KIND[c.kind]}</span><span class="rt-pts">+${c.points} pts</span></div>
+    <b class="rt-t">${esc(c.title)}</b>
+    <div class="rt-cupos">${Array.from({length:c.max_winners},(_,i)=>`<i class="${i<c.winners?"on":""}"></i>`).join("")}<span>${c.closed?"Cerrado":`${lib} de ${c.max_winners} cupos`}</span></div>
+    <div class="rt-bot"><span class="dim">${c.closed?fmtDate(c.starts_at):leftTxt(c.ends_at)}</span>${c.answered?(c.my_place?`<span class="pill ok">Ganaste · +${c.my_points}</span>`:c.my_correct?'<span class="pill">Acertaste sin cupo</span>':'<span class="pill">Fallaste</span>'):c.closed?'<span class="pill">Ver respuesta</span>':'<span class="btn sm gold">Jugar</span>'}</div></a>`};
+  const open=L.filter(c=>!c.closed),past=L.filter(c=>c.closed);
+  $("#rtOpen").innerHTML=open.map(card).join("")||'<div class="empty">No hay retos abiertos en este momento. El próximo sale pronto: activa las notificaciones para enterarte primero.</div>';
+  $("#rtPast").innerHTML=past.map(card).join("")||'<div class="muted">Aún no hay retos anteriores.</div>';
+};
+/* tarjeta de mis puntos */
+async function ptsCard(host){if(!host)return;if(!logged()){host.innerHTML=`<div class="rk-cta"><div><b>Crea tu cuenta para participar</b><span class="muted">Necesitas una cuenta gratis para jugar los retos y acumular puntos.</span></div><a class="btn gold" href="#registro">Crear cuenta</a></div>`;return}
+  let r=null;try{r=await API.myRewards()}catch(e){}if(!r||!host.isConnected)return;const p=API.profile()||{};
+  host.innerHTML=`<div class="pts-card"><div class="pts-main"><span class="eyebrow">Mis puntos</span><b class="mono">${r.balance}</b><span class="dim">≈ ${ptsUsd(r.balance)} · este mes +${r.month}</span></div>
+    <div class="pts-st"><div><b class="mono">${r.wins}</b><span>retos ganados</span></div><div><b class="mono">${r.played}</b><span>jugados</span></div><div>${p.affiliate?affTag():`<span class="tag">${r.affiliate==="pendiente"?"Afiliado: en revisión":"No afiliado"}</span>`}<span>${p.affiliate?"puntos completos":"recibes la mitad"}</span></div></div>
+    <div class="pts-act"><a class="btn gold" href="#puntos">${RW().redeemOpen?"Canjear puntos":"Mis puntos"}</a>${p.affiliate?"":`<a class="btn ghost" href="#puntos-afiliado">Verificar afiliado</a>`}</div></div>`}
+/* jugar un reto */
+ROUTES.reto=async id=>{
+  app.innerHTML='<div class="muted">Cargando reto…</div>';let L=[];try{L=await API.challengesFeed()}catch(e){}const c=L.find(x=>x.id===id);
+  if(!c){app.innerHTML=`<div class="empty">Ese reto no existe o todavía no está publicado.<a class="btn sm" href="#retos">Ver retos</a></div>`;return}
+  const opts=(c.options&&c.options.length?c.options:(c.kind==="tendencia"?["Sube","Baja"]:[]));const can=!c.closed&&!c.answered&&logged()&&rewardsOn();
+  app.innerHTML=`<div class="crumbs"><a href="#retos">Retos</a><span>/</span><span>${esc(c.title)}</span></div>
+    <div class="rt-head"><div><span class="eyebrow">${KIND[c.kind]} · +${c.points} pts${API.profile()&&!API.profile().affiliate?` (tú: +${Math.ceil(c.points/2)})`:""}</span><h1>${esc(c.title)}</h1>${c.question?`<p class="muted">${esc(c.question)}</p>`:""}</div>
+      <div class="rt-meta"><div class="rt-cupos big">${Array.from({length:c.max_winners},(_,i)=>`<i class="${i<c.winners?"on":""}"></i>`).join("")}</div><span>${c.closed?"Reto cerrado":`${c.max_winners-c.winners} de ${c.max_winners} cupos · ${leftTxt(c.ends_at)}`}</span></div></div>
+    ${!logged()?`<div class="rk-cta"><div><b>Ingresa para jugar</b><span class="muted">Crea tu cuenta gratis y participa en los retos diarios.</span></div><a class="btn gold" href="#registro">Crear cuenta</a></div>`:!rewardsOn()?'<div class="note admin-note">Vista de admin: los retos están apagados para los alumnos.</div>':""}
+    <div class="rt-play panel">${c.image_url?`<img class="rt-img" src="${esc(c.image_url)}" alt="">`:""}${c.kind!=="opcion"?`<div class="chartbox rt-chart"><div class="cv" style="position:absolute;inset:0"></div><div class="chint">${c.kind==="zona"?"Toca la gráfica donde está tu zona":"Así iba el precio · ¿qué pasa después?"}</div></div>`:""}
+      ${c.kind==="zona"?`<div class="row rt-zbar"><span id="rzv" class="muted">${can?"Toca la gráfica para poner tu zona":""}</span><button class="btn gold" id="rzOk" disabled ${can?"":"hidden"}>Enviar mi zona</button></div>`
+        :`<div class="rt-opts">${opts.map((o,i)=>`<button type="button" class="rt-opt${c.correct===i?" ok":""}${c.answered&&c.my_correct===false&&c.correct!==i?"":""}" data-o="${i}" ${can?"":"disabled"}><i>${String.fromCharCode(65+i)}</i><span>${esc(o)}</span></button>`).join("")}</div>`}
+      <div id="rtRes"></div></div>
+    <section class="sec"><div class="sec-h"><h2>Ganadores</h2></div><div id="rtWin" class="muted">Cargando…</div></section>`;
+  const res=$("#rtRes");
+  const show=(r,mine)=>{res.innerHTML=r.correct?(r.place?`<div class="result ok"><b class="big">¡Acertaste! Puesto #${r.place} · +${r.points} puntos</b>${!r.affiliate&&r.points<r.full_points?`<div>Como no eres afiliado verificado recibiste la mitad. <a href="#puntos-afiliado">Verifícate y gana los ${r.full_points} completos</a>.</div>`:""}</div>`
+      :`<div class="result"><b class="big">Acertaste, pero ya se llenaron los ${c.max_winners} cupos</b><div>Sé de los primeros en el próximo reto. Activa las notificaciones para enterarte apenas salga.</div></div>`)
+      :`<div class="result bad"><b class="big">No era esa</b><div>Mañana hay otro reto. ¡Sigue practicando en la academia!</div></div>`};
+  if(c.answered)show({correct:c.my_correct,place:c.my_place,points:c.my_points,affiliate:(API.profile()||{}).affiliate,full_points:c.points});
+  if(c.explain)res.insertAdjacentHTML("beforeend",`<div class="note" style="margin-top:12px"><b>Explicación:</b> ${esc(c.explain)}</div>`);
+  const send=async ans=>{try{const r=await API.submitChallenge(c.id,ans);show(r);toast(r.place?`+${r.points} puntos`:"Respuesta enviada");setTimeout(()=>ROUTES.reto(c.id),1800)}catch(x){toast(x.message)}};
+  $$("[data-o]").forEach(b=>b.onclick=()=>{if(!can)return;$$("[data-o]").forEach(x=>{x.disabled=true;x.classList.toggle("pick",x===b)});send({option:+b.dataset.o})});
+  if(c.kind!=="opcion"&&c.market){try{const H=await h1Bars(c.market);const end=idxAt(H.bars,c.chart_t||H.bars[H.bars.length-1].t);const C=Chart.makeChart($(".rt-chart .cv"));
+      const bars=H.bars.slice(Math.max(0,end-90),end+1);C.setData(toC(bars),H.dec);C.setRange(bars.length-70,bars.length+6);cleanup.push(()=>C.destroy&&C.destroy());
+      if(c.zone!=null){C.addLine({price:c.zone,color:"#f3d88f",lineWidth:2,title:"Zona correcta",band:c.tol?c.zone+c.tol:null,bandColor:"rgba(216,176,98,.16)"});if(c.tol)C.addLine({price:c.zone-c.tol,color:"rgba(243,216,143,.5)",lineWidth:1,lineStyle:"dotted"})}
+      if(c.kind==="zona"){const ma=c.answer||null;let mine=null,ln=null;
+        if(can){C.onClick(p=>{mine=p;if(ln)C.removeLine(ln);ln=C.addLine({price:p,color:"#c8d0de",lineWidth:2,lineStyle:"dashed",draggable:true,title:"Tu zona"});$("#rzv").textContent="Tu zona: "+p.toFixed(H.dec)+" · puedes arrastrarla";$("#rzOk").disabled=false});
+          C.onLineDrag((l,p)=>{if(l===ln){mine=p;$("#rzv").textContent="Tu zona: "+p.toFixed(H.dec)}});
+          $("#rzOk").onclick=()=>{if(mine==null)return;$("#rzOk").disabled=true;send({price:+mine.toFixed(H.dec)})}}}
+    }catch(e){const b=$(".rt-chart");if(b)b.innerHTML='<div class="empty">No se pudo cargar la gráfica.</div>'}}
+  API.challengeWinners(c.id).then(w=>{const h=$("#rtWin");if(!h)return;h.innerHTML=w.length?`<div class="win-list">${w.map(x=>`<div class="win"><span class="win-p">${x.place<=3?["🥇","🥈","🥉"][x.place-1]:"#"+x.place}</span>${avatar(x,34)}<b>${esc(x.username)}</b>${flag(x.country)}${x.affiliate?affTag():""}${x.premium?premTag():""}<span class="mono win-pt">+${x.points}</span></div>`).join("")}</div>`:'<div class="muted">Todavía nadie gana este reto. ¡Puedes ser el primero!</div>'}).catch(()=>{});
+};
+/* ranking de puntos (El Arte Gráfico) */
+ROUTES.ranking=async per=>{per=per==="total"?"total":"mes";
+  const mes=new Date().toLocaleDateString("es-CO",{month:"long",year:"numeric"});
+  app.innerHTML=`<div class="pagehead"><span class="eyebrow">Retos diarios</span><h1>Ranking</h1><p class="muted">Puntos ganados en los retos. Los primeros 5 de cada reto suman; los afiliados verificados suman el doble.</p></div>
+    ${!rewardsOn()&&!admin()?promoBlock():""}
+    <div class="seg rk-seg"><a class="${per==="mes"?"on":""}" href="#ranking">Este mes · ${esc(mes)}</a><a class="${per==="total"?"on":""}" href="#ranking-total">Histórico</a></div><div id="rk" class="muted">Cargando…</div>`;
+  try{const r=await API.rewardsBoard(per);const yo=r.find(x=>x.is_me);
+    const cta=!logged()?`<div class="rk-cta"><div><b>¿Quieres aparecer aquí?</b><span class="muted">Crea tu cuenta gratis y juega el reto del día.</span></div><a class="btn gold" href="#registro">Crear cuenta</a></div>`
+      :`<div class="rk-cta"><div><b>${yo?`Vas en el puesto #${r.indexOf(yo)+1} con ${yo.points} puntos`:"Aún no tienes puntos este mes"}</b><span class="muted">Juega el reto de hoy: los primeros 5 en acertar ganan.</span></div><a class="btn gold" href="#retos">Ver retos</a></div>`;
+    $("#rk").innerHTML=cta+(r.length?`${podio(r,x=>x.points+" pts")}<div class="scroll"><table class="tbl rk"><thead><tr><th>#</th><th>Participante</th><th class="c-hide" style="text-align:right">Retos ganados</th><th style="text-align:right">Puntos</th></tr></thead><tbody>${r.map((x,i)=>`<tr class="${x.is_me?"me ":""}${x.premium?"prem":""}"><td class="mono">${i<3?["🥇","🥈","🥉"][i]:i+1}</td><td><span class="who-cell">${avatar(x,28)}<span>${esc(x.username)}</span>${flag(x.country)}${x.affiliate?affTag():""}${x.premium?premTag():""}</span></td><td class="n c-hide">${x.wins}</td><td class="n">${x.points}</td></tr>`).join("")}</tbody></table></div>`:'<div class="empty">Todavía no hay puntos en este periodo.</div>')}
+  catch(e){$("#rk").textContent="No se pudo cargar el ranking."}};
+/* mis puntos: canjes y afiliado */
+ROUTES.puntos=async arg=>{if(!logged()){location.hash="#entrar";return}
+  app.innerHTML=`<div class="pagehead"><span class="eyebrow">Retos diarios</span><h1>Mis puntos</h1><p class="muted">Tu saldo, tus canjes y tu verificación de afiliado.</p></div><div id="myPts"></div>
+    <div class="two pts-two"><section class="panel" id="cnj"><h3>Canjear por dinero</h3><div class="muted">Cargando…</div></section><section class="panel" id="afl"><h3>Afiliado de Deriv</h3><div class="muted">Cargando…</div></section></div>
+    <section class="panel" id="hist"><h3>Mis canjes</h3><div class="muted">Cargando…</div></section>`;
+  ptsCard($("#myPts"));let r=null;try{r=await API.myRewards()}catch(e){}if(!r)return;const c=RW(),p=API.profile()||{},rate=Math.max(1,+c.ptsPerUsd||100),mn=+(c.minRedeem??500);
+  const pend=(r.redemptions||[]).find(x=>x.status==="pendiente");
+  $("#cnj").innerHTML=`<h3>Canjear por dinero</h3><p class="muted">${rate} puntos = 1 USD · mínimo ${mn} puntos · pago por Binance (USDT).</p>`+(!c.redeemOpen?`<div class="note">Los canjes abren una vez al mes. Mientras tanto <b>tus puntos se acumulan</b>; te avisaremos cuando abra la ventana de canje.</div>`
+    :pend?`<div class="note">Tienes un canje en revisión: <b>${pend.points} puntos (${ptsUsd(pend.points)})</b>. Te avisamos cuando lo paguemos.</div>`
+    :r.balance<mn?`<div class="note">Te faltan <b>${mn-r.balance}</b> puntos para el mínimo de canje.</div>`
+    :`<form class="form" id="cf"><div class="two"><label for="cP">Puntos a canjear<input id="cP" type="number" min="${mn}" max="${r.balance}" step="1" value="${r.balance}"></label><label>Recibes<b class="mono" id="cU" style="font-size:22px">${ptsUsd(r.balance)}</b></label></div>
+       <label for="cA">Tu Binance Pay ID o correo de Binance<input id="cA" maxlength="120" required placeholder="Ej.: 123456789"></label><button class="btn gold" id="cS">Enviar solicitud de canje</button><p class="dim" style="font-size:13px;margin:0">Revisamos y pagamos los canjes en los días siguientes al cierre del mes.</p></form>`);
+  const cf=$("#cf");if(cf){$("#cP").oninput=()=>$("#cU").textContent=ptsUsd(Math.max(0,+$("#cP").value||0));
+    cf.onsubmit=async e=>{e.preventDefault();try{busy($("#cS"),true);await API.requestRedemption(+$("#cP").value,"binance",$("#cA").value.trim());toast("Solicitud enviada");ROUTES.puntos()}catch(x){toast(x.message)}finally{const b=$("#cS");if(b)busy(b,false)}}}
+  const st=r.affiliate;$("#afl").innerHTML=`<h3>Afiliado de Deriv ${p.affiliate?affTag():""}</h3><p class="muted">Si abriste tu cuenta de Deriv con el enlace de El Arte Gráfico, eres afiliado: <b>ganas los puntos completos</b> en cada reto (los demás reciben la mitad) y te sale la etiqueta de afiliado.</p>`+
+    (st==="verificado"?`<div class="note ok-note">Verificado · ID de Deriv <b class="mono">${esc(r.deriv_id||"")}</b></div>`
+    :st==="pendiente"?`<div class="note">Tu solicitud está en revisión · ID <b class="mono">${esc(r.deriv_id||"")}</b>. Revisamos que estés en nuestra red de socios de Deriv.</div>`
+    :`${st==="rechazado"?`<div class="note">No pudimos verificar el ID <b class="mono">${esc(r.deriv_id||"")}</b>${r.affiliate_note?`: ${esc(r.affiliate_note)}`:""}. Revisa y vuelve a enviarlo.</div>`:""}
+      <form class="form" id="af"><label for="aD">Tu ID de cliente de Deriv<input id="aD" maxlength="40" required placeholder="Ej.: CR1234567" autocomplete="off"></label><button class="btn gold" id="aS">Enviar para verificar</button>
+      <p class="dim" style="font-size:13px;margin:0">Lo encuentras en Deriv, arriba a la derecha (empieza por CR). ¿Aún no tienes cuenta? ${S.site.derivRefUrl?`<a href="${esc(S.site.derivRefUrl)}" target="_blank" rel="noopener sponsored">Ábrela con nuestro enlace</a>.`:"Pide el enlace en la comunidad."}</p></form>`);
+  const af=$("#af");if(af)af.onsubmit=async e=>{e.preventDefault();try{busy($("#aS"),true);await API.requestAffiliate($("#aD").value);toast("Solicitud enviada");ROUTES.puntos("afiliado")}catch(x){toast(x.message)}finally{const b=$("#aS");if(b)busy(b,false)}};
+  const H=r.redemptions||[];const ES={pendiente:'<span class="pill gold">En revisión</span>',pagado:'<span class="pill ok">Pagado</span>',rechazado:'<span class="pill">Rechazado</span>'};
+  $("#hist").innerHTML=`<h3>Mis canjes</h3>`+(H.length?`<div class="tree">${H.map(x=>`<div class="item"><span class="txt"><b>${x.points} puntos · ${ptsUsd(x.points)}</b><span>${fmtDate(x.created_at)}${x.admin_note?` · ${esc(x.admin_note)}`:""}</span></span>${ES[x.status]||""}</div>`).join("")}</div>`:'<div class="muted">Aún no has hecho canjes.</div>');
+  if(arg==="afiliado")setTimeout(()=>{const a=$("#afl");if(a)a.scrollIntoView({behavior:"smooth",block:"start"})},200);
+};
 /* ---------- inicio del sitio principal ---------- */
 async function mainHome(){
   if(logged()&&API.profile())return memberHome();
@@ -409,6 +526,7 @@ async function mainHome(){
   <div id="appCard"></div>
   <section class="hero2"><div id="hero"></div><div class="demo-card" id="demo" aria-label="Así se practica en la academia"></div></section>
   <section class="statband" id="stats"></section>
+  ${promoBlock()}
   <section class="sec"><div class="sec-h"><div><span class="eyebrow">La academia</span><h2>Qué vas a aprender</h2></div><a href="${toAcad("inicio")}">Ir a la academia</a></div><div class="cards" id="cards"></div></section>
   <section class="sec" id="about"></section>
   <section class="sec"><div class="sec-h"><div><span class="eyebrow">Temario</span><h2>De cero al método completo</h2></div><a href="${toAcad("academia")}">Ver temario</a></div><div class="tmp" id="tmp"></div></section>
@@ -442,12 +560,12 @@ async function academyHome(){
   const passed=Object.values(g.done).filter(d=>d.passed).length,total=S.lindex.length;
   const prem=premium(),apct=total?Math.round(100*passed/total):0,acc=g.practice.n?Math.round(100*g.practice.ok/g.practice.n):0,demo=Math.max(0,5-(p.demo_used||0));
   const tiles=[["acad","Temario",`${passed} de ${total} lecciones`,"#academia"],["chart","Práctica",prem?"Gráficas ilimitadas":`${demo} gráficas de prueba`,prem?"#practica":"#prueba"],
-    ["trophy","Ranking",'<span id="mhPos">Ver mi puesto</span>',"#ranking"],["news","Comunidad","Novedades y avisos",toMain("comunidad")],["gear","Configuración","Perfil, app y notificaciones","#perfil"]];
+    ["layers","Progreso",'<span id="mhPos">Ver mi puesto</span>',"#progreso"],["news","Comunidad","Novedades y avisos",toMain("comunidad")],["gear","Configuración","Perfil, app y notificaciones","#perfil"]];
   app.innerHTML=`<section class="mh">
     <div class="mh-bg" aria-hidden="true"></div>
     <div class="mh-id"><a class="mh-av" href="#perfil" title="Configuración">${avatar(p,84)}<span class="lvchip" title="${esc(lv.name)}">${lv.i+1}</span></a>
       <div class="mh-t"><span class="eyebrow">${saludo()} · Academia</span><h1>${esc(p.username||"")} ${flag(p.country||"")}</h1>
-        <div class="mh-chips">${prem?premTag():'<span class="tag">Cuenta gratis</span>'}<span class="tag">${esc(lv.name)}</span><span class="tag mono">${g.xp} pts</span></div></div></div>
+        <div class="mh-chips">${prem?premTag():'<span class="tag">Cuenta gratis</span>'}${p.affiliate?affTag():""}<span class="tag">${esc(lv.name)}</span></div></div></div>
     <div class="mh-cta">${prem?(nx?`<a class="btn gold btn-ic" href="#leccion-${esc(nx.id)}">${ico("play",18)}<span>Continuar: ${esc(nx.title)}</span></a>`:'<a class="btn gold" href="#practica">Ir a práctica</a>'):`<a class="btn gold" href="#prueba">Probar gratis (${demo} de 5)</a><a class="btn ghost" href="${toMain("premium")}">Hazte premium</a>`}</div>
     <div class="mh-bars">
       <div><div class="mh-bl"><span>Lecciones aprobadas: ${passed}${total?` de ${total}`:""}</span><b class="mono">${apct}%</b></div><div class="bar"><i style="width:${apct}%"></i></div></div>
@@ -460,9 +578,9 @@ async function academyHome(){
   <div id="appCard"></div>
   ${premium()?"":`<section class="sec" id="prueba"><div class="sec-h"><div><span class="eyebrow">Prueba gratis</span><h2>Tus gráficas de prueba</h2></div><span class="muted" id="demoLeft"></span></div><div id="demoBox"></div></section>`}
   <section class="sec"><div class="sec-h"><div><span class="eyebrow">Temario</span><h2>Ruta de aprendizaje</h2></div><a href="#academia">Ver temario completo</a></div><div id="syl"></div></section>
-  ${premium()?`<section class="sec"><div class="two"><div class="panel"><h3>Práctica libre</h3><p class="muted">Ejercicios sueltos para entrenar el ojo. Suman puntos para el ranking.</p><div class="row"><a class="btn" href="#practica">Practicar ahora</a></div></div><div class="panel"><div class="sec-h"><h3>Ranking</h3><a href="#ranking">Ver completo</a></div><div id="rkMini" class="muted">Cargando…</div></div></div></section>`:`<section class="sec"><div class="panel"><div class="sec-h"><h3>Ranking de alumnos</h3><a href="#ranking">Ver completo</a></div><div id="rkMini" class="muted">Cargando…</div></div></section><section class="cta-band">${premiumBand()}</section>`}`;
+  ${premium()?`<section class="sec"><div class="two"><div class="panel"><h3>Práctica libre</h3><p class="muted">Ejercicios sueltos para entrenar el ojo antes de cada lección.</p><div class="row"><a class="btn" href="#practica">Practicar ahora</a></div></div><div class="panel"><div class="sec-h"><h3>Tabla de progreso</h3><a href="#progreso">Ver completa</a></div><div id="rkMini" class="muted">Cargando…</div></div></div></section>`:`<section class="sec"><div class="panel"><div class="sec-h"><h3>Tabla de progreso</h3><a href="#progreso">Ver completa</a></div><div id="rkMini" class="muted">Cargando…</div></div></section><section class="cta-band">${premiumBand()}</section>`}`;
   syllabus($("#syl"),premium()?0:6);if(!premium())demoSection();appCard($("#appCard"));
-  API.leaderboard().then(r=>{const k=r.findIndex(x=>x.is_me);if($("#mhPos"))$("#mhPos").textContent=k>=0?`Vas en el puesto #${k+1}`:"Suma puntos para aparecer";if(!$("#rkMini"))return;$("#rkMini").innerHTML=r.length?`<table class="tbl rk">${r.slice(0,5).map((x,i)=>`<tr class="${x.is_me?"me ":""}${x.premium?"prem":""}"><td class="mono">${i<3?["🥇","🥈","🥉"][i]:i+1}</td><td><span class="who-cell">${avatar(x,24)}<span>${esc(x.username)}</span>${flag(x.country)}${x.premium?premTag():""}</span></td><td class="n">${x.xp}</td></tr>`).join("")}</table>`:'<div class="muted">Aún no hay alumnos en el ranking.</div>'}).catch(()=>{});
+  API.progressBoard().then(r=>{const k=r.findIndex(x=>x.is_me);if($("#mhPos"))$("#mhPos").textContent=k>=0?`Vas en el puesto #${k+1}`:"Aprueba una lección";if(!$("#rkMini"))return;$("#rkMini").innerHTML=r.length?`<table class="tbl rk">${r.slice(0,5).map((x,i)=>`<tr class="${x.is_me?"me ":""}${x.premium?"prem":""}"><td class="mono">${i<3?["🥇","🥈","🥉"][i]:i+1}</td><td><span class="who-cell">${avatar(x,24)}<span>${esc(x.username)}</span>${flag(x.country)}</span></td><td class="n">${x.lessons} lecc.</td></tr>`).join("")}</table>`:'<div class="muted">Aún no hay alumnos en la tabla.</div>'}).catch(()=>{});
 }
 function marketsHTML(list,compact){const g={};list.forEach(m=>{(g[m.cat]=g[m.cat]||[]).push(m)});
   return Object.entries(g).map(([cat,ms])=>`<div class="mkcat"><h3>${esc(cat)}</h3><div class="mklist">${ms.map(m=>`<div class="mk ${m.status==="Disponible"?"on":""}"><div><b>${esc(m.name)}</b>${compact?"":`<p class="muted">${esc(m.text||"")}</p>`}</div><span class="tag ${m.status==="Disponible"?"pub":""}">${esc(m.status)}</span></div>`).join("")}</div></div>`).join("")||'<div class="empty">Sin mercados configurados.</div>'}
@@ -726,14 +844,13 @@ ROUTES.opiniones=async()=>{
   $$("[data-r]").forEach(b=>b.onclick=()=>{rating=+b.dataset.r;paint()});
   $("#rf").onsubmit=async e=>{e.preventDefault();if(!rating)return toast("Elige de 1 a 5 estrellas");try{busy($("#rg"),true);await API.saveReview(rating,$("#rb").value.trim());toast("Gracias. Tu opinión quedó en revisión.");ROUTES.opiniones()}catch(x){toast(x.message)}finally{busy($("#rg"),false)}};
 };
-ROUTES.ranking=async()=>{app.innerHTML=`<div class="pagehead"><span class="eyebrow">Comunidad</span><h1>Ranking</h1><p class="muted">Puntos por ejercicios correctos y lecciones aprobadas. Los alumnos con la placa dorada son premium.</p></div><div id="rk" class="muted">Cargando…</div>`;
-  try{const r=await API.leaderboard();const yo=r.find(x=>x.is_me);
-    const cta=!logged()?`<div class="rk-cta"><div><b>¿Quieres aparecer aquí?</b><span class="muted">Crea tu cuenta gratis, haz tus primeros ejercicios y empieza a sumar puntos.</span></div><a class="btn gold" href="#registro">Crear cuenta</a></div>`
-      :!premium()?`<div class="rk-cta"><div><b>${yo?`Vas en el puesto #${r.indexOf(yo)+1}`:"Aún no apareces en el ranking"}</b><span class="muted">Con premium tienes todas las lecciones y la práctica libre para sumar puntos sin límite, y tu placa dorada en el ranking.</span></div><a class="btn gold" href="#premium">Hazte premium</a></div>`:"";
-    $("#rk").innerHTML=cta+(r.length?`${podio(r)}<div class="scroll"><table class="tbl rk"><thead><tr><th>#</th><th>Alumno</th><th class="c-hide">Nivel</th><th class="c-hide" style="text-align:right">Lecciones</th><th style="text-align:right">Puntos</th></tr></thead><tbody>${r.map((x,i)=>rkRow(x,i)).join("")}</tbody></table></div>`:'<div class="empty">Aún no hay alumnos en el ranking.</div>')}
-  catch(e){$("#rk").textContent="No se pudo cargar el ranking."}};
+ROUTES.progreso=async()=>{app.innerHTML=`<div class="pagehead"><span class="eyebrow">Academia</span><h1>Tabla de progreso</h1><p class="muted">Quién va más adelante en el temario, por lecciones aprobadas. Aquí no hay puntos: solo avance.</p></div><div id="rk" class="muted">Cargando…</div>`;
+  try{const r=await API.progressBoard();const yo=r.find(x=>x.is_me);const tot=S.lindex.length;
+    const cta=yo?`<div class="rk-cta"><div><b>Vas en el puesto #${r.indexOf(yo)+1} con ${yo.lessons} lecciones aprobadas</b><span class="muted">Sigue con tu siguiente lección para subir en la tabla.</span></div><a class="btn gold" href="#inicio">Continuar</a></div>`:"";
+    $("#rk").innerHTML=cta+(r.length?`${podio(r,x=>x.lessons+" lecciones")}<div class="scroll"><table class="tbl rk"><thead><tr><th>#</th><th>Alumno</th><th class="c-hide">Avance</th><th style="text-align:right">Lecciones</th></tr></thead><tbody>${r.map((x,i)=>`<tr class="${x.is_me?"me ":""}${x.premium?"prem":""}"><td class="mono">${i<3?["🥇","🥈","🥉"][i]:i+1}</td><td><span class="who-cell">${avatar(x,28)}<span>${esc(x.username)}</span>${flag(x.country)}${x.affiliate?affTag():""}${x.premium?premTag():""}</span></td><td class="c-hide"><div class="bar" style="min-width:120px"><i style="width:${tot?Math.round(100*x.lessons/tot):0}%"></i></div></td><td class="n">${x.lessons}</td></tr>`).join("")}</tbody></table></div>`:'<div class="empty">Aún no hay alumnos en la tabla.</div>')}
+  catch(e){$("#rk").textContent="No se pudo cargar la tabla."}};
 const rkRow=(x,i)=>`<tr class="${x.is_me?"me ":""}${x.premium?"prem":""}"><td class="mono">${i<3?["🥇","🥈","🥉"][i]:i+1}</td><td><span class="who-cell">${avatar(x,28)}<span>${esc(x.username)}</span>${flag(x.country)}${x.premium?premTag():""}</span></td><td class="c-hide">${esc(levelOf(x.xp).name)}</td><td class="n c-hide">${x.lessons}</td><td class="n">${x.xp}</td></tr>`;
-const podio=r=>r.length<3?"":`<div class="podio">${[1,0,2].map(i=>{const x=r[i];return `<div class="pod p${i+1}${x.premium?" prem":""}"><div class="pav">${avatar(x,i?64:84)}</div><b>${esc(x.username)} ${flag(x.country)}</b>${x.premium?premTag():'<span class="dim" style="font-size:13px">Gratis</span>'}<span class="mono">${x.xp} pts</span><div class="step">${i+1}</div></div>`}).join("")}</div>`;
+const podio=(r,val=x=>x.xp+" pts")=>r.length<3?"":`<div class="podio">${[1,0,2].map(i=>{const x=r[i];return `<div class="pod p${i+1}${x.premium?" prem":""}"><div class="pav">${avatar(x,i?64:84)}</div><b>${esc(x.username)} ${flag(x.country)}</b><span class="pod-tags">${x.affiliate?affTag():""}${x.premium?premTag():'<span class="dim" style="font-size:13px">Gratis</span>'}</span><span class="mono">${esc(val(x))}</span><div class="step">${i+1}</div></div>`}).join("")}</div>`;
 ROUTES.perfil=arg=>{if(!logged()){location.hash="#entrar";return}setTimeout(()=>{const t={progreso:"cfgProg",app:"cfgApp",seguridad:"cfgSeg"}[arg];if(t&&$("#"+t))$("#"+t).scrollIntoView({behavior:"smooth",block:"start"})},150);const p=API.profile()||{},g=S.prog,lv=levelOf(g.xp);const pct=lv.to?Math.round(100*(g.xp-lv.from)/(lv.to-lv.from)):100;
   app.innerHTML=`<div class="phead"><div class="phead-av">${avatar(p,96)}</div><div style="display:grid;gap:6px;min-width:0"><span class="eyebrow">Configuración</span><h1>${esc(p.username||"")}</h1>
       <p class="muted">${esc(p.email||"")} · ${premium()?`Premium${p.premium_until&&new Date(p.premium_until).getFullYear()<2090?` hasta ${fmtDate(p.premium_until)}`:""}`:"Cuenta gratis"}${p.country?` · ${flag(p.country)} ${esc(p.country)}`:""}</p>${p.bio?`<p>${esc(p.bio)}</p>`:""}</div></div>
@@ -779,7 +896,7 @@ ROUTES.admin=async sub=>{if(!admin()){location.hash="#inicio";return}app.innerHT
   try{await admLoad}catch(e){app.innerHTML='<div class="empty">No se pudo cargar la administración. Revisa tu conexión y recarga.</div>';return}
   if(ROUTES.admin.__lazy){app.innerHTML='<div class="empty">No se pudo cargar la administración.</div>';return}ROUTES.admin(sub)};
 ROUTES.admin.__lazy=true;
-window.AGAPP={ico,avatar,absUrl,enablePush,flag,premTag,legalText,modOpen,modState,SITE,ACAD,link,toAcad,toMain,S,API,$,$$,esc,md,toast,busy,fmtT,fmtDate,fmtDT,TZ,MARKETS,MNAME,h1Bars,m5Bars,idxAt,avgRange,toC,Chart,cleanupPush:f=>cleanup.push(f),route,ROUTES,app,premium,admin,logged,confirmInline,loadContent:()=>loadContent(),renderFoot:()=>renderFoot(),applySite:()=>applySite()};
+window.AGAPP={ico,avatar,affTag,absUrl,enablePush,flag,premTag,legalText,modOpen,modState,SITE,ACAD,link,toAcad,toMain,S,API,$,$$,esc,md,toast,busy,fmtT,fmtDate,fmtDT,TZ,MARKETS,MNAME,h1Bars,m5Bars,idxAt,avgRange,toC,Chart,cleanupPush:f=>cleanup.push(f),route,ROUTES,app,premium,admin,logged,confirmInline,loadContent:()=>loadContent(),renderFoot:()=>renderFoot(),applySite:()=>applySite()};
 
 /* ---------- arranque ---------- */
 async function loadContent(){const [m,l]=await Promise.all([API.modules().catch(()=>[]),API.lessonIndex().catch(()=>[])]);S.modules=m||[];S.lindex=l||[]}

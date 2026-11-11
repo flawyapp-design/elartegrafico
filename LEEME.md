@@ -115,3 +115,10 @@ Corre `supabase/reinicios.sql`. En Admin → Alumnos: "Reiniciar puntos" / "Rein
 
 ## Pausar los pagos
 Admin → Pagos → "Pausar los pagos". Para que también se bloquee del lado del servidor, corre `supabase/pagos_pausa.sql`.
+
+## Retos diarios, puntos, afiliados y canjes
+Corre `supabase/retos.sql`. Todo arranca apagado: Admin → Retos y puntos → Ajustes de puntos → "Activar retos y puntos".
+- Retos diarios: cuestionario, ¿sube o baja? o marcar la zona. Ganan los primeros N (5) que aciertan; todo se valida en el servidor.
+- Afiliados Deriv: el alumno envía su ID de Deriv en "Mis puntos"; tú lo verificas en Admin → Afiliados. Verificado = puntos completos y etiqueta Afiliado; si no, la mitad.
+- Canjes: abre los canjes una vez al mes (Admin → Canjes). El alumno pide su pago y tú lo marcas pagado; si lo rechazas, los puntos vuelven.
+- La academia ya no tiene ranking de puntos: tiene "Tabla de progreso" (lecciones aprobadas).
