@@ -546,7 +546,8 @@ ROUTES.retos=async()=>{
     <div class="rt-bot"><span class="dim">${c.closed?fmtDate(c.starts_at):leftTxt(c.ends_at)}</span>${c.answered?(c.my_place?`<span class="pill ok">Ganaste · +${c.my_points}</span>`:c.my_correct?'<span class="pill">Acertaste sin cupo</span>':'<span class="pill">Fallaste</span>'):c.closed?'<span class="pill">Ver respuesta</span>':'<span class="btn sm gold">Jugar</span>'}</div></a>`};
   const open=L.filter(c=>!c.closed),past=L.filter(c=>c.closed);
   $("#rtOpen").innerHTML=open.map(card).join("")||'<div class="empty">No hay retos abiertos en este momento. El próximo sale pronto: activa las notificaciones para enterarte primero.</div>';
-  $("#rtPast").innerHTML=past.map(card).join("")||'<div class="muted">Aún no hay retos anteriores.</div>';
+  {const ps=past.slice().sort((a,b)=>new Date(b.starts_at)-new Date(a.starts_at));let n=5;const drawP=()=>{$("#rtPast").innerHTML=ps.slice(0,n).map(card).join("")||'<div class="muted">Aún no hay retos anteriores.</div>';
+    if(ps.length>n)$("#rtPast").insertAdjacentHTML("beforeend",`<div class="rt-more-b"><button type="button" class="btn sm ghost" id="rtMore">Ver ${Math.min(5,ps.length-n)} más (${ps.length-n} restantes)</button></div>`);const mb=$("#rtMore");if(mb)mb.onclick=()=>{n+=5;drawP()}};drawP()}
 };
 /* tarjeta de mis puntos */
 async function ptsCard(host,withStreak){if(!host)return;if(!logged()){host.innerHTML=`<div class="rk-cta"><div><b>Crea tu cuenta para participar</b><span class="muted">Necesitas una cuenta gratis para jugar los retos y acumular puntos.</span></div><a class="btn gold" href="#registro">Crear cuenta</a></div>`;return}

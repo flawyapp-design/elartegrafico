@@ -1391,3 +1391,4 @@ nav.main .mnav-sw a.on{color:#1b1405!important;background:linear-gradient(180deg
 .uc-plan{display:flex!important;gap:6px;align-items:center;font-size:13px}.uc-plan select{width:auto}
 .uc-st .crs-tag{margin-top:4px}
 .rt-gh{margin:14px 0 6px;font-size:14px}.rt-gh:first-child{margin-top:4px}.rt-more summary{list-style:none;margin:6px 0}.rt-more summary::-webkit-details-marker{display:none}
+.rt-more-b{grid-column:1/-1;display:flex;justify-content:center;margin-top:6px}
