@@ -43,7 +43,7 @@ async function mountChart(host,ex,o){
   host.innerHTML=`<div class="ex">
     <div class="ex-head"><div style="display:grid;gap:8px;min-width:0">
       <div class="row"><span class="pill gold">${esc(MNAME[ex.market]||ex.market)}</span><span class="pill">${side==="sell"?"Venta":"Compra"}</span><span class="pill">Última vela: ${fmtT(ex.t_end)}</span>${o.preview?'<span class="pill info">Vista previa</span>':""}</div>
-      <div class="ex-q">${esc(ex.prompt||(ex.kind==="no-operar"?"Analiza la gráfica. ¿Hay entrada o es mejor no operar?":`Marca la zona de ${side==="sell"?"venta":"compra"} en ${tfZ}${hasSL?` y después baja a ${tfS} para poner el stop loss`:""}.`))}</div></div>
+      <div class="ex-q">${esc(ex.prompt||(ex.kind==="no-operar"?"Analiza la gráfica. ¿Hay entrada o es mejor no operar?":`Marca la zona de ${side==="sell"?"venta":"compra"}${hasSL?" y el stop loss":""}. Puedes cambiar entre H1 y M5 cuando quieras para ser más preciso.`))}</div></div>
       <div class="tfseg" role="tablist" aria-label="Temporalidad"><button data-tf="H1" role="tab">H1</button><button data-tf="M5" role="tab">M5</button></div></div>
     <div class="stepper" data-a="steps"></div>
     <div class="chartbox"><div class="cv" style="position:absolute;inset:0"></div>
@@ -79,7 +79,7 @@ async function mountChart(host,ex,o){
   const tick=()=>{const b=D[tf].bars;const r=avgRange(b,b.length-1)*0.04;const m=Math.pow(10,-dec);return Math.max(m,+r.toFixed(dec))};
   const nudge=d=>{if(!pend)return;pend.price=+(pend.price+d*tick()).toFixed(dec);drawLines();steps()};
   const confirmPend=()=>{if(!pend)return;const k=pend.kind,v=pend.price;pend=null;
-    if(k==="zone"){zone=v;if(hasSL&&sl==null){mode="sl";if(tf!==tfS)A.toast(`Zona confirmada. Ahora cambia a ${tfS} para poner el stop loss`);else A.toast("Zona confirmada. Ahora marca el stop loss")}}
+    if(k==="zone"){zone=v;if(hasSL&&sl==null){mode="sl";A.toast(tf!==tfS?`Zona confirmada. Ahora marca el stop loss (puedes bajar a ${tfS} para afinarlo)`:"Zona confirmada. Ahora marca el stop loss")}}
     else{sl=v;A.toast("Stop loss confirmado")}
     drawLines();steps()};
   const cancelPend=()=>{pend=null;drawLines();steps()};
@@ -87,25 +87,23 @@ async function mountChart(host,ex,o){
   const onKey=e=>{if(!pend||answered||!document.body.contains(host))return;const t=e.target&&e.target.tagName;if(t==="INPUT"||t==="TEXTAREA"||t==="SELECT")return;
     if(e.key==="ArrowUp"){e.preventDefault();nudge(e.shiftKey?5:1)}else if(e.key==="ArrowDown"){e.preventDefault();nudge(e.shiftKey?-5:-1)}else if(e.key==="Enter"){e.preventDefault();confirmPend()}else if(e.key==="Escape"){cancelPend()}};
   document.addEventListener("keydown",onKey);
-  const steps=()=>{const st=[[`1. Zona en ${tfZ}`,zone!=null,mode==="zone"]];if(hasSL)st.push([`2. Stop loss en ${tfS}`,sl!=null,mode==="sl"]);st.push([`${hasSL?3:2}. Enviar respuesta`,answered,false]);
+  const steps=()=>{const st=[["1. Zona",zone!=null,mode==="zone"]];if(hasSL)st.push(["2. Stop loss",sl!=null,mode==="sl"]);st.push([`${hasSL?3:2}. Enviar respuesta`,answered,false]);
     $("[data-a=steps]",host).innerHTML=ex.kind==="no-operar"?"":st.map(([t,d,on])=>`<span class="${d?"done":on?"on":""}">${t}</span>`).join("");
     const val=k=>{const v=k==="zone"?zone:sl;if(pend&&pend.kind===k)return `<span class="v pend">${pend.price.toFixed(dec)}?</span>`;return `<span class="v">${v!=null?v.toFixed(dec):"—"}</span>`};
     $("[data-a=modes]",host).innerHTML=ex.kind==="no-operar"&&!answered&&zone==null&&!pend?`<span class="muted" style="font-size:13.5px">Si ves entrada, toca la gráfica para marcar la zona; si no, elige “Aquí no se opera”.</span>`:
       `<button data-m="zone" class="${mode==="zone"?"on":""}" title="Toca para corregir la zona">Zona${val("zone")}</button>${hasSL?`<button data-m="sl" class="${mode==="sl"?"on":""}" title="Toca para corregir el SL">Stop loss${val("sl")}</button>`:""}
-       ${hasSL&&zone!=null&&sl==null&&!pend&&tf!==tfS?`<button data-go="${tfS}" class="on">Ir a ${tfS} para el SL →</button>`:""}
-       ${!answered&&!pend?`<span class="muted mhint">${mode==="zone"&&zone==null?`Toca la gráfica en ${tfZ} donde está tu zona.`:mode==="sl"&&sl==null?(tf===tfS?"Toca la gráfica donde va tu stop loss.":""):""}</span>`:""}
+       ${hasSL&&zone!=null&&sl==null&&!pend&&tf!==tfS?`<button data-go="${tfS}" class="on">Afinar en ${tfS} →</button>`:""}
+       ${!answered&&!pend?`<span class="muted mhint">${mode==="zone"&&zone==null?`Toca la gráfica donde está tu zona (en H1 o en M5).`:mode==="sl"&&sl==null?"Toca la gráfica donde va tu stop loss (en H1 o en M5).":""}</span>`:""}
        ${pend?`<span class="muted mhint">Ajusta la línea (arrástrala, toca otra vez o usa ▲▼) y dale ✓ para confirmar.</span>`:""}`;
     $$("[data-m]",host).forEach(b=>b.onclick=()=>{if(answered)return;const k=b.dataset.m;mode=k;
       // corregir un valor ya confirmado: vuelve a quedar pendiente para moverlo
-      const v=k==="zone"?zone:sl;if(v!=null&&!pend){pend={kind:k,price:v};if(k==="zone")zone=null;else sl=null;
-        const need=k==="zone"?tfZ:tfS;if(tf!==need)setTF(need)}
+      const v=k==="zone"?zone:sl;if(v!=null&&!pend){pend={kind:k,price:v};if(k==="zone")zone=null;else sl=null}
       drawLines();steps()});
     $$("[data-go]",host).forEach(b=>b.onclick=()=>{setTF(b.dataset.go)});
     $("[data-a=ok]",host).disabled=answered||!!pend||zone==null||(hasSL&&sl==null)};
   $$("[data-tf]",host).forEach(b=>b.onclick=()=>setTF(b.dataset.tf));
   C.onClick(p=>{if(answered)return;const v=+p.toFixed(dec);
     const k=pend?pend.kind:(mode==="sl"&&zone!=null?"sl":(zone==null?"zone":mode));
-    const need=k==="zone"?tfZ:tfS;if(tf!==need){A.toast(k==="zone"?`La zona se marca en ${tfZ}`:`El stop loss se marca en ${tfS}`);return}
     if(k==="zone"&&zone!=null&&!pend)return;if(k==="sl"&&sl!=null&&!pend)return;
     pend={kind:k,price:v};mode=k;drawLines();steps()});
   setTF(tfZ);
