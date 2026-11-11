@@ -453,7 +453,6 @@ nav.main a.navx{color:var(--gold2)}
 @media (max-width:640px){.pend-ui .ok span{display:none}.pend-ui button{min-width:40px;height:40px}}
 .modes .v.pend{color:var(--gold2)}
 .mhint{font-size:13px;align-self:center}
-<<<<<<< HEAD
 .item.lock{opacity:.6;cursor:not-allowed}
 .plans{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px}
 .plan{border:1px solid var(--line2);border-radius:12px;padding:12px 14px;background:var(--bg2);display:grid;gap:2px}
@@ -507,7 +506,6 @@ nav.main a.navx{color:var(--gold2)}
 .fb-item{padding:14px 16px;border:1px solid var(--line2);border-radius:12px;background:var(--bg2);display:grid;gap:10px}
 .fb-item header{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .fb-item p{margin:4px 0 0;white-space:pre-wrap}
-=======
 /* ---------- app y notificaciones ---------- */
 .appcard{display:flex;align-items:center;gap:14px;flex-wrap:wrap;border:1px solid var(--gold3);border-radius:var(--r2);padding:14px 16px;margin-bottom:16px;background:linear-gradient(110deg,rgba(216,176,98,.12),transparent 60%),var(--card)}
 .appcard img{border-radius:14px;flex:none}
@@ -523,8 +521,16 @@ nav.main a.navx{color:var(--gold2)}
 .npv small{color:var(--dim);font-size:12px}
 .dd .menu button#ddInst{text-align:left}
 #nf .kv{grid-template-columns:repeat(3,minmax(0,1fr))}#nf .kv>div{padding:10px}#nf .kv b{font-size:20px}
->>>>>>> 052e26a (App instalable (PWA) y notificaciones push: aviso para instalar/activar, ajustes en Mi cuenta, envío desde administración y al publicar noticias)
 .cfgnav{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0 4px;position:sticky;top:70px;z-index:5;background:var(--bg);padding:8px 0}
 .cfgnav button{border:1px solid var(--line2);background:var(--card);color:var(--fg);border-radius:999px;padding:8px 14px;font-weight:600;font-size:14px;cursor:pointer}
 .cfgnav button:hover{border-color:var(--gold3);color:var(--gold2)}
 #cfgPerfil,#cfgApp,#cfgProg,#cfgSeg{scroll-margin-top:130px}
+.reset-all{margin-top:16px;border-color:rgba(236,91,82,.4)}
+.reset-all summary{cursor:pointer;display:grid;gap:4px;list-style:none}
+.reset-all summary::-webkit-details-marker{display:none}
+.reset-all summary b::before{content:"▸ ";color:#ec5b52}
+.reset-all[open] summary b::before{content:"▾ "}
+.reset-all[open]{display:grid;gap:14px}
+.chk{display:flex;align-items:center;gap:8px;font-weight:400}
+.reset-all select{width:100%;background:var(--bg2);border:1px solid var(--line2);border-radius:10px;padding:10px 12px;color:var(--fg)}
+.reset-all #rgC{min-width:min(320px,100%)}

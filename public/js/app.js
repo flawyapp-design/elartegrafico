@@ -16,7 +16,9 @@ const levelOf=xp=>{let i=0;LEVELS.forEach((l,k)=>{if(xp>=l[0])i=k});const n=LEVE
 const ACH=[{id:"primera",t:"Primera operación correcta"},{id:"diez",t:"10 aciertos"},{id:"racha5",t:"5 aciertos seguidos"},{id:"constancia",t:"3 días seguidos practicando"},{id:"leccion",t:"Primera lección aprobada"},{id:"modulo",t:"Primer módulo completo"},{id:"paciencia",t:"Supo no operar"},{id:"cien",t:"100 ejercicios"}];
 
 const S={site:{},user:null,prof:null,modules:[],lindex:[],prog:null,loaded:false,fb:new Set(),fbOff:false};
-const blankProg=()=>({xp:0,done:{},streak:0,lastDay:"",practice:{n:0,ok:0,row:0,best:0},ach:[]});
+const blankProg=()=>({xp:0,done:{},streak:0,lastDay:"",practice:{n:0,ok:0,row:0,best:0},ach:[],px:[]});
+/* cada ejercicio da puntos solo la primera vez (repetirlo no suma más) */
+function exXP(ex,pts){if(!pts||!ex)return;S.prog.px=S.prog.px||[];const k=ex.id||"";if(k&&S.prog.px.includes(k))return;if(k){S.prog.px.push(k);if(S.prog.px.length>3000)S.prog.px=S.prog.px.slice(-3000)}addXP(pts)}
 const premium=()=>API.isPremium(), admin=()=>API.isAdmin(), logged=()=>!!API.user();
 /* ---------- dos sitios con el mismo código: elartegrafico.com (principal) y academia.elartegrafico.com ---------- */
 const HOST=location.hostname,PROD=/(^|\.)elartegrafico\.com$/.test(HOST);
@@ -269,7 +271,7 @@ async function demoSection(){
   let ex=[];try{ex=await API.exercises({demo:true})}catch(e){}
   if(!ex.length){box.innerHTML='<div class="empty">Las gráficas de prueba se publicarán pronto.</div>';return}
   const pick=ex[(p.demo_used||0)%ex.length];
-  const h=await Player.mount(box,pick,{onDone:({res,pts})=>{registerAnswer(pick.kind,res);if(pts)addXP(pts);const l=premium()?null:Math.max(0,5-((API.profile()||{}).demo_used||0));if(l!=null)$("#demoLeft").textContent=`Te quedan ${l} de 5 gráficas`},
+  const h=await Player.mount(box,pick,{onDone:({res,pts})=>{registerAnswer(pick.kind,res);exXP(pick,pts);const l=premium()?null:Math.max(0,5-((API.profile()||{}).demo_used||0));if(l!=null)$("#demoLeft").textContent=`Te quedan ${l} de 5 gráficas`},
     next:()=>demoSection()});
   if(h)cleanup.push(h.destroy);
 }
@@ -399,7 +401,7 @@ ROUTES.leccion=async id=>{
       $("#exh").innerHTML=`<div class="result ${ok?"ok":"bad"}"><b class="big">${ok?"Lección aprobada":"Aún no apruebas"} · ${sc}%</b><div>${ok?"Puedes seguir con la próxima lección.":`Necesitas ${min}% para aprobar.`}</div><div class="row"><button class="btn" id="rt">Repetir ejercicios</button>${ok&&next?`<a class="btn gold" href="#leccion-${esc(next.id)}">Siguiente lección</a>`:""}</div></div>`;
       $("#rt").onclick=()=>{i=0;res=[];draw()};passLesson(l,sc);
       if(ok&&needFb(m)&&$("#exh"))$("#exh").insertAdjacentHTML("beforeend",fbCard(m));return}
-    const h=await Player.mount($("#exh"),exs[i],{onDone:({res:r,pts})=>{res[i]=r;registerAnswer(exs[i].kind,r);if(pts)addXP(pts)},next:()=>{h&&h.destroy();i++;draw()},nextLabel:i+1<exs.length?"Siguiente ejercicio":"Ver resultado"});
+    const h=await Player.mount($("#exh"),exs[i],{onDone:({res:r,pts})=>{res[i]=r;registerAnswer(exs[i].kind,r);exXP(exs[i],pts)},next:()=>{h&&h.destroy();i++;draw()},nextLabel:i+1<exs.length?"Siguiente ejercicio":"Ver resultado"});
     if(h)cleanup.push(h.destroy)};
   draw();
 };
@@ -461,12 +463,12 @@ ROUTES.practica=async()=>{
   if(!logged()){app.innerHTML=`<div class="pagehead"><span class="eyebrow">Práctica</span><h1>Practica con gráficas reales</h1></div><div class="panel demo-cta"><div><h3>Crea tu cuenta para practicar</h3><p class="muted">Con la cuenta gratis tienes 5 gráficas de prueba.</p></div><a class="btn gold" href="#registro">Crear cuenta gratis</a></div>`;return}
   if(!premium()){location.hash="#prueba";return}
   const pr=S.prog.practice;
-  app.innerHTML=`<div class="pagehead"><span class="eyebrow">Práctica libre</span><h1>Práctica</h1><p class="muted">Ejercicios sueltos para entrenar el ojo. No cuentan para aprobar lecciones, pero sí suman puntos.</p></div>
+  app.innerHTML=`<div class="pagehead"><span class="eyebrow">Práctica libre</span><h1>Práctica</h1><p class="muted">Ejercicios sueltos para entrenar el ojo. No cuentan para aprobar lecciones, pero cada gráfica nueva que resuelves suma puntos.</p></div>
     <div class="kv"><div><b>${pr.n}</b><span>resueltos</span></div><div><b>${pr.n?Math.round(100*pr.ok/pr.n):0}%</b><span>aciertos</span></div><div><b>${pr.row}</b><span>racha actual</span></div><div><b>${pr.best}</b><span>mejor racha</span></div></div><div id="ph"></div>`;
   let list=[];try{list=await API.exercises({practice:true})}catch(e){}
   if(!list.length){$("#ph").innerHTML='<div class="empty">Pronto habrá ejercicios de práctica libre.</div>';return}
   let h=null;const go=async()=>{h&&h.destroy();const ex=list[Math.floor(Math.random()*list.length)];
-    h=await Player.mount($("#ph"),ex,{onDone:({res,pts})=>{registerAnswer(ex.kind,res);if(pts)addXP(pts)},next:go,nextLabel:"Otro ejercicio"});if(h)cleanup.push(()=>h&&h.destroy())};go();
+    h=await Player.mount($("#ph"),ex,{onDone:({res,pts})=>{registerAnswer(ex.kind,res);exXP(ex,pts)},next:go,nextLabel:"Otro ejercicio"});if(h)cleanup.push(()=>h&&h.destroy())};go();
 };
 
 /* ---------- comunidad ---------- */

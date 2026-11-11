@@ -117,7 +117,8 @@ drop policy if exists "admin lecciones" on public.lessons;
 create policy "admin lecciones" on public.lessons for all using (public.is_admin()) with check (public.is_admin());
 
 -- índice público de lecciones (sin contenido) para mostrar el temario a todos
-create or replace function public.lesson_index() returns table(id uuid, module_id uuid, title text, sort int, has_video boolean)
+drop function if exists public.lesson_index();
+create function public.lesson_index() returns table(id uuid, module_id uuid, title text, sort int, has_video boolean)
 language sql stable security definer set search_path = public as $$
   select l.id, l.module_id, l.title, l.sort, (l.video_url <> '') from public.lessons l
   join public.modules m on m.id = l.module_id
@@ -195,7 +196,8 @@ create policy "progreso propio" on public.progress for all using (user_id = auth
 drop policy if exists "admin lee progreso" on public.progress;
 create policy "admin lee progreso" on public.progress for select using (public.is_admin());
 
-create or replace function public.leaderboard() returns table(username text, xp int, lessons int, is_me boolean)
+drop function if exists public.leaderboard();
+create function public.leaderboard() returns table(username text, xp int, lessons int, is_me boolean)
 language sql stable security definer set search_path = public as $$
   select p.username, g.xp, coalesce((select count(*) from jsonb_each(g.data->'done') d where (d.value->>'passed')::boolean),0)::int, g.user_id = auth.uid()
   from public.progress g join public.profiles p on p.id = g.user_id
@@ -233,7 +235,8 @@ create policy "premium comenta" on public.comments for insert with check (user_i
 drop policy if exists "borrar comentario" on public.comments;
 create policy "borrar comentario" on public.comments for delete using (user_id = auth.uid() or public.is_admin());
 
-create or replace function public.post_comments(pid uuid) returns table(id uuid, body text, created_at timestamptz, username text, mine boolean, is_admin boolean)
+drop function if exists public.post_comments(uuid);
+create function public.post_comments(pid uuid) returns table(id uuid, body text, created_at timestamptz, username text, mine boolean, is_admin boolean)
 language sql stable security definer set search_path = public as $$
   select c.id, c.body, c.created_at, p.username, c.user_id = auth.uid(), p.role = 'admin'
   from public.comments c join public.profiles p on p.id = c.user_id
@@ -242,7 +245,8 @@ $$;
 grant execute on function public.post_comments(uuid) to authenticated;
 
 -- ---------- ADMIN: alumnos ----------
-create or replace function public.admin_users() returns table(id uuid, username text, email text, role text, premium_until timestamptz, demo_used int, banned boolean, created_at timestamptz, xp int)
+drop function if exists public.admin_users();
+create function public.admin_users() returns table(id uuid, username text, email text, role text, premium_until timestamptz, demo_used int, banned boolean, created_at timestamptz, xp int)
 language plpgsql stable security definer set search_path = public as $$
 begin
   if not public.is_admin() then raise exception 'solo admin'; end if;
@@ -272,7 +276,8 @@ create policy "editar opinion" on public.reviews for update using (user_id = aut
 drop policy if exists "borrar opinion" on public.reviews;
 create policy "borrar opinion" on public.reviews for delete using (user_id = auth.uid() or public.is_admin());
 
-create or replace function public.public_reviews() returns table(id uuid, rating int, body text, created_at timestamptz, username text, premium boolean)
+drop function if exists public.public_reviews();
+create function public.public_reviews() returns table(id uuid, rating int, body text, created_at timestamptz, username text, premium boolean)
 language sql stable security definer set search_path = public as $$
   select r.id, r.rating, r.body, r.created_at, p.username, (p.premium_until > now())
   from public.reviews r join public.profiles p on p.id = r.user_id
@@ -357,7 +362,8 @@ begin
 end $$;
 grant execute on function public.admin_stats() to authenticated;
 
-create or replace function public.admin_reviews() returns table(id uuid, rating int, body text, approved boolean, created_at timestamptz, username text)
+drop function if exists public.admin_reviews();
+create function public.admin_reviews() returns table(id uuid, rating int, body text, approved boolean, created_at timestamptz, username text)
 language plpgsql stable security definer set search_path = public as $$
 begin
   if not public.is_admin() then raise exception 'solo admin'; end if;
@@ -492,7 +498,6 @@ begin
     from public.profiles p join auth.users u on u.id = p.id left join public.progress g on g.user_id = p.id order by p.created_at desc;
 end $$;
 grant execute on function public.admin_users() to authenticated;
-<<<<<<< HEAD
 
 
 alter table public.modules add column if not exists ask_feedback boolean not null default true;
@@ -533,7 +538,6 @@ begin
   order by f.created_at desc limit 1000;
 end $$;
 grant execute on function public.admin_module_feedback() to authenticated;
-=======
 -- Notificaciones push (app instalable). Correr una vez en SQL Editor.
 create table if not exists public.push_subs (
   endpoint text primary key,
@@ -566,7 +570,8 @@ create or replace function public.push_public_key() returns text
 language sql stable security definer set search_path = public as $$ select public_key from public.push_config where id = 1 $$;
 grant execute on function public.push_public_key() to anon, authenticated;
 
-create or replace function public.admin_push_stats() returns table(total int, premium int, gratis int)
+drop function if exists public.admin_push_stats();
+create function public.admin_push_stats() returns table(total int, premium int, gratis int)
 language plpgsql stable security definer set search_path = public as $$
 begin
   if not public.is_admin() then raise exception 'solo admin'; end if;
@@ -576,4 +581,51 @@ begin
   from public.push_subs s join public.profiles p on p.id = s.user_id where not p.banned;
 end $$;
 grant execute on function public.admin_push_stats() to authenticated;
->>>>>>> 052e26a (App instalable (PWA) y notificaciones push: aviso para instalar/activar, ajustes en Mi cuenta, envío desde administración y al publicar noticias)
+
+-- Cada reinicio sube la "versión" del progreso (rv). Si un alumno tenía la página abierta,
+-- su navegador ya no puede volver a subir los datos viejos: el servidor los ignora.
+
+create or replace function public.progress_guard() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  if public.is_admin() then return new; end if;
+  if coalesce((new.data->>'rv')::int, 0) < coalesce((old.data->>'rv')::int, 0) then
+    return null;            -- datos de antes del reinicio: se ignoran
+  end if;
+  return new;
+end $$;
+drop trigger if exists progress_guard on public.progress;
+create trigger progress_guard before update on public.progress
+  for each row execute function public.progress_guard();
+
+-- p_user: un alumno (o null = TODOS)
+-- p_what: 'puntos' (solo puntos, deja las lecciones aprobadas) | 'todo' (lecciones, módulos, puntos, logros, práctica)
+-- p_feedback: también borra sus reseñas de módulos · p_demo: también reinicia sus 5 gráficas de prueba gratis
+drop function if exists public.admin_reset_progress(uuid, text, boolean, boolean);
+create function public.admin_reset_progress(p_user uuid, p_what text, p_feedback boolean default false, p_demo boolean default false)
+returns int language plpgsql security definer set search_path = public as $$
+declare n int;
+begin
+  if not public.is_admin() then raise exception 'solo admin'; end if;
+  if p_what not in ('puntos','todo') then raise exception 'Opción no válida'; end if;
+  if p_what = 'puntos' then
+    update public.progress g
+       set xp = 0,
+           data = g.data || jsonb_build_object('xp', 0, 'rv', coalesce((g.data->>'rv')::int, 0) + 1, 'px', '[]'::jsonb),
+           updated_at = now()
+     where p_user is null or g.user_id = p_user;
+  else
+    update public.progress g
+       set xp = 0, data = jsonb_build_object('rv', coalesce((g.data->>'rv')::int, 0) + 1), updated_at = now()
+     where p_user is null or g.user_id = p_user;
+  end if;
+  get diagnostics n = row_count;
+  if p_feedback and to_regclass('public.module_feedback') is not null then
+    execute 'delete from public.module_feedback where $1 is null or user_id = $1' using p_user;
+  end if;
+  if p_demo then
+    update public.profiles set demo_used = 0 where p_user is null or id = p_user;
+  end if;
+  return n;
+end $$;
+grant execute on function public.admin_reset_progress(uuid, text, boolean, boolean) to authenticated;

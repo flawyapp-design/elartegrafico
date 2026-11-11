@@ -109,3 +109,6 @@ Sin Turnstile, la web usa un captcha propio. Sirve para frenar bots simples, per
 ## Ranking público y reseñas de módulos
 1. Corre `supabase/ranking_publico.sql` en Supabase → SQL Editor: el ranking lo ve cualquiera (también sin cuenta), muestra la placa premium y la bandera del país, y la lista de alumnos del admin trae el país.
 2. Corre `supabase/resenas_modulos.sql`: al terminar un módulo el alumno debe dejar su reseña (estrellas, cómo le pareció y qué mejorar) para abrir el siguiente. Las ves en Admin → Reseñas de módulos. Se puede desactivar por módulo en su editor ("Reseña al terminar").
+
+## Reiniciar puntos y avance
+Corre `supabase/reinicios.sql`. En Admin → Alumnos: "Reiniciar puntos" / "Reiniciar avance" por alumno, y al final "Reinicio general para el lanzamiento" (escribe REINICIAR). Cada ejercicio da puntos solo la primera vez que se resuelve.
