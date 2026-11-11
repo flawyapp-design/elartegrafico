@@ -3,22 +3,39 @@
 "use strict";
 const A=window.AGAPP;const {$,$$,esc,API,S,toast,busy,fmtT,fmtDate,fmtDT,TZ,MARKETS,MNAME,h1Bars,m5Bars,idxAt,avgRange,toC,Chart,app}=A;
 let tab="resumen";
+const GROUPS=[["General",["resumen"]],["Contenido",["contenido","ejercicios","banners","noticias","archivos"]],["Alumnos",["alumnos","pagos","resenas","opiniones","notif"]],["Sitio",["sitio","legal"]]];
+const TICO={resumen:"chart",sitio:"site",banners:"image",contenido:"layers",ejercicios:"acad",noticias:"news",opiniones:"star",resenas:"msg",pagos:"card",alumnos:"users",archivos:"folder",notif:"bell",legal:"scale"};
+const TDESC={resumen:"Cómo va la academia: alumnos, visitas y actividad.",sitio:"Textos, portada, precios, enlaces y datos de contacto de la web.",banners:"Imágenes y mensajes del carrusel de la portada y del ingreso.",
+  contenido:"Módulos, lecciones, videos y el orden del temario.",ejercicios:"Gráficas, cálculos y preguntas de cada lección y de la práctica.",noticias:"Publicaciones de la comunidad y avisos.",
+  opiniones:"Opiniones públicas de los alumnos: aprueba u oculta.",resenas:"Lo que dicen los alumnos al terminar cada módulo (privado).",pagos:"Pagos de Binance por confirmar y el historial.",
+  alumnos:"Cuentas, premium, puntos y avance de cada alumno.",archivos:"Imágenes y archivos subidos.",notif:"Envía avisos al celular de los alumnos.",legal:"Términos, privacidad y avisos legales."};
 const TABS=[["resumen","Estadísticas"],["sitio","Sitio y textos"],["banners","Banners"],["contenido","Módulos y lecciones"],["ejercicios","Ejercicios"],["noticias","Noticias"],["opiniones","Opiniones"],["resenas","Reseñas de módulos"],["pagos","Pagos"],["alumnos","Alumnos"],["archivos","Archivos"],["notif","Notificaciones"],["legal","Legal"]];
 A.ROUTES.admin=sub=>{
   if(!A.admin()){app.innerHTML=`<div class="empty">Esta sección es solo para administradores.<a class="btn sm" href="#inicio">Volver</a></div>`;return}
   if(sub&&TABS.some(t=>t[0]===sub))tab=sub;
   const closed=!!(S.site||{}).academyClosed;
-  app.innerHTML=`<div class="pagehead"><span class="eyebrow">Administración</span><h1>Panel de control</h1></div>
-    <div class="acad-switch ${closed?"off":"on"}"><div><b>Academia ${closed?"cerrada para alumnos":"abierta"}</b><span class="muted">${closed?"Los usuarios se pueden registrar y ver el sitio principal, pero al entrar a la academia ven el aviso de apertura. Tú sí la ves para montar el contenido.":"Los alumnos pueden entrar a la academia: prueba gratis y, si son premium, todo el contenido."}</span></div>
-      <button class="btn ${closed?"gold":"bad"}" id="acSw">${closed?"Abrir la academia":"Cerrar la academia"}</button></div>
-    <div class="tabs" role="tablist">${TABS.map(([k,t])=>`<button role="tab" aria-selected="${tab===k}" class="${tab===k?"on":""}" data-t="${k}">${t}</button>`).join("")}</div><div id="adm"></div>`;
+  const cur=TABS.find(t=>t[0]===tab)||TABS[0];const ico=A.ico||(()=>"");
+  app.innerHTML=`<div class="adm">
+    <aside class="adm-side">
+      <div class="adm-brand"><span class="eyebrow">Administración</span><b>Panel de control</b></div>
+      <div class="adm-st ${closed?"off":"on"}"><span class="dot"></span><div><b>Academia ${closed?"cerrada":"abierta"}</b><small>${closed?"Solo tú la ves":"Los alumnos pueden entrar"}</small></div><button class="btn sm ${closed?"gold":"bad"}" id="acSw">${closed?"Abrir":"Cerrar"}</button></div>
+      <nav class="adm-nav" aria-label="Secciones de administración">${GROUPS.map(([g,ks])=>`<div class="adm-g"><span class="adm-gt">${g}</span>${ks.map(k=>{const t=TABS.find(x=>x[0]===k);return `<button type="button" class="${tab===k?"on":""}" data-t="${k}"${tab===k?' aria-current="page"':""}>${ico(TICO[k]||"news",18)}<span>${t[1]}</span><i class="adm-b" data-badge="${k}"></i></button>`}).join("")}</div>`).join("")}</nav>
+    </aside>
+    <section class="adm-main"><header class="adm-h"><span class="adm-hi">${ico(TICO[tab]||"news",22)}</span><div><h1>${cur[1]}</h1><p class="muted">${TDESC[tab]||""}</p></div></header><div id="adm"></div></section>
+  </div>`;
   $$("[data-t]").forEach(b=>b.onclick=()=>{location.hash="#admin-"+b.dataset.t});
-  $("#acSw").onclick=()=>{const host=$("#acSw").parentElement;A.confirmInline(host,closed?"¿Abrir la academia a todos los alumnos?":"¿Cerrar la academia mientras subes el contenido?",async()=>{
+  $("#acSw").onclick=()=>{const host=$("#acSw").parentElement;A.confirmInline(host,closed?"¿Abrir la academia a todos?":"¿Cerrar la academia?",async()=>{
     const ns=Object.assign({},S.site,{academyClosed:!closed});try{await API.saveSite(ns);S.site=ns;A.applySite();toast(closed?"Academia abierta":"Academia cerrada para alumnos");A.ROUTES.admin(tab)}catch(x){toast(x.message);A.ROUTES.admin(tab)}})};
   ({resumen,sitio,banners,contenido,ejercicios,noticias,opiniones,resenas,pagos,alumnos,archivos,notif,legal})[tab]();
-  API.adminPayments().then(l=>{const n=(l||[]).filter(x=>x.status==="pendiente").length;const b=document.querySelector('[data-t="pagos"]');if(b&&n)b.innerHTML=`Pagos <span class="tag pub">${n}</span>`}).catch(()=>{});
+  API.adminPayments().then(l=>{const n=(l||[]).filter(x=>x.status==="pendiente").length;const b=document.querySelector('[data-badge="pagos"]');if(b&&n){b.textContent=n;b.classList.add("on")}}).catch(()=>{});
 };
 const H=()=>$("#adm");
+/* agrupa un formulario largo en tarjetas: cada <h3> abre una sección */
+function groupForm(f){if(!f)return;const kids=[...f.children];let sec=null;const out=document.createDocumentFragment();
+  kids.forEach(el=>{if(el.tagName==="H3"){sec=document.createElement("section");sec.className="fgroup";out.appendChild(sec)}
+    else if(el.classList.contains("row")&&el.querySelector("#sv,button.gold:last-child")&&el===kids[kids.length-1]){el.classList.add("savebar");out.appendChild(el);return}
+    (sec||out).appendChild(el)});
+  f.innerHTML="";f.appendChild(out);f.classList.add("grouped")}
 const fileBtn=(id,label="Subir imagen")=>`<label class="btn sm" for="${id}" style="cursor:pointer">${label}</label><input id="${id}" type="file" hidden accept="image/*">`;
 function bindUpload(id,onUrl){const i=$("#"+id);if(!i)return;i.onchange=async e=>{const f=e.target.files[0];if(!f)return;toast("Subiendo…");try{const u=await API.upload(f);onUrl(u);toast("Archivo subido")}catch(x){toast(x.message)}}}
 
@@ -119,6 +136,7 @@ function sitio(){
     <label for="sSo">Redes (una por línea: Nombre | enlace)<textarea id="sSo" style="min-height:80px" placeholder="Instagram | https://instagram.com/...">${esc(s.social||"")}</textarea></label>
     <label for="sL">Aviso legal<textarea id="sL" style="min-height:80px">${esc(s.legal||"")}</textarea></label>
     <div class="row"><button class="btn gold" id="sv">Guardar cambios</button></div></form>`;
+  groupForm($("#fs"));
   bindUpload("upLogo",u=>{s.logoUrl=u;$("#lgN").textContent="Logo subido: guarda los cambios"});
   bindUpload("upLogoF",u=>{s.logoFullUrl=u;$("#lgF").textContent="Logo subido: guarda los cambios"});
   bindUpload("upAbout",u=>{s.aboutPhoto=u;$("#abF").textContent="Foto subida: guarda los cambios"});
@@ -375,17 +393,27 @@ async function alumnos(){
       &&(fil==="todos"||(fil==="premium"&&isP(u))||(fil==="gratis"&&!isP(u))||(fil==="vencido"&&venc(u))||(fil==="suspendido"&&u.banned))
       &&(!pais||(pais==="-"?!u.country:u.country===pais)));
     $("#uN").textContent=f.length===list.length?"":`Mostrando ${f.length} de ${list.length}`;
-    $("#ut").innerHTML=f.map(u=>`<tr><td>${u.avatar_url?`<img class="avi" src="${esc(u.avatar_url)}" alt="" style="width:26px;height:26px;vertical-align:middle;margin-right:6px">`:""}<b>${esc(u.username)}</b> ${A.flag(u.country||"")}${u.role==="admin"?' <span class="tag pub">Admin</span>':""}${u.banned?' <span class="tag">Suspendido</span>':""}<br><span class="dim">${esc(u.email||"")}</span></td>
-      <td>${isP(u)?A.premTag()+`<br><span class="dim">hasta ${fmtDate(u.premium_until)}</span>`:venc(u)?`<span class="tag">Vencido</span><br><span class="dim">el ${fmtDate(u.premium_until)}</span>`:'<span class="tag">Gratis</span>'}</td><td class="n">${u.xp||0}</td><td class="n">${u.demo_used||0}/5</td><td class="dim">${fmtDate(u.created_at)}</td>
-      <td><div class="row"><button class="btn sm ok" data-add="${esc(u.id)}:30">+30 días</button><button class="btn sm" data-add="${esc(u.id)}:90">+90 días</button><input type="date" data-date="${esc(u.id)}" aria-label="Premium hasta" style="background:var(--bg2);border:1px solid var(--line2);border-radius:8px;padding:5px;color:var(--fg)">${isP(u)?`<button class="btn sm" data-rm="${esc(u.id)}">Quitar premium</button>`:""}
-        <button class="btn sm ghost" data-ban="${esc(u.id)}">${u.banned?"Reactivar":"Suspender"}</button><button class="btn sm ghost" data-demo="${esc(u.id)}">Reiniciar prueba</button><button class="btn sm ghost" data-rxp="${esc(u.id)}">Reiniciar puntos</button><button class="btn sm bad" data-rall="${esc(u.id)}">Reiniciar avance</button>${u.id!==(API.user()||{}).id?`<button class="btn sm ghost" data-role="${esc(u.id)}">${u.role==="admin"?"Quitar admin":"Hacer admin"}</button>`:""}</div></td></tr>`).join("")||'<tr><td colspan="6" class="muted">Sin resultados.</td></tr>';
+    $("#ut").innerHTML=f.map(u=>`<article class="ucard${u.banned?" ban":""}">
+      <div class="uc-who">${A.avatar?A.avatar(u,44):""}<div><b>${esc(u.username)} ${A.flag(u.country||"")}${u.role==="admin"?' <span class="tag pub">Admin</span>':""}${u.banned?' <span class="tag">Suspendido</span>':""}</b><span class="dim">${esc(u.email||"")}</span></div></div>
+      <div class="uc-st">
+        <div><small>Acceso</small>${isP(u)?A.premTag()+`<span class="dim">hasta ${fmtDate(u.premium_until)}</span>`:venc(u)?`<span class="tag">Vencido</span><span class="dim">el ${fmtDate(u.premium_until)}</span>`:'<span class="tag">Gratis</span>'}</div>
+        <div><small>Puntos</small><b class="mono">${u.xp||0}</b></div><div><small>Prueba</small><b class="mono">${u.demo_used||0}/5</b></div><div><small>Registro</small><span>${fmtDate(u.created_at)}</span></div></div>
+      <div class="uc-act row">
+        <button class="btn sm ok" data-add="${esc(u.id)}:30">+30 días</button><button class="btn sm" data-add="${esc(u.id)}:90">+90 días</button>
+        <label class="uc-date"><span>Hasta</span><input type="date" data-date="${esc(u.id)}" aria-label="Premium hasta"></label>
+        <details class="uc-more"><summary class="btn sm ghost">Más ▾</summary><div class="uc-menu">
+          ${isP(u)?`<button class="btn sm" data-rm="${esc(u.id)}">Quitar premium</button>`:""}
+          <button class="btn sm ghost" data-ban="${esc(u.id)}">${u.banned?"Reactivar cuenta":"Suspender cuenta"}</button><button class="btn sm ghost" data-demo="${esc(u.id)}">Reiniciar prueba gratis</button>
+          <button class="btn sm ghost" data-rxp="${esc(u.id)}">Reiniciar puntos</button><button class="btn sm bad" data-rall="${esc(u.id)}">Reiniciar avance</button>
+          ${u.id!==(API.user()||{}).id?`<button class="btn sm ghost" data-role="${esc(u.id)}">${u.role==="admin"?"Quitar admin":"Hacer admin"}</button>`:""}</div></details>
+      </div></article>`).join("")||'<div class="muted">Sin resultados.</div>';
     const set=async(id,patch,msg)=>{try{await API.setUser(id,patch);Object.assign(list.find(u=>u.id===id),patch);toast(msg);draw()}catch(x){toast(x.message)}};
     $$("[data-add]").forEach(b=>b.onclick=()=>{const [id,d]=b.dataset.add.split(":");const u=list.find(x=>x.id===id);const base=isP(u)?new Date(u.premium_until):new Date();base.setDate(base.getDate()+(+d));set(id,{premium_until:base.toISOString()},`Premium hasta ${fmtDate(base)}`)});
     $$("[data-date]").forEach(i=>i.onchange=()=>{if(i.value)set(i.dataset.date,{premium_until:new Date(i.value+"T23:59:00-05:00").toISOString()},"Fecha de premium actualizada")});
     $$("[data-rm]").forEach(b=>b.onclick=()=>set(b.dataset.rm,{premium_until:null},"Premium retirado"));
     $$("[data-ban]").forEach(b=>b.onclick=()=>{const u=list.find(x=>x.id===b.dataset.ban);set(u.id,{banned:!u.banned},u.banned?"Cuenta reactivada":"Cuenta suspendida")});
     $$("[data-demo]").forEach(b=>b.onclick=()=>set(b.dataset.demo,{demo_used:0},"Prueba gratis reiniciada"));
-    const reset=(id,what)=>{const u=list.find(x=>x.id===id);const host=$(`[data-rxp="${id}"]`).closest(".row");
+    const reset=(id,what)=>{const u=list.find(x=>x.id===id);const host=$(`[data-rxp="${id}"]`).closest(".uc-menu");
       A.confirmInline(host,what==="puntos"?`¿Dejar en 0 los puntos de ${u.username}? Sus lecciones aprobadas se mantienen.`:`¿Borrar todo el avance de ${u.username}? Lecciones, módulos, puntos, logros y su reseña de módulos. Empieza desde cero.`,
         async()=>{try{await API.adminReset(id,what,what==="todo",false);u.xp=0;toast(what==="puntos"?"Puntos reiniciados":"Avance reiniciado");draw()}catch(x){toast(x.message);draw()}})};
     $$("[data-rxp]").forEach(b=>b.onclick=()=>reset(b.dataset.rxp,"puntos"));
@@ -396,7 +424,7 @@ async function alumnos(){
       <select id="uf" aria-label="Filtrar por acceso"><option value="todos">Todos</option><option value="premium">Premium activos (${list.filter(isP).length})</option><option value="gratis">Gratis (${list.filter(u=>!isP(u)).length})</option><option value="vencido">Premium vencido (${list.filter(venc).length})</option><option value="suspendido">Suspendidos (${list.filter(u=>u.banned).length})</option></select>
       <select id="up" aria-label="Filtrar por país"><option value="">Todos los países</option>${[...new Set(list.map(u=>u.country).filter(Boolean))].sort().map(c=>`<option>${esc(c)}</option>`).join("")}<option value="-">Sin país</option></select></div>
     <div id="uN" class="dim" style="font-size:13px"></div>
-    <div class="scroll"><table class="tbl"><thead><tr><th>Alumno</th><th>Acceso</th><th style="text-align:right">Puntos</th><th style="text-align:right">Prueba</th><th>Registro</th><th>Acciones</th></tr></thead><tbody id="ut"></tbody></table></div></div>
+    <div id="ut" class="ulist"></div></div>
     <details class="panel reset-all"><summary><b>Reinicio general para el lanzamiento</b><span class="muted">Deja a todos los alumnos en cero sin borrar sus cuentas ni su premium.</span></summary>
       <div class="two"><label for="rgW">Qué reiniciar<select id="rgW"><option value="todo">Todo el avance: lecciones, módulos, puntos, logros y práctica</option><option value="puntos">Solo los puntos (y el ranking); se mantienen las lecciones aprobadas</option></select></label>
         <div style="display:grid;gap:8px;align-content:start"><label class="chk"><input type="checkbox" id="rgF" checked> Borrar también las reseñas de módulos</label><label class="chk"><input type="checkbox" id="rgD"> Devolver las 5 gráficas de prueba gratis</label></div></div>
