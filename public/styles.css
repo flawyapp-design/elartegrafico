@@ -1307,3 +1307,13 @@ nav.main .mnav-sw a.on{color:#1b1405!important;background:linear-gradient(180deg
 .ck-bar>div:first-child{display:grid;gap:3px;min-width:0}.ck-bar span{font-size:13px;color:#a9b4d2}.ck-bar a{color:#f3d88f}.ck-bar .row{flex:none;gap:8px}
 @media (max-width:860px){.ck-bar{bottom:calc(84px + env(safe-area-inset-bottom,0px));flex-direction:column;align-items:stretch}.ck-bar .row{justify-content:flex-end}}
 .form label.chk{display:block;color:var(--fg);line-height:1.5}.form label.chk input{width:auto!important;display:inline-block;vertical-align:-2px;margin:0 8px 0 0}
+/* paginación */
+.pg-hide{display:none!important}
+.pager{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin:12px 0 4px}
+.pg-info{font-size:13px;color:var(--muted)}
+.pg-btns{display:flex;gap:4px;flex-wrap:wrap}
+.pager button{min-width:36px;height:36px;padding:0 10px;border-radius:10px;border:1px solid var(--line2);background:var(--card);color:var(--fg);font-weight:700;cursor:pointer}
+.pager button:hover:not([disabled]){border-color:var(--gold)}
+.pager button.on{background:linear-gradient(180deg,#f3d88f,#d8b062);color:#1b1405;border-color:transparent}
+.pager button[disabled]{opacity:.35;cursor:default}
+.pg-gap{align-self:center;padding:0 4px;color:var(--muted)}

@@ -126,6 +126,20 @@ function registerAnswer(kind,res){const p=S.prog.practice;p.n++;if(res==="ok"){p
 
 /* ---------- navegación ---------- */
 const app=$("#app");let cleanup=[];
+/* ---------- paginación automática de listas largas (alumnos, canjes, ranking, noticias…) ---------- */
+const PAGE_RULES=[[".ulist",15],[".list",20],["table.tbl > tbody",25],[".posts",10],[".revs",9],["#rEn .tree",25],["#hist .tree",10]];
+const pgState=new WeakMap();
+function pageList(box,per){const items=[...box.children].filter(x=>!x.classList.contains("pager"));const n=items.length;let nav=box.nextElementSibling&&box.nextElementSibling.classList.contains("pager")&&box.nextElementSibling.__for===box?box.nextElementSibling:null;
+  if(n<=per){items.forEach(x=>x.classList.remove("pg-hide"));if(nav)nav.remove();return}
+  let st=pgState.get(box);if(!st||st.n!==n){st={n,p:0};pgState.set(box,st)}const pages=Math.ceil(n/per);st.p=Math.min(st.p,pages-1);
+  items.forEach((x,i)=>x.classList.toggle("pg-hide",i<st.p*per||i>=(st.p+1)*per));
+  if(!nav){nav=document.createElement("nav");nav.className="pager";nav.__for=box;nav.setAttribute("aria-label","Páginas");const host=box.tagName==="TBODY"?box.closest("table").parentElement.classList.contains("scroll")?box.closest("table").parentElement:box.closest("table"):box;host.after(nav);nav.__for=box}
+  const btn=(k,t,lab,dis,cur)=>`<button type="button" data-pg="${k}"${dis?" disabled":""}${cur?' class="on" aria-current="page"':""}${lab?` aria-label="${lab}"`:""}>${t}</button>`;
+  const nums=[];for(let i=0;i<pages;i++){if(i===0||i===pages-1||Math.abs(i-st.p)<=1)nums.push(i);else if(nums[nums.length-1]!=="…")nums.push("…")}
+  nav.innerHTML=`<span class="pg-info">${st.p*per+1}–${Math.min(n,(st.p+1)*per)} de ${n}</span><div class="pg-btns">${btn(st.p-1,"‹","Anterior",st.p===0)}${nums.map(i=>i==="…"?'<span class="pg-gap">…</span>':btn(i,i+1,"Página "+(i+1),false,i===st.p)).join("")}${btn(st.p+1,"›","Siguiente",st.p>=pages-1)}</div>`;
+  nav.onclick=e=>{const b=e.target.closest("[data-pg]");if(!b||b.disabled)return;st.p=+b.dataset.pg;pageList(box,per);const top=(box.tagName==="TBODY"?box.closest("table"):box).getBoundingClientRect().top;if(top<70)window.scrollBy({top:top-90,behavior:"smooth"})}}
+function autoPage(root){root=root||app;if(!root)return;PAGE_RULES.forEach(([q,per])=>root.querySelectorAll(q).forEach(b=>{if(b.closest("[data-nopage]")||b.closest("form"))return;pageList(b,per)}))}
+{let pgT=null;new MutationObserver(ms=>{if(ms.every(m=>(m.target.closest&&m.target.closest(".pager"))||[...m.addedNodes,...m.removedNodes].every(x=>x.nodeType===1&&x.classList.contains("pager"))))return;clearTimeout(pgT);pgT=setTimeout(()=>autoPage(app),60)}).observe(app,{childList:true,subtree:true})}
 function clear(){cleanup.forEach(f=>{try{f()}catch(e){}});cleanup=[];const n=document.getElementById("admNote");if(n)n.remove()}
 const closedAcad=()=>!!(S.site&&S.site.academyClosed);
 /* módulo disponible: a mano (available) o por fecha (open_at). Sin la columna (SQL viejo) se considera abierto. */
