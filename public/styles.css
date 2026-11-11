@@ -849,3 +849,24 @@ nav.main .mnav-sw a.on{color:#1b1405!important;background:linear-gradient(180deg
 @media (min-width:861px) and (max-width:1040px){#ddb>span:not(.prem-badge){display:none}}
 .mnav-sw a,.mnav-sw b{white-space:nowrap}.brand small{white-space:nowrap}
 @media (min-width:861px) and (max-width:1340px){.brand small{letter-spacing:.12em}}
+
+/* ---------- menú de la cuenta (computador) ---------- */
+@media (min-width:861px){
+  .dd .menu{min-width:300px;padding:8px;gap:0;border-radius:16px;border-color:rgba(216,176,98,.35);background:radial-gradient(120% 60% at 100% 0%,rgba(216,176,98,.12),transparent 60%),var(--bg2);box-shadow:0 24px 60px -12px rgba(0,0,0,.6)}
+  .dd .menu .dm-head{display:flex;align-items:center;gap:12px;padding:10px 10px 8px;border-radius:12px}
+  .dd .menu .dm-head .avi{box-shadow:0 0 0 2px var(--gold);flex:none}
+  .dm-id{display:grid;min-width:0}.dm-id b{display:flex;align-items:center;gap:6px;font-size:15px}.dm-id small{color:var(--muted);font-size:12.5px;font-weight:400;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:200px}
+  .dm-lv{display:grid;gap:7px;margin:2px 10px 8px;padding:10px 12px;border-radius:12px;background:var(--bg);border:1px solid var(--line)}
+  .dm-lvr{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:12.5px}.dm-lvr>span{display:flex;align-items:center;gap:8px}
+  .dm-lv .bar{height:6px}
+  .dm-items{display:grid;padding:4px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+  .dd .menu .dm-items a,.dd .menu .dm-items button{display:flex;align-items:center;gap:12px;padding:10px 12px;font-size:14.5px}
+  .dd .menu .dm-items svg{color:var(--gt2,var(--gold));flex:none}
+  .dd .menu .dm-items a:hover,.dd .menu .dm-items button:hover{background:rgba(216,176,98,.10)}
+  .dd .menu .dm-gold{color:var(--gt,var(--gold2))}
+  .dd .menu .dm-out{margin-top:6px;text-align:center;color:var(--badt,#ffd3cf);border:1px solid rgba(236,91,82,.35)!important;border-radius:10px;padding:9px 12px}
+  .dd .menu .dm-out:hover{background:rgba(236,91,82,.12)}
+}
+:root[data-theme="light"] .dd .menu{background:radial-gradient(120% 60% at 100% 0%,rgba(216,176,98,.2),transparent 60%),#fffaf1;box-shadow:0 24px 60px -18px rgba(120,86,20,.45)}
+:root[data-theme="light"] .dm-lv{background:#fff3dc;border-color:#ead7ae}
+@media (min-width:861px){.dd .menu{min-width:330px}.dm-lvr .dim,.dm-lvr b{white-space:nowrap}}

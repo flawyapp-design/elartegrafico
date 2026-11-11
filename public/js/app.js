@@ -147,9 +147,19 @@ function renderNav(){document.body.classList.toggle("is-acad",!!ACAD);
     :`<div class="mnav-user"><div class="mnu-links two"><a class="btn ghost" href="${toMain("entrar")}">Ingresar</a><a class="btn gold" href="${toMain("registro")}">Crear cuenta</a></div></div>`;
   $("#nav").innerHTML=msw+L.map(([k,t])=>`<a href="#${k}" class="${r===k?"on":""}"><span class="mi">${ico(NI[k]||"news",20)}</span>${t}</a>`).join("")+other+mus+
     (u&&p?`<div class="dd" id="dd"><button aria-haspopup="true" aria-expanded="false" id="ddb">${avatar(p,28)}<span>${esc(p.username)}</span>${premium()?'<span class="prem-badge">Premium</span>':""}</button>
-      <div class="menu" hidden><div class="who">${esc(p.email||"")}<br>${esc(lv.name)} · ${S.prog?S.prog.xp:0} pts</div>
-      ${ACAD?`<a href="#perfil">⚙︎ Configuración</a><a href="#perfil-progreso">Mi progreso</a><a href="#ranking">Ranking</a><a href="${toMain("inicio")}">Ir a El Arte Gráfico</a>`:`<a href="${toAcad("inicio")}">Ir a la academia</a><a href="#perfil">⚙︎ Configuración</a><a href="#comunidad">Comunidad</a>`}
-      ${premium()?"":'<a href="#premium">Hazte premium</a>'}${isStandalone()?"":'<button type="button" id="ddInst">Instalar la app</button>'}${admin()?'<a href="#admin">Administración</a>':""}<button id="logout">Cerrar sesión</button></div></div>`
+      <div class="menu" hidden>
+        <a class="dm-head" href="#perfil">${avatar(p,46)}<span class="dm-id"><b>${esc(p.username)} ${flag(p.country||"")}</b><small>${esc(p.email||"")}</small></span></a>
+        <div class="dm-lv"><div class="dm-lvr"><span>${premium()?premTag():'<span class="tag">Cuenta gratis</span>'}<span class="dim">${esc(lv.name)}</span></span><b class="mono">${S.prog?S.prog.xp:0} pts</b></div>
+          <div class="bar"><i style="width:${lv.to?Math.round(100*(((S.prog&&S.prog.xp)||0)-lv.from)/(lv.to-lv.from)):100}%"></i></div></div>
+        <div class="dm-items">
+          <a href="${ACAD?"#perfil":"#perfil"}">${ico("gear",18)}<span>Configuración</span></a>
+          <a href="${ACAD?"#perfil-progreso":"#perfil-progreso"}">${ico("chart",18)}<span>Mi progreso</span></a>
+          <a href="${ACAD?"#ranking":toAcad("ranking")}">${ico("trophy",18)}<span>Ranking</span></a>
+          ${premium()?"":`<a href="${toMain("premium")}" class="dm-gold">${ico("crown",18)}<span>Hazte premium</span></a>`}
+          ${isStandalone()?"":`<button type="button" id="ddInst">${ico("play",18)}<span>Instalar la app</span></button>`}
+          ${admin()?`<a href="${toMain("admin")}">${ico("news",18)}<span>Administración</span></a>`:""}
+        </div>
+        <button id="logout" class="dm-out">Cerrar sesión</button></div></div>`
      :`<div class="userbox"><a class="btn sm ghost" href="${toMain("entrar")}">Ingresar</a><a class="btn sm gold" href="${toMain("registro")}">Crear cuenta</a></div>`);
   const dd=$("#dd");if(dd){const b=$("#ddb"),m=$(".menu",dd);b.onclick=e=>{e.stopPropagation();m.hidden=!m.hidden;b.setAttribute("aria-expanded",String(!m.hidden))};document.addEventListener("click",()=>{m.hidden=true},{once:true});
     const di=$("#ddInst");if(di)di.onclick=e=>{e.stopPropagation();m.hidden=true;installApp()};
