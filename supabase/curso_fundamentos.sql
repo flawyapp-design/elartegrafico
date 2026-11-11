@@ -2,13 +2,15 @@
 -- Curso base "Fundamentos del trading". Correr DESPUÉS de novedades.sql. Se puede correr varias veces.
 --  - Nuevo curso "Fundamentos del trading" (primero en la lista), GRATIS y completo para cualquier
 --    cuenta registrada. No se vende.
---  - Todos los módulos con categoría "Fundamentos" pasan a este curso; el resto se queda en Boom y Crash.
+--  - Los módulos con categoría "Fundamentos" pasan a este curso (abrir cuenta, Deriv y MT5, velas…), MENOS
+--    "Bienvenida e introducción": esa es de Boom y Crash y se queda (o vuelve) a ese curso.
+--  - Si ya lo habías corrido, córrelo otra vez: devuelve la introducción a Boom y Crash.
 -- =====================================================================
 alter table public.courses add column if not exists base boolean not null default false;
 
 insert into public.courses (title, descr, color, icon, price, status, sort, base)
 select 'Fundamentos del trading',
-       'Lo que necesitas antes de cualquier mercado: cómo funciona el trading, tu bróker y MT5, velas, temporalidades, gestión del riesgo y psicología.',
+       'Lo que necesitas antes de cualquier mercado: cómo abrir tu cuenta, tu bróker y MT5, velas japonesas y estructura del mercado.',
        '#d8b062', '📚', 'Gratis', 'publicado', 0, true
 where not exists (select 1 from public.courses where base);
 
@@ -17,7 +19,15 @@ update public.courses set sort = greatest(sort, 1) where not base;
 
 -- los módulos de fundamentos pasan al curso base
 update public.modules set course_id = (select id from public.courses where base order by created_at limit 1)
-where lower(coalesce(category, '')) like 'fundamento%';
+where lower(coalesce(category, '')) like 'fundamento%'
+  and lower(title) not like '%bienvenida%' and lower(title) not like '%introducci%';
+
+-- la introducción es de Boom y Crash (cada mercado se mueve distinto): vuelve al primer curso de pago
+update public.modules set
+  course_id = (select id from public.courses where not base order by sort, created_at limit 1),
+  category = 'Introducción'
+where (lower(title) like '%bienvenida%' or lower(title) like '%introducci%')
+  and exists (select 1 from public.courses where not base);
 
 -- acceso: el curso que compraste, o el curso gratis si tienes cuenta
 create or replace function public.course_module_ok(mid uuid) returns boolean

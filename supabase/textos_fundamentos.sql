@@ -7,7 +7,7 @@
 delete from public.slides where place = 'home' and image_url like '%/assets/banners/fundamentos.webp';
 insert into public.slides (place, title, body, image_url, cta_text, cta_link, sort, active) values
 ('home', 'Aprende trading gratis',
- 'El curso Fundamentos del trading es gratis y completo con tu cuenta: bróker, MT5, velas, estructura y riesgo. Después eliges la estrategia de tu mercado.',
+ 'El curso Fundamentos del trading es gratis y completo con tu cuenta: bróker, MT5, velas japonesas y estructura del mercado. Después eliges la estrategia de tu mercado.',
  'https://elartegrafico.com/assets/banners/fundamentos.webp', 'Crear cuenta gratis', '#registro', 0, true);
 
 -- el banner del método ahora apunta a la estrategia (lo que se paga)
@@ -29,13 +29,13 @@ where id = 1;
 -- 3) Preguntas frecuentes (solo si las editaste en Admin; si no, la página ya usa las nuevas)
 update public.site_settings set data = jsonb_set(data, '{faq}',
   jsonb_build_array(jsonb_build_object('q', '¿Qué es gratis y qué se paga?',
-    'a', 'El curso Fundamentos del trading es gratis y completo con tu cuenta: bróker, MT5, velas, estructura y gestión del riesgo. Lo que tiene costo son los cursos de estrategia para cada mercado, como Boom y Crash: lo compras una vez o lo tienes con cualquier plan.'))
+    'a', 'El curso Fundamentos del trading es gratis y completo con tu cuenta: bróker, MT5, velas japonesas y estructura del mercado. Lo que tiene costo son los cursos de estrategia para cada mercado, como Boom y Crash: lo compras una vez o lo tienes con cualquier plan.'))
   || (select coalesce(jsonb_agg(f), '[]'::jsonb) from jsonb_array_elements(data->'faq') f where f->>'q' <> '¿Qué es gratis y qué se paga?'))
 where id = 1 and jsonb_typeof(data->'faq') = 'array' and jsonb_array_length(data->'faq') > 0;
 
 -- 4) Banner de la pantalla de ingreso
 update public.slides set title = 'Fundamentos del trading, gratis',
-  body = 'Crea tu cuenta y haz el curso completo sin pagar: bróker, MT5, velas, estructura y riesgo.'
+  body = 'Crea tu cuenta y haz el curso completo sin pagar: bróker, MT5, velas japonesas y estructura del mercado.'
 where place = 'login' and title in ('5 gráficas de prueba gratis');
 
 select place, sort, title, active from public.slides where place in ('home', 'login') order by place, sort;

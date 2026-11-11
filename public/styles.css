@@ -1575,3 +1575,17 @@ body.pf-open{overflow:hidden}
 .path-c{margin:0!important;padding:6px 11px;border-radius:999px;border:1px solid rgba(216,176,98,.5);font-size:13px}
 .path-c.soon{opacity:.55;border-color:var(--line)}
 @media (max-width:760px){.path-g{grid-template-columns:1fr}.path-arrow{transform:rotate(90deg);justify-self:center}}
+
+/* temario por curso */
+.syl-course{display:grid;gap:14px;margin-bottom:28px;padding:18px;border-radius:var(--r2);border:1px solid var(--line);background:linear-gradient(135deg,color-mix(in srgb,var(--cc,#d8b062) 9%,transparent),transparent 55%),var(--bg2)}
+.syl-course.base{border-color:rgba(53,196,162,.5);background:linear-gradient(135deg,rgba(53,196,162,.11),transparent 55%),var(--bg2)}
+.syl-course.upc{opacity:.85;border-style:dashed}
+.syl-course .syl-cat{margin-bottom:6px}
+.sc-h{display:flex;gap:14px;align-items:flex-start}
+.sc-i{font-size:34px;line-height:1;flex:none}
+.sc-t{display:grid;gap:6px;min-width:0}.sc-t h2{margin:0}.sc-t p{margin:0;max-width:70ch}
+.sc-a{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.tag.sc-lock{border-color:rgba(216,176,98,.5);color:var(--gold2)}
+.sc-soon{display:flex;flex-wrap:wrap;gap:8px}
+.tm-h{grid-column:1/-1;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin:14px 0 4px;padding-bottom:6px;border-bottom:1px solid var(--line)}
+.tm-h:first-child{margin-top:0}

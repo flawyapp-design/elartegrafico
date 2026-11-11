@@ -2882,3 +2882,105 @@ update public.slides set title = 'Fundamentos del trading, gratis',
 where place = 'login' and title in ('5 gráficas de prueba gratis');
 
 select place, sort, title, active from public.slides where place in ('home', 'login') order by place, sort;
+
+-- ===== curso_fundamentos.sql (v2: la introducción vuelve a Boom y Crash) =====
+-- =====================================================================
+-- Curso base "Fundamentos del trading". Correr DESPUÉS de novedades.sql. Se puede correr varias veces.
+--  - Nuevo curso "Fundamentos del trading" (primero en la lista), GRATIS y completo para cualquier
+--    cuenta registrada. No se vende.
+--  - Los módulos con categoría "Fundamentos" pasan a este curso (abrir cuenta, Deriv y MT5, velas…), MENOS
+--    "Bienvenida e introducción": esa es de Boom y Crash y se queda (o vuelve) a ese curso.
+--  - Si ya lo habías corrido, córrelo otra vez: devuelve la introducción a Boom y Crash.
+-- =====================================================================
+alter table public.courses add column if not exists base boolean not null default false;
+
+insert into public.courses (title, descr, color, icon, price, status, sort, base)
+select 'Fundamentos del trading',
+       'Lo que necesitas antes de cualquier mercado: cómo abrir tu cuenta, tu bróker y MT5, velas japonesas y estructura del mercado.',
+       '#d8b062', '📚', 'Gratis', 'publicado', 0, true
+where not exists (select 1 from public.courses where base);
+
+update public.courses set sort = 0, price = 'Gratis' where base;
+update public.courses set sort = greatest(sort, 1) where not base;
+
+-- los módulos de fundamentos pasan al curso base
+update public.modules set course_id = (select id from public.courses where base order by created_at limit 1)
+where lower(coalesce(category, '')) like 'fundamento%'
+  and lower(title) not like '%bienvenida%' and lower(title) not like '%introducci%';
+
+-- la introducción es de Boom y Crash (cada mercado se mueve distinto): vuelve al primer curso de pago
+update public.modules set
+  course_id = (select id from public.courses where not base order by sort, created_at limit 1),
+  category = 'Introducción'
+where (lower(title) like '%bienvenida%' or lower(title) like '%introducci%')
+  and exists (select 1 from public.courses where not base);
+
+-- acceso: el curso que compraste, o el curso gratis si tienes cuenta
+create or replace function public.course_module_ok(mid uuid) returns boolean
+language sql stable security definer set search_path = public as $$
+  select auth.uid() is not null and exists (
+    select 1 from public.modules m join public.courses c on c.id = m.course_id
+    where m.id = mid and (c.base
+      or exists (select 1 from public.user_courses uc where uc.user_id = auth.uid() and uc.course_id = m.course_id)))
+$$;
+grant execute on function public.course_module_ok(uuid) to authenticated;
+
+-- el curso base no se puede comprar suelto
+create or replace function public.no_vender_base() returns trigger
+language plpgsql as $$
+begin
+  if new.course_id is not null and exists (select 1 from public.courses where id = new.course_id and base) then
+    raise exception 'Ese curso es gratis con tu cuenta; no hay que pagarlo.';
+  end if;
+  return new;
+end $$;
+drop trigger if exists no_vender_base on public.payment_requests;
+create trigger no_vender_base before insert on public.payment_requests for each row execute function public.no_vender_base();
+
+-- revisión: así quedan tus cursos y módulos
+select c.title as curso, c.base as curso_base, m.sort, m.title as modulo, m.status, m.free as prueba_gratis
+from public.modules m left join public.courses c on c.id = m.course_id
+order by c.sort nulls last, m.sort;
+
+-- ===== textos_fundamentos.sql (v2) =====
+-- =====================================================================
+-- Textos y banner: "Fundamentos del trading es gratis; la estrategia de cada mercado es lo que se paga".
+-- Correr DESPUÉS de curso_fundamentos.sql. Se puede correr varias veces.
+-- =====================================================================
+
+-- 1) Banner nuevo, primero en el inicio
+delete from public.slides where place = 'home' and image_url like '%/assets/banners/fundamentos.webp';
+insert into public.slides (place, title, body, image_url, cta_text, cta_link, sort, active) values
+('home', 'Aprende trading gratis',
+ 'El curso Fundamentos del trading es gratis y completo con tu cuenta: bróker, MT5, velas japonesas y estructura del mercado. Después eliges la estrategia de tu mercado.',
+ 'https://elartegrafico.com/assets/banners/fundamentos.webp', 'Crear cuenta gratis', '#registro', 0, true);
+
+-- el banner del método ahora apunta a la estrategia (lo que se paga)
+update public.slides set
+  title = 'La estrategia de Boom y Crash',
+  body = 'Cuando termines Fundamentos, aplica el método de El Arte Gráfico en Boom y Crash: zonas, entradas y stop loss con reglas claras.',
+  cta_text = 'Ver precios', cta_link = '#premium', sort = 1
+where place = 'home' and image_url like '%/assets/banners/metodo.webp';
+
+-- 2) Portada y página de precios
+update public.site_settings set data = data
+  || jsonb_build_object(
+       'heroText', 'Empieza gratis con el curso Fundamentos del trading. Cuando estés listo, elige la estrategia de El Arte Gráfico para tu mercado y practícala en gráficas reales.',
+       'premiumTitle', 'Elige tu plan',
+       'premiumText', 'Fundamentos del trading es gratis con tu cuenta. Lo que se paga es la estrategia de cada mercado: compra solo el curso que quieras, o suscríbete con Cobre, Plata, Oro o Diamond y tienes todos los cursos. Pagas con Binance Pay en USDT y no hay cobros automáticos.',
+       'premiumItems', jsonb_build_array('Todos los cursos de estrategia, como Boom y Crash', 'Ejercicios con zona, stop loss y repetición', 'Práctica libre ilimitada', 'Desde Oro: Sala Oro con chat privado, lives y operativas'))
+where id = 1;
+
+-- 3) Preguntas frecuentes (solo si las editaste en Admin; si no, la página ya usa las nuevas)
+update public.site_settings set data = jsonb_set(data, '{faq}',
+  jsonb_build_array(jsonb_build_object('q', '¿Qué es gratis y qué se paga?',
+    'a', 'El curso Fundamentos del trading es gratis y completo con tu cuenta: bróker, MT5, velas japonesas y estructura del mercado. Lo que tiene costo son los cursos de estrategia para cada mercado, como Boom y Crash: lo compras una vez o lo tienes con cualquier plan.'))
+  || (select coalesce(jsonb_agg(f), '[]'::jsonb) from jsonb_array_elements(data->'faq') f where f->>'q' <> '¿Qué es gratis y qué se paga?'))
+where id = 1 and jsonb_typeof(data->'faq') = 'array' and jsonb_array_length(data->'faq') > 0;
+
+-- 4) Banner de la pantalla de ingreso
+update public.slides set title = 'Fundamentos del trading, gratis',
+  body = 'Crea tu cuenta y haz el curso completo sin pagar: bróker, MT5, velas japonesas y estructura del mercado.'
+where place = 'login' and title in ('5 gráficas de prueba gratis');
+
+select place, sort, title, active from public.slides where place in ('home', 'login') order by place, sort;

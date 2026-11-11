@@ -186,7 +186,8 @@ function modOpen(m,ignoreAdmin){if(!m)return false;if(!ignoreAdmin&&admin())retu
    y dentro del módulo cada lección se abre al aprobar la anterior (puntaje mínimo de la lección). El admin no tiene bloqueos. */
 function passedL(id){return !!(S.prog&&S.prog.done[id]&&S.prog.done[id].passed)}
 /* módulo anterior que cuenta para el orden: los módulos opcionales no bloquean a los siguientes */
-function prevReq(m){const i=S.modules.indexOf(m);for(let k=i-1;k>=0;k--){if(!S.modules[k].optional)return S.modules[k]}return null}
+/* cada curso tiene su propio orden: un módulo solo depende de los anteriores de su mismo curso */
+function prevReq(m){const i=S.modules.indexOf(m);for(let k=i-1;k>=0;k--){const x=S.modules[k];if(!x.optional&&(x.course_id||null)===(m.course_id||null))return x}return null}
 /* reseña obligatoria: al terminar un módulo hay que dejar la reseña para abrir el siguiente */
 function needFb(m){return !!(m&&!admin()&&!S.fbOff&&logged()&&m.ask_feedback!==false&&modProgress(m.id)>=1&&!S.fb.has(m.id))}
 function modLocked(m){if(admin())return false;const prev=prevReq(m);if(!prev)return false;if(needFb(prev))return true;return !!(m.locked&&modProgress(prev.id)<1)}
@@ -464,7 +465,8 @@ const statsBand=()=>API.publicStats().then(st=>{if(!$("#stats"))return;$("#stats
 const DISC={title:"La comunidad de El Arte Gráfico",text:"Un espacio para traders que operan con reglas: análisis del día, dudas resueltas, avisos del método y acompañamiento entre alumnos.",items:["Análisis y zonas compartidas a diario","Avisos de actualizaciones y nuevas lecciones","Sala Oro: chat privado, lives y operativas para Oro y Diamond","Mensajes privados con El Arte Gráfico para resolver tus dudas"]};
 
 /* ---------- bloques del inicio ---------- */
-const TEMARIO=[["Bienvenida e introducción",5,"Introducción"],["La plataforma: Deriv y MT5",6,"Básico"],["Velas japonesas",5,"Básico"],["Estructura del mercado",6,"Básico"],
+const TEMARIO_F=3;/* los primeros 3 son del curso gratis Fundamentos del trading; desde "Bienvenida" es Boom y Crash */
+const TEMARIO=[["La plataforma: Deriv y MT5",6,"Básico"],["Velas japonesas",5,"Básico"],["Estructura del mercado",6,"Básico"],["Bienvenida e introducción",5,"Introducción"],
   ["Fractales y zonas",6,"Intermedio"],["Las entradas: Inicio, Punta y Aislada",7,"Intermedio"],["Stop loss y manejo de la operación",6,"Intermedio"],
   ["Gestión del riesgo",6,"Gestión"],["Psicología y rachas",5,"Gestión"],["Boom y Crash a fondo",6,"Avanzado"],["Tu plan de trading y tu diario",5,"Avanzado"],
   ["Medir tu estrategia con datos",5,"Avanzado"],["Examen final",3,"Evaluación"]];
@@ -520,9 +522,13 @@ function aboutBlock(host){if(!host)return;const s=S.site;if(s.aboutHide){host.re
       ${(s.aboutStats||[]).length?`<div class="cstats">${s.aboutStats.map(c=>`<div><b class="mono">${esc(c.v)}</b><span>${esc(c.t)}</span></div>`).join("")}</div>`:""}
       <div class="row"><a class="btn ghost btn-ic" href="${esc(tk)}" target="_blank" rel="noopener">${ICON_TT}<span>Verme en TikTok</span></a></div></div></div>`}
 function temarioBlock(host){if(!host)return;const pub=new Set((S.modules||[]).filter(m=>m.status==="publicado"&&modOpen(m)).map(m=>m.title.trim().toLowerCase()));
-  const tot=TEMARIO.reduce((a,x)=>a+x[1],0);
-  host.innerHTML=TEMARIO.map(([t,n,lv],i)=>{const on=pub.has(t.toLowerCase());return `<div class="tm${on?" on":""}"><span class="tm-n mono">${String(i).padStart(2,"0")}</span><div><b>${esc(t)}</b><span class="dim">${n} lecciones · ${esc(lv)}</span></div>${on?'<span class="tag pub">Disponible</span>':'<span class="tag">Próximamente</span>'}</div>`}).join("")
-    +`<p class="dim tm-foot">${TEMARIO.length} módulos · ${tot} lecciones con ejercicios en gráficas reales. Los módulos se van abriendo a medida que avanzas.</p>`}
+  const tot=TEMARIO.reduce((a,x)=>a+x[1],0),base=(S.courses||[]).find(c=>c.base&&c.status!=="borrador"),paid=(S.courses||[]).find(c=>!c.base&&c.status!=="borrador");
+  const row=([t,n,lv],i)=>{const on=pub.has(t.toLowerCase());return `<div class="tm${on?" on":""}"><span class="tm-n mono">${String(i).padStart(2,"0")}</span><div><b>${esc(t)}</b><span class="dim">${n} lecciones · ${esc(lv)}</span></div>${on?'<span class="tag pub">Disponible</span>':'<span class="tag">Próximamente</span>'}</div>`};
+  if(!base){host.innerHTML=TEMARIO.map(row).join("")+`<p class="dim tm-foot">${TEMARIO.length} módulos · ${tot} lecciones con ejercicios en gráficas reales. Los módulos se van abriendo a medida que avanzas.</p>`;return}
+  const head=(ic,t,tag)=>`<div class="tm-h"><b>${esc(ic)} ${esc(t)}</b>${tag}</div>`;
+  host.innerHTML=head(base.icon||"📚",base.title,'<span class="tag free-t">Gratis con tu cuenta</span>')+TEMARIO.slice(0,TEMARIO_F).map(row).join("")
+    +head(paid?paid.icon||"🎯":"🎯",paid?paid.title:"Boom y Crash",`<span class="tag sc-lock">Con plan${paid&&paid.price?` o ${esc(paid.price)}`:""}</span>`)+TEMARIO.slice(TEMARIO_F).map((x,i)=>row(x,i+TEMARIO_F)).join("")
+    +`<p class="dim tm-foot">${TEMARIO.length} módulos · ${tot} lecciones con ejercicios en gráficas reales. Empiezas gratis con ${esc(base.title)} y sigues con la estrategia de tu mercado.</p>`}
 /* mini tutorial: pasar una cuenta de Deriv existente al socio de El Arte Gráfico (retag) */
 function retagGuide(){const s=S.site||{},link=(s.derivRefUrl||"").trim(),code=(s.derivPartnerCode||"").trim();
   const msg=`Hola, quiero hacer un retag de mi cuenta de Deriv (mi ID es CR…) para que quede con el socio El Arte Gráfico.${code?` Código de socio: ${code}.`:""}${link?` Este es su enlace: ${link}`:""}`;
@@ -569,7 +575,7 @@ const FAQ_DEF=[["¿Necesito experiencia?","No. Empiezas por el curso gratis Fund
   ["¿Funciona desde el celular?","Sí. La academia y los ejercicios funcionan en el navegador del celular y la puedes instalar como app."],
   ["¿Qué planes hay?","Cobre (1 mes), Plata (6 meses), Oro (12 meses) y Diamond. Todos incluyen la academia completa; desde Plata tienes doble XP, desde Oro entras a la Sala Oro (chat privado, lives y operativas) y Diamond tiene acceso a todo. Si solo quieres el curso de Boom y Crash, lo compras una vez y es tuyo."],
   ["¿Cómo pago?","Con Binance Pay en USDT. Registras el número de orden en la página Premium y activamos tu plan o tu curso cuando confirmamos el pago. No hay cobros automáticos."],
-  ["¿Qué es gratis y qué se paga?","El curso Fundamentos del trading es gratis y completo con tu cuenta: bróker, MT5, velas, estructura y gestión del riesgo. Lo que tiene costo son los cursos de estrategia para cada mercado, como Boom y Crash: lo compras una vez o lo tienes con cualquier plan."],
+  ["¿Qué es gratis y qué se paga?","El curso Fundamentos del trading es gratis y completo con tu cuenta: bróker, MT5, velas japonesas y estructura del mercado. Lo que tiene costo son los cursos de estrategia para cada mercado, como Boom y Crash: lo compras una vez o lo tienes con cualquier plan."],
   ["¿Puedo probar antes de pagar?","Sí. Con tu cuenta gratis haces el curso Fundamentos completo, tienes 5 gráficas de prueba y juegas el reto del día. Así conoces la academia antes de pagar una estrategia."],
   ["¿Cómo funcionan los retos?","Cada día sale un reto gratis. Tienes unas horas para responder y al cierre se revelan la respuesta y los primeros 5 en acertar, que ganan puntos canjeables por USDT. No necesitas pagar ni depositar para participar."],
   ["¿Me garantizan ganancias?","No. Esto es formación. Operar índices sintéticos tiene un riesgo alto y nadie puede garantizarte resultados; por eso practicamos en demo y con gestión del riesgo."]];
@@ -674,7 +680,7 @@ function revealPop(c){if(!c||!c.closed||!c.answered)return false;const k="ag_rv_
 function pathBlock(){const base=(S.courses||[]).filter(c=>c.base&&c.status!=="borrador"),paid=(S.courses||[]).filter(c=>!c.base&&c.status!=="borrador");if(!base.length)return"";
   const b=base[0],mk=(S.site.markets||[]).filter(m=>!/disponible/i.test(m.status||"")).map(m=>m.name).slice(0,4),go=!logged()?toMain("registro"):closedAcad()&&!admin()?"":toAcad("academia");
   return `<section class="sec path"><div class="sec-h"><div><span class="eyebrow">Cómo funciona</span><h2>Primero aprende trading gratis. Después elige tu estrategia.</h2></div></div>
-  <div class="path-g"><div class="path-s free"><span class="path-n">1</span><span class="pill ok">Gratis</span><h3>${esc(b.icon||"📚")} ${esc(b.title)}</h3><p class="muted">El curso completo, sin pagar nada: qué es un bróker, cómo usar MT5, velas japonesas, estructura del mercado y gestión del riesgo. Solo necesitas tu cuenta.</p>
+  <div class="path-g"><div class="path-s free"><span class="path-n">1</span><span class="pill ok">Gratis</span><h3>${esc(b.icon||"📚")} ${esc(b.title)}</h3><p class="muted">El curso completo, sin pagar nada: qué es un bróker, cómo usar MT5, velas japonesas y estructura del mercado. Solo necesitas tu cuenta.</p>
     ${go?`<a class="btn gold" href="${go}">${logged()?"Ir al curso":"Crear cuenta gratis"}</a>`:'<span class="pill">Disponible cuando abra la academia</span>'}</div>
   <div class="path-arrow" aria-hidden="true">→</div>
   <div class="path-s paid"><span class="path-n">2</span><span class="pill gold-p">Estrategia por mercado</span><h3>Aplica el método en un mercado concreto</h3><p class="muted">Cada mercado tiene su curso con la estrategia de El Arte Gráfico, ejercicios en gráficas reales y repetición. Esto es lo que tiene costo: lo compras una vez o lo tienes con cualquier plan.</p>
@@ -1047,11 +1053,28 @@ function premiumBand(){const s=S.site;return `<div class="pb"><div><span class="
 async function syllabus(host,limit){
   const [mods,idx]=[S.modules,S.lindex];if(!host)return;
   if(!mods.length){host.innerHTML='<div class="empty">El temario se publicará pronto.</div>';return}
-  const groups={};mods.forEach(m=>{(groups[m.category||"Fundamentos"]=groups[m.category||"Fundamentos"]||[]).push(m)});
-  let n=0;host.innerHTML=Object.entries(groups).map(([cat,ms])=>{if(limit&&n>=limit)return"";return `<div class="syl-cat"><h3 class="cat">${esc(cat)}</h3><div class="grid">${ms.map(m=>{if(limit&&n>=limit)return"";n++;const ls=idx.filter(l=>l.module_id===m.id);const pr=modProgress(m.id,ls);
+  let n=0;
+  const modCard=(m,cat)=>{if(limit&&n>=limit)return"";n++;const ls=idx.filter(l=>l.module_id===m.id);const pr=modProgress(m.id,ls);
     const op=modOpen(m,true);
     return `<a class="mod ${op?"":"soon-mod"}" href="#modulo-${esc(m.id)}"><span class="num">${esc(m.level||cat)}</span><h3>${esc(m.title)}</h3><p>${esc(m.descr||"")}</p>
-      <div class="meta"><span>${ls.length} ${ls.length===1?"lección":"lecciones"}</span>${m.optional?'<span class="tag pub">Opcional</span>':""}${m.free&&!premium()&&trialDays()?'<span class="tag free-t">Prueba gratis</span>':""}${op?"":`<span class="tag lock">${esc(modState(m))}</span>`}${premium()||!op?"":isBase(m.course_id)?'<span class="tag free-t">Gratis</span>':canMod(m)?"":'<span class="tag">Premium</span>'}${m.status!=="publicado"?'<span class="tag">Borrador</span>':""}</div>${premium()||(logged()&&canMod(m))?`<div class="bar"><i style="width:${Math.round(pr*100)}%"></i></div>`:""}</a>`}).join("")}</div></div>`}).join("")}
+      <div class="meta"><span>${ls.length} ${ls.length===1?"lección":"lecciones"}</span>${m.optional?'<span class="tag pub">Opcional</span>':""}${m.free&&!premium()&&trialDays()&&!isBase(m.course_id)?'<span class="tag free-t">Prueba gratis</span>':""}${op?"":`<span class="tag lock">${esc(modState(m))}</span>`}${premium()||!op?"":isBase(m.course_id)?'<span class="tag free-t">Gratis</span>':canMod(m)?"":'<span class="tag">Premium</span>'}${m.status!=="publicado"?'<span class="tag">Borrador</span>':""}</div>${premium()||(logged()&&canMod(m))?`<div class="bar"><i style="width:${Math.round(pr*100)}%"></i></div>`:""}</a>`};
+  const cats=ms=>{const g={};ms.forEach(m=>{const c=m.category||"Módulos";(g[c]=g[c]||[]).push(m)});
+    return Object.entries(g).map(([cat,list])=>{if(limit&&n>=limit)return"";const h=list.map(m=>modCard(m,cat)).join("");return h?`<div class="syl-cat"><h3 class="cat">${esc(cat)}</h3><div class="grid">${h}</div></div>`:""}).join("")};
+  const cs=(S.courses||[]).filter(c=>c.status!=="borrador"||admin()).slice().sort((a,b)=>(a.sort||0)-(b.sort||0));
+  if(!cs.length){host.innerHTML=cats(mods);return}
+  const access=c=>{if(c.base)return `<span class="tag free-t">Gratis${logged()?" · ya es tuyo":" · solo con tu cuenta"}</span>`;
+    if(premium()||ownsCourse(c.id))return '<span class="tag pub">Tienes acceso</span>';
+    return `<span class="tag sc-lock">🔒 Con plan Cobre, Plata, Oro o Diamond${c.price?` · o el curso por ${esc(c.price)}`:""}</span>`};
+  const known=new Set(cs.map(c=>c.id));
+  let k=0;const blocks=cs.map(c=>{const ms=mods.filter(m=>m.course_id===c.id);if(limit&&(n>=limit||!ms.length))return"";k++;
+    const body=ms.length?cats(ms):`<div class="empty">Los módulos de este curso se están grabando y se publicarán pronto${c.base?"":". Con un plan o con el curso los tendrás apenas salgan"}.</div>`;
+    const cta=c.base||premium()||ownsCourse(c.id)?"":`<a class="btn sm gold" href="${toMain("premium")}">Ver planes</a>`;
+    return `<section class="syl-course${c.base?" base":""}" style="--cc:${esc(c.color||"#d8b062")}"><div class="sc-h"><span class="sc-i">${esc(c.icon||"🎓")}</span><div class="sc-t"><span class="eyebrow">Curso ${k}${c.base?" · empieza aquí":""}</span><h2>${esc(c.title)}</h2>${c.descr?`<p class="muted">${esc(c.descr)}</p>`:""}<div class="sc-a">${access(c)}${cta}</div></div></div>${body}</section>`}).join("");
+  const orphans=mods.filter(m=>!m.course_id||!known.has(m.course_id));
+  const titles=new Set(cs.map(c=>c.title.trim().toLowerCase()));
+  const soon=limit?[]:(S.site.markets||[]).filter(m=>!/disponible/i.test(m.status||"")&&!titles.has(String(m.name||"").trim().toLowerCase()));
+  host.innerHTML=blocks+(orphans.length?`<section class="syl-course"><div class="sc-h"><span class="sc-i">📦</span><div class="sc-t"><h2>Otros módulos</h2></div></div>${cats(orphans)}</section>`:"")
+    +(soon.length?`<section class="syl-course upc"><div class="sc-h"><span class="sc-i">⏳</span><div class="sc-t"><span class="eyebrow">Próximos cursos</span><h2>Más mercados en camino</h2><p class="muted">Cada mercado tendrá su curso de estrategia. Con un plan los tendrás todos apenas salgan.</p></div></div><div class="sc-soon">${soon.map(m=>`<span class="path-c soon">${esc(m.name)}${m.cat?` · ${esc(m.cat)}`:""}</span>`).join("")}</div></section>`:"")}
 function modProgress(mid,ls){ls=ls||S.lindex.filter(l=>l.module_id===mid);if(!ls.length||!S.prog)return 0;return ls.filter(l=>S.prog.done[l.id]&&S.prog.done[l.id].passed).length/ls.length}
 /* reproducir enlaces .m3u8 (Bunny "playlist.m3u8") también en Chrome/Android con hls.js */
 let hlsP=null;
