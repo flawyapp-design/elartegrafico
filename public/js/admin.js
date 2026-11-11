@@ -193,7 +193,7 @@ function sitio(){
     <div class="two"><label for="sRT">Texto del botón<input id="sRT" value="${esc(s.derivRefText||"")}" placeholder="Abrir mi cuenta en Deriv"></label><label for="sRN">Aviso debajo del botón (opcional)<input id="sRN" value="${esc(s.derivRefNote||"")}" placeholder="Enlace de socio: Deriv le paga una comisión a El Arte Gráfico…"></label></div>
     <h3>Pagos con Binance Pay</h3><p class="muted" style="margin:0">El alumno paga a tu Binance Pay ID y registra el ID de orden en la página Premium. Tú lo confirmas en Administración → Pagos.</p>
     <div class="two"><label for="sBP">Tu Binance Pay ID<input id="sBP" value="${esc(s.binancePayId||"")}" placeholder="Ej.: 123456789"></label><label for="sBN">Nombre que ven al pagar (opcional)<input id="sBN" value="${esc(s.binanceName||"")}" placeholder="El Arte Gráfico"></label></div>
-    <label for="sPL">Planes (uno por línea: Nombre | días | precio | placa). Placa: cobre, plata, oro o diamond; si la dejas vacía sale de los días.<textarea id="sPL" style="min-height:80px" placeholder="Cobre | 30 | 10 USDT | cobre&#10;Diamond | 30 | 100 USDT | diamond">${esc((s.plans||[]).map(x=>[x.name,x.days,x.price].concat(x.tier?[x.tier]:[]).join(" | ")).join("\n"))}</textarea></label>
+    <label for="sPL">Planes (uno por línea: Nombre | días | precio | placa). En días escribe "vitalicio" para un plan de por vida. Placa: cobre, plata, oro o diamond; si la dejas vacía sale de los días.<textarea id="sPL" style="min-height:80px" placeholder="Cobre | 30 | 10 USDT | cobre&#10;Diamond | vitalicio | 100 USDT | diamond">${esc((s.plans||[]).map(x=>[x.name,x.days>=3650?"vitalicio":x.days,x.price].concat(x.tier?[x.tier]:[]).join(" | ")).join("\n"))}</textarea></label>
     <label for="sPN">Indicaciones extra para pagar (opcional)<input id="sPN" value="${esc(s.payNote||"")}" placeholder="Ej.: envía exactamente el monto en USDT"></label>
     <h3>Contacto y pie de página</h3><label for="sCo">Contacto (WhatsApp, correo…)<input id="sCo" value="${esc(s.contact||"")}"></label>
     <label for="sSo">Redes (una por línea: Nombre | enlace)<textarea id="sSo" style="min-height:80px" placeholder="Instagram | https://instagram.com/...">${esc(s.social||"")}</textarea></label>
@@ -212,7 +212,7 @@ function sitio(){
       premiumTitle:$("#sPT").value.trim(),premiumText:$("#sPX").value.trim(),premiumItems:$("#sPI").value.split("\n").map(x=>x.trim()).filter(Boolean),
       derivPartnerCode:$("#sPC").value.trim(),derivRefUrl:$("#sRU").value.trim(),derivRefText:$("#sRT").value.trim(),derivRefNote:$("#sRN").value.trim(),
       binancePayId:$("#sBP").value.trim(),binanceName:$("#sBN").value.trim(),payNote:$("#sPN").value.trim(),
-      plans:pairs($("#sPL").value).map(p=>{const o={name:p[0],days:Math.max(1,Math.min(3650,parseInt(p[1])||30)),price:p[2]||""},t=String(p[3]||"").trim().toLowerCase().replace("diamante","diamond");if(["cobre","plata","oro","diamond"].includes(t))o.tier=t;return o}),
+      plans:pairs($("#sPL").value).map(p=>{const o={name:p[0],days:/vital|vida|ilimit|siempre/i.test(p[1]||"")?36500:Math.max(1,Math.min(36500,parseInt(p[1])||30)),price:p[2]||""},t=String(p[3]||"").trim().toLowerCase().replace("diamante","diamond");if(["cobre","plata","oro","diamond"].includes(t))o.tier=t;return o}),
       closedTitle:$("#sAT").value.trim(),closedText:$("#sAX").value.trim(),trialDays:Math.max(0,Math.min(60,parseInt($("#sTD").value,10)||0)),gaId:(/^G-[A-Z0-9]{4,20}$/i.test($("#sGA").value.trim())?$("#sGA").value.trim().toUpperCase():""),discordUrl:$("#sDU").value.trim(),discordTitle:$("#sDT").value.trim(),discordText:$("#sDX").value.trim(),discordItems:$("#sDI").value.split("\n").map(x=>x.trim()).filter(Boolean),communityStats:pairs($("#sCS").value).map(p=>({v:p[0],t:p[1]||""})),
       aboutTitle:$("#sAbT").value.trim(),aboutName:$("#sAbN").value.trim(),aboutText:$("#sAbX").value.trim(),aboutItems:$("#sAbI").value.split("\n").map(x=>x.trim()).filter(Boolean),
       aboutStats:pairs($("#sAbS").value).map(p=>({v:p[0],t:p[1]||""})),aboutTiktok:$("#sAbK").value.trim(),aboutHide:$("#sAbH").value==="1",
@@ -423,7 +423,7 @@ async function pagos(){
       <span>${esc(r.email||"")} · ${fmtDT(r.created_at)}${isP(r)?` · premium hasta ${fmtDate(r.premium_until)}`:""}</span>
       <span>ID de orden: <b class="mono sel">${esc(r.order_id)}</b> <button type="button" class="btn sm ghost" data-cp="${esc(r.order_id)}">Copiar</button></span>
       ${r.note?`<span>Nota: ${esc(r.note)}</span>`:""}${r.admin_note?`<span class="dim">Tu nota: ${esc(r.admin_note)}</span>`:""}</span>
-    ${r.status==="pendiente"?`<span class="row" data-w="${esc(r.id)}"><label class="dim" style="display:flex;gap:6px;align-items:center">Días <input type="number" min="1" max="3650" value="${r.days}" data-d="${esc(r.id)}" style="width:80px;background:var(--bg2);border:1px solid var(--line2);border-radius:8px;padding:6px;color:var(--fg)"></label>
+    ${r.status==="pendiente"?`<span class="row" data-w="${esc(r.id)}"><label class="dim" style="display:flex;gap:6px;align-items:center">Días <input type="number" min="1" max="36500" value="${r.days}" data-d="${esc(r.id)}" style="width:80px;background:var(--bg2);border:1px solid var(--line2);border-radius:8px;padding:6px;color:var(--fg)"></label>
       <button class="btn sm ok" data-ok="${esc(r.id)}">Aprobar</button><button class="btn sm bad" data-no="${esc(r.id)}">Rechazar</button></span>`
       :`<span class="tag ${r.status==="aprobado"?"pub":""}">${r.status==="aprobado"?`Aprobado · ${r.days} días`:"Rechazado"}</span>`}</div>`;
   H().innerHTML=paySwitch()+`<div style="display:grid;gap:16px"><div class="panel"><div class="sec-h"><h3>Pagos por confirmar (${pend.length})</h3><span class="muted">Revisa en tu Binance (Pay → Historial) que el ID de orden y el monto coincidan antes de aprobar.</span></div>
@@ -619,7 +619,7 @@ async function resenas(){
 async function alumnos(){
   H().innerHTML='<div class="muted">Cargando…</div>';let list=[];try{list=await API.users()}catch(e){H().innerHTML=`<div class="empty">${esc(e.message)}</div>`;return}
   const isP=u=>u.premium_until&&new Date(u.premium_until)>new Date();
-  const GIVE=()=>{const pl=(S.site&&S.site.plans)||[],N={cobre:"Cobre",plata:"Plata",oro:"Oro",diamond:"Diamond"},D={cobre:30,plata:180,oro:365,diamond:30};
+  const GIVE=()=>{const pl=(S.site&&S.site.plans)||[],N={cobre:"Cobre",plata:"Plata",oro:"Oro",diamond:"Diamond"},D={cobre:30,plata:180,oro:365,diamond:36500};
     return Object.keys(N).map(t=>{const x=pl.find(p=>(p.tier||(p.days>=300?"oro":p.days>=150?"plata":"cobre"))===t);return{t,n:N[t],d:x?+x.days:D[t]}})};
   const venc=u=>u.premium_until&&new Date(u.premium_until)<=new Date();
   let q="",fil="todos",pais="";const draw=()=>{const f=list.filter(u=>(!q||(u.username+" "+u.email).toLowerCase().includes(q))
@@ -629,10 +629,10 @@ async function alumnos(){
     $("#ut").innerHTML=f.map(u=>`<article class="ucard${u.banned?" ban":""}">
       <div class="uc-who">${A.avatar?A.avatar(u,44):""}<div><b>${esc(u.username)} ${A.flag(u.country||"")}${u.role==="admin"?' <span class="tag pub">Admin</span>':""}${u.banned?' <span class="tag">Suspendido</span>':""}</b><span class="dim">${esc(u.email||"")}</span></div></div>
       <div class="uc-st">
-        <div><small>Acceso</small>${isP(u)?A.premTag(u.plan)+`<span class="dim">hasta ${fmtDate(u.premium_until)}</span>`:venc(u)?`<span class="tag">Vencido</span><span class="dim">el ${fmtDate(u.premium_until)}</span>`:'<span class="tag">Gratis</span>'}${(u.courses||[]).map(cid=>{const c=(S.courses||[]).find(x=>x.id===cid);return c?`<span class="crs-tag" style="--cc:${esc(c.color)}">${esc(c.icon||"")} ${esc(c.title)}</span>`:""}).join("")}</div>
+        <div><small>Acceso</small>${isP(u)?A.premTag(u.plan)+`<span class="dim">${new Date(u.premium_until).getFullYear()>=2090?"de por vida":"hasta "+fmtDate(u.premium_until)}</span>`:venc(u)?`<span class="tag">Vencido</span><span class="dim">el ${fmtDate(u.premium_until)}</span>`:'<span class="tag">Gratis</span>'}${(u.courses||[]).map(cid=>{const c=(S.courses||[]).find(x=>x.id===cid);return c?`<span class="crs-tag" style="--cc:${esc(c.color)}">${esc(c.icon||"")} ${esc(c.title)}</span>`:""}).join("")}</div>
         <div><small>Puntos</small><b class="mono">${u.xp||0}</b></div><div><small>Prueba</small><b class="mono">${u.demo_used||0}/5</b></div><div><small>Registro</small><span>${fmtDate(u.created_at)}</span></div></div>
       <div class="uc-act row">
-        <label class="uc-plan uc-give"><span>Dar plan</span><select data-give="${esc(u.id)}"><option value="">Elegir…</option>${GIVE().map(g=>`<option value="${g.t}:${g.d}">${A.TIERS?A.TIERS[g.t].i:""} ${g.n} · ${g.d} días</option>`).join("")}</select></label>
+        <label class="uc-plan uc-give"><span>Dar plan</span><select data-give="${esc(u.id)}"><option value="">Elegir…</option>${GIVE().map(g=>`<option value="${g.t}:${g.d}">${A.TIERS?A.TIERS[g.t].i:""} ${g.n} · ${g.d>=3650?"de por vida":g.d+" días"}</option>`).join("")}</select></label>
         <button class="btn sm ok" data-add="${esc(u.id)}:30">+30 días</button>
         <label class="uc-date"><span>Hasta</span><input type="date" data-date="${esc(u.id)}" aria-label="Premium hasta"></label>
         <button class="btn sm" data-dm="${esc(u.id)}">💬 Escribirle</button>

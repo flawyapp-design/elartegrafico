@@ -26,7 +26,7 @@ Estos términos regulan el uso de {SITIO} y de la academia (en adelante, "la pla
 ### 4. Cuenta gratis, prueba gratis, planes y cursos
 - **Cuenta gratis:** puedes usar el sitio principal, la comunidad, los retos diarios y un número limitado de gráficas de prueba (actualmente 5).
 - **Prueba gratis:** cuando la academia está abierta, las cuentas gratis pueden ver el módulo de introducción durante unos días (actualmente 7) contados desde el registro o desde la apertura. Es una sola vez por persona.
-- **Planes de suscripción** (Cobre, Plata, Oro y Diamond): dan acceso a la academia completa durante el periodo contratado. Cada plan tiene beneficios adicionales (por ejemplo, doble XP desde Plata, la Sala Oro desde Oro y acceso a todo con Diamond). El precio, la duración y lo que incluye cada plan se informan en la página de precios antes de pagar. La placa del plan se muestra en tu perfil mientras esté vigente.
+- **Planes** (Cobre, Plata, Oro y Diamond): dan acceso a la academia completa. Cobre, Plata y Oro duran el periodo contratado; **Diamond es vitalicio**: se paga una sola vez y el acceso es de por vida, entendido como mientras El Arte Gráfico preste el servicio (si la plataforma llegara a cerrar, lo avisaremos con al menos 30 días de anticipación). Cada plan tiene beneficios adicionales (por ejemplo, doble XP desde Plata, la Sala Oro desde Oro y acceso a todo con Diamond). El precio, la duración y lo que incluye cada plan se informan en la página de precios antes de pagar. La placa del plan se muestra en tu perfil mientras esté vigente.
 - **Cursos individuales:** se pagan una sola vez y dan acceso a ese curso, con sus actualizaciones. "De por vida" significa mientras El Arte Gráfico preste el servicio; si la plataforma llegara a cerrar, lo avisaremos con al menos 30 días de anticipación. Un curso individual no incluye la Sala Oro ni los beneficios de los planes.
 - Si compras un plan mientras tienes otro vigente, los días se suman al que ya tienes y tu placa pasa a ser la del plan nuevo.
 - El contenido se publica de forma progresiva: algunos módulos pueden estar marcados como "Próximamente" o abrirse en fechas determinadas. Tu acceso cubre el contenido disponible durante tu periodo.
@@ -177,7 +177,7 @@ Esta política rige desde el {FECHA}. Las bases de datos estarán vigentes mient
 - Por ahora el pago se hace con **Binance Pay en USDT**: envías el monto, registras en la plataforma el número de orden y, cuando confirmamos el pago, activamos tu plan o tu curso. Revisamos los pagos a mano, normalmente dentro de las 24 horas siguientes.
 - El valor en USDT puede variar frente a tu moneda local por la tasa de cambio de Binance; los costos o comisiones de Binance o de tu banco son tuyos.
 - **No hay cobros automáticos ni renovaciones automáticas.** Cuando tu plan termina, decides si compras otro.
-- Si compras un plan con otro vigente, los días se suman. Un curso individual es un pago único con acceso de por vida, entendido como mientras El Arte Gráfico preste el servicio.
+- Si compras un plan con otro vigente, los días se suman. El plan Diamond y los cursos individuales son un pago único con acceso de por vida, entendido como mientras El Arte Gráfico preste el servicio.
 - Si registras un número de orden que no corresponde a un pago real o ya usado, rechazamos la solicitud y podemos suspender la cuenta.
 
 ### Derecho de retracto
