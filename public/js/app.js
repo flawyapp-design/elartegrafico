@@ -275,8 +275,65 @@ const FAQ_DEF=[["¿Necesito experiencia?","No. El temario empieza desde cero: qu
 function faqBlock(host){if(!host)return;const f=(S.site.faq||[]).length?S.site.faq.map(x=>[x.q,x.a]):FAQ_DEF;
   host.innerHTML=f.map(([q,a])=>`<details class="fq"><summary>${esc(q)}</summary><p class="muted">${esc(a)}</p></details>`).join("")}
 
+/* ---------- inicio para quien ya ingresó (panel personal) ---------- */
+const IC={
+  acad:'<path d="M3 9l9-5 9 5-9 5-9-5z"/><path d="M7 11.5V16c0 1.2 2.2 2.5 5 2.5s5-1.3 5-2.5v-4.5"/>',
+  chart:'<path d="M4 19V5"/><path d="M4 19h16"/><path d="M8 15l3-4 3 2 4-6"/>',
+  trophy:'<path d="M8 4h8v4a4 4 0 0 1-8 0V4z"/><path d="M8 6H5a3 3 0 0 0 3 4M16 6h3a3 3 0 0 1-3 4"/><path d="M12 12v4M9 20h6M10 16h4"/>',
+  chat:'<path d="M21 12a8 8 0 0 1-11.6 7.1L4 20.5l1.4-4.6A8 8 0 1 1 21 12z"/>',
+  news:'<path d="M5 5h11v14H6a1 1 0 0 1-1-1V5z"/><path d="M16 9h3v9a1 1 0 0 1-1 1h-2"/><path d="M8 9h5M8 12h5M8 15h3"/>',
+  gear:'<circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1.2l2-1.5-2-3.4-2.3.9a7 7 0 0 0-2-1.2L14 3h-4l-.6 2.6a7 7 0 0 0-2 1.2l-2.3-.9-2 3.4 2 1.5a7 7 0 0 0 0 2.4l-2 1.5 2 3.4 2.3-.9a7 7 0 0 0 2 1.2L10 21h4l.6-2.6a7 7 0 0 0 2-1.2l2.3.9 2-3.4-2-1.5c.1-.4.1-.8.1-1.2z"/>',
+  crown:'<path d="M3 8l4.5 4L12 5l4.5 7L21 8l-2 11H5z"/>',
+  play:'<path d="M8 5v14l11-7z"/>'};
+const ico=(k,s=22)=>`<svg viewBox="0 0 24 24" width="${s}" height="${s}" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${IC[k]}</svg>`;
+function saludo(){const h=new Date(Date.now()+TZ*1000).getUTCHours();return h<5?"Buenas noches":h<12?"Buenos días":h<19?"Buenas tardes":"Buenas noches"}
+async function memberHome(){
+  const s=S.site,p=API.profile()||{},g=S.prog||blankProg(),lv=levelOf(g.xp||0),cerr=closedAcad()&&!admin(),prem=premium();
+  const lpct=lv.to?Math.round(100*((g.xp||0)-lv.from)/(lv.to-lv.from)):100;
+  const total=S.lindex.length,pas=S.lindex.filter(l=>passedL(l.id)).length,apct=total?Math.round(100*pas/total):0;
+  const nx=prem&&!cerr?nextLesson():null;const demo=Math.max(0,5-(p.demo_used||0));
+  const dias=prem&&p.premium_until?Math.ceil((new Date(p.premium_until)-Date.now())/864e5):null;
+  const cta=cerr?`<span class="pill">La academia abre muy pronto</span>`
+    :prem?(nx?`<a class="btn gold btn-ic" href="${toAcad("leccion-"+nx.id)}">${ico("play",18)}<span>Continuar: ${esc(nx.title)}</span></a>`:`<a class="btn gold" href="${toAcad("practica")}">Ir a práctica</a>`)
+    :`<a class="btn gold" href="${toAcad("prueba")}">Probar gráficas gratis (${demo} de 5)</a><a class="btn ghost" href="#premium">Hazte premium</a>`;
+  const tiles=[
+    ["acad","Academia",cerr?"Abre muy pronto":prem?`${pas} de ${total} lecciones`:"Temario y prueba gratis",toAcad("inicio")],
+    ["chart","Práctica",prem?"Gráficas reales ilimitadas":`${demo} gráficas de prueba`,toAcad(prem?"practica":"prueba")],
+    ["trophy","Ranking",`<span id="mhPos">Ver mi puesto</span>`,toAcad("ranking")],
+    ["chat","Comunidad",s.discordUrl?"Entrar al Discord":"Noticias y avisos",s.discordUrl||"#comunidad",!!s.discordUrl],
+    ["news","Novedades","Publicaciones y avisos","#comunidad"],
+    ["gear","Configuración","Perfil, app y notificaciones","#perfil"]];
+  app.innerHTML=`<div id="appCard"></div>
+  <section class="mh">
+    <div class="mh-bg" aria-hidden="true"></div>
+    <div class="mh-id"><a class="mh-av" href="#perfil" title="Configuración">${avatar(p,84)}<span class="lvchip" title="${esc(lv.name)}">${lv.i+1}</span></a>
+      <div class="mh-t"><span class="eyebrow">${saludo()}</span><h1>${esc(p.username||"trader")} ${flag(p.country||"")}</h1>
+        <div class="mh-chips">${prem?premTag():'<span class="tag">Cuenta gratis</span>'}<span class="tag">${esc(lv.name)}</span><span class="tag mono">${g.xp||0} pts</span>${admin()?'<span class="tag pub">Admin</span>':""}</div></div></div>
+    <div class="mh-cta">${cta}</div>
+    <div class="mh-bars">
+      <div><div class="mh-bl"><span>Avance en la academia</span><b class="mono">${apct}%</b></div><div class="bar"><i style="width:${apct}%"></i></div></div>
+      <div><div class="mh-bl"><span>${lv.to?`Nivel ${lv.i+2} en ${lv.to-(g.xp||0)} pts`:"Nivel máximo"}</span><b class="mono">${lpct}%</b></div><div class="bar"><i style="width:${lpct}%"></i></div></div>
+    </div>
+  </section>
+  <section class="mh-tiles">${tiles.map(([k,t,d,h,ext])=>`<a class="mt" href="${esc(h)}"${ext?' target="_blank" rel="noopener"':""}><span class="mt-i">${ico(k)}</span><b>${t}</b><span class="dim">${d}</span></a>`).join("")}</section>
+  <section class="mh-grid">
+    <div class="panel"><div class="sec-h"><h3>Novedades</h3><a href="#comunidad">Ver todo</a></div><div id="mhNews" class="mh-news"><div class="muted">Cargando…</div></div></div>
+    <div class="mh-side">
+      <div class="panel mh-plan">${prem?`<span class="mt-i gold">${ico("crown")}</span><div><b>Tu plan Premium</b><span class="muted">${dias!=null&&dias<36500?`Te quedan <b>${dias}</b> día${dias===1?"":"s"} · hasta ${fmtDate(p.premium_until)}`:"Acceso completo a la academia"}</span></div>${dias!=null&&dias<=7?'<a class="btn sm gold" href="#premium">Renovar</a>':""}`
+        :`<span class="mt-i gold">${ico("crown")}</span><div><b>Desbloquea toda la academia</b><span class="muted">Todos los módulos, práctica ilimitada y tu placa dorada en el ranking.</span></div><a class="btn sm gold" href="#precios-mh">Ver planes</a>`}</div>
+      <div class="panel"><div class="sec-h"><h3>Ranking</h3><a href="${toAcad("ranking")}">Completo</a></div><div id="mhRk" class="muted">Cargando…</div></div>
+    </div>
+  </section>
+  ${prem?"":'<section class="sec" id="precios-mh"></section>'}`;
+  appCard($("#appCard"));if(!prem)pricingBlock($("#precios-mh"));
+  API.posts().then(ps=>{const h=$("#mhNews");if(!h)return;h.innerHTML=ps.slice(0,4).map(x=>`<a class="mn" href="#nota-${esc(x.id)}">${x.image_url?`<span class="mn-img" style="background-image:url('${esc(x.image_url)}')"></span>`:`<span class="mn-img none">${ico("news",20)}</span>`}<span class="mn-t"><span class="dim">${fmtDate(x.created_at)} · ${esc(x.category||"Noticia")}</span><b>${esc(x.title)}</b></span></a>`).join("")||'<div class="muted">Pronto publicaremos novedades.</div>'}).catch(()=>{const h=$("#mhNews");if(h)h.innerHTML='<div class="muted">No se pudieron cargar las novedades.</div>'});
+  API.leaderboard().then(r=>{const h=$("#mhRk");if(!h)return;const k=r.findIndex(x=>x.is_me);if($("#mhPos"))$("#mhPos").textContent=k>=0?`Vas en el puesto #${k+1}`:"Suma puntos para aparecer";
+    h.innerHTML=r.length?`<table class="tbl rk">${r.slice(0,5).map((x,i)=>`<tr class="${x.is_me?"me ":""}${x.premium?"prem":""}"><td class="mono">${i<3?["🥇","🥈","🥉"][i]:i+1}</td><td><span class="who-cell">${avatar(x,24)}<span>${esc(x.username)}</span>${flag(x.country)}</span></td><td class="n">${x.xp}</td></tr>`).join("")}</table>${k>=5?`<div class="mh-me">Tú: puesto #${k+1} · ${r[k].xp} pts</div>`:""}`:'<div class="muted">Aún no hay alumnos en el ranking.</div>'}).catch(()=>{const h=$("#mhRk");if(h)h.textContent="No se pudo cargar."});
+}
+
 /* ---------- inicio del sitio principal ---------- */
 async function mainHome(){
+  if(logged()&&API.profile())return memberHome();
   const s=S.site,p=API.profile();
   const dItems=(s.discordItems&&s.discordItems.length?s.discordItems:DISC.items);
   app.innerHTML=`${logged()&&p?`<section class="welcome"><a class="welcome-av" href="#perfil" title="Configuración">${avatar(p,56)}</a><div style="flex:1;min-width:200px"><span class="eyebrow">Tu cuenta</span><h2>Hola, ${esc(p.username)}</h2><p class="muted">${closedAcad()&&!admin()?"Tu cuenta ya quedó creada. La academia abre muy pronto: te avisaremos por aquí y en la comunidad.":premium()?"Tienes acceso premium a toda la academia.":`Cuenta gratis · tienes ${Math.max(0,5-(p.demo_used||0))} de 5 gráficas de prueba en la academia.`}</p></div>${closedAcad()&&!admin()?'<span class="pill">Academia: próximamente</span>':`<a class="btn gold" href="${toAcad("inicio")}">Ir a la academia</a>`}</section>`:""}
