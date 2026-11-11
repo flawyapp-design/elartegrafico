@@ -27,7 +27,7 @@ const ACAD=SITE==="academia";
 function link(site,hash){hash=hash||"inicio";if(site===SITE)return"#"+hash;
   if(PROD){const base=HOST.replace(/^(www\.|academia\.)/,"");return"https://"+(site==="academia"?"academia.":"")+base+"/#"+hash}
   return location.pathname+(site==="academia"?"?sitio=academia":"")+"#"+hash}
-const ACAD_R=new Set(["academia","modulo","leccion","practica","prueba","progreso"]);
+const ACAD_R=new Set(["academia","modulo","leccion","practica","prueba","progreso","logros"]);
 const MAIN_R=new Set(["entrar","registro","recuperar","noticias","comunidad","nota","opiniones","mercados","legal","terminos","privacidad","retos","reto","ranking","puntos"]);
 const toAcad=h=>link("academia",h),toMain=h=>link("main",h);
 
@@ -94,11 +94,11 @@ let bindLater=null;
 
 /* ---------- progreso ---------- */
 let saveT=null;
-function saveProg(){try{localStorage.setItem("ag_prog_"+(API.user()||{id:"anon"}).id,JSON.stringify(S.prog))}catch(e){}renderNav();clearTimeout(saveT);saveT=setTimeout(()=>{if(logged())API.progressSave(S.prog.xp,S.prog).catch(()=>{})},800)}
+function saveProg(){if(logged()&&S.loaded)setTimeout(()=>{try{checkAch("acad",acadAch())}catch(e){}},300);try{localStorage.setItem("ag_prog_"+(API.user()||{id:"anon"}).id,JSON.stringify(S.prog))}catch(e){}renderNav();clearTimeout(saveT);saveT=setTimeout(()=>{if(logged())API.progressSave(S.prog.xp,S.prog).catch(()=>{})},800)}
 async function loadProg(){S.prog=blankProg();S.fb=new Set();if(!logged())return;
   API.myFeedback().then(r=>{S.fb=new Set((r||[]).map(x=>x.module_id));S.fbOff=false}).catch(()=>{S.fbOff=true});try{const r=await API.progressGet();if(r&&r.data)S.prog=Object.assign(blankProg(),r.data,{xp:r.xp||r.data.xp||0})}catch(e){}}
 function ach(id){if(!S.prog.ach.includes(id)){S.prog.ach.push(id);const a=ACH.find(x=>x.id===id);if(a)setTimeout(()=>toast("Logro: "+a.t),700)}}
-function addXP(n){S.prog.xp=(S.prog.xp||0)+n;const d=todayKey();if(S.prog.lastDay!==d){const y=new Date(Date.now()+TZ*1000-864e5).toISOString().slice(0,10);S.prog.streak=S.prog.lastDay===y?(S.prog.streak||0)+1:1;S.prog.lastDay=d;if(S.prog.streak>=3)ach("constancia")}saveProg()}
+function addXP(n){S.prog.xp=(S.prog.xp||0)+n;const d=todayKey();if(S.prog.lastDay!==d){const y=new Date(Date.now()+TZ*1000-864e5).toISOString().slice(0,10);S.prog.streak=S.prog.lastDay===y?(S.prog.streak||0)+1:1;S.prog.bestStreak=Math.max(S.prog.bestStreak||0,S.prog.streak);S.prog.lastDay=d;if(S.prog.streak>=3)ach("constancia")}saveProg()}
 function registerAnswer(kind,res){const p=S.prog.practice;p.n++;if(res==="ok"){p.ok++;p.row++;ach("primera");if(kind==="no-operar")ach("paciencia")}else p.row=0;p.best=Math.max(p.best,p.row);if(p.ok>=10)ach("diez");if(p.row>=5)ach("racha5");if(p.n>=100)ach("cien");saveProg()}
 
 /* ---------- navegación ---------- */
@@ -132,15 +132,22 @@ function setTheme(t){const r=document.documentElement;if(t==="light")r.setAttrib
   const b=$("#themeBtn");if(b){b.setAttribute("aria-label",t==="light"?"Cambiar a modo oscuro":"Cambiar a modo claro")}
   window.dispatchEvent(new Event("ag-theme"))}
 document.addEventListener("click",e=>{if(e.target.closest&&e.target.closest("#themeBtn"))setTheme(getTheme()==="light"?"dark":"light")});
-function renderNav(){document.body.classList.toggle("is-acad",!!ACAD);
+/* ojito: esconder / mostrar el menú lateral en computador */
+const EYE_ON='<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="3"/></svg>';
+const EYE_OFF='<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3l18 18"/><path d="M10.6 6.1A9.8 9.8 0 0 1 12 6c6 0 9.5 6 9.5 6a17 17 0 0 1-3.2 3.9M6.6 7.6A16.6 16.6 0 0 0 2.5 12S6 18.5 12 18.5c1.6 0 3-.4 4.2-1"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg>';
+function sideState(){let off=false;try{off=localStorage.getItem("ag_side_off")==="1"}catch(e){}document.body.classList.toggle("side-off",off);
+  let f=$("#sideShow");if(!f){f=document.createElement("button");f.id="sideShow";f.type="button";f.className="side-show";f.title="Mostrar menú";f.setAttribute("aria-label","Mostrar menú");f.innerHTML=EYE_ON;document.body.appendChild(f);
+    f.onclick=()=>{try{localStorage.setItem("ag_side_off","0")}catch(e){}sideState();window.dispatchEvent(new Event("resize"))}}}
+document.addEventListener("click",e=>{if(e.target.closest&&e.target.closest("#sideHide")){try{localStorage.setItem("ag_side_off","1")}catch(x){}sideState();window.dispatchEvent(new Event("resize"))}});
+function renderNav(){sideState();document.body.classList.toggle("is-acad",!!ACAD);
   let r=(location.hash||"#inicio").slice(1).split("-")[0];if(r==="noticias"||r==="nota")r="comunidad";
   const rw=rewardsOn()||admin();
-  const L=ACAD?[["inicio","Mi panel"],["academia","Temario"],["practica","Práctica"],["progreso","Progreso"]].concat(premium()?[]:[["prueba","Prueba gratis"]])
+  const L=ACAD?[["inicio","Mi panel"],["academia","Temario"],["practica","Práctica"],["logros","Logros"],["progreso","Progreso"]].concat(premium()?[]:[["prueba","Prueba gratis"]])
              :[["inicio","Inicio"]].concat(rw?[["retos","Retos"],["ranking","Ranking"]]:[]).concat([["comunidad","Comunidad"],["opiniones","Opiniones"],["mercados","Mercados"],["premium","Premium"]]);
   if(ACAD&&closedAcad()&&!admin())L.length=0;
   const u=API.user(),p=API.profile();const lv=levelOf((S.prog&&S.prog.xp)||0);
   const other=ACAD?`<a class="navx" href="${toMain("inicio")}">El Arte Gráfico ↗</a>`:(u&&p?`<a class="btn sm gold navacad" href="${toAcad("inicio")}">Ir a la academia</a>`:"");
-  const NI={inicio:"home",comunidad:"chat",opiniones:"star",mercados:"chart",premium:"crown",academia:"acad",practica:"chart",ranking:"trophy",prueba:"play",retos:"bolt",progreso:"layers",puntos:"card"};
+  const NI={inicio:"home",comunidad:"chat",opiniones:"star",mercados:"chart",premium:"crown",academia:"acad",practica:"chart",ranking:"trophy",prueba:"play",retos:"bolt",progreso:"layers",puntos:"card",logros:"medal"};
   const msw=`<div class="mnav-sw" role="group" aria-label="Elige sección"><a class="${ACAD?"":"on"}" href="${ACAD?toMain("inicio"):"#inicio"}"${ACAD?"":' aria-current="true"'}>${ico("home",20)}<span><b>El Arte Gráfico</b><small>Comunidad y noticias</small></span></a><a class="${ACAD?"on":""}" href="${ACAD?"#inicio":toAcad("inicio")}"${ACAD?' aria-current="true"':""}>${ico("acad",20)}<span><b>Academia</b><small>Lecciones y práctica</small></span></a></div>
     <div class="mnav-here"><i></i>Estás en ${ACAD?"<b>la Academia</b>":"<b>El Arte Gráfico</b>"}</div>`;
   const mus=u&&p?`<div class="mnav-user"><a class="mnu-me" href="#perfil">${avatar(p,40)}<span><b>${esc(p.username)}</b><small>${esc(lv.name)} · ${S.prog?S.prog.xp:0} pts</small></span>${premium()?premTag():""}</a>
@@ -364,6 +371,7 @@ const IC={
   msg:'<path d="M4 5h16v11H9l-5 4z"/>',
   layers:'<path d="M12 4l9 5-9 5-9-5z"/><path d="M3 14l9 5 9-5"/>',
   bolt:'<path d="M13 3L5 13.5h6L10 21l9-11.5h-6z"/>',
+  medal:'<circle cx="12" cy="14" r="5.5"/><path d="M8.5 9.5L6 3h4l2 4 2-4h4l-2.5 6.5"/>',
   site:'<rect x="3" y="4.5" width="18" height="15" rx="2"/><path d="M3 9h18M7 6.8h.01M10 6.8h.01"/>'};
 const ico=(k,s=22)=>`<svg viewBox="0 0 24 24" width="${s}" height="${s}" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${IC[k]}</svg>`;
 function saludo(){const h=new Date(Date.now()+TZ*1000).getUTCHours();return h<5?"Buenas noches":h<12?"Buenos días":h<19?"Buenas tardes":"Buenas noches"}
@@ -436,8 +444,8 @@ ROUTES.retos=async()=>{
     <section class="sec"><div class="sec-h"><h2>Retos anteriores</h2></div><div id="rtPast" class="rt-list"></div></section>`;
   ptsCard($("#myPts"));
   let L=[];try{L=await API.challengesFeed()}catch(e){$("#rtOpen").innerHTML=`<div class="empty">No se pudieron cargar los retos.</div>`;return}
-  const card=c=>{const lib=c.max_winners-c.winners;return `<a class="rt-card${c.answered?" done":""}${c.closed?" closed":""}" href="#reto-${esc(c.id)}">
-    <div class="rt-top"><span class="rt-k">${ico(c.kind==="opcion"?"msg":c.kind==="tendencia"?"chart":"layers",16)}${KIND[c.kind]}</span><span class="rt-pts">+${c.points} pts</span></div>
+  const card=c=>{const lib=c.max_winners-c.winners;return `<a class="rt-card${c.answered?" done":""}${c.closed?" closed":""}${c.weekly?" weekly":""}" href="#reto-${esc(c.id)}">
+    ${c.weekly?`<span class="rt-wk">${ico2("crown",14)}Reto semanal</span>`:""}<div class="rt-top"><span class="rt-k">${ico(c.kind==="opcion"?"msg":c.kind==="tendencia"?"chart":"layers",16)}${KIND[c.kind]}</span><span class="rt-pts">+${c.points} pts</span></div>
     <b class="rt-t">${esc(c.title)}</b>
     <div class="rt-cupos">${Array.from({length:c.max_winners},(_,i)=>`<i class="${i<c.winners?"on":""}"></i>`).join("")}<span>${c.closed?"Cerrado":`${lib} de ${c.max_winners} cupos`}</span></div>
     <div class="rt-bot"><span class="dim">${c.closed?fmtDate(c.starts_at):leftTxt(c.ends_at)}</span>${c.answered?(c.my_place?`<span class="pill ok">Ganaste · +${c.my_points}</span>`:c.my_correct?'<span class="pill">Acertaste sin cupo</span>':'<span class="pill">Fallaste</span>'):c.closed?'<span class="pill">Ver respuesta</span>':'<span class="btn sm gold">Jugar</span>'}</div></a>`};
@@ -446,18 +454,19 @@ ROUTES.retos=async()=>{
   $("#rtPast").innerHTML=past.map(card).join("")||'<div class="muted">Aún no hay retos anteriores.</div>';
 };
 /* tarjeta de mis puntos */
-async function ptsCard(host){if(!host)return;if(!logged()){host.innerHTML=`<div class="rk-cta"><div><b>Crea tu cuenta para participar</b><span class="muted">Necesitas una cuenta gratis para jugar los retos y acumular puntos.</span></div><a class="btn gold" href="#registro">Crear cuenta</a></div>`;return}
+async function ptsCard(host,withStreak){if(!host)return;if(!logged()){host.innerHTML=`<div class="rk-cta"><div><b>Crea tu cuenta para participar</b><span class="muted">Necesitas una cuenta gratis para jugar los retos y acumular puntos.</span></div><a class="btn gold" href="#registro">Crear cuenta</a></div>`;return}
   let r=null;try{r=await API.myRewards()}catch(e){}if(!r||!host.isConnected)return;const p=API.profile()||{};
   host.innerHTML=`<div class="pts-card"><div class="pts-main"><span class="eyebrow">Mis puntos</span><b class="mono">${r.balance}</b><span class="dim">≈ ${ptsUsd(r.balance)} · este mes +${r.month}</span></div>
     <div class="pts-st"><div><b class="mono">${r.wins}</b><span>retos ganados</span></div><div><b class="mono">${r.played}</b><span>jugados</span></div><div>${p.affiliate?affTag():`<span class="tag">${r.affiliate==="pendiente"?"Afiliado: en revisión":"No afiliado"}</span>`}<span>${p.affiliate?"puntos completos":"recibes la mitad"}</span></div></div>
-    <div class="pts-act"><a class="btn gold" href="#puntos">${RW().redeemOpen?"Canjear puntos":"Mis puntos"}</a>${p.affiliate?"":`<a class="btn ghost" href="#puntos-afiliado">Verificar afiliado</a>`}</div></div>`}
+    <div class="pts-act"><a class="btn gold" href="#puntos">${RW().redeemOpen?"Canjear puntos":"Mis puntos"}</a>${p.affiliate?"":`<a class="btn ghost" href="#puntos-afiliado">Verificar afiliado</a>`}</div></div>${withStreak!==false?streakCard(r):""}`;
+  const L=evalAch(RETO_ACH,r);checkAch("retos",L);const sh=$("#retoAch");if(sh)sh.innerHTML=achHero(L,"Retos · Logros",L.filter(a=>a.on).length?"Tus medallas de retos":"Gana tu primera medalla de retos")+achGroups(L)}
 /* jugar un reto */
 ROUTES.reto=async id=>{
   app.innerHTML='<div class="muted">Cargando reto…</div>';let L=[];try{L=await API.challengesFeed()}catch(e){}const c=L.find(x=>x.id===id);
   if(!c){app.innerHTML=`<div class="empty">Ese reto no existe o todavía no está publicado.<a class="btn sm" href="#retos">Ver retos</a></div>`;return}
   const opts=(c.options&&c.options.length?c.options:(c.kind==="tendencia"?["Sube","Baja"]:[]));const can=!c.closed&&!c.answered&&logged()&&rewardsOn();
   app.innerHTML=`<div class="crumbs"><a href="#retos">Retos</a><span>/</span><span>${esc(c.title)}</span></div>
-    <div class="rt-head"><div><span class="eyebrow">${KIND[c.kind]} · +${c.points} pts${API.profile()&&!API.profile().affiliate?` (tú: +${Math.ceil(c.points/2)})`:""}</span><h1>${esc(c.title)}</h1>${c.question?`<p class="muted">${esc(c.question)}</p>`:""}</div>
+    <div class="rt-head"><div><span class="eyebrow">${c.weekly?"Reto semanal · ":""}${KIND[c.kind]} · +${c.points} pts${API.profile()&&!API.profile().affiliate?` (tú: +${Math.ceil(c.points/2)})`:""}</span><h1>${esc(c.title)}</h1>${c.question?`<p class="muted">${esc(c.question)}</p>`:""}</div>
       <div class="rt-meta"><div class="rt-cupos big">${Array.from({length:c.max_winners},(_,i)=>`<i class="${i<c.winners?"on":""}"></i>`).join("")}</div><span>${c.closed?"Reto cerrado":`${c.max_winners-c.winners} de ${c.max_winners} cupos · ${leftTxt(c.ends_at)}`}</span></div></div>
     ${!logged()?`<div class="rk-cta"><div><b>Ingresa para jugar</b><span class="muted">Crea tu cuenta gratis y participa en los retos diarios.</span></div><a class="btn gold" href="#registro">Crear cuenta</a></div>`:!rewardsOn()?'<div class="note admin-note">Vista de admin: los retos están apagados para los alumnos.</div>':""}
     <div class="rt-play panel">${c.image_url?`<img class="rt-img" src="${esc(c.image_url)}" alt="">`:""}${c.kind!=="opcion"?`<div class="chartbox rt-chart"><div class="cv" style="position:absolute;inset:0"></div><div class="chint">${c.kind==="zona"?"Toca la gráfica donde está tu zona":"Así iba el precio · ¿qué pasa después?"}</div></div>`:""}
@@ -498,7 +507,7 @@ ROUTES.ranking=async per=>{per=per==="total"?"total":"mes";
 ROUTES.puntos=async arg=>{if(!logged()){location.hash="#entrar";return}
   app.innerHTML=`<div class="pagehead"><span class="eyebrow">Retos diarios</span><h1>Mis puntos</h1><p class="muted">Tu saldo, tus canjes y tu verificación de afiliado.</p></div><div id="myPts"></div>
     <div class="two pts-two"><section class="panel" id="cnj"><h3>Canjear por dinero</h3><div class="muted">Cargando…</div></section><section class="panel" id="afl"><h3>Afiliado de Deriv</h3><div class="muted">Cargando…</div></section></div>
-    <section class="panel" id="hist"><h3>Mis canjes</h3><div class="muted">Cargando…</div></section>`;
+    <section class="panel" id="hist"><h3>Mis canjes</h3><div class="muted">Cargando…</div></section><section class="sec" id="retoAch"></section>`;
   ptsCard($("#myPts"));let r=null;try{r=await API.myRewards()}catch(e){}if(!r)return;const c=RW(),p=API.profile()||{},rate=Math.max(1,+c.ptsPerUsd||100),mn=+(c.minRedeem??500);
   const pend=(r.redemptions||[]).find(x=>x.status==="pendiente");
   $("#cnj").innerHTML=`<h3>Canjear por dinero</h3><p class="muted">${rate} puntos = 1 USD · mínimo ${mn} puntos · pago por Binance (USDT).</p>`+(!c.redeemOpen?`<div class="note">Los canjes abren una vez al mes. Mientras tanto <b>tus puntos se acumulan</b>; te avisaremos cuando abra la ventana de canje.</div>`
@@ -519,6 +528,92 @@ ROUTES.puntos=async arg=>{if(!logged()){location.hash="#entrar";return}
   $("#hist").innerHTML=`<h3>Mis canjes</h3>`+(H.length?`<div class="tree">${H.map(x=>`<div class="item"><span class="txt"><b>${x.points} puntos · ${ptsUsd(x.points)}</b><span>${fmtDate(x.created_at)}${x.admin_note?` · ${esc(x.admin_note)}`:""}</span></span>${ES[x.status]||""}</div>`).join("")}</div>`:'<div class="muted">Aún no has hecho canjes.</div>');
   if(arg==="afiliado")setTimeout(()=>{const a=$("#afl");if(a)a.scrollIntoView({behavior:"smooth",block:"start"})},200);
 };
+/* =====================================================================
+   LOGROS: academia (avance real) y retos (rachas, victorias, semanal)
+   ===================================================================== */
+const TIER={bronce:["#f0b27a","#a0612a"],plata:["#eef2f8","#8d97ab"],oro:["#f6dc8c","#b8862f"],diamante:["#b8fff0","#22b391"]};
+const TIER_N={bronce:"Bronce",plata:"Plata",oro:"Oro",diamante:"Diamante"};
+const IC2={flag:'<path d="M5 21V4M5 4h11l-2 4 2 4H5"/>',target:'<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r=".8" fill="currentColor"/>',
+  fire:'<path d="M12 3c1 3.5 5 5.5 5 10a5 5 0 0 1-10 0c0-2 1-3.5 2-4.5.3 1.8 1.3 2.8 2.5 3C11 9 11 6 12 3z"/>',shield:'<path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6z"/><path d="M9 12l2 2 4-4"/>',
+  cap:'<path d="M3 9l9-5 9 5-9 5-9-5z"/><path d="M7 11.5V16c0 1.2 2.2 2.5 5 2.5s5-1.3 5-2.5v-4.5"/>',book:'<path d="M5 4h9a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3z"/><path d="M5 17a3 3 0 0 1 3-3h9"/>',
+  medal:'<circle cx="12" cy="14" r="5.5"/><path d="M8.5 9.5L6 3h4l2 4 2-4h4l-2.5 6.5"/>',user:'<circle cx="12" cy="8.5" r="3.6"/><path d="M5 20a7 7 0 0 1 14 0"/>',
+  pause:'<circle cx="12" cy="12" r="8.5"/><path d="M10 9v6M14 9v6"/>',cal:'<rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/>',
+  crown:'<path d="M3 8l4.5 4L12 5l4.5 7L21 8l-2 11H5z"/>',star:'<path d="M12 4l2.5 5.2 5.5.8-4 3.9.9 5.6L12 16.9 7.1 19.5l.9-5.6-4-3.9 5.5-.8z"/>',
+  bolt:'<path d="M13 3L5 13.5h6L10 21l9-11.5h-6z"/>',coin:'<circle cx="12" cy="12" r="8.5"/><path d="M14.5 9.2c-.6-.8-1.5-1.2-2.6-1.2-1.6 0-2.7.8-2.7 2s1.1 1.7 2.7 2c1.7.3 2.9.8 2.9 2.1 0 1.2-1.2 2-2.9 2-1.2 0-2.2-.5-2.8-1.3M12 6.5V8M12 16v1.5"/>',
+  grid:'<rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/>'};
+const ico2=(k,s=22)=>`<svg viewBox="0 0 24 24" width="${s}" height="${s}" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${IC2[k]||IC[k]||""}</svg>`;
+/* --- academia --- */
+function acadStats(){const g=S.prog||blankProg(),p=API.profile()||{},pr=g.practice||{};
+  const tot=S.lindex.length,pas=S.lindex.filter(l=>passedL(l.id)).length;
+  const mods=S.modules.filter(m=>S.lindex.some(l=>l.module_id===m.id));const mDone=mods.filter(m=>modProgress(m.id)>=1).length;
+  const exam=S.modules.find(m=>/examen/i.test(m.title||""));
+  return{tot,pas,mDone,mTot:mods.length,ok:pr.ok||0,n:pr.n||0,best:pr.best||0,streak:Math.max(g.bestStreak||0,g.streak||0),perfil:(p.avatar_url?1:0)+(p.country?1:0),
+    exam:exam&&modProgress(exam.id)>=1?1:0,paciencia:(g.ach||[]).includes("paciencia")?1:0}}
+const ACAD_ACH=[
+  ["Primeros pasos",[["perfil","Tu identidad","Pon tu foto y tu país","user","bronce",s=>s.perfil,2],
+    ["leccion1","Primera lección","Aprueba tu primera lección","flag","bronce",s=>s.pas,1],
+    ["acierto1","Primer acierto","Acierta tu primer ejercicio en gráfica","target","bronce",s=>s.ok,1]]],
+  ["Avance en el temario",[["mod1","Módulo superado","Completa tu primer módulo","book","plata",s=>s.mDone,1],
+    ["mod3","Base sólida","Completa 3 módulos","book","oro",s=>s.mDone,3],
+    ["mitad","Medio camino","Aprueba la mitad de las lecciones","cap","oro",s=>s.pas,s=>Math.max(1,Math.ceil(s.tot/2))],
+    ["todo","Temario completo","Aprueba todas las lecciones","cap","diamante",s=>s.pas,s=>Math.max(1,s.tot)],
+    ["examen","Trader certificado","Aprueba el examen final","medal","diamante",s=>s.exam,1]]],
+  ["Precisión en la gráfica",[["ok10","Buen ojo","10 ejercicios acertados","target","bronce",s=>s.ok,10],
+    ["ok50","Francotirador","50 ejercicios acertados","target","plata",s=>s.ok,50],
+    ["ok200","Lectura de maestro","200 ejercicios acertados","target","oro",s=>s.ok,200],
+    ["row5","En racha","5 aciertos seguidos","bolt","plata",s=>s.best,5],
+    ["row10","Imparable","10 aciertos seguidos","bolt","oro",s=>s.best,10]]],
+  ["Constancia y disciplina",[["dias3","Hábito","Estudia 3 días seguidos","cal","bronce",s=>s.streak,3],
+    ["dias7","Semana completa","Estudia 7 días seguidos","fire","plata",s=>s.streak,7],
+    ["dias30","Disciplina de hierro","Estudia 30 días seguidos","fire","diamante",s=>s.streak,30],
+    ["paciencia","Saber esperar","Reconoce una gráfica donde no se opera","pause","plata",s=>s.paciencia,1],
+    ["cien","Cien gráficas","Resuelve 100 ejercicios","grid","oro",s=>s.n,100]]]];
+/* --- retos --- */
+const RETO_ACH=[
+  ["Retos diarios",[["r1","A la cancha","Juega tu primer reto","bolt","bronce",r=>r.played,1],
+    ["w1","Primera victoria","Gana puntos en un reto","star","bronce",r=>r.wins,1],
+    ["pod","Podio","Queda entre los 3 primeros","medal","plata",r=>r.podiums,1],
+    ["f1","El más rápido","Queda de primero en un reto","crown","oro",r=>r.firsts,1],
+    ["w10","Cazador de puntos","Gana 10 retos","star","oro",r=>r.wins,10],
+    ["kinds","Todo terreno","Acierta los 3 tipos de reto","grid","plata",r=>r.kinds,3]]],
+  ["Rachas y especiales",[["s7","Racha de 7","Juega 7 días seguidos (+bono)","fire","plata",r=>r.best_streak,7],
+    ["s30","Racha de 30","Juega 30 días seguidos","fire","diamante",r=>r.best_streak,30],
+    ["wk","Campeón semanal","Gana puntos en un reto semanal","crown","oro",r=>r.weekly_wins,1],
+    ["aff","Afiliado","Verifica tu cuenta de Deriv","shield","oro",r=>r.affiliate==="verificado"?1:0,1],
+    ["pay","Primer pago","Recibe tu primer canje","coin","diamante",r=>r.paid,1]]]];
+function evalAch(cat,src){const out=[];cat.forEach(([g,L])=>L.forEach(([id,t,d,ic,tier,cur,goal])=>{const G=typeof goal==="function"?goal(src):goal,c=Math.min(G,cur(src)||0);out.push({g,id,t,d,ic,tier,cur:c,goal:G,on:c>=G})}));return out}
+const medal=(a,sz=64)=>{const [c1,c2]=TIER[a.tier];return `<span class="md${a.on?" on":""}" style="--c1:${c1};--c2:${c2};width:${sz}px;height:${sz}px">${a.on?ico2(a.ic,Math.round(sz*.42)):`<svg viewBox="0 0 24 24" width="${Math.round(sz*.36)}" height="${Math.round(sz*.36)}" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="11" width="12" height="9" rx="2"/><path d="M8.5 11V8a3.5 3.5 0 0 1 7 0v3"/></svg>`}</span>`};
+const achCard=a=>`<div class="ach${a.on?" on":""} t-${a.tier}">${medal(a)}<div class="ach-t"><b>${esc(a.t)}</b><span>${esc(a.d)}</span>
+  ${a.on?`<span class="ach-tier">${TIER_N[a.tier]}</span>`:`<div class="ach-pr"><div class="bar"><i style="width:${Math.round(100*a.cur/a.goal)}%"></i></div><small class="mono">${a.cur}/${a.goal}</small></div>`}</div></div>`;
+function achGroups(list){const G={};list.forEach(a=>(G[a.g]=G[a.g]||[]).push(a));return Object.entries(G).map(([g,L])=>`<section class="ach-g"><div class="sec-h"><h3>${esc(g)}</h3><span class="muted">${L.filter(a=>a.on).length} de ${L.length}</span></div><div class="ach-grid">${L.map(achCard).join("")}</div></section>`).join("")}
+function achHero(list,title,sub){const on=list.filter(a=>a.on),pct=Math.round(100*on.length/list.length);
+  const next=list.filter(a=>!a.on).sort((a,b)=>b.cur/b.goal-a.cur/a.goal)[0];const C=2*Math.PI*52;
+  return `<div class="ach-hero"><div class="ach-ring"><svg viewBox="0 0 120 120" width="150" height="150"><circle cx="60" cy="60" r="52" class="rg-bg"/><circle cx="60" cy="60" r="52" class="rg-fg" style="stroke-dasharray:${C};stroke-dashoffset:${C*(1-pct/100)}"/></svg><div><b class="mono">${on.length}</b><span>de ${list.length}</span></div></div>
+    <div class="ach-hi"><span class="eyebrow">${esc(title)}</span><h1>${esc(sub)}</h1>
+      <div class="ach-show">${on.length?on.slice(-8).map(a=>`<span title="${esc(a.t)}">${medal(a,44)}</span>`).join(""):'<span class="muted">Aún no tienes medallas: la primera está muy cerca.</span>'}</div>
+      ${next?`<div class="ach-next">${medal(next,40)}<div><small>Próximo logro</small><b>${esc(next.t)}</b><span class="muted">${esc(next.d)} · ${next.cur}/${next.goal}</span></div></div>`:'<div class="ach-next done"><b>¡Tienes todos los logros!</b></div>'}</div></div>`}
+/* celebración al desbloquear */
+function celebrate(a){const el=document.createElement("div");el.className="ach-pop";el.setAttribute("role","status");
+  el.innerHTML=`<div class="ach-pop-c">${medal(Object.assign({},a,{on:true}),72)}<div><small>¡Logro desbloqueado! · ${TIER_N[a.tier]}</small><b>${esc(a.t)}</b><span>${esc(a.d)}</span></div></div>`;
+  document.body.appendChild(el);setTimeout(()=>el.classList.add("out"),4200);setTimeout(()=>el.remove(),4800)}
+function checkAch(kind,list){const key=`ag_ach_${kind}_${(API.user()||{}).id||"anon"}`;let seen=null;try{seen=JSON.parse(localStorage.getItem(key)||"null")}catch(e){}
+  const on=list.filter(a=>a.on).map(a=>a.id);try{localStorage.setItem(key,JSON.stringify(on))}catch(e){}
+  if(!seen)return;on.filter(id=>!seen.includes(id)).slice(0,3).forEach((id,i)=>setTimeout(()=>celebrate(list.find(a=>a.id===id)),600+i*1600))}
+function acadAch(){return evalAch(ACAD_ACH,acadStats())}
+/* página de logros (academia) */
+ROUTES.logros=()=>{if(!logged()){location.hash="#entrar";return}const L=acadAch();checkAch("acad",L);
+  app.innerHTML=`${achHero(L,"Academia · Logros",L.filter(a=>a.on).length?"Tus medallas de trader":"Gana tu primera medalla")}${achGroups(L)}
+    ${rewardsOn()?`<section class="ach-g"><div class="rk-cta"><div><b>¿Buscas los logros de los retos diarios?</b><span class="muted">Rachas, victorias y el reto semanal están en Mis puntos.</span></div><a class="btn gold" href="${toMain("puntos")}">Ver logros de retos</a></div></section>`:""}`};
+/* tira de logros para el panel */
+function achStrip(){const L=acadAch();checkAch("acad",L);const on=L.filter(a=>a.on);const next=L.filter(a=>!a.on).sort((a,b)=>b.cur/b.goal-a.cur/a.goal).slice(0,3);
+  return `<section class="sec ach-strip"><div class="sec-h"><div><span class="eyebrow">Logros</span><h2>${on.length} de ${L.length} medallas</h2></div><a href="#logros">Ver todos</a></div>
+    <div class="ach-strip-in"><div class="ach-show big">${on.length?on.slice(-6).map(a=>`<span title="${esc(a.t)}">${medal(a,52)}</span>`).join(""):'<span class="muted">Aprueba tu primera lección y gana tu primera medalla.</span>'}</div>
+    <div class="ach-nexts">${next.map(a=>`<div class="ach-n">${medal(a,40)}<div><b>${esc(a.t)}</b><div class="ach-pr"><div class="bar"><i style="width:${Math.round(100*a.cur/a.goal)}%"></i></div><small class="mono">${a.cur}/${a.goal}</small></div></div></div>`).join("")}</div></div></section>`}
+/* racha de retos */
+function streakCard(r){const b=+(RW().streakBonus??50);const s=r.streak||0,left=7-(s%7||0);const days=Array.from({length:7},(_,i)=>i<(s%7||(s?7:0)));
+  return `<div class="stk${r.played_today?" ok":""}"><div class="stk-f">${ico2("fire",34)}<b class="mono">${s}</b></div><div class="stk-t"><b>${s?`Racha de ${s} día${s===1?"":"s"}`:"Empieza tu racha hoy"}</b>
+    <span class="muted">${r.played_today?"Ya jugaste hoy ✓ Vuelve mañana para no perderla.":"Juega el reto de hoy para "+(s?"mantener":"empezar")+" tu racha."}${b>0?` Cada 7 días seguidos ganas <b>+${b} pts</b> de bono${left<7&&s?` · te faltan ${left}`:""}.`:""}</span>
+    <div class="stk-d">${days.map((on,i)=>`<i class="${on?"on":""}">${i+1}</i>`).join("")}</div></div></div>`}
 /* ---------- inicio del sitio principal ---------- */
 async function mainHome(){
   if(logged()&&API.profile())return memberHome();
@@ -562,7 +657,7 @@ async function academyHome(){
   const passed=Object.values(g.done).filter(d=>d.passed).length,total=S.lindex.length;
   const prem=premium(),apct=total?Math.round(100*passed/total):0,acc=g.practice.n?Math.round(100*g.practice.ok/g.practice.n):0,demo=Math.max(0,5-(p.demo_used||0));
   const tiles=[["acad","Temario",`${passed} de ${total} lecciones`,"#academia"],["chart","Práctica",prem?"Gráficas ilimitadas":`${demo} gráficas de prueba`,prem?"#practica":"#prueba"],
-    ["layers","Progreso",'<span id="mhPos">Ver mi puesto</span>',"#progreso"],["news","Comunidad","Novedades y avisos",toMain("comunidad")],["gear","Configuración","Perfil, app y notificaciones","#perfil"]];
+    ["medal","Logros",`${acadAch().filter(a=>a.on).length} de ${acadAch().length} medallas`,"#logros"],["layers","Progreso",'<span id="mhPos">Ver mi puesto</span>',"#progreso"],["news","Comunidad","Novedades y avisos",toMain("comunidad")],["gear","Configuración","Perfil, app y notificaciones","#perfil"]];
   app.innerHTML=`<section class="mh">
     <div class="mh-bg" aria-hidden="true"></div>
     <div class="mh-id"><a class="mh-av" href="#perfil" title="Configuración">${avatar(p,84)}<span class="lvchip" title="${esc(lv.name)}">${lv.i+1}</span></a>
@@ -575,9 +670,10 @@ async function academyHome(){
     </div>
     <div class="mh-mini"><span><b class="mono">${g.practice.n}</b> ejercicios</span><span><b class="mono">${acc}%</b> aciertos</span><span><b class="mono">${g.streak||0}</b> días seguidos</span></div>
   </section>
-  <section class="mh-tiles">${tiles.map(([k,t,d,h])=>`<a class="mt" href="${esc(h)}"><span class="mt-i">${ico(k)}</span><b>${t}</b><span class="dim">${d}</span></a>`).join("")}</section>
+  <section class="mh-tiles">${tiles.map(([k,t,d,h])=>`<a class="mt" href="${esc(h)}"><span class="mt-i">${ico2(k)}</span><b>${t}</b><span class="dim">${d}</span></a>`).join("")}</section>
   ${premium()?(m=>m?fbCard(m):"")(S.modules.find(needFb)):""}
   <div id="appCard"></div>
+  ${achStrip()}
   ${premium()?"":`<section class="sec" id="prueba"><div class="sec-h"><div><span class="eyebrow">Prueba gratis</span><h2>Tus gráficas de prueba</h2></div><span class="muted" id="demoLeft"></span></div><div id="demoBox"></div></section>`}
   <section class="sec"><div class="sec-h"><div><span class="eyebrow">Temario</span><h2>Ruta de aprendizaje</h2></div><a href="#academia">Ver temario completo</a></div><div id="syl"></div></section>
   ${premium()?`<section class="sec"><div class="two"><div class="panel"><h3>Práctica libre</h3><p class="muted">Ejercicios sueltos para entrenar el ojo antes de cada lección.</p><div class="row"><a class="btn" href="#practica">Practicar ahora</a></div></div><div class="panel"><div class="sec-h"><h3>Tabla de progreso</h3><a href="#progreso">Ver completa</a></div><div id="rkMini" class="muted">Cargando…</div></div></div></section>`:`<section class="sec"><div class="panel"><div class="sec-h"><h3>Tabla de progreso</h3><a href="#progreso">Ver completa</a></div><div id="rkMini" class="muted">Cargando…</div></div></section><section class="cta-band">${premiumBand()}</section>`}`;
@@ -867,7 +963,7 @@ ROUTES.perfil=arg=>{if(!logged()){location.hash="#entrar";return}setTimeout(()=>
     <section class="sec" id="cfgProg"><h2>Mi progreso</h2>
     <div class="lvl"><div class="medal">${lv.i+1}</div><div style="display:grid;gap:8px;min-width:0"><h2>${esc(lv.name)}</h2><div class="bar"><i style="width:${pct}%"></i></div><div class="muted mono">${g.xp} pts${lv.to?` · faltan ${lv.to-g.xp} para el siguiente nivel`:""}</div></div></div>
     <div class="kv" style="margin-top:14px"><div><b>${Object.values(g.done).filter(d=>d.passed).length}</b><span>lecciones aprobadas</span></div><div><b>${g.practice.n}</b><span>ejercicios resueltos</span></div><div><b>${g.practice.n?Math.round(100*g.practice.ok/g.practice.n):0}%</b><span>aciertos</span></div><div><b>${g.streak||0}</b><span>días seguidos</span></div></div></section>
-    <section class="sec"><h2>Logros</h2><div class="badges">${ACH.map(a=>`<div class="badge ${g.ach.includes(a.id)?"on":""}"><b>${esc(a.t)}</b><span>${g.ach.includes(a.id)?"Conseguido":"Pendiente"}</span></div>`).join("")}</div></section>
+    <section class="sec"><div class="sec-h"><h2>Logros</h2><a href="${toAcad("logros")}">Ver todos</a></div>${(L=>`<div class="ach-show big">${L.filter(a=>a.on).map(a=>`<span title="${esc(a.t)}">${medal(a,48)}</span>`).join("")||'<span class="muted">Aún no tienes medallas.</span>'}</div><p class="muted">${L.filter(a=>a.on).length} de ${L.length} logros de la academia.</p>`)(acadAch())}</section>
     <section class="sec" id="cfgSeg"><h2>Seguridad</h2><div class="panel"><form class="form" id="pf" style="max-width:420px"><label for="np">Cambiar contraseña<input id="np" type="password" minlength="8" autocomplete="new-password"></label><button class="btn" id="npg">Guardar contraseña</button></form></div></section>`;
   appSettings($("#appSet"));
   $$("[data-cfg]").forEach(b=>b.onclick=()=>{const t=$("#"+b.dataset.cfg);if(t)t.scrollIntoView({behavior:"smooth",block:"start"})});

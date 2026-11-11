@@ -122,3 +122,6 @@ Corre `supabase/retos.sql`. Todo arranca apagado: Admin → Retos y puntos → A
 - Afiliados Deriv: el alumno envía su ID de Deriv en "Mis puntos"; tú lo verificas en Admin → Afiliados. Verificado = puntos completos y etiqueta Afiliado; si no, la mitad.
 - Canjes: abre los canjes una vez al mes (Admin → Canjes). El alumno pide su pago y tú lo marcas pagado; si lo rechazas, los puntos vuelven.
 - La academia ya no tiene ranking de puntos: tiene "Tabla de progreso" (lecciones aprobadas).
+
+## Rachas, reto semanal y logros
+Corre `supabase/retos_logros.sql` DESPUÉS de `retos.sql`. Bono de racha configurable en Ajustes de puntos (por defecto 50 cada 7 días jugando). Marca "Reto semanal" al crear un reto para destacarlo.
