@@ -138,6 +138,7 @@ function sitio(){
     <label for="sPI">Beneficios (uno por línea)<textarea id="sPI" style="min-height:90px">${esc((s.premiumItems||[]).join("\n"))}</textarea></label>
     <h3>Deriv: enlace de socio</h3><p class="muted" style="margin:0">Escribe <b class="mono">{DERIV}</b> en una línea del contenido de una lección y ahí aparece el botón con tu enlace y el aviso de comisión.</p>
     <label for="sRU">Tu enlace de referido de Deriv<input id="sRU" value="${esc(s.derivRefUrl||"")}" placeholder="https://track.deriv.com/..."></label>
+    <label for="sPC">Tu código o ID de socio (opcional: va en el mensaje de "retag" que copian los alumnos)<input id="sPC" value="${esc(s.derivPartnerCode||"")}" placeholder="Ej.: CU123456"></label>
     <div class="two"><label for="sRT">Texto del botón<input id="sRT" value="${esc(s.derivRefText||"")}" placeholder="Abrir mi cuenta en Deriv"></label><label for="sRN">Aviso debajo del botón (opcional)<input id="sRN" value="${esc(s.derivRefNote||"")}" placeholder="Enlace de socio: Deriv le paga una comisión a El Arte Gráfico…"></label></div>
     <h3>Pagos con Binance Pay</h3><p class="muted" style="margin:0">El alumno paga a tu Binance Pay ID y registra el ID de orden en la página Premium. Tú lo confirmas en Administración → Pagos.</p>
     <div class="two"><label for="sBP">Tu Binance Pay ID<input id="sBP" value="${esc(s.binancePayId||"")}" placeholder="Ej.: 123456789"></label><label for="sBN">Nombre que ven al pagar (opcional)<input id="sBN" value="${esc(s.binanceName||"")}" placeholder="El Arte Gráfico"></label></div>
@@ -158,7 +159,7 @@ function sitio(){
       cards:pairs($("#sC").value).map(p=>({title:p[0],text:p[1]||""})),steps:pairs($("#sS").value).map(p=>({title:p[0],text:p[1]||""})),
       markets:pairs($("#sM").value).map(p=>({cat:p[0],name:p[1]||"",status:p[2]||"Próximamente",text:p[3]||""})),
       premiumTitle:$("#sPT").value.trim(),premiumText:$("#sPX").value.trim(),premiumItems:$("#sPI").value.split("\n").map(x=>x.trim()).filter(Boolean),
-      derivRefUrl:$("#sRU").value.trim(),derivRefText:$("#sRT").value.trim(),derivRefNote:$("#sRN").value.trim(),
+      derivPartnerCode:$("#sPC").value.trim(),derivRefUrl:$("#sRU").value.trim(),derivRefText:$("#sRT").value.trim(),derivRefNote:$("#sRN").value.trim(),
       binancePayId:$("#sBP").value.trim(),binanceName:$("#sBN").value.trim(),payNote:$("#sPN").value.trim(),
       plans:pairs($("#sPL").value).map(p=>({name:p[0],days:Math.max(1,Math.min(3650,parseInt(p[1])||30)),price:p[2]||""})),
       closedTitle:$("#sAT").value.trim(),closedText:$("#sAX").value.trim(),trialDays:Math.max(0,Math.min(60,parseInt($("#sTD").value,10)||0)),gaId:(/^G-[A-Z0-9]{4,20}$/i.test($("#sGA").value.trim())?$("#sGA").value.trim().toUpperCase():""),discordUrl:$("#sDU").value.trim(),discordTitle:$("#sDT").value.trim(),discordText:$("#sDX").value.trim(),discordItems:$("#sDI").value.split("\n").map(x=>x.trim()).filter(Boolean),communityStats:pairs($("#sCS").value).map(p=>({v:p[0],t:p[1]||""})),
@@ -462,13 +463,23 @@ async function retos(){
 }
 async function afiliados(){
   let list=[];try{list=await API.adminAffiliates()}catch(e){H().innerHTML=`<div class="empty">No se pudieron cargar. ¿Ya corriste <b>supabase/retos.sql</b>?<span class="dim">${esc(e.message)}</span></div>`;return}
+  let pinfo={total:0};try{pinfo=await API.adminPartnerInfo()||pinfo}catch(e){}
+  const grab=t=>[...new Set((String(t||"").toUpperCase().match(/\b[A-Z]{1,5}\d{4,12}\b/g)||[]).filter(x=>!/^(USD|EUR|COP|USDT)\d/.test(x)))];
   let f="pendiente";const ES={pendiente:'<span class="pill gold">Por verificar</span>',verificado:'<span class="pill ok">Verificado</span>',rechazado:'<span class="pill">Rechazado</span>'};
   const draw=()=>{const L=list.filter(a=>f==="todos"||a.status===f);
-    H().innerHTML=`<div class="note">Revisa en tu panel de <b>Deriv Partners</b> (Clientes) que el ID esté en tu red. Si está, <b>Verificar</b>: el alumno gana los puntos completos y le sale la etiqueta ${A.affTag()}. Si no, <b>Rechazar</b> y seguirá ganando la mitad.</div>
+    H().innerHTML=`<details class="panel pl-box"${list.some(a=>a.status==="pendiente")||!pinfo.total?" open":""}><summary><b>⚡ Verificación automática con tu lista de Deriv Partners</b><span class="muted">${pinfo.total?`Tienes ${pinfo.total} IDs cargados${pinfo.updated?` · última carga ${fmtDate(pinfo.updated)}`:""}.`:"Aún no has cargado tu lista."} Los IDs que estén en la lista se aprueban solos, también los que lleguen después.</span></summary>
+        <label for="plT">Pega aquí tus clientes (de Deriv Partners → Clientes). Puede ser la tabla completa o un CSV: solo tomo los códigos tipo CR1234567.<textarea id="plT" style="min-height:120px" placeholder="CR1234567&#10;CR7654321&#10;…"></textarea></label>
+        <div class="row" style="justify-content:space-between"><label class="chk" style="margin:0"><input type="checkbox" id="plR"> Reemplazar la lista anterior (si no, se suman)</label><span class="row"><span id="plN" class="dim"></span><button type="button" class="btn gold" id="plGo">Cargar y verificar</button></span></div></details>
+      <div class="note">Los que no estén en tu lista quedan en "Por verificar": revísalos en <b>Deriv Partners</b> y usa <b>Verificar</b> o <b>Rechazar</b>. El alumno verificado gana los puntos completos y le sale la etiqueta ${A.affTag()}.</div>
       <div class="panel"><div class="sec-h"><h3>Solicitudes de afiliado</h3><div class="seg rk-seg" style="margin:0">${[["pendiente","Por verificar"],["verificado","Verificados"],["rechazado","Rechazados"],["todos","Todos"]].map(([k,t])=>`<a href="javascript:void 0" data-f="${k}" class="${f===k?"on":""}">${t} (${k==="todos"?list.length:list.filter(a=>a.status===k).length})</a>`).join("")}</div></div>
       <div class="ulist">${L.map(a=>`<article class="ucard"><div class="uc-who"><div><b>${esc(a.username)} ${A.flag(a.country||"")}</b><span class="dim">${esc(a.email||"")}</span></div></div>
         <div class="uc-st"><div><small>ID de Deriv</small><b class="mono sel">${esc(a.deriv_id)}</b></div><div><small>Estado</small>${ES[a.status]||""}</div><div><small>Enviado</small><span>${fmtDate(a.created_at)}</span></div><div><small>Nota</small><span class="dim">${esc(a.admin_note||"—")}</span></div></div>
         <div class="uc-act row" data-host="${esc(a.user_id)}"><button class="btn sm" data-cp="${esc(a.deriv_id)}">Copiar ID</button>${a.status!=="verificado"?`<button class="btn sm ok" data-ok="${esc(a.user_id)}">Verificar</button>`:""}${a.status!=="rechazado"?`<button class="btn sm bad" data-no="${esc(a.user_id)}">${a.status==="verificado"?"Quitar afiliado":"Rechazar"}</button>`:""}</div></article>`).join("")||'<div class="muted">No hay solicitudes aquí.</div>'}</div></div>`;
+    const pt=$("#plT");if(pt){pt.oninput=()=>{const n=grab(pt.value).length;$("#plN").textContent=n?`${n} IDs encontrados`:""};
+      $("#plGo").onclick=async()=>{const ids=grab(pt.value);if(!ids.length){toast("No encontré IDs tipo CR1234567 en lo que pegaste");return}
+        try{busy($("#plGo"),true);const r=await API.adminPartnerImport(ids,$("#plR").checked);
+          (A.pop||toast)(A.pop?{icon:"check",tone:"green",kicker:"Lista cargada · "+r.total+" IDs en total",title:r.approved?`${r.approved} afiliado${r.approved===1?"":"s"} aprobado${r.approved===1?"":"s"} automáticamente`:"Ninguna solicitud pendiente coincidía",text:`Recibí ${r.received} IDs (${r.added} nuevos). Desde ahora, quien envíe un ID de la lista queda verificado al instante.`,confetti:!!r.approved}:`Lista cargada: ${r.approved} aprobados`);
+          pinfo=await API.adminPartnerInfo().catch(()=>pinfo);list=await API.adminAffiliates();draw()}catch(x){toast(x.message)}finally{const b=$("#plGo");if(b)busy(b,false)}}}
     $$("[data-f]").forEach(b=>b.onclick=()=>{f=b.dataset.f;draw()});
     $$("[data-cp]").forEach(b=>b.onclick=async()=>{try{await navigator.clipboard.writeText(b.dataset.cp);toast("ID copiado")}catch(e){}});
     $$("[data-ok]").forEach(b=>b.onclick=async()=>{try{await API.reviewAffiliate(b.dataset.ok,true,"");toast("Afiliado verificado");list=await API.adminAffiliates();draw()}catch(x){toast(x.message)}});

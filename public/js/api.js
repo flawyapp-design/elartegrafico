@@ -170,6 +170,7 @@ function SupabaseAPI(url,key){
     adminChallengeEntries(id){return rpc("admin_challenge_entries",{p_id:id})},
     adminAffiliates(){return rpc("admin_affiliates")},
     reviewAffiliate(uid,ok,note){return rpc("review_affiliate",{p_user:uid,p_ok:!!ok,p_note:note||""})},
+    adminPartnerImport(ids,rep){return rpc("admin_partner_import",{p_ids:ids,p_replace:!!rep})},adminPartnerInfo(){return rpc("admin_partner_info")},
     adminRedemptions(){return rpc("admin_redemptions")},
     reviewRedemption(id,paid,note){return rpc("review_redemption",{p_id:id,p_paid:!!paid,p_note:note||""})},
     reviewPayment(id,approve,days,note){return rpc("review_payment",{pid:id,approve,p_days:days==null?null:days,p_note:note||""})},
@@ -318,7 +319,11 @@ function LocalAPI(){
     async requestAffiliate(d){if(!uid)throw new Error("Inicia sesión");d=String(d||"").replace(/\s/g,"").toUpperCase();if(d.length<3)throw new Error("Escribe tu ID de cliente de Deriv (ej.: CR1234567)");db.affiliates=db.affiliates||[];
       if(db.affiliates.some(a=>a.deriv_id===d&&a.user_id!==uid&&a.status!=="rechazado"))throw new Error("Ese ID de Deriv ya está registrado por otra cuenta");
       const a=db.affiliates.find(x=>x.user_id===uid);if(a&&a.status==="verificado")throw new Error("Ya eres afiliado verificado");
-      if(a)Object.assign(a,{deriv_id:d,status:"pendiente",admin_note:"",created_at:now()});else db.affiliates.push({user_id:uid,deriv_id:d,status:"pendiente",admin_note:"",created_at:now()});save();return{status:"pendiente"}},
+      const inl=(db.partners||[]).includes(d),st=inl?"verificado":"pendiente",nt=inl?"Verificado automáticamente con la lista de socios":"";
+      if(a)Object.assign(a,{deriv_id:d,status:st,admin_note:nt,created_at:now()});else db.affiliates.push({user_id:uid,deriv_id:d,status:st,admin_note:nt,created_at:now()});if(inl){const p=me();if(p)p.affiliate=true}save();return{status:st}},
+    async adminPartnerImport(ids,rep){need();const L=[...new Set((ids||[]).map(x=>String(x).replace(/\s/g,"").toUpperCase()).filter(x=>/^[A-Z]{1,5}[0-9]{3,12}$/.test(x)))];db.partners=rep?[]:(db.partners||[]);let add=0;L.forEach(x=>{if(!db.partners.includes(x)){db.partners.push(x);add++}});
+      let ok=0;(db.affiliates||[]).forEach(a=>{if((a.status==="pendiente"||a.status==="rechazado")&&db.partners.includes(String(a.deriv_id).toUpperCase())){Object.assign(a,{status:"verificado",admin_note:"Verificado automáticamente con la lista de socios",reviewed_at:now()});const p=db.profiles.find(x=>x.id===a.user_id);if(p)p.affiliate=true;ok++}});save();return{received:L.length,added:add,approved:ok,total:db.partners.length}},
+    async adminPartnerInfo(){need();return{total:(db.partners||[]).length,updated:null}},
     async adminChallenges(){need();return(db.challenges||[]).slice().sort((a,b)=>String(b.starts_at).localeCompare(a.starts_at))},
     async challengeKey(id){return((db.ckeys||{})[id])||null},
     async saveChallenge(c,key){need();db.challenges=db.challenges||[];const r=await up(db.challenges,c);db.ckeys=db.ckeys||{};db.ckeys[r.id]=Object.assign({challenge_id:r.id},key);save();return r},

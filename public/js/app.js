@@ -374,6 +374,18 @@ function temarioBlock(host){if(!host)return;const pub=new Set((S.modules||[]).fi
   const tot=TEMARIO.reduce((a,x)=>a+x[1],0);
   host.innerHTML=TEMARIO.map(([t,n,lv],i)=>{const on=pub.has(t.toLowerCase());return `<div class="tm${on?" on":""}"><span class="tm-n mono">${String(i).padStart(2,"0")}</span><div><b>${esc(t)}</b><span class="dim">${n} lecciones · ${esc(lv)}</span></div>${on?'<span class="tag pub">Disponible</span>':'<span class="tag">Próximamente</span>'}</div>`}).join("")
     +`<p class="dim tm-foot">${TEMARIO.length} módulos · ${tot} lecciones con ejercicios en gráficas reales. Los módulos se van abriendo a medida que avanzas.</p>`}
+/* mini tutorial: pasar una cuenta de Deriv existente al socio de El Arte Gráfico (retag) */
+function retagGuide(){const s=S.site||{},link=(s.derivRefUrl||"").trim(),code=(s.derivPartnerCode||"").trim();
+  const msg=`Hola, quiero hacer un retag de mi cuenta de Deriv (mi ID es CR…) para que quede con el socio El Arte Gráfico.${code?` Código de socio: ${code}.`:""}${link?` Este es su enlace: ${link}`:""}`;
+  setTimeout(()=>{const b=$("#rtgCp");if(b)b.onclick=async()=>{try{await navigator.clipboard.writeText(msg);toast("Mensaje copiado")}catch(e){toast("Cópialo a mano")}}},0);
+  return `<details class="retag"><summary><b>¿Ya tenías cuenta de Deriv con otro enlace?</b><span class="muted">Puedes pasarla a El Arte Gráfico (se llama "retag"). Así:</span></summary>
+    <ol class="steps">
+      <li><b>Abre el chat de soporte de Deriv.</b> En deriv.com o en la app, toca el chat de ayuda (Live chat) y pide hablar con un agente.</li>
+      <li><b>Pide el retag.</b> Copia este mensaje, cambia CR… por tu ID y envíalo:<div class="rtg-msg">${esc(msg)}</div><button type="button" class="btn sm" id="rtgCp">Copiar mensaje</button></li>
+      <li><b>Espera la confirmación de Deriv.</b> Ellos te avisan por el chat o por correo cuando quede hecho.</li>
+      <li><b>Vuelve aquí y envía tu ID</b> en el formulario de arriba. Si ya está en nuestra lista de socios, quedas verificado al instante; si no, lo revisamos en pocos días.</li>
+    </ol>
+    ${link?`<a class="btn ghost sm" href="${esc(link)}" target="_blank" rel="noopener sponsored">Ver nuestro enlace de socio</a>`:""}</details>`}
 function freeCard(o={}){const d=trialDays(),fm=(S.modules||[]).filter(m=>m.free&&m.status!=="borrador");if(!d||!fm.length||premium())return"";
   const cta=!logged()?`<a class="btn" href="${toMain("registro")}">Empezar gratis</a>`:inTrial()?`<a class="btn" href="${toAcad("inicio")}">Ir a mi clase gratis</a>`:'<span class="btn disabled" aria-disabled="true">Tu prueba ya terminó</span>';
   return `<div class="price free"><span class="price-tag free-tag">Sin tarjeta</span><h3>Prueba gratis</h3><div class="price-v"><b>0</b><span>USD</span></div><span class="dim">por ${d} días${logged()&&inTrial()?` · te quedan ${trialLeft()}`:""}</span>
@@ -585,8 +597,8 @@ ROUTES.puntos=async arg=>{if(!logged()){location.hash="#entrar";return}
     :st==="pendiente"?`<div class="note">Tu solicitud está en revisión · ID <b class="mono">${esc(r.deriv_id||"")}</b>. Revisamos que estés en nuestra red de socios de Deriv.</div>`
     :`${st==="rechazado"?`<div class="note">No pudimos verificar el ID <b class="mono">${esc(r.deriv_id||"")}</b>${r.affiliate_note?`: ${esc(r.affiliate_note)}`:""}. Revisa y vuelve a enviarlo.</div>`:""}
       <form class="form" id="af"><label for="aD">Tu ID de cliente de Deriv<input id="aD" maxlength="40" required placeholder="Ej.: CR1234567" autocomplete="off"></label><button class="btn gold" id="aS">Enviar para verificar</button>
-      <p class="dim" style="font-size:13px;margin:0">Lo encuentras en Deriv, arriba a la derecha (empieza por CR). ¿Aún no tienes cuenta? ${S.site.derivRefUrl?`<a href="${esc(S.site.derivRefUrl)}" target="_blank" rel="noopener sponsored">Ábrela con nuestro enlace</a>.`:"Pide el enlace en la comunidad."}</p></form>`);
-  const af=$("#af");if(af)af.onsubmit=async e=>{e.preventDefault();try{busy($("#aS"),true);await API.requestAffiliate($("#aD").value);pop({icon:"send",tone:"green",kicker:"Verificación enviada",title:"Revisamos tu ID de Deriv",text:"Cuando te aprobemos ganas los puntos completos y te sale la etiqueta de afiliado."});ROUTES.puntos("afiliado")}catch(x){toast(x.message)}finally{const b=$("#aS");if(b)busy(b,false)}};
+      <p class="dim" style="font-size:13px;margin:0">Lo encuentras en Deriv, arriba a la derecha (empieza por CR). ¿Aún no tienes cuenta? ${S.site.derivRefUrl?`<a href="${esc(S.site.derivRefUrl)}" target="_blank" rel="noopener sponsored">Ábrela con nuestro enlace</a>.`:"Pide el enlace en la comunidad."}</p></form>${retagGuide()}`);
+  const af=$("#af");if(af)af.onsubmit=async e=>{e.preventDefault();try{busy($("#aS"),true);const rr=await API.requestAffiliate($("#aD").value);if(rr&&rr.status==="verificado"){const pf=API.profile();if(pf)pf.affiliate=true;pop({icon:"check",tone:"green",kicker:"¡Verificado al instante!",title:"Ya eres afiliado de El Arte Gráfico",text:"Desde ahora ganas los puntos completos en cada reto y te sale la etiqueta de afiliado.",confetti:true,ms:5200})}else pop({icon:"send",tone:"green",kicker:"Verificación enviada",title:"Revisamos tu ID de Deriv",text:"Cuando te aprobemos ganas los puntos completos y te sale la etiqueta de afiliado."});ROUTES.puntos("afiliado")}catch(x){toast(x.message)}finally{const b=$("#aS");if(b)busy(b,false)}};
   const H=r.redemptions||[];const ES={pendiente:'<span class="pill gold">En revisión</span>',pagado:'<span class="pill ok">Pagado</span>',rechazado:'<span class="pill">Rechazado</span>'};
   $("#hist").innerHTML=`<h3>Mis canjes</h3>`+(H.length?`<div class="tree">${H.map(x=>`<div class="item"><span class="txt"><b>${x.points} puntos · ${ptsUsd(x.points)}</b><span>${fmtDate(x.created_at)}${x.admin_note?` · ${esc(x.admin_note)}`:""}</span></span>${ES[x.status]||""}</div>`).join("")}</div>`:'<div class="muted">Aún no has hecho canjes.</div>');
   if(arg==="afiliado")setTimeout(()=>{const a=$("#afl");if(a)a.scrollIntoView({behavior:"smooth",block:"start"})},200);
@@ -1081,7 +1093,7 @@ ROUTES.admin=async sub=>{if(!admin()){location.hash="#inicio";return}app.innerHT
   try{await admLoad}catch(e){app.innerHTML='<div class="empty">No se pudo cargar la administración. Revisa tu conexión y recarga.</div>';return}
   if(ROUTES.admin.__lazy){app.innerHTML='<div class="empty">No se pudo cargar la administración.</div>';return}ROUTES.admin(sub)};
 ROUTES.admin.__lazy=true;
-window.AGAPP={mediaVideo,hlsInit,ico,avatar,affTag,absUrl,enablePush,flag,premTag,legalText,modOpen,modState,SITE,ACAD,link,toAcad,toMain,S,API,$,$$,esc,md,toast,busy,fmtT,fmtDate,fmtDT,TZ,MARKETS,MNAME,h1Bars,m5Bars,idxAt,avgRange,toC,Chart,cleanupPush:f=>cleanup.push(f),route,ROUTES,app,premium,admin,logged,confirmInline,loadContent:()=>loadContent(),renderFoot:()=>renderFoot(),applySite:()=>applySite()};
+window.AGAPP={pop,mediaVideo,hlsInit,ico,avatar,affTag,absUrl,enablePush,flag,premTag,legalText,modOpen,modState,SITE,ACAD,link,toAcad,toMain,S,API,$,$$,esc,md,toast,busy,fmtT,fmtDate,fmtDT,TZ,MARKETS,MNAME,h1Bars,m5Bars,idxAt,avgRange,toC,Chart,cleanupPush:f=>cleanup.push(f),route,ROUTES,app,premium,admin,logged,confirmInline,loadContent:()=>loadContent(),renderFoot:()=>renderFoot(),applySite:()=>applySite()};
 
 /* ---------- arranque ---------- */
 async function loadContent(){const [m,l]=await Promise.all([API.modules().catch(()=>[]),API.lessonIndex().catch(()=>[])]);S.modules=m||[];S.lindex=l||[]}
