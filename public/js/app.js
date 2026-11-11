@@ -80,7 +80,7 @@ function derivBlock(){const s=S.site||{};const u=(s.derivRefUrl||"").trim();if(!
 const avatar=(o,sz=32,cls="")=>{o=o||{};const n=(o.username||"?")[0].toUpperCase();
   return o.avatar_url?`<img class="avi ${cls}" src="${esc(o.avatar_url)}" alt="" width="${sz}" height="${sz}" style="width:${sz}px;height:${sz}px" loading="lazy">`
     :`<span class="avi ini ${cls}" style="width:${sz}px;height:${sz}px;font-size:${Math.round(sz*.42)}px" aria-hidden="true">${esc(n)}</span>`};
-const ISO={"Colombia":"co","México":"mx","Argentina":"ar","Chile":"cl","Perú":"pe","Ecuador":"ec","Venezuela":"ve","Bolivia":"bo","Uruguay":"uy","Paraguay":"py","Panamá":"pa","Costa Rica":"cr","Guatemala":"gt","Honduras":"hn","El Salvador":"sv","Nicaragua":"ni","República Dominicana":"do","Puerto Rico":"pr","Cuba":"cu","España":"es","Estados Unidos":"us"};
+const ISO={"Colombia":"co","México":"mx","Argentina":"ar","Chile":"cl","Perú":"pe","Ecuador":"ec","Venezuela":"ve","Bolivia":"bo","Uruguay":"uy","Paraguay":"py","Panamá":"pa","Costa Rica":"cr","Guatemala":"gt","Honduras":"hn","El Salvador":"sv","Nicaragua":"ni","República Dominicana":"do","Puerto Rico":"pr","Cuba":"cu","España":"es","Estados Unidos":"us","Brasil":"br","Canadá":"ca","Belice":"bz","Haití":"ht","Suiza":"ch","Francia":"fr","Italia":"it","Portugal":"pt","Alemania":"de","Reino Unido":"gb","Países Bajos":"nl","Bélgica":"be","Austria":"at","Irlanda":"ie","Suecia":"se","Noruega":"no","Dinamarca":"dk","Andorra":"ad","Luxemburgo":"lu","Polonia":"pl","Australia":"au","Emiratos Árabes Unidos":"ae","Japón":"jp"};
 const flag=c=>{const k=ISO[c];return k?`<img class="flag" src="https://flagcdn.com/w40/${k}.png" srcset="https://flagcdn.com/w80/${k}.png 2x" width="22" height="16" alt="" title="${esc(c)}" loading="lazy" onerror="this.outerHTML='<span class=&quot;flag-t&quot; title=&quot;${esc(c)}&quot;>${k.toUpperCase()}</span>'">`:""};
 const TIERS={cobre:{n:"Cobre",i:"🟤",r:1},plata:{n:"Plata",i:"⚪",r:2},oro:{n:"Oro",i:"🟡",r:3},diamond:{n:"Diamond",i:"💎",r:4}};
 const tierOfDays=d=>d>=300?"oro":d>=150?"plata":"cobre";
@@ -98,7 +98,7 @@ const courseLessons=c=>{const ms=new Set((S.modules||[]).filter(m=>m.course_id==
 const graduated=c=>{const ls=courseLessons(c);return ls.length>0&&ls.every(l=>S.prog&&S.prog.done[l.id]&&S.prog.done[l.id].passed)};
 const courseTag=c=>`<span class="crs-tag${graduated(c)?" grad":""}" style="--cc:${esc(c.color||"#d8b062")}" title="Curso ${esc(c.title)}">${esc(c.icon||"🎓")} ${graduated(c)?"✓ Graduado · ":""}${esc(c.title)}</span>`;
 const myCourseTags=()=>ownedCourses().map(courseTag).join("");
-const COUNTRIES=["Colombia","México","Argentina","Chile","Perú","Ecuador","Venezuela","Bolivia","Uruguay","Paraguay","Panamá","Costa Rica","Guatemala","Honduras","El Salvador","Nicaragua","República Dominicana","Puerto Rico","Cuba","España","Estados Unidos","Otro"];
+const COUNTRIES=["Colombia","México","Argentina","Chile","Perú","Ecuador","Venezuela","Bolivia","Uruguay","Paraguay","Panamá","Costa Rica","Guatemala","Honduras","El Salvador","Nicaragua","República Dominicana","Puerto Rico","Cuba","Brasil","Haití","Belice","Estados Unidos","Canadá","España","Italia","Francia","Suiza","Portugal","Alemania","Reino Unido","Países Bajos","Bélgica","Austria","Irlanda","Suecia","Noruega","Dinamarca","Luxemburgo","Andorra","Polonia","Australia","Emiratos Árabes Unidos","Japón","Otro"];
 /* ---------- completar perfil: foto y país (paso a paso) ---------- */
 function onboard(){
   const p=API.profile();if(!p||!logged()||API.isAdmin()||$("#onb"))return;
@@ -117,7 +117,7 @@ function onboard(){
       <div class="onb-act"><label class="btn gold" for="onbF" style="cursor:pointer">Subir mi foto</label><button type="button" class="btn ghost" id="onbS">Ahora no</button></div></div>`;
     else if(st==="pais")el.innerHTML=`<div class="onb-card">${dots}<span class="eyebrow">Paso ${k+1} de ${tot} · Completa tu perfil</span><h2 id="onbT">¿Desde qué país operas?</h2>
       <p class="muted">Tu bandera sale junto a tu nombre en el ranking.</p>
-      <div class="onb-cs">${COUNTRIES.filter(c=>c!=="Otro").map(c=>`<button type="button" class="${pais===c?"on":""}" data-c="${esc(c)}">${flag(c)}<span>${esc(c)}</span></button>`).join("")}<button type="button" data-c="Otro" class="${pais==="Otro"?"on":""}"><span class="flag-t">🌎</span><span>Otro</span></button></div>
+      <input type="search" class="onb-q" placeholder="Buscar tu país…" aria-label="Buscar país" autocomplete="off"><div class="onb-cs">${COUNTRIES.filter(c=>c!=="Otro").map(c=>`<button type="button" class="${pais===c?"on":""}" data-c="${esc(c)}">${flag(c)}<span>${esc(c)}</span></button>`).join("")}<button type="button" data-c="Otro" class="${pais==="Otro"?"on":""}"><span class="flag-t">🌎</span><span>Otro</span></button></div>
       <div class="onb-act"><button type="button" class="btn gold" id="onbN" ${pais?"":"disabled"}>Continuar</button></div></div>`;
     else el.innerHTML=`<div class="onb-card">${dots}<span class="eyebrow">¡Listo!</span><h2 id="onbT">Así te ven los demás</h2>
       <div class="onb-prev">${avatar({username:p.username,avatar_url:av},44)}<b>${esc(p.username)}</b>${flag(pais)}${premium()?premTag(myPlan()):""}<span class="mono dim">${(S.prog&&S.prog.xp)||0} pts</span></div>
@@ -125,6 +125,7 @@ function onboard(){
       <div class="onb-act"><button type="button" class="btn gold" id="onbX">Empezar</button></div></div>`;
     const f=$("#onbF",el);if(f)f.onchange=async e=>{const fl=e.target.files[0];if(!fl)return;try{toast("Subiendo foto…");av=await API.uploadAvatar(await squareImage(fl));await save();toast("Foto lista");k++;draw()}catch(x){toast(x.message)}};
     if($("#onbS",el))$("#onbS",el).onclick=()=>{try{sessionStorage.setItem("ag_onb_foto","1")}catch(e){}if(!needC){fin();return}k++;draw()};
+    {const q=$(".onb-q",el);if(q)q.oninput=()=>{const v=q.value.trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");$$("[data-c]",el).forEach(x=>{x.hidden=!!v&&!x.dataset.c.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").includes(v)})}}
     $$("[data-c]",el).forEach(b=>b.onclick=()=>{pais=b.dataset.c;$$("[data-c]",el).forEach(x=>x.classList.toggle("on",x===b));$("#onbN",el).disabled=false});
     if($("#onbN",el))$("#onbN",el).onclick=async()=>{if(!pais)return;try{busy($("#onbN",el),true);await save();k++;draw()}catch(x){toast(x.message)}finally{const b=$("#onbN",el);if(b)busy(b,false)}};
     if($("#onbX",el))$("#onbX",el).onclick=()=>{fin();route(true)};
