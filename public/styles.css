@@ -1561,3 +1561,17 @@ body.pf-open{overflow:hidden}
 .cert-v{color:#7f8fb5;font-size:clamp(9px,1vw,11px)}
 .cert-a{justify-content:center}
 @media print{@page{size:A4 landscape;margin:0}body *{visibility:hidden!important}.cert,.cert *{visibility:visible!important}.cert{position:fixed;inset:0;width:100vw;height:100vh;aspect-ratio:auto;border-radius:0;box-shadow:none;-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+
+/* camino: fundamentos gratis -> estrategia */
+.path-g{display:grid;grid-template-columns:1fr auto 1fr;gap:14px;align-items:stretch}
+.path-s{position:relative;display:grid;gap:10px;align-content:start;padding:22px;border-radius:var(--r2);border:1px solid var(--line);background:var(--bg2)}
+.path-s.free{border-color:rgba(53,196,162,.55);background:linear-gradient(135deg,rgba(53,196,162,.13),transparent 60%),var(--bg2)}
+.path-s.paid{border-color:rgba(216,176,98,.45);background:linear-gradient(135deg,rgba(216,176,98,.11),transparent 60%),var(--bg2)}
+.path-s h3{margin:0}.path-s .pill{justify-self:start}.path-s .btn{justify-self:start;margin-top:4px}
+.path-n{position:absolute;top:14px;right:18px;font:800 44px/1 var(--f-disp);color:rgba(255,255,255,.07)}
+.pill.gold-p{background:rgba(216,176,98,.16);color:var(--gold2);border-color:rgba(216,176,98,.45)}
+.path-arrow{align-self:center;font-size:28px;color:var(--gold)}
+.path-m{display:flex;flex-wrap:wrap;gap:8px}
+.path-c{margin:0!important;padding:6px 11px;border-radius:999px;border:1px solid rgba(216,176,98,.5);font-size:13px}
+.path-c.soon{opacity:.55;border-color:var(--line)}
+@media (max-width:760px){.path-g{grid-template-columns:1fr}.path-arrow{transform:rotate(90deg);justify-self:center}}
