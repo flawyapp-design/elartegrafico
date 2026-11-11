@@ -4,17 +4,17 @@
 "use strict";
 const A=window.AGAPP;const {$,$$,esc,API,S,toast,busy,fmtT,fmtDate,fmtDT,TZ,MARKETS,MNAME,h1Bars,m5Bars,idxAt,avgRange,toC,Chart,app}=A;
 let tab="resumen";
-const GROUPS=[["General",["resumen"]],["Academia",["cursos","contenido","ejercicios","banners","noticias","archivos"]],["Retos y puntos",["retos","afiliados","canjes","rpuntos"]],["Alumnos",["alumnos","pagos","resenas","opiniones","notif"]],["Sitio",["sitio","legal"]]];
-const TICO={cursos:"acad",retos:"bolt",afiliados:"users",canjes:"card",rpuntos:"gear",resumen:"chart",sitio:"site",banners:"image",contenido:"layers",ejercicios:"acad",noticias:"news",opiniones:"star",resenas:"msg",pagos:"card",alumnos:"users",archivos:"folder",notif:"bell",legal:"scale"};
-const TDESC={cursos:"Cursos que se venden sueltos (de por vida) y cómo se ven los planes Cobre, Plata y Oro.",retos:"Crea el reto del día: cuestionario, ¿sube o baja? o marcar la zona. Los primeros en acertar ganan puntos.",afiliados:"Verifica quién abrió su cuenta de Deriv con tu enlace de socio: ganan los puntos completos.",
+const GROUPS=[["General",["resumen","chat"]],["Academia",["cursos","contenido","ejercicios","banners","noticias","archivos"]],["Retos y puntos",["retos","afiliados","canjes","rpuntos"]],["Alumnos",["alumnos","pagos","resenas","opiniones","notif"]],["Sitio",["sitio","legal"]]];
+const TICO={chat:"chat",cursos:"acad",retos:"bolt",afiliados:"users",canjes:"card",rpuntos:"gear",resumen:"chart",sitio:"site",banners:"image",contenido:"layers",ejercicios:"acad",noticias:"news",opiniones:"star",resenas:"msg",pagos:"card",alumnos:"users",archivos:"folder",notif:"bell",legal:"scale"};
+const TDESC={chat:"Conversaciones privadas con cada alumno. Se borran solas a los días que definas, o al instante con Finalizar.",cursos:"Cursos que se venden sueltos (de por vida) y cómo se ven los planes Cobre, Plata y Oro.",retos:"Crea el reto del día: cuestionario, ¿sube o baja? o marcar la zona. Los primeros en acertar ganan puntos.",afiliados:"Verifica quién abrió su cuenta de Deriv con tu enlace de socio: ganan los puntos completos.",
   canjes:"Solicitudes para cambiar puntos por dinero: paga y márcalas.",rpuntos:"Activa los retos, define cuánto vale cada punto y el mínimo para canjear.",resumen:"Cómo va la academia: alumnos, visitas y actividad.",sitio:"Textos, portada, precios, enlaces y datos de contacto de la web.",banners:"Imágenes y mensajes del carrusel de la portada y del ingreso.",
   contenido:"Módulos, lecciones, videos y el orden del temario.",ejercicios:"Gráficas, cálculos y preguntas de cada lección y de la práctica.",noticias:"Publicaciones de la comunidad y avisos.",
   opiniones:"Opiniones públicas de los alumnos: aprueba u oculta.",resenas:"Lo que dicen los alumnos al terminar cada módulo (privado).",pagos:"Pagos de Binance por confirmar y el historial.",
   alumnos:"Cuentas, premium, puntos y avance de cada alumno.",archivos:"Imágenes y archivos subidos.",notif:"Envía avisos al celular de los alumnos.",legal:"Términos, privacidad y avisos legales."};
-const TABS=[["cursos","Cursos y planes"],["retos","Retos diarios"],["afiliados","Afiliados Deriv"],["canjes","Canjes"],["rpuntos","Ajustes de puntos"],["resumen","Estadísticas"],["sitio","Sitio y textos"],["banners","Banners"],["contenido","Módulos y lecciones"],["ejercicios","Ejercicios"],["noticias","Noticias"],["opiniones","Opiniones"],["resenas","Reseñas de módulos"],["pagos","Pagos"],["alumnos","Alumnos"],["archivos","Archivos"],["notif","Notificaciones"],["legal","Legal"]];
+const TABS=[["chat","Mensajes"],["cursos","Cursos y planes"],["retos","Retos diarios"],["afiliados","Afiliados Deriv"],["canjes","Canjes"],["rpuntos","Ajustes de puntos"],["resumen","Estadísticas"],["sitio","Sitio y textos"],["banners","Banners"],["contenido","Módulos y lecciones"],["ejercicios","Ejercicios"],["noticias","Noticias"],["opiniones","Opiniones"],["resenas","Reseñas de módulos"],["pagos","Pagos"],["alumnos","Alumnos"],["archivos","Archivos"],["notif","Notificaciones"],["legal","Legal"]];
 A.ROUTES.admin=sub=>{
   if(!A.admin()){app.innerHTML=`<div class="empty">Esta sección es solo para administradores.<a class="btn sm" href="#inicio">Volver</a></div>`;return}
-  if(sub&&TABS.some(t=>t[0]===sub))tab=sub;
+  let chatU=null;if(sub&&/^chat-/.test(sub)){tab="chat";chatU=sub.slice(5)}else if(sub&&TABS.some(t=>t[0]===sub))tab=sub;
   const closed=!!(S.site||{}).academyClosed;
   const cur=TABS.find(t=>t[0]===tab)||TABS[0];const ico=A.ico||(()=>"");
   app.innerHTML=`<div class="adm">
@@ -40,13 +40,54 @@ A.ROUTES.admin=sub=>{
   $("#admMb").onclick=()=>{const n=$(".adm-nav"),o=n.classList.toggle("open");$("#admMb").setAttribute("aria-expanded",String(o))};
   $("#acSw").onclick=()=>{const host=$("#acSw").parentElement;A.confirmInline(host,closed?"¿Abrir la academia a todos?":"¿Cerrar la academia?",async()=>{
     const ns=Object.assign({},S.site,{academyClosed:!closed},closed?{trialFrom:new Date().toISOString()}:{});try{await API.saveSite(ns);S.site=ns;A.applySite();toast(closed?"Academia abierta · la prueba gratis de 7 días empieza hoy para todos":"Academia cerrada para alumnos");A.ROUTES.admin(tab)}catch(x){toast(x.message);A.ROUTES.admin(tab)}})};
+  if(tab==="chat")return chat(chatU);
   ({cursos,resumen,sitio,banners,contenido,ejercicios,noticias,opiniones,resenas,pagos,alumnos,archivos,notif,legal,retos,afiliados,canjes,rpuntos})[tab]();
   const badge=(k,n)=>{const b=document.querySelector(`[data-badge="${k}"]`);if(b&&n){b.textContent=n;b.classList.add("on")}};
+  if(API.dmBadge)API.dmBadge().then(b=>badge("chat",b&&b.unread)).catch(()=>{});
   if(API.adminAffiliates)API.adminAffiliates().then(l=>badge("afiliados",(l||[]).filter(x=>x.status==="pendiente").length)).catch(()=>{});
   if(API.adminRedemptions)API.adminRedemptions().then(l=>badge("canjes",(l||[]).filter(x=>x.status==="pendiente").length)).catch(()=>{});
   API.adminPayments().then(l=>{const n=(l||[]).filter(x=>x.status==="pendiente").length;const b=document.querySelector('[data-badge="pagos"]');if(b&&n){b.textContent=n;b.classList.add("on")}}).catch(()=>{});
 };
 const H=()=>$("#adm");
+/* "Escribirle" desde cualquier tarjeta: abre el chat con un mensaje sugerido */
+document.addEventListener("click",e=>{const b=e.target.closest("[data-dm]");if(!b)return;e.preventDefault();
+  if(b.dataset.dmk!=null){const q=DM_QUICK()[+b.dataset.dmk];if(q)try{sessionStorage.setItem("ag_dm_pre",JSON.stringify({u:b.dataset.dm,t:q[1]}))}catch(x){}}
+  location.hash="#admin-chat-"+b.dataset.dm});
+
+/* ---------- mensajes privados ---------- */
+const DM_QUICK=()=>{const pts=A.toMain?A.toMain("puntos"):"https://elartegrafico.com/#puntos";return[
+  ["Saludo","Hola 👋 Te escribo desde El Arte Gráfico. ¿Cómo vas? Cualquier duda me la puedes escribir por aquí."],
+  ["ID equivocado","Hola 👋 El ID que enviaste no es tu ID de cliente de Deriv. Entra a Deriv → tu perfil y copia tu ID de cliente (empieza por CR, o es un código largo como 019…). Luego lo vuelves a enviar en Mis puntos: "+pts],
+  ["No está con mi enlace","Hola 👋 Tu cuenta de Deriv no aparece con mi enlace de socio. Si ya tenías cuenta, pide a soporte de Deriv un \"retag\" a El Arte Gráfico; el mensaje para copiar está en Mis puntos: "+pts],
+  ["Verificado","¡Listo! ✅ Ya quedaste verificado como afiliado: desde ahora ganas los puntos completos en los retos."],
+  ["Correo de Binance","Hola 👋 Para enviarte el pago, ¿me confirmas tu Binance Pay ID o tu correo de Binance?"],
+  ["¿Resuelto?","¿Quedó resuelto? Si ya no necesitas nada más, cierro la conversación. 🙌"]]};
+async function chat(sel){
+  const ico=A.ico||(()=>"");
+  H().innerHTML=`<div class="dm-adm"><aside class="dm-list"><div class="dm-new"><input id="dmQ" placeholder="Buscar alumno para escribirle…" autocomplete="off"><div id="dmRes" class="dm-res" hidden></div></div><div id="dmL"><div class="muted">Cargando…</div></div></aside><section class="dm-pane" id="dmP"></section></div>`;
+  let users=null;const flagOf=c=>A.flag?A.flag(c||""):"";
+  const loadList=async()=>{let L=[];try{L=await API.adminDmThreads()}catch(e){$("#dmL").innerHTML=`<div class="empty">¿Ya corriste <b>supabase/chat.sql</b>?<span class="dim">${esc(e.message)}</span></div>`;return}
+    $("#dmL").innerHTML=L.length?L.map(t=>`<a class="dm-it${t.user_id===sel?" on":""}${t.unread?" new":""}" href="#admin-chat-${esc(t.user_id)}">${A.avatar?A.avatar({username:t.username,avatar_url:t.avatar_url},38):""}<span><b>${esc(t.username||"Alumno")} ${flagOf(t.country)}</b><small>${t.last_from_admin?"Tú: ":""}${esc((t.last_body||"").slice(0,70))}</small></span><i>${t.unread?`<em class="nbadge">${t.unread}</em>`:""}<small>${esc(fmtDate(t.last_at))}</small></i></a>`).join("")
+      :`<div class="empty">Sin conversaciones abiertas. Busca un alumno arriba, o toca <b>Escribirle</b> en Afiliados o Alumnos.</div>`;
+    const b=document.querySelector('[data-badge="chat"]');const n=L.reduce((a,t)=>a+t.unread,0);if(b){b.textContent=n||"";b.classList.toggle("on",!!n)}};
+  $("#dmQ").oninput=async()=>{const q=$("#dmQ").value.trim().toLowerCase(),r=$("#dmRes");if(q.length<2){r.hidden=true;return}
+    if(!users){try{users=await API.users()}catch(e){users=[]}}
+    const m=users.filter(u=>(u.username||"").toLowerCase().includes(q)||(u.email||"").toLowerCase().includes(q)).slice(0,8);
+    r.hidden=false;r.innerHTML=m.length?m.map(u=>`<a href="#admin-chat-${esc(u.id)}">${esc(u.username)} <small class="dim">${esc(u.email||"")}</small></a>`).join(""):'<span class="dim">Nadie con ese nombre</span>'};
+  await loadList();
+  const P=$("#dmP");
+  if(!sel){P.innerHTML=`<div class="dm-ph">${ico("chat",34)}<b>Elige una conversación</b><span class="muted">Los alumnos solo pueden responder cuando tú les escribes primero. Les llega una notificación al celular.</span></div>`;return}
+  let d=null;try{d=await API.adminDmThread(sel)}catch(e){P.innerHTML=`<div class="empty">${esc(e.message)}</div>`;return}
+  const u=d.user||{};
+  P.innerHTML=`<header class="dm-ph-h"><a class="btn sm ghost dm-back" href="#admin-chat">←</a>${A.avatar?A.avatar(u,40):""}<div><b>${esc(u.username||"Alumno")} ${flagOf(u.country)}</b><small class="dim">${d.exists?"Conversación abierta":"Nueva conversación"}</small></div><span class="grow"></span>${d.exists?'<span id="dmEndH"><button class="btn sm bad" id="dmEnd">Finalizar y borrar</button></span>':""}</header>
+    <div class="dm-quick">${DM_QUICK().map(([t],i)=>`<button type="button" class="chipb" data-q="${i}">${esc(t)}</button>`).join("")}</div><div id="dmBox"></div>`;
+  const box=A.chatBox($("#dmBox"),{load:()=>API.adminDmThread(sel),send:Object.assign(async v=>{const m=await API.dmSend(v,sel);
+      if(API.sendPush)API.sendPush({title:"💬 Mensaje de El Arte Gráfico",body:v.slice(0,140),url:(A.toMain?A.toMain("mensajes"):"https://elartegrafico.com/#mensajes"),user_id:sel,tag:"dm"}).catch(()=>{});
+      if(!d.exists){d.exists=true;chat(sel)}else loadList();return m},{canStart:true}),me:"Tú",them:u.username||"Alumno",empty:"Escribe el primer mensaje. Le llegará una notificación."});
+  $$("[data-q]").forEach(b=>b.onclick=()=>box.fill(DM_QUICK()[+b.dataset.q][1]));
+  try{const pre=sessionStorage.getItem("ag_dm_pre");if(pre){sessionStorage.removeItem("ag_dm_pre");const o=JSON.parse(pre);if(o.u===sel)box.fill(o.t)}}catch(e){}
+  const e=$("#dmEnd");if(e)e.onclick=()=>A.confirmInline($("#dmEndH"),"¿Borrar toda la conversación?",async()=>{try{await API.adminDmClose(sel);toast("Conversación finalizada y borrada");location.hash="#admin-chat"}catch(x){toast(x.message)}});
+}
 /* agrupa un formulario largo en tarjetas: cada <h3> abre una sección */
 function groupForm(f){if(!f)return;const kids=[...f.children];let sec=null;const out=document.createDocumentFragment();
   kids.forEach(el=>{if(el.tagName==="H3"){sec=document.createElement("section");sec.className="fgroup";out.appendChild(sec)}
@@ -502,7 +543,7 @@ async function afiliados(){
       <div class="panel"><div class="sec-h"><h3>Solicitudes de afiliado</h3><div class="seg rk-seg" style="margin:0">${[["pendiente","Por verificar"],["verificado","Verificados"],["rechazado","Rechazados"],["todos","Todos"]].map(([k,t])=>`<a href="javascript:void 0" data-f="${k}" class="${f===k?"on":""}">${t} (${k==="todos"?list.length:list.filter(a=>a.status===k).length})</a>`).join("")}</div></div>
       <div class="ulist">${L.map(a=>`<article class="ucard"><div class="uc-who"><div><b>${esc(a.username)} ${A.flag(a.country||"")}</b><span class="dim">${esc(a.email||"")}</span></div></div>
         <div class="uc-st"><div><small>ID de Deriv</small><b class="mono sel">${esc(a.deriv_id)}</b></div><div><small>Estado</small>${ES[a.status]||""}${a.status!=="verificado"?(a.in_list==="activo"?'<span class="pill ok">✓ En tu lista activa</span>':a.in_list==="antiguo"?'<span class="pill warn">✓ En tu lista antigua</span>':'<span class="pill">No está en tus listas</span>'):""}</div><div><small>Enviado</small><span>${fmtDate(a.created_at)}</span></div><div><small>Nota</small><span class="dim">${esc(a.admin_note||"—")}</span></div></div>
-        <div class="uc-act row" data-host="${esc(a.user_id)}"><button class="btn sm" data-cp="${esc(a.deriv_id)}">Copiar ID</button>${a.status!=="verificado"?`<button class="btn sm ok" data-ok="${esc(a.user_id)}">Verificar</button>`:""}${a.status!=="rechazado"?`<button class="btn sm bad" data-no="${esc(a.user_id)}">${a.status==="verificado"?"Quitar afiliado":"Rechazar"}</button>`:""}</div></article>`).join("")||'<div class="muted">No hay solicitudes aquí.</div>'}</div></div>`;
+        <div class="uc-act row" data-host="${esc(a.user_id)}"><button class="btn sm" data-cp="${esc(a.deriv_id)}">Copiar ID</button><button class="btn sm" data-dm="${esc(a.user_id)}" data-dmk="${a.status==="verificado"?3:a.in_list?0:/^[0-9A-F]{8}-[0-9A-F]{4}-|^D-[A-Z0-9]{5,}$|^[A-Z]{2,5}\d{4,}$/i.test(a.deriv_id||"")?2:1}">💬 Escribirle</button>${a.status!=="verificado"?`<button class="btn sm ok" data-ok="${esc(a.user_id)}">Verificar</button>`:""}${a.status!=="rechazado"?`<button class="btn sm bad" data-no="${esc(a.user_id)}">${a.status==="verificado"?"Quitar afiliado":"Rechazar"}</button>`:""}</div></article>`).join("")||'<div class="muted">No hay solicitudes aquí.</div>'}</div></div>`;
     const pt=$("#plT");if(pt){pt.oninput=()=>{const n=grab(pt.value).length;$("#plN").textContent=n?`${n} IDs encontrados`:""};
       const syncM=()=>{const act=(document.querySelector('input[name=plK]:checked')||{}).value!=="antiguo";$("#plMw").style.display=act?"":"none";if(!act)$("#plM").checked=false};$$("input[name=plK]").forEach(r=>r.onchange=syncM);syncM();
       $("#plGo").onclick=async()=>{const ids=grab(pt.value);if(!ids.length){toast("No encontré IDs de cliente en lo que pegaste");return}const tier=(document.querySelector('input[name=plK]:checked')||{}).value||"activo";
@@ -594,6 +635,7 @@ async function alumnos(){
         <label class="uc-plan uc-give"><span>Dar plan</span><select data-give="${esc(u.id)}"><option value="">Elegir…</option>${GIVE().map(g=>`<option value="${g.t}:${g.d}">${A.TIERS?A.TIERS[g.t].i:""} ${g.n} · ${g.d} días</option>`).join("")}</select></label>
         <button class="btn sm ok" data-add="${esc(u.id)}:30">+30 días</button>
         <label class="uc-date"><span>Hasta</span><input type="date" data-date="${esc(u.id)}" aria-label="Premium hasta"></label>
+        <button class="btn sm" data-dm="${esc(u.id)}">💬 Escribirle</button>
         <details class="uc-more"><summary class="btn sm ghost">Más ▾</summary><div class="uc-menu">
           ${isP(u)?`<button class="btn sm" data-rm="${esc(u.id)}">Quitar premium</button><label class="uc-plan">Cambiar placa (sin tocar días)<select data-plan="${esc(u.id)}"><option value="cobre">🟤 Cobre</option><option value="plata">⚪ Plata</option><option value="oro">🟡 Oro</option><option value="diamond">💎 Diamond</option></select></label>`:""}
           ${(S.courses||[]).map(c=>{const has=(u.courses||[]).includes(c.id);return `<button class="btn sm ${has?"ghost":""}" data-crs="${esc(u.id)}|${esc(c.id)}|${has?0:1}">${has?"Quitar":"Dar"} curso ${esc(c.title)}</button>`}).join("")}

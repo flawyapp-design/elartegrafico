@@ -40,7 +40,7 @@ function link(site,hash){hash=hash||"inicio";if(site===SITE)return"#"+hash;
   return location.pathname+(site==="academia"?"?sitio=academia"+(vq?"&"+vq:""):(vq?"?"+vq:""))+"#"+hash}
 try{const q=new URLSearchParams(location.search),v=q.get("ver");if(q.has("ver")){if(v&&v!=="admin")sessionStorage.setItem("ag_view_as",v);else sessionStorage.removeItem("ag_view_as");q.delete("ver");const qs=q.toString();history.replaceState(null,"",location.pathname+(qs?"?"+qs:"")+location.hash)}}catch(e){}
 const ACAD_R=new Set(["academia","modulo","leccion","practica","prueba","progreso","logros"]);
-const MAIN_R=new Set(["oro","entrar","registro","recuperar","noticias","comunidad","nota","opiniones","mercados","legal","terminos","privacidad","retos","reto","ranking","puntos"]);
+const MAIN_R=new Set(["mensajes","oro","entrar","registro","recuperar","noticias","comunidad","nota","opiniones","mercados","legal","terminos","privacidad","retos","reto","ranking","puntos"]);
 const toAcad=h=>link("academia",h),toMain=h=>link("main",h);
 
 /* ---------- utilidades UI ---------- */
@@ -229,7 +229,7 @@ function renderNav(){sideState();viewBar();document.body.classList.toggle("is-ac
   const TB=ACAD?[["inicio","home","Panel"],["academia","acad","Temario"],["practica","chart","Práctica"],["progreso","layers","Progreso"]]
     :(rw?[["inicio","home","Inicio"],["retos","bolt","Retos"],["@acad","acad","Academia"],["ranking","trophy","Ranking"]]:[["inicio","home","Inicio"],["comunidad","chat","Comunidad"],["@acad","acad","Academia"],["premium","crown","Premium"]]);
   let tb=$("#tabbar");if(!tb){tb=document.createElement("nav");tb.id="tabbar";tb.className="tabbar";tb.setAttribute("aria-label","Accesos rápidos");document.body.appendChild(tb)}
-  tb.innerHTML=TB.map(([k,ic,t])=>`<a href="${k==="@acad"?toAcad("inicio"):"#"+k}" class="${r===k?"on":""}${k==="@acad"?" tb-acad":""}">${ico(ic,22)}<span>${t}</span></a>`).join("")+`<button type="button" id="tbMore" aria-label="Más opciones">${u&&p?avatar(p,26):ico("gear",22)}<span>${u&&p?"Más":"Menú"}</span></button>`;
+  tb.innerHTML=TB.map(([k,ic,t])=>`<a href="${k==="@acad"?toAcad("inicio"):"#"+k}" class="${r===k?"on":""}${k==="@acad"?" tb-acad":""}">${ico(ic,22)}<span>${t}</span></a>`).join("")+`<button type="button" id="tbMore" aria-label="Más opciones">${u&&p?avatar(p,26):ico("gear",22)}<span>${u&&p?"Más":"Menú"}</span>${S.dm&&S.dm.unread?`<em class="nbadge tb-dot">${S.dm.unread}</em>`:""}</button>`;
   $("#tbMore").onclick=e=>{e.stopPropagation();const o=$("#nav").classList.toggle("open");document.body.classList.toggle("sheet-open",o);$("#menuBtn").setAttribute("aria-expanded",String(o))};
   if(!window.__sheetClose){window.__sheetClose=1;document.addEventListener("click",e=>{const n=$("#nav");if(!n||!n.classList.contains("open")||!document.body.classList.contains("sheet-open"))return;
     if(!n.contains(e.target)||e.target.closest("a")){n.classList.remove("open");document.body.classList.remove("sheet-open")}})}
@@ -243,6 +243,7 @@ function renderNav(){sideState();viewBar();document.body.classList.toggle("is-ac
           <a href="${ACAD?"#perfil":"#perfil"}">${ico("gear",18)}<span>Configuración</span></a>
           <a href="${ACAD?"#perfil-progreso":"#perfil-progreso"}">${ico("chart",18)}<span>Mi progreso</span></a>
           ${rewardsOn()||admin()?`<a href="${toMain("puntos")}">${ico("card",18)}<span>Mis puntos</span></a><a href="${toMain("ranking")}">${ico("trophy",18)}<span>Ranking de retos</span></a>`:""}
+          ${S.dm&&(S.dm.exists||S.dm.unread)&&!admin()?`<a href="${toMain("mensajes")}">${ico("chat",18)}<span>Mensajes</span>${S.dm.unread?`<em class="nbadge">${S.dm.unread}</em>`:""}</a>`:""}
           <a href="${toAcad("progreso")}">${ico("layers",18)}<span>Tabla de progreso</span></a>
           ${premium()?"":`<a href="${toMain("premium")}" class="dm-gold">${ico("crown",18)}<span>Hazte premium</span></a>`}
           ${isStandalone()?"":`<button type="button" id="ddInst">${ico("play",18)}<span>Instalar la app</span></button>`}
@@ -280,9 +281,46 @@ function route(keep){if(/^#admin/.test(location.hash)&&API.isAdmin()){let v="";t
     $("#app").insertAdjacentHTML("beforebegin",'<div class="note admin-note" id="admNote">La academia está <b>cerrada para alumnos</b>: solo tú la ves. Ábrela desde Administración cuando el contenido esté listo.</div>')}
   API.logView(sid,((ACAD?"academia/":"")+h).slice(0,60));
   (ROUTES[k]||ROUTES.inicio)(arg);
-  if(!["perfil","nueva","legal","entrar","registro"].includes(k))setTimeout(onboard,700);
+  if(!["perfil","nueva","legal","entrar","registro","mensajes"].includes(k))setTimeout(onboard,700);
 }
 window.addEventListener("hashchange",()=>route());
+
+/* ---------- chat privado con el admin ---------- */
+let dmLast=-1;
+async function dmPoll(){if(!logged()||!API.dmBadge)return;let b=null;try{b=await API.dmBadge()}catch(e){return}if(!b)return;
+  const prev=S.dm;S.dm=b;const n=b.unread||0;
+  if(!prev||prev.unread!==n||prev.exists!==b.exists)renderNav();
+  let c=$("#dmChip");const onChat=b.admin?/^#admin-chat/.test(location.hash):/^#mensajes/.test(location.hash);
+  if(n>0&&!onChat){if(!c){c=document.createElement("a");c.id="dmChip";c.className="dm-chip";document.body.appendChild(c)}
+    c.href=b.admin?toMain("admin-chat"):toMain("mensajes");c.innerHTML=`${ico("chat",18)}<span>${b.admin?`${n} mensaje${n>1?"s":""} de alumnos`:`Tienes ${n>1?n+" mensajes nuevos":"un mensaje"} de El Arte Gráfico`}</span>`;
+    if(n>dmLast&&dmLast>=0&&!b.admin)toast("💬 Nuevo mensaje de El Arte Gráfico")}
+  else if(c)c.remove();dmLast=n}
+setInterval(()=>{if(!document.hidden)dmPoll()},45000);document.addEventListener("visibilitychange",()=>{if(!document.hidden)dmPoll()});
+window.addEventListener("hashchange",()=>setTimeout(dmPoll,400));setTimeout(dmPoll,1500);
+
+/* caja de chat: la usan el alumno (#mensajes) y el admin */
+function chatBox(host,{load,send,me="Tú",them="El Arte Gráfico",empty="",closedTxt="Esta conversación terminó."}){
+  host.innerHTML=`<div class="chat"><div class="chat-log" aria-live="polite"></div><form class="chat-in"><textarea rows="1" maxlength="1500" placeholder="Escribe un mensaje…" aria-label="Mensaje"></textarea><button class="btn gold" type="submit">Enviar</button></form></div>`;
+  const log=$(".chat-log",host),f=$(".chat-in",host),ta=$("textarea",f);let sig="",timer=null,st=null;
+  const day=t=>new Date(t).toLocaleDateString("es-CO",{weekday:"short",day:"numeric",month:"short"}),hr=t=>new Date(t).toLocaleTimeString("es-CO",{hour:"numeric",minute:"2-digit"});
+  const draw=d=>{st=d;const L=(d&&d.messages)||[];const k=L.map(m=>m.id+(m.read?1:0)).join()+"|"+(d&&d.open);if(k===sig)return;sig=k;
+    const atBottom=log.scrollHeight-log.scrollTop-log.clientHeight<60;let lastDay="";
+    log.innerHTML=L.length?L.map(m=>{const dd=day(m.at),sep=dd!==lastDay?`<div class="chat-day">${esc(dd)}</div>`:"";lastDay=dd;
+      return `${sep}<div class="msg ${m.mine?"me":"them"}"><div class="bub">${esc(m.body).replace(/\n/g,"<br>").replace(/(https?:\/\/[^\s<]+)/g,'<a href="$1" target="_blank" rel="noopener">$1</a>')}</div><small>${m.mine?me:them} · ${hr(m.at)}${m.mine&&m.read?" · ✓✓ visto":""}</small></div>`}).join(""):`<div class="chat-empty">${empty}</div>`;
+    const off=d&&d.exists===false&&!send.canStart?true:d&&d.open===false;f.hidden=!!off;
+    let n=$(".chat-end",host);if(off&&d&&d.exists!==false){if(!n){n=document.createElement("div");n.className="chat-end";host.querySelector(".chat").appendChild(n)}n.textContent=closedTxt}else if(n)n.remove();
+    if(atBottom||!log.dataset.init){log.scrollTop=log.scrollHeight;log.dataset.init=1}};
+  const refresh=async()=>{if(!host.isConnected){clearInterval(timer);return}try{draw(await load())}catch(e){}};
+  ta.addEventListener("input",()=>{ta.style.height="auto";ta.style.height=Math.min(140,ta.scrollHeight)+"px"});
+  ta.addEventListener("keydown",e=>{if(e.key==="Enter"&&!e.shiftKey&&matchMedia("(pointer:fine)").matches){e.preventDefault();f.requestSubmit()}});
+  f.onsubmit=async e=>{e.preventDefault();const v=ta.value.trim();if(!v)return;const b=$("button",f);b.disabled=true;try{await send(v);ta.value="";ta.style.height="auto";sig="";await refresh();log.scrollTop=log.scrollHeight}catch(x){toast(x.message)}b.disabled=false;ta.focus()};
+  refresh();timer=setInterval(()=>{if(!document.hidden)refresh()},7000);
+  return{refresh,fill:t=>{ta.value=t;ta.dispatchEvent(new Event("input"));ta.focus()}}}
+
+ROUTES.mensajes=async()=>{if(!logged()){location.hash="#entrar";return}
+  app.innerHTML=`<section class="sec chat-page"><div class="sec-h"><div><span class="eyebrow">Privado</span><h1>Mensajes</h1><p class="muted">Conversación privada entre tú y El Arte Gráfico. Nadie más la ve. Los mensajes se borran solos a los pocos días.</p></div></div><div id="chatHost"></div></section>`;
+  chatBox($("#chatHost"),{load:()=>API.dmMine(),send:v=>API.dmSend(v),empty:"Todavía no tienes mensajes. Si necesitamos algo de ti, te escribiremos por aquí y te llegará una notificación.",closedTxt:"Esta conversación terminó."});
+  setTimeout(dmPoll,1200)};
 
 /* ---------- datos de mercado ---------- */
 const cache={};
@@ -1178,7 +1216,7 @@ ROUTES.admin=async sub=>{if(viewAs()){setViewAs("");viewBar();renderNav()}if(!ad
   try{await admLoad}catch(e){app.innerHTML='<div class="empty">No se pudo cargar la administración. Revisa tu conexión y recarga.</div>';return}
   if(ROUTES.admin.__lazy){app.innerHTML='<div class="empty">No se pudo cargar la administración.</div>';return}ROUTES.admin(sub)};
 ROUTES.admin.__lazy=true;
-window.AGAPP={TIERS,pop,mediaVideo,hlsInit,ico,avatar,affTag,absUrl,enablePush,flag,premTag,legalText,modOpen,modState,SITE,ACAD,link,toAcad,toMain,S,API,$,$$,esc,md,toast,busy,fmtT,fmtDate,fmtDT,TZ,MARKETS,MNAME,h1Bars,m5Bars,idxAt,avgRange,toC,Chart,cleanupPush:f=>cleanup.push(f),route,ROUTES,app,premium,admin,logged,confirmInline,loadContent:()=>loadContent(),renderFoot:()=>renderFoot(),applySite:()=>applySite()};
+window.AGAPP={TIERS,chatBox,dmPoll,pop,mediaVideo,hlsInit,ico,avatar,affTag,absUrl,enablePush,flag,premTag,legalText,modOpen,modState,SITE,ACAD,link,toAcad,toMain,S,API,$,$$,esc,md,toast,busy,fmtT,fmtDate,fmtDT,TZ,MARKETS,MNAME,h1Bars,m5Bars,idxAt,avgRange,toC,Chart,cleanupPush:f=>cleanup.push(f),route,ROUTES,app,premium,admin,logged,confirmInline,loadContent:()=>loadContent(),renderFoot:()=>renderFoot(),applySite:()=>applySite()};
 
 /* ---------- arranque ---------- */
 async function loadContent(){const [m,l,c,mc]=await Promise.all([API.modules().catch(()=>[]),API.lessonIndex().catch(()=>[]),(API.courses?API.courses():Promise.resolve([])).catch(()=>[]),(API.myCourses&&logged()?API.myCourses():Promise.resolve([])).catch(()=>[])]);S.modules=m||[];S.lindex=l||[];S.courses=c||[];S.myCourses=new Set((mc||[]).map(x=>x.course_id||x))}
