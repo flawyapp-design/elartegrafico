@@ -120,7 +120,7 @@ function lessonOpen(l){if(admin())return true;const m=S.modules.find(x=>x.id===l
   const ls=S.lindex.filter(x=>x.module_id===l.module_id);const k=ls.findIndex(x=>x.id===l.id);return ls.slice(0,Math.max(0,k)).every(x=>passedL(x.id))}
 function modState(m){if(modOpen(m,true))return"Disponible";return m.open_at?"Abre el "+new Date(m.open_at).toLocaleDateString("es-CO",{day:"2-digit",month:"short"}):"Próximamente"}
 function closedView(){const s=S.site,p=API.profile()||{};
-  app.innerHTML=`<section class="soon"><img src="${esc(s.logoFullUrl||"assets/logo_circle.png")}" alt=""><span class="eyebrow">Academia</span>
+  app.innerHTML=`<section class="soon"><img src="${esc(s.logoFullUrl||"assets/logo_circle.webp")}" alt=""><span class="eyebrow">Academia</span>
     <h1>${esc(s.closedTitle||"La academia abre muy pronto")}</h1>
     <p class="muted">${esc(s.closedText||"Estamos terminando de montar las lecciones y los ejercicios. Tu cuenta ya quedó creada: cuando abramos, entras con el mismo usuario y tendrás tus 5 gráficas de prueba.")}</p>
     ${p.username?`<span class="pill ok">Registrado como ${esc(p.username)}</span>`:""}
@@ -169,7 +169,7 @@ function renderNav(){document.body.classList.toggle("is-acad",!!ACAD);
 $("#menuBtn").onclick=()=>{const o=$("#nav").classList.toggle("open");$("#menuBtn").setAttribute("aria-expanded",String(o))};
 function renderFoot(){const s=S.site;
   $("#foot").innerHTML=`${s.discordUrl?`<div class="fjoin"><div><b>Únete a la comunidad</b><span class="muted">Análisis, dudas y avisos del método, junto a otros traders que operan con reglas.</span></div><a class="btn gold btn-ic" href="${esc(s.discordUrl)}" target="_blank" rel="noopener">${ICON_CHAT}<span>Entrar al Discord</span></a></div>`:""}
-    <div class="fcols"><div class="fbrand"><img src="${esc(s.logoUrl||"assets/logo_mark.png")}" alt=""><div><b>${esc(s.name||"El Arte Gráfico")}</b><span>${esc(s.tagline||"")}</span></div></div>
+    <div class="fcols"><div class="fbrand"><img src="${esc(s.logoUrl||"assets/logo_mark.webp")}" alt=""><div><b>${esc(s.name||"El Arte Gráfico")}</b><span>${esc(s.tagline||"")}</span></div></div>
     <div><h4>El Arte Gráfico</h4><a href="${toMain("inicio")}">Inicio</a><a href="${toMain("comunidad")}">Comunidad</a><a href="${toMain("opiniones")}">Opiniones</a>${s.discordUrl?`<a href="${esc(s.discordUrl)}" target="_blank" rel="noopener">Discord</a>`:""}</div>
     <div><h4>Academia</h4><a href="${toAcad("inicio")}">Mi panel</a><a href="${toAcad("academia")}">Temario</a><a href="${toAcad("practica")}">Práctica</a><a href="#premium">Premium</a></div>
     <div><h4>Mercados</h4><a href="${toMain("mercados")}">Sintéticos</a><a href="${toMain("mercados")}">Forex</a><a href="${toMain("mercados")}">Metales</a></div>
@@ -230,7 +230,7 @@ function ctaOf(s){if(!s.cta_text)return'<div class="cta"></div>';let t=s.cta_tex
 function slider(host,slides,{emblem=true}={}){
   if(!slides.length)slides=[{title:S.site.heroTitle||"El Arte Gráfico Academy",body:S.site.heroText||"",cta_text:"",cta_link:""}];
   host.innerHTML=`<div class="slider" role="region" aria-roledescription="carrusel" aria-label="Destacados">${slides.map((s,i)=>`<div class="slide ${i?"":"on"}" aria-hidden="${i?"true":"false"}">
-      ${s.image_url?`<div class="bgimg" style="background-image:url('${esc(s.image_url)}')"></div>`:emblem?`<img class="emblem" src="${esc(S.site.logoFullUrl||"assets/logo_circle.png")}" alt="">`:""}
+      ${s.image_url?`<div class="bgimg" style="background-image:url('${esc(s.image_url)}')"></div>`:emblem?`<img class="emblem" src="${esc(S.site.logoFullUrl||"assets/logo_circle.webp")}" alt="">`:""}
       <span class="eyebrow">${esc(S.site.name||"El Arte Gráfico")}${ACAD?" · Academy":""}</span><h2>${esc(s.title)}</h2>${s.body?`<p>${esc(s.body)}</p>`:""}
       ${ctaOf(s)}</div>`).join("")}
     ${slides.length>1?`<div class="dots2">${slides.map((_,i)=>`<button aria-label="Ir al destacado ${i+1}" class="${i?"":"on"}" data-i="${i}"></button>`).join("")}</div><div class="sl-arrows"><button aria-label="Anterior" data-d="-1">‹</button><button aria-label="Siguiente" data-d="1">›</button></div>`:""}</div>`;
@@ -303,7 +303,7 @@ function aboutBlock(host){if(!host)return;const s=S.site;if(s.aboutHide){host.re
   const name=s.aboutName||s.name||"El Arte Gráfico";
   const items=s.aboutItems&&s.aboutItems.length?s.aboutItems:["Método propio para Boom y Crash, con reglas claras","Zona en H1 y stop loss en M5: lo mismo que ves en mis videos","Práctica en gráficas reales, no solo teoría"];
   const tk=s.aboutTiktok||"https://www.tiktok.com/@el_arte_grafico";
-  host.innerHTML=`<div class="about"><div class="about-ph${s.aboutPhoto?" foto":""}"><img src="${esc(s.aboutPhoto||s.logoFullUrl||"assets/logo_circle.png")}" alt="${esc(name)}" loading="lazy"></div>
+  host.innerHTML=`<div class="about"><div class="about-ph${s.aboutPhoto?" foto":""}"><img src="${esc(s.aboutPhoto||s.logoFullUrl||"assets/logo_circle.webp")}" alt="${esc(name)}" loading="lazy"></div>
     <div class="about-t"><span class="eyebrow">${esc(s.aboutTitle||"Quién te enseña")}</span><h2>${esc(name)}</h2>
       <p class="muted">${esc(s.aboutText||"Soy el creador de El Arte Gráfico. En TikTok comparto mis análisis de Boom y Crash; aquí enseño el método completo, paso a paso: cómo encuentro mis zonas en H1, dónde pongo el stop loss en M5 y cómo gestiono el riesgo. Sin promesas de dinero fácil: reglas claras y mucha práctica.")}</p>
       <ul class="checks">${items.map(i=>`<li>${esc(i)}</li>`).join("")}</ul>
@@ -498,7 +498,7 @@ async function authView(mode,arg){
   app.innerHTML=`<div class="auth"><div id="aslide"></div><div class="authbox" id="abox"></div></div>`;
   API.slides("login").then(sl=>slider($("#aslide"),sl)).catch(()=>slider($("#aslide"),[]));
   const box=$("#abox");
-  const head=`<div style="display:grid;gap:6px"><img src="assets/logo_mark.png" alt="" style="width:56px;height:56px"><h2>${mode==="up"?"Crea tu cuenta":mode==="in"?(back?"Ingresa para entrar a la academia":"Ingresa a tu cuenta"):"Recupera tu contraseña"}</h2><p class="muted">${mode==="up"?"Gratis. Una sola cuenta para la comunidad y la academia, con 5 gráficas de prueba.":mode==="in"?"Una sola cuenta para El Arte Gráfico y la academia.":"Te enviaremos un enlace a tu correo."}</p></div>`;
+  const head=`<div style="display:grid;gap:6px"><img src="assets/logo_mark.webp" alt="" style="width:56px;height:56px"><h2>${mode==="up"?"Crea tu cuenta":mode==="in"?(back?"Ingresa para entrar a la academia":"Ingresa a tu cuenta"):"Recupera tu contraseña"}</h2><p class="muted">${mode==="up"?"Gratis. Una sola cuenta para la comunidad y la academia, con 5 gráficas de prueba.":mode==="in"?"Una sola cuenta para El Arte Gráfico y la academia.":"Te enviaremos un enlace a tu correo."}</p></div>`;
   const seg=mode==="rec"?"":`<div class="seg"><button class="${mode==="in"?"on":""}" data-m="entrar${back?"-academia":""}">Ingresar</button><button class="${mode==="up"?"on":""}" data-m="registro${back?"-academia":""}">Crear cuenta</button></div>`;
   if(mode==="up")box.innerHTML=head+seg+`<form class="form" id="f" novalidate>
       <label for="uU">Nombre de usuario<input id="uU" autocomplete="username" required minlength="3" maxlength="24" pattern="[A-Za-z0-9_.]{3,24}" placeholder="ej. trader_juan"><span class="dim" style="font-weight:400">Letras, números, punto o guion bajo. Se verá en el ranking y la comunidad.</span></label>
@@ -763,10 +763,17 @@ ROUTES.legal=key=>{const docs=window.AG_LEGAL||[];key=key||"terminos";const d=le
 ROUTES.prueba=()=>{location.hash="#inicio";setTimeout(()=>{const p=$("#prueba");p&&p.scrollIntoView({behavior:"smooth"})},350)};
 
 /* exportar para los otros archivos */
+/* el panel de administración se descarga solo cuando se abre */
+let admLoad=null;
+ROUTES.admin=async sub=>{if(!admin()){location.hash="#inicio";return}app.innerHTML='<div class="muted">Cargando administración…</div>';
+  admLoad=admLoad||new Promise((ok,no)=>{const sc=document.createElement("script");sc.src="js/admin.js?v=1";sc.onload=ok;sc.onerror=no;document.body.appendChild(sc)});
+  try{await admLoad}catch(e){app.innerHTML='<div class="empty">No se pudo cargar la administración. Revisa tu conexión y recarga.</div>';return}
+  if(ROUTES.admin.__lazy){app.innerHTML='<div class="empty">No se pudo cargar la administración.</div>';return}ROUTES.admin(sub)};
+ROUTES.admin.__lazy=true;
 window.AGAPP={absUrl,enablePush,flag,premTag,legalText,modOpen,modState,SITE,ACAD,link,toAcad,toMain,S,API,$,$$,esc,md,toast,busy,fmtT,fmtDate,fmtDT,TZ,MARKETS,MNAME,h1Bars,m5Bars,idxAt,avgRange,toC,Chart,cleanupPush:f=>cleanup.push(f),route,ROUTES,app,premium,admin,logged,confirmInline,loadContent:()=>loadContent(),renderFoot:()=>renderFoot(),applySite:()=>applySite()};
 
 /* ---------- arranque ---------- */
-async function loadContent(){try{S.modules=await API.modules()}catch(e){S.modules=[]}try{S.lindex=await API.lessonIndex()}catch(e){S.lindex=[]}}
+async function loadContent(){const [m,l]=await Promise.all([API.modules().catch(()=>[]),API.lessonIndex().catch(()=>[])]);S.modules=m||[];S.lindex=l||[]}
 function applySite(){const s=S.site,n=s.name||"El Arte Gráfico";$("#brandName").textContent=n.toUpperCase();if(s.logoUrl)$("#logoMark").src=s.logoUrl;
   $("#brandSub").textContent=ACAD?"ACADEMY":"TRADING · COMUNIDAD";document.body.dataset.site=SITE;
   document.title=ACAD?n+" Academy":n+" · Trading, educación y comunidad";renderFoot()}
@@ -822,9 +829,10 @@ async function boot(){
   if("serviceWorker" in navigator&&location.protocol!=="file:")navigator.serviceWorker.register("/sw.js").then(r=>{PWA.reg=r}).catch(()=>{});
   if(API.mode==="local")$("#localbar").innerHTML=`<div class="localbar"><div class="wrap"><b>Modo de prueba</b><span>Los datos se guardan solo en este navegador. Administrador de prueba: admin@elartegrafico.com · admin1234</span><button id="rstLocal">Reiniciar datos de prueba</button></div></div>`;
   const r=$("#rstLocal");if(r)r.onclick=()=>API.resetLocal();
+  const pSite=API.site().catch(()=>({}));                     // los ajustes del sitio no dependen de la sesión
   let rec=false;try{rec=(await API.init()).recovery}catch(e){}
-  try{S.site=await API.site()}catch(e){S.site={}}applySite();
-  await loadProg();await loadContent();S.loaded=true;
+  S.site=await pSite||{};applySite();
+  await Promise.all([loadProg(),loadContent()]);S.loaded=true;
   if(rec)location.hash="#nueva-clave";
   route();
 }

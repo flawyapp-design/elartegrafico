@@ -1,7 +1,7 @@
 /* El Arte Gráfico — service worker: app instalable, caché y notificaciones */
-const V = "ag-v2";
-const SHELL = ["/", "/index.html", "/styles.css", "/config.js", "/js/seed.js", "/js/chart.js", "/js/api.js", "/js/legal.js", "/js/app.js", "/js/player.js", "/js/admin.js",
-  "/assets/logo_mark.png", "/assets/logo_circle.png", "/assets/icon-192.png"];
+const V = "ag-v3";
+const SHELL = ["/", "/index.html", "/styles.css", "/config.js", "/js/chart.js", "/js/api.js", "/js/legal.js", "/js/app.js", "/js/player.js",
+  "/assets/logo_mark.webp", "/assets/logo_circle.webp", "/assets/icon-192.png"];
 self.addEventListener("install", e => { e.waitUntil(caches.open(V).then(c => c.addAll(SHELL)).catch(() => {})); self.skipWaiting(); });
 self.addEventListener("activate", e => { e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== V).map(k => caches.delete(k)))).then(() => self.clients.claim())); });
 self.addEventListener("fetch", e => {

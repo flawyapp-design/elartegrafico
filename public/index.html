@@ -2,9 +2,9 @@
 <html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>El Arte Gráfico</title>
 <meta name="description" content="Academia de trading de El Arte Gráfico: aprende a leer el gráfico con lecciones, práctica en gráficas reales y comunidad.">
-<link rel="icon" href="assets/logo_mark.png">
-<meta property="og:title" content="El Arte Gráfico Academy"><meta property="og:image" content="assets/logo_circle.png">
-<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="icon" href="assets/logo_mark_96.png">
+<meta property="og:title" content="El Arte Gráfico Academy"><meta property="og:image" content="https://elartegrafico.com/assets/og.jpg">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@600;700;800&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap">
 <link rel="stylesheet" href="styles.css">
 <link rel="manifest" href="/manifest.webmanifest">
@@ -19,20 +19,19 @@
 </head><body>
 <div id="localbar"></div>
 <header class="top"><div class="wrap">
-  <a class="brand" href="#inicio"><img id="logoMark" alt="El Arte Gráfico" src="assets/logo_mark.png"><span><b id="brandName">EL ARTE GRÁFICO</b><small id="brandSub">ACADEMY</small></span></a>
+  <a class="brand" href="#inicio"><img id="logoMark" alt="El Arte Gráfico" src="assets/logo_mark.webp" width="42" height="42"><span><b id="brandName">EL ARTE GRÁFICO</b><small id="brandSub">ACADEMY</small></span></a>
   <button class="theme-btn" id="themeBtn" type="button" aria-label="Cambiar a modo claro" title="Modo claro / oscuro"><svg class="i-sun" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M5.3 18.7l1.6-1.6M17.1 6.9l1.6-1.6"/></svg><svg class="i-moon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg></button>
   <button class="menu-btn" id="menuBtn" aria-label="Abrir menú" aria-expanded="false">Menú</button>
   <nav class="main" id="nav"></nav>
 </div></header>
-<main class="wrap"><div id="app" class="view"></div></main>
+<main class="wrap"><div id="app" class="view"><div class="boot-sk" aria-label="Cargando"><i></i><i></i><i></i></div></div></main>
 <footer><div class="wrap" id="foot"></div></footer>
 <script src="config.js"></script>
-<script src="js/seed.js"></script>
+<script>if(!(window.AG_CONFIG&&window.AG_CONFIG.SUPABASE_URL))document.write('<script src="js/seed.js"><\/script>')</script>
 <script src="js/chart.js"></script>
 <script src="js/api.js"></script>
 <script src="js/legal.js"></script>
 <script src="js/app.js"></script>
 <script src="js/player.js"></script>
-<script src="js/admin.js"></script>
 <script>window.AGBOOT()</script>
 </body></html>
