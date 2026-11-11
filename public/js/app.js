@@ -776,11 +776,11 @@ function installHelp(){const ios=isIOS();
   document.body.appendChild(m);const close=()=>m.remove();m.onclick=e=>{if(e.target===m||e.target.hasAttribute("data-close"))close()}}
 async function installApp(){if(PWA.evt){PWA.evt.prompt();try{await PWA.evt.userChoice}catch(e){}PWA.evt=null;return}installHelp()}
 /* tarjeta "instala la app / activa notificaciones" (se puede cerrar) */
-async function appCard(host){if(!host||!logged())return;let hid=false;try{hid=localStorage.getItem("ag_appcard_off")==="1"}catch(e){}if(hid)return;
-  const ps=await pushState();const inst=isStandalone();if(inst&&(ps==="on"||ps==="denied"||ps==="unsupported"))return;
-  host.innerHTML=`<div class="appcard"><img src="assets/icon-192.png" alt="" width="52" height="52"><div class="t"><b>${inst?"Activa las notificaciones":"Lleva El Arte Gráfico en tu celular"}</b><span class="muted">${inst?"Te avisamos cuando salga un módulo nuevo, una clase en vivo o una publicación importante.":"Instala la app y activa las notificaciones para enterarte de módulos nuevos, clases en vivo y avisos."}</span></div>
-    <div class="row">${inst?"":`<button class="btn sm gold" data-ac="inst">Instalar app</button>`}${ps==="off"||ps==="ios-install"?`<button class="btn sm${inst?" gold":""}" data-ac="push">Activar notificaciones</button>`:""}<button class="btn sm ghost" data-ac="x" aria-label="Cerrar">✕</button></div></div>`;
-  $("[data-ac=x]",host).onclick=()=>{try{localStorage.setItem("ag_appcard_off","1")}catch(e){}host.innerHTML=""};
+/* se muestra hasta que el alumno tenga las notificaciones activas (no se puede cerrar) */
+async function appCard(host){if(!host||!logged())return;
+  const ps=await pushState();const inst=isStandalone();if(ps==="on"||(inst&&ps==="unsupported"))return;
+  host.innerHTML=`<div class="appcard"><img src="assets/icon-192.png" alt="" width="52" height="52"><div class="t"><b>${inst?"Activa las notificaciones":"Lleva El Arte Gráfico en tu celular"}</b><span class="muted">${ps==="denied"?"Las notificaciones están bloqueadas: permite las notificaciones de este sitio en los ajustes del navegador (el candado junto a la dirección) y recarga la página.":inst?"Te avisamos cuando salga un módulo nuevo, una clase en vivo o una publicación importante.":"Instala la app y activa las notificaciones para enterarte de módulos nuevos, clases en vivo y avisos."}</span></div>
+    <div class="row">${inst?"":`<button class="btn sm gold" data-ac="inst">Instalar app</button>`}${ps==="off"||ps==="ios-install"?`<button class="btn sm${inst?" gold":""}" data-ac="push">Activar notificaciones</button>`:""} </div></div>`;
   const i=$("[data-ac=inst]",host);if(i)i.onclick=installApp;const pb=$("[data-ac=push]",host);if(pb)pb.onclick=async()=>{if(await enablePush())appCard(host)}}
 /* sección en Mi cuenta */
 async function appSettings(host){if(!host)return;const ps=await pushState();const inst=isStandalone();
