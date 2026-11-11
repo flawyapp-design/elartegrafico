@@ -523,6 +523,16 @@ const affTag=()=>'<span class="aff-tag" title="Afiliado verificado de Deriv"><sv
 const ptsUsd=p=>{const r=Math.max(1,+RW().ptsPerUsd||100);return (p/r).toLocaleString("es-CO",{style:"currency",currency:"USD",minimumFractionDigits:2})};
 const KIND={opcion:"Cuestionario",tendencia:"¿Sube o baja?",zona:"Marca la zona"};
 function leftTxt(t){const ms=new Date(t)-Date.now();if(ms<=0)return"cerrado";const h=Math.floor(ms/36e5),m=Math.floor(ms%36e5/6e4);return h>=24?`cierra en ${Math.floor(h/24)} d ${h%24} h`:h?`cierra en ${h} h ${m} min`:`cierra en ${m} min`}
+/* contador en vivo de los retos */
+function cdFmt(ms){if(ms<=0)return"0:00:00";const s=Math.floor(ms/1e3),h=Math.floor(s/3600),m=Math.floor(s%3600/60),x=s%60;return(h>=24?`${Math.floor(h/24)} d ${h%24}`:h)+":"+String(m).padStart(2,"0")+":"+String(x).padStart(2,"0")}
+const cdHtml=t=>`<span class="cd mono" data-cd="${esc(new Date(t).toISOString())}">${cdFmt(new Date(t)-Date.now())}</span>`;
+const hhmm=t=>{const d=new Date(t),sameDay=d.toDateString()===new Date().toDateString();return d.toLocaleString("es-CO",sameDay?{hour:"numeric",minute:"2-digit"}:{weekday:"short",hour:"numeric",minute:"2-digit"})};
+setInterval(()=>{document.querySelectorAll("[data-cd]").forEach(el=>{const ms=new Date(el.dataset.cd)-Date.now();el.textContent=cdFmt(ms);if(ms<=0&&!el.dataset.done){el.dataset.done="1";if(/^#retos?(-|$)/.test(location.hash))setTimeout(()=>route(true),2000)}})},1000);
+/* al cerrar un reto que jugaste, te mostramos tu resultado una sola vez */
+function revealPop(c){if(!c||!c.closed||!c.answered)return false;const k="ag_rv_"+c.id;try{if(localStorage.getItem(k))return false;localStorage.setItem(k,"1")}catch(e){return false}
+  if(c.my_place)pop({icon:"trophy",kicker:`¡Ganaste! · Puesto #${c.my_place}`,title:`+${c.my_points} puntos`,text:`Quedaste entre los ${c.max_winners} primeros en “${c.title}”.`,confetti:true,ms:5500});
+  else if(c.my_correct)pop({icon:"check",tone:"blue",kicker:"Acertaste",title:"Pero otros llegaron primero",text:"Los cupos se los llevaron los más rápidos. ¡En el próximo responde antes!"});
+  else pop({icon:"x",tone:"red",kicker:"Resultado del reto",title:"Esta vez no era",text:"Mira la respuesta y la explicación, y vuelve por el próximo reto."});return true}
 /* bloque publicitario: El Arte Gráfico te paga por participar */
 function promoBlock(){if(!rewardsOn()&&!RW().teaser)return"";const on=rewardsOn(),c=RW();
   return `<section class="promo"><div class="promo-t"><span class="eyebrow">${on?"Retos diarios · Gana dinero":"Muy pronto"}</span><h2>El Arte Gráfico te paga por participar</h2>
@@ -533,18 +543,20 @@ function promoBlock(){if(!rewardsOn()&&!RW().teaser)return"";const on=rewardsOn(
 /* lista de retos */
 ROUTES.retos=async()=>{
   if(!rewardsOn()&&!admin()){app.innerHTML=`<div class="pagehead"><span class="eyebrow">Retos diarios</span><h1>Muy pronto</h1><p class="muted">Estamos preparando los retos diarios con premios. Te avisaremos por las notificaciones y la comunidad.</p></div>${promoBlock()}`;return}
-  app.innerHTML=`<div class="pagehead"><span class="eyebrow">Retos diarios</span><h1>Juega, acierta y gana</h1><p class="muted">Los primeros ${5} que aciertan cada reto ganan puntos. Los afiliados verificados de Deriv reciben los puntos completos; el resto, la mitad. <a href="${toMain("legal-retos")}">Bases de los retos</a></p></div>
+  app.innerHTML=`<div class="pagehead"><span class="eyebrow">Retos diarios</span><h1>Juega, acierta y gana</h1><p class="muted">Cada reto dura <b>${RW().revealHours||3} horas</b>. Nadie sabe si ganó hasta el final: al cerrar se revelan la respuesta y los primeros ${5} que acertaron, que ganan puntos. Los afiliados verificados de Deriv reciben los puntos completos; el resto, la mitad. <a href="${toMain("legal-retos")}">Bases de los retos</a></p></div>
     ${admin()&&!rewardsOn()?'<div class="note admin-note">Los retos están apagados para los alumnos. Actívalos en Administración → Retos y puntos → Ajustes.</div>':""}
     <div id="myPts"></div><section class="sec"><div class="sec-h"><h2>Abiertos ahora</h2><a href="#ranking">Ver ranking</a></div><div id="rtOpen" class="rt-grid"><div class="muted">Cargando…</div></div></section>
     <section class="sec"><div class="sec-h"><h2>Retos anteriores</h2></div><div id="rtPast" class="rt-list"></div></section>`;
   ptsCard($("#myPts"));
   let L=[];try{L=await API.challengesFeed()}catch(e){$("#rtOpen").innerHTML=`<div class="empty">No se pudieron cargar los retos.</div>`;return}
-  const card=c=>{const lib=c.max_winners-c.winners;return `<a class="rt-card${c.answered?" done":""}${c.closed?" closed":""}${c.weekly?" weekly":""}" href="#reto-${esc(c.id)}">
+  const card=c=>{return `<a class="rt-card${c.answered?" done":""}${c.closed?" closed":""}${c.weekly?" weekly":""}" href="#reto-${esc(c.id)}">
     ${c.weekly?`<span class="rt-wk">${ico2("crown",14)}Reto semanal</span>`:""}<div class="rt-top"><span class="rt-k">${ico(c.kind==="opcion"?"msg":c.kind==="tendencia"?"chart":"layers",16)}${KIND[c.kind]}</span><span class="rt-pts">+${c.points} pts</span></div>
     <b class="rt-t">${esc(c.title)}</b>
-    <div class="rt-cupos">${Array.from({length:c.max_winners},(_,i)=>`<i class="${i<c.winners?"on":""}"></i>`).join("")}<span>${c.closed?"Cerrado":`${lib} de ${c.max_winners} cupos`}</span></div>
-    <div class="rt-bot"><span class="dim">${c.closed?fmtDate(c.starts_at):leftTxt(c.ends_at)}</span>${c.answered?(c.my_place?`<span class="pill ok">Ganaste · +${c.my_points}</span>`:c.my_correct?'<span class="pill">Acertaste sin cupo</span>':'<span class="pill">Fallaste</span>'):c.closed?'<span class="pill">Ver respuesta</span>':'<span class="btn sm gold">Jugar</span>'}</div></a>`};
+    ${c.closed?`<div class="rt-cupos">${Array.from({length:c.max_winners},(_,i)=>`<i class="${i<(c.winners||0)?"on":""}"></i>`).join("")}<span>Cerrado · ${c.winners||0} ganador${c.winners===1?"":"es"}</span></div>`
+      :`<div class="rt-cdl"><span>⏳ Resultados en</span>${cdHtml(c.ends_at)}</div>`}
+    <div class="rt-bot"><span class="dim">${c.closed?fmtDate(c.starts_at):`${c.players?`👥 ${c.players} ${c.players===1?"respondió":"respondieron"} · `:""}Top ${c.max_winners} gana`}</span>${c.answered&&!c.closed?'<span class="pill">✓ Enviada · en suspenso</span>':c.answered?(c.my_place?`<span class="pill ok">Ganaste · +${c.my_points}</span>`:c.my_correct?'<span class="pill">Acertaste sin cupo</span>':'<span class="pill">Fallaste</span>'):c.closed?'<span class="pill">Ver respuesta</span>':'<span class="btn sm gold">Jugar</span>'}</div></a>`};
   const open=L.filter(c=>!c.closed),past=L.filter(c=>c.closed);
+  {const nv=past.filter(c=>c.answered).sort((a,b)=>new Date(b.ends_at)-new Date(a.ends_at));for(const c of nv)if(revealPop(c))break}
   $("#rtOpen").innerHTML=open.map(card).join("")||'<div class="empty">No hay retos abiertos en este momento. El próximo sale pronto: activa las notificaciones para enterarte primero.</div>';
   {const ps=past.slice().sort((a,b)=>new Date(b.starts_at)-new Date(a.starts_at));let n=5;const drawP=()=>{$("#rtPast").innerHTML=ps.slice(0,n).map(card).join("")||'<div class="muted">Aún no hay retos anteriores.</div>';
     if(ps.length>n)$("#rtPast").insertAdjacentHTML("beforeend",`<div class="rt-more-b"><button type="button" class="btn sm ghost" id="rtMore">Ver ${Math.min(5,ps.length-n)} más (${ps.length-n} restantes)</button></div>`);const mb=$("#rtMore");if(mb)mb.onclick=()=>{n+=5;drawP()}};drawP()}
@@ -563,7 +575,8 @@ ROUTES.reto=async id=>{
   const opts=(c.options&&c.options.length?c.options:(c.kind==="tendencia"?["Sube","Baja"]:[]));const can=!c.closed&&!c.answered&&logged()&&rewardsOn();
   app.innerHTML=`<div class="crumbs"><a href="#retos">Retos</a><span>/</span><span>${esc(c.title)}</span></div>
     <div class="rt-head"><div><span class="eyebrow">${c.weekly?"Reto semanal · ":""}${KIND[c.kind]} · +${c.points} pts${API.profile()&&!API.profile().affiliate?` (tú: +${Math.ceil(c.points/2)})`:""}</span><h1>${esc(c.title)}</h1>${c.question?`<p class="muted">${esc(c.question)}</p>`:""}</div>
-      <div class="rt-meta"><div class="rt-cupos big">${Array.from({length:c.max_winners},(_,i)=>`<i class="${i<c.winners?"on":""}"></i>`).join("")}</div><span>${c.closed?"Reto cerrado":`${c.max_winners-c.winners} de ${c.max_winners} cupos · ${leftTxt(c.ends_at)}`}</span></div></div>
+      ${c.closed?`<div class="rt-meta"><div class="rt-cupos big">${Array.from({length:c.max_winners},(_,i)=>`<i class="${i<(c.winners||0)?"on":""}"></i>`).join("")}</div><span>Reto cerrado · ${c.winners||0} ganador${c.winners===1?"":"es"}</span></div>`
+        :`<div class="rt-meta rt-cdbox"><span>Resultados en</span><b>${cdHtml(c.ends_at)}</b><small>a las ${esc(hhmm(c.ends_at))} · top ${c.max_winners} gana${c.players?` · 👥 ${c.players}`:""}</small></div>`}</div>
     ${!logged()?`<div class="rk-cta"><div><b>Ingresa para jugar</b><span class="muted">Crea tu cuenta gratis y participa en los retos diarios.</span></div><a class="btn gold" href="#registro">Crear cuenta</a></div>`:!rewardsOn()?'<div class="note admin-note">Vista de admin: los retos están apagados para los alumnos.</div>':""}
     <div class="rt-play panel">${c.image_url?`<img class="rt-img" src="${esc(c.image_url)}" alt="">`:""}${c.kind!=="opcion"?`<div class="chartbox rt-chart"><div class="cv" style="position:absolute;inset:0"></div><div class="chint">${c.kind==="zona"?"Toca la gráfica donde está tu zona":"Así iba el precio · ¿qué pasa después?"}</div></div>`:""}
       ${c.kind==="zona"?`<div class="row rt-zbar"><span id="rzv" class="muted">${can?"Toca la gráfica para poner tu zona":""}</span><button class="btn gold" id="rzOk" disabled ${can?"":"hidden"}>Enviar mi zona</button></div>`
@@ -571,14 +584,16 @@ ROUTES.reto=async id=>{
       <div id="rtRes"></div></div>
     <section class="sec"><div class="sec-h"><h2>Ganadores</h2></div><div id="rtWin" class="muted">Cargando…</div></section>`;
   const res=$("#rtRes");
+  const wait=()=>{res.innerHTML=`<div class="result rt-susp"><b class="big">✓ Respuesta enviada</b><div>Nadie sabe todavía si ganó. A las <b>${esc(hhmm(c.ends_at))}</b> se revelan la respuesta correcta y los ${c.max_winners} primeros que acertaron.</div><div class="rt-cdl">⏳ ${cdHtml(c.ends_at)}</div></div>`};
   const show=(r,mine)=>{if(r.reason==="cuenta_nueva"){res.innerHTML=`<div class="result"><b class="big">Respuesta registrada</b><div>Tu cuenta se creó después de que salió este reto, así que este no suma puntos. Desde el próximo reto ya compites por los premios. <a href="${toMain("legal-retos")}">Ver bases</a></div></div>`;return}res.innerHTML=r.correct?(r.place?`<div class="result ok"><b class="big">¡Acertaste! Puesto #${r.place} · +${r.points} puntos</b>${!r.affiliate&&r.points<r.full_points?`<div>Como no eres afiliado verificado recibiste la mitad. <a href="#puntos-afiliado">Verifícate y gana los ${r.full_points} completos</a>.</div>`:""}</div>`
       :`<div class="result"><b class="big">Acertaste, pero ya se llenaron los ${c.max_winners} cupos</b><div>Sé de los primeros en el próximo reto. Activa las notificaciones para enterarte apenas salga.</div></div>`)
       :`<div class="result bad"><b class="big">No era esa</b><div>Mañana hay otro reto. ¡Sigue practicando en la academia!</div></div>`};
-  if(c.answered)show({correct:c.my_correct,place:c.my_place,points:c.my_points,affiliate:(API.profile()||{}).affiliate,full_points:c.points});
+  if(c.answered&&!c.closed)wait();else if(c.answered)show({correct:c.my_correct,place:c.my_place,points:c.my_points,affiliate:(API.profile()||{}).affiliate,full_points:c.points});
   if(c.explain)res.insertAdjacentHTML("beforeend",`<div class="note" style="margin-top:12px"><b>Explicación:</b> ${esc(c.explain)}</div>`);
-  if(c.answered&&!c.closed)res.insertAdjacentHTML("beforeend",`<div class="rt-wait">🔒 La respuesta correcta y la explicación se muestran cuando cierre el reto (${leftTxt(c.ends_at)}).</div>`);
-  const send=async ans=>{try{const r=await API.submitChallenge(c.id,ans);show(r);
+  if(c.closed)revealPop(c);
+  const send=async ans=>{try{const r=await API.submitChallenge(c.id,ans);if(r.reason==="cuenta_nueva")show(r);else if(r.received)wait();else show(r);
     if(r.reason==="cuenta_nueva")pop({icon:"check",tone:"blue",kicker:"Respuesta registrada",title:"Desde el próximo reto ya sumas",text:"Las cuentas creadas después de publicado un reto juegan, pero no suman en ese reto."});
+    else if(r.received)pop({icon:"check",tone:"blue",kicker:"Respuesta enviada",title:`Resultados a las ${hhmm(r.reveal_at||c.ends_at)}`,text:`Ahí sabrás si quedaste entre los ${c.max_winners} primeros. ¡Suerte!`,ms:4500});
     else if(r.correct&&r.place)pop({icon:"trophy",kicker:`¡Acertaste! · Puesto #${r.place}`,title:`+${r.points} puntos`,text:!r.affiliate&&r.points<r.full_points?`Verifícate como afiliado y gana los ${r.full_points} completos.`:"Quedaste entre los ganadores del reto.",confetti:true,ms:5000});
     else if(r.correct)pop({icon:"check",tone:"blue",kicker:"Acertaste",title:"Pero ya se llenaron los cupos",text:"Activa las notificaciones y sé de los primeros mañana."});
     else pop({icon:"x",tone:"red",kicker:"No era esa",title:"Mañana hay otro reto",text:"Mira la explicación cuando cierre y sigue practicando."});setTimeout(()=>ROUTES.reto(c.id),1800)}catch(x){toast(x.message)}};
@@ -600,7 +615,7 @@ ROUTES.reto=async id=>{
           C.onLineDrag((l,p)=>{if(l===ln){mine=p;$("#rzv").textContent="Tu zona: "+p.toFixed(H.dec)}});
           $("#rzOk").onclick=()=>{if(mine==null)return;$("#rzOk").disabled=true;send({price:+mine.toFixed(H.dec)})}}}
     }catch(e){const b=$(".rt-chart");if(b)b.innerHTML='<div class="empty">No se pudo cargar la gráfica.</div>'}}
-  API.challengeWinners(c.id).then(w=>{const h=$("#rtWin");if(!h)return;h.innerHTML=w.length?`<div class="win-list">${w.map(x=>`<div class="win"><span class="win-p">${x.place<=3?["🥇","🥈","🥉"][x.place-1]:"#"+x.place}</span>${avatar(x,34)}<b>${esc(x.username)}</b>${flag(x.country)}${x.affiliate?affTag():""}${x.premium?premTag():""}<span class="mono win-pt">+${x.points}</span></div>`).join("")}</div>`:'<div class="muted">Todavía nadie gana este reto. ¡Puedes ser el primero!</div>'}).catch(()=>{});
+  if(!c.closed){const h=$("#rtWin");if(h)h.innerHTML=`<div class="muted">Los ganadores se revelan a las <b>${esc(hhmm(c.ends_at))}</b>.</div>`}else API.challengeWinners(c.id).then(w=>{const h=$("#rtWin");if(!h)return;h.innerHTML=w.length?`<div class="win-list">${w.map(x=>`<div class="win"><span class="win-p">${x.place<=3?["🥇","🥈","🥉"][x.place-1]:"#"+x.place}</span>${avatar(x,34)}<b>${esc(x.username)}</b>${flag(x.country)}${x.affiliate?affTag():""}${x.premium?premTag():""}<span class="mono win-pt">+${x.points}</span></div>`).join("")}</div>`:'<div class="muted">Todavía nadie gana este reto. ¡Puedes ser el primero!</div>'}).catch(()=>{});
 };
 /* ---------- 👑 Sala Oro: lives privados, operativas y ruleta diaria ---------- */
 const WHEEL=[["+50 XP","#2a3f7a"],["+100 XP","#1a2c66"],["Medalla","#7a5a12"],["+250 XP","#2a3f7a"],["+500 XP","#1a2c66"],["+1 día","#14935f"]];

@@ -397,17 +397,17 @@ async function pagos(){
 /* ---------- RETOS Y PUNTOS ---------- */
 const toLoc=d=>d?new Date(new Date(d).getTime()-5*3600e3).toISOString().slice(0,16):"";       // hora de Colombia
 const fromLoc=v=>v?new Date(v+":00-05:00").toISOString():null;
-const RWc=()=>Object.assign({enabled:true,teaser:false,ptsPerUsd:100,minRedeem:500,redeemOpen:false,halfIfNotAffiliate:true},(S.site||{}).rewards||{});
+const RWc=()=>Object.assign({revealHours:3,enabled:true,teaser:false,ptsPerUsd:100,minRedeem:500,redeemOpen:false,halfIfNotAffiliate:true},(S.site||{}).rewards||{});
 const KNAME={opcion:"Cuestionario",tendencia:"¿Sube o baja?",zona:"Marca la zona"};
 async function retos(){
   let list=[];try{list=await API.adminChallenges()}catch(e){H().innerHTML=`<div class="empty">No se pudieron cargar los retos. ¿Ya corriste <b>supabase/retos.sql</b> en Supabase?<span class="dim">${esc(e.message)}</span></div>`;return}
-  const c=RWc(),t=Date.now();
-  const est=x=>x.status!=="publicado"?'<span class="tag">Borrador</span>':new Date(x.starts_at)>t?'<span class="tag">Programado</span>':new Date(x.ends_at)<=t?'<span class="tag">Cerrado</span>':'<span class="tag pub">En juego</span>';
+  const c=RWc(),t=Date.now();const RH=()=>Math.max(.25,+RWc().revealHours||3),closeOf=x=>x.weekly?new Date(x.ends_at):new Date(new Date(x.starts_at).getTime()+RH()*36e5);
+  const est=x=>x.status!=="publicado"?'<span class="tag">Borrador</span>':new Date(x.starts_at)>t?'<span class="tag">Programado</span>':closeOf(x)<=t?'<span class="tag">Cerrado</span>':'<span class="tag pub">En juego</span>';
   H().innerHTML=`${c.enabled?"":`<div class="note admin-note">Los retos están <b>apagados</b> para los alumnos. Puedes crearlos y probarlos; actívalos en <a href="#admin-rpuntos">Ajustes de puntos</a>.</div>`}
     <div class="split"><div class="panel"><div class="sec-h"><h3>Retos</h3><button class="btn sm gold" id="nr">Nuevo reto</button></div>
       ${(()=>{const row=x=>`<button class="item" data-r="${esc(x.id)}" style="text-align:left;cursor:pointer"><span class="txt"><b>${esc(x.title)}</b><span>${x.weekly?"⭐ Semanal · ":""}${KNAME[x.kind]} · ${fmtDT(x.starts_at)}</span></span>${est(x)}</button>`;
-        const pub=list.filter(x=>x.status==="publicado"),live=pub.filter(x=>new Date(x.starts_at)<=t&&new Date(x.ends_at)>t),next=pub.filter(x=>new Date(x.starts_at)>t).sort((a,b)=>new Date(a.starts_at)-new Date(b.starts_at)),
-          drafts=list.filter(x=>x.status!=="publicado").sort((a,b)=>new Date(a.starts_at)-new Date(b.starts_at)),done=pub.filter(x=>new Date(x.ends_at)<=t).sort((a,b)=>new Date(b.starts_at)-new Date(a.starts_at));
+        const pub=list.filter(x=>x.status==="publicado"),live=pub.filter(x=>new Date(x.starts_at)<=t&&closeOf(x)>t),next=pub.filter(x=>new Date(x.starts_at)>t).sort((a,b)=>new Date(a.starts_at)-new Date(b.starts_at)),
+          drafts=list.filter(x=>x.status!=="publicado").sort((a,b)=>new Date(a.starts_at)-new Date(b.starts_at)),done=pub.filter(x=>closeOf(x)<=t).sort((a,b)=>new Date(b.starts_at)-new Date(a.starts_at));
         const grp=(t2,L,n,id)=>L.length?`<h4 class="rt-gh">${t2} <span class="dim">(${L.length})</span></h4><div class="list" data-nopage>${L.slice(0,n).map(row).join("")}</div>${L.length>n?`<details class="rt-more" id="${id}"><summary class="btn sm ghost">Ver ${L.length-n} más</summary><div class="list" data-nopage>${L.slice(n).map(row).join("")}</div></details>`:""}`:"";
         return list.length?grp("🟢 En juego",live,10,"rmL")+grp("⏭️ Próximos",next,5,"rmN")+grp("📝 Borradores",drafts,5,"rmD")+grp("✔️ Cerrados",done,3,"rmC"):'<div class="muted">Aún no hay retos. Crea el primero.</div>'})()}</div>
       <div class="panel" id="re"><div class="muted">Elige un reto o crea uno nuevo.</div></div></div>`;
@@ -422,13 +422,16 @@ async function retos(){
       <div id="rBody"></div>
       <label for="rX">Explicación (se muestra cuando el reto cierra)<textarea id="rX" maxlength="600" style="min-height:60px" placeholder="Por qué esa era la respuesta correcta">${esc(k.explain||"")}</textarea></label>
       <div class="three"><label for="rP">Puntos (afiliados)<input id="rP" type="number" min="1" value="${x.points||100}"></label><label for="rW">Ganadores (cupos)<input id="rW" type="number" min="1" max="100" value="${x.max_winners||5}"></label><label>Sin afiliado<b class="mono" id="rHalf" style="font-size:20px"></b></label></div>
-      <div class="two"><label for="rA">Se publica (hora Colombia)<input id="rA" type="datetime-local" value="${toLoc(x.starts_at)}"></label><label for="rZ">Cierra<input id="rZ" type="datetime-local" value="${toLoc(x.ends_at)}"></label></div>
+      <div class="two"><label for="rA">Se publica (hora Colombia)<input id="rA" type="datetime-local" value="${toLoc(x.starts_at)}"></label><label for="rZ" id="rZw">Cierra (solo retos semanales)<input id="rZ" type="datetime-local" value="${toLoc(x.ends_at)}"></label><div id="rZi" class="rt-autoclose"></div></div>
       <label class="chk"><input type="checkbox" id="rWk" ${x.weekly?"checked":""}> <b>Reto semanal</b>: sale destacado arriba con corona (sugerido: 300 puntos y 10 ganadores)</label>
-      <label class="chk"><input type="checkbox" id="rN" ${x.id?"":"checked"}> Avisar a todos con una notificación al guardar (si está publicado)</label>
+      <label class="chk"><input type="checkbox" id="rN" ${x.notify!==false&&!x.notified_at?"checked":""}> Enviar notificación a todos <b>cuando se publique</b> (a la hora programada)${x.notified_at?` <span class="dim">· ya se avisó el ${fmtDT(x.notified_at)}</span>`:""}</label>
       <div class="row"><button class="btn gold" id="rSv">Guardar reto</button>${x.id?`<span id="rDel"><button type="button" class="btn sm bad" id="rDb">Eliminar</button></span>`:""}</div></form>
       ${x.id?`<div class="sec-h" style="margin-top:18px"><h3>Respuestas</h3></div><div id="rEn" class="muted">Cargando…</div>`:""}`;
     $("#rK").value=x.kind||"opcion";
-    $("#rWk").onchange=()=>{if($("#rWk").checked){if((+$("#rP").value||0)<=100)$("#rP").value=300;if((+$("#rW").value||0)<=5)$("#rW").value=10;$("#rP").oninput&&$("#rP").oninput()}};$("#rS").value=x.status||"borrador";
+    const zi=()=>{const wk=$("#rWk").checked;$("#rZw").hidden=wk?false:true;const st=fromLoc($("#rA").value);$("#rZi").hidden=wk;
+      $("#rZi").innerHTML=`<span class="dim">Cierra solo</span><b>${RH()} h después</b><span class="dim">${st?"a las "+fmtDT(new Date(new Date(st).getTime()+RH()*36e5).toISOString()):""} · ahí se revelan los ganadores</span>`};
+    $("#rA").addEventListener("input",zi);zi();
+    $("#rWk").onchange=()=>{zi();if($("#rWk").checked){if((+$("#rP").value||0)<=100)$("#rP").value=300;if((+$("#rW").value||0)<=5)$("#rW").value=10;$("#rP").oninput&&$("#rP").oninput()}};$("#rS").value=x.status||"borrador";
     const half=()=>$("#rHalf").textContent=(RWc().halfIfNotAffiliate?Math.ceil((+$("#rP").value||0)/2):(+$("#rP").value||0))+" pts";$("#rP").oninput=half;half();
     let OFF=x.bars?(+x.off||0):null,cur=null;let zone=k.zone!=null?+(k.zone+(x.bars?(+x.off||0):0)).toFixed(x.decimals||3):null,img=x.image_url||"";
     const SHf=t=>{const st=fromLoc($("#rA").value)||new Date().toISOString();return Math.floor(new Date(st).getTime()/36e5)*3600-3600-t};
@@ -460,6 +463,8 @@ async function retos(){
     $("#rf").onsubmit=async e=>{e.preventDefault();const kind=$("#rK").value;
       const o={title:$("#rT").value.trim()||"Reto del día",kind,question:$("#rQ").value.trim(),status:$("#rS").value,points:Math.max(1,+$("#rP").value||100),max_winners:Math.max(1,Math.min(100,+$("#rW").value||5)),
         starts_at:fromLoc($("#rA").value)||new Date().toISOString(),ends_at:fromLoc($("#rZ").value)||new Date(Date.now()+864e5).toISOString(),options:[],market:"",chart_t:null,side:"buy",image_url:""};if($("#rWk").checked||x.weekly)o.weekly=$("#rWk").checked;
+      if(!$("#rWk").checked)o.ends_at=new Date(new Date(o.starts_at).getTime()+RH()*36e5).toISOString();
+      o.notify=$("#rN").checked;const nowPush=o.notify&&o.status==="publicado"&&!x.notified_at&&new Date(o.starts_at)<=new Date();if(nowPush)o.notified_at=new Date().toISOString();
       if(x.id)o.id=x.id;const key={correct:null,zone:null,tol:null,explain:$("#rX").value.trim()};
       if(new Date(o.ends_at)<=new Date(o.starts_at)){toast("La hora de cierre debe ser después de la de publicación");return}
       if(kind!=="zona"){o.options=$("#rO").value.split("\n").map(s=>s.trim()).filter(Boolean);if(o.options.length<2){toast("Pon al menos 2 opciones");return}key.correct=+$("#rCo").value}
@@ -471,7 +476,8 @@ async function retos(){
       else{o.bars=null;o.after_bars=null;o.off=0}
       if(kind==="zona"){key.zone=$("#rZo").value===""?null:+(+$("#rZo").value-(OFF||0)).toFixed(cur?cur.Hh.dec:3);key.tol=$("#rTo").value===""?null:+$("#rTo").value;if(key.zone==null||!key.tol){toast("Marca la zona correcta y el margen");return}}
       try{busy($("#rSv"),true);const saved=await API.saveChallenge(o,key);toast("Reto guardado");
-        if($("#rN").checked&&o.status==="publicado"&&API.sendPush){try{await API.sendPush({title:"🎯 Nuevo reto: "+o.title.slice(0,60),body:`Los primeros ${o.max_winners} en acertar ganan ${o.points} puntos. ¡Corre!`,url:A.absUrl("main","reto-"+saved.id),audience:"todos",tag:"reto-"+saved.id});toast("Notificación enviada")}catch(x){toast("Guardado, pero la notificación falló: "+x.message)}}
+        if(nowPush&&API.sendPush){try{await API.sendPush({title:"🎯 Nuevo reto: "+o.title.slice(0,60),body:`Tienes ${o.weekly?"hasta el cierre":RH()+" horas"} para responder. Los primeros ${o.max_winners} en acertar ganan ${o.points} puntos.`,url:A.absUrl("main","reto-"+saved.id),audience:"todos",tag:"reto-"+saved.id});toast("Notificación enviada")}catch(x){toast("Guardado, pero la notificación falló: "+x.message)}}
+        else if(o.notify&&o.status==="publicado"&&!x.notified_at)toast("La notificación sale sola a la hora de publicación");
         retos()}catch(x){toast(x.message)}finally{const b=$("#rSv");if(b)busy(b,false)}};
   }
 }
@@ -532,18 +538,20 @@ function rpuntos(){const c=RWc();
     <label class="chk"><input type="checkbox" id="wE" ${c.enabled?"checked":""}> <b>Activar retos y puntos</b> (los alumnos pueden jugar, ganar puntos y ver el ranking)</label>
     <label class="chk"><input type="checkbox" id="wTz" ${c.teaser?"checked":""}> Mostrar el anuncio “Muy pronto: El Arte Gráfico te paga por participar” aunque estén apagados</label>
     <label class="chk"><input type="checkbox" id="wH" ${c.halfIfNotAffiliate!==false?"checked":""}> Quien no es afiliado verificado gana la mitad de los puntos</label>
+    <div class="two"><label for="wRh">Horas que dura cada reto diario<input id="wRh" type="number" min="0.25" max="48" step="0.25" value="${c.revealHours}"></label><div class="muted" style="align-self:end;font-size:13px">Todos pueden responder durante ese tiempo. Al cerrar se revelan la respuesta, los ganadores y los puntos.</div></div>
+    <label class="chk"><input type="checkbox" id="wPr" ${c.pushResults!==false?"checked":""}> Enviar también una notificación cuando se revelen los ganadores de cada reto</label>
     <div class="two"><label for="wB">Bono por racha de 7 días jugando (puntos, 0 = sin bono)<input id="wB" type="number" min="0" value="${c.streakBonus??50}"></label><div class="muted" style="align-self:end;font-size:13px">Se entrega cada 7 días seguidos jugando (acierte o no). Quien no es afiliado recibe la mitad.</div></div>
     <h3>Dinero y canjes</h3>
     <div class="three"><label for="wR">Puntos por 1 USD<input id="wR" type="number" min="1" value="${c.ptsPerUsd}"></label><label for="wM">Mínimo para canjear (puntos)<input id="wM" type="number" min="1" value="${c.minRedeem}"></label><label>Equivale a<b class="mono" id="wU" style="font-size:20px"></b></label></div>
     <label class="chk"><input type="checkbox" id="wO" ${c.redeemOpen?"checked":""}> Canjes abiertos ahora (también lo cambias desde <a href="#admin-canjes">Canjes</a>)</label>
     <div class="note" id="wCalc"></div>
     <h3>Cómo funciona</h3>
-    <ul class="checks"><li>Publicas un reto en <a href="#admin-retos">Retos diarios</a> y, si quieres, avisas con una notificación.</li><li>Los primeros que aciertan (5 por defecto) ganan puntos: afiliados el 100 %, el resto la mitad.</li><li>Cada mes abres los canjes, los alumnos piden su pago y tú lo marcas pagado en <a href="#admin-canjes">Canjes</a>.</li><li>Las solicitudes de afiliado (ID de Deriv) las apruebas en <a href="#admin-afiliados">Afiliados</a>.</li></ul>
+    <ul class="checks"><li>Programas un reto en <a href="#admin-retos">Retos diarios</a> con su hora de publicación: a esa hora sale y se envía la notificación.</li><li>Dura ${c.revealHours} horas. Nadie sabe si ganó hasta el cierre; ahí se revelan los primeros que acertaron (5 por defecto), que ganan puntos: afiliados el 100 %, el resto la mitad.</li><li>Cada mes abres los canjes, los alumnos piden su pago y tú lo marcas pagado en <a href="#admin-canjes">Canjes</a>.</li><li>Las solicitudes de afiliado (ID de Deriv) las apruebas en <a href="#admin-afiliados">Afiliados</a>.</li></ul>
     <div class="row"><button class="btn gold" id="wS">Guardar ajustes</button></div></form>`;
   const calc=()=>{const r=Math.max(1,+$("#wR").value||100),m=+$("#wM").value||0;$("#wU").textContent=(m/r).toLocaleString("es-CO",{style:"currency",currency:"USD"});
     $("#wCalc").innerHTML=`Con retos de 100 puntos y 5 ganadores al día, si todos fueran afiliados repartirías hasta <b>${(500*30/r).toLocaleString("es-CO",{style:"currency",currency:"USD"})}</b> al mes (la mitad si nadie es afiliado). Ajusta los puntos por USD a tu presupuesto.`};
   $("#wR").oninput=calc;$("#wM").oninput=calc;calc();groupForm($("#wf"));
-  $("#wf").onsubmit=async e=>{e.preventDefault();const ns=Object.assign({},S.site,{rewards:{enabled:$("#wE").checked,teaser:$("#wTz").checked,halfIfNotAffiliate:$("#wH").checked,ptsPerUsd:Math.max(1,+$("#wR").value||100),minRedeem:Math.max(1,+$("#wM").value||500),redeemOpen:$("#wO").checked,streakBonus:Math.max(0,+$("#wB").value||0)}});
+  $("#wf").onsubmit=async e=>{e.preventDefault();const ns=Object.assign({},S.site,{rewards:{pushResults:$("#wPr").checked,revealHours:Math.min(48,Math.max(.25,+$("#wRh").value||3)),enabled:$("#wE").checked,teaser:$("#wTz").checked,halfIfNotAffiliate:$("#wH").checked,ptsPerUsd:Math.max(1,+$("#wR").value||100),minRedeem:Math.max(1,+$("#wM").value||500),redeemOpen:$("#wO").checked,streakBonus:Math.max(0,+$("#wB").value||0)}});
     try{busy($("#wS"),true);await API.saveSite(ns);S.site=ns;A.applySite&&A.applySite();toast("Ajustes guardados")}catch(x){toast(x.message)}finally{busy($("#wS"),false)}};
 }
 /* ---------- reseñas de módulos ---------- */

@@ -29,12 +29,56 @@ async function vapid() {
   return again[0];
 }
 
+// envía a los suscritos (todos / premium / gratis) y limpia los que ya no existen
+async function sendAll(keys: any, aud: string, msg: Record<string, unknown>) {
+  webpush.setVapidDetails("mailto:soporte@elartegrafico.com", keys.public_key, keys.private_key);
+  const subs = await (await db("push_subs?select=endpoint,p256dh,auth,user_id,profiles!inner(premium_until,banned)&profiles.banned=is.false")).json();
+  const now = Date.now();
+  const list = (Array.isArray(subs) ? subs : []).filter((s: any) => {
+    const prem = s.profiles?.premium_until && new Date(s.profiles.premium_until).getTime() > now;
+    return aud === "todos" || (aud === "premium" ? prem : !prem);
+  });
+  const payload = JSON.stringify({ icon: "/assets/icon-192.png", badge: "/assets/badge-72.png", ...msg });
+  let sent = 0, failed = 0;
+  const gone: string[] = [];
+  await Promise.all(list.map(async (s: any) => {
+    try {
+      await webpush.sendNotification({ endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } }, payload, { TTL: 86400 });
+      sent++;
+    } catch (e: any) {
+      failed++;
+      if (e?.statusCode === 404 || e?.statusCode === 410) gone.push(s.endpoint);
+    }
+  }));
+  for (const ep of gone) await db(`push_subs?endpoint=eq.${encodeURIComponent(ep)}`, { method: "DELETE" });
+  return { sent, failed, removed: gone.length };
+}
+
+const hora = (t: string) => new Date(t).toLocaleTimeString("es-CO", { timeZone: "America/Bogota", hour: "numeric", minute: "2-digit" });
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   try {
     const body = await req.json().catch(() => ({}));
     const keys = await vapid();
     if (body.action === "setup") return json({ publicKey: keys.public_key });
+
+    // avisos automáticos de retos (los llama Supabase cada minuto con una clave secreta)
+    if (body.action === "cron") {
+      const sec = req.headers.get("x-cron-secret") || "";
+      const row = (await (await db("push_config?id=eq.1&select=cron_secret")).json())[0];
+      if (!sec || !row?.cron_secret || sec !== row.cron_secret) return json({ error: "No autorizado" }, 403);
+      const items = await (await db("rpc/reto_push_claim", { method: "POST", body: "{}" })).json();
+      let sent = 0;
+      for (const it of (Array.isArray(items) ? items : [])) {
+        const url = `https://elartegrafico.com/#reto-${it.id}`;
+        const msg = it.what === "nuevo"
+          ? { title: `🎯 Nuevo reto: ${String(it.title).slice(0, 60)}`, body: `Tienes hasta las ${hora(it.close_at)} para responder. Los primeros ${it.max_winners} en acertar ganan ${it.points} puntos.`, url, tag: `reto-${it.id}` }
+          : { title: `🏆 Ya salieron los ganadores`, body: `“${String(it.title).slice(0, 60)}”: entra y mira si quedaste entre los ${it.max_winners} primeros.`, url, tag: `reto-res-${it.id}` };
+        sent += (await sendAll(keys, "todos", msg)).sent;
+      }
+      return json({ items: Array.isArray(items) ? items.length : 0, sent });
+    }
 
     // ¿quién llama? debe ser admin
     const token = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "");
@@ -50,27 +94,8 @@ Deno.serve(async (req) => {
     const aud = ["todos", "premium", "gratis"].includes(body.audience) ? body.audience : "todos";
     if (!title) return json({ error: "Escribe un título" }, 400);
 
-    webpush.setVapidDetails("mailto:soporte@elartegrafico.com", keys.public_key, keys.private_key);
-    const subs = await (await db("push_subs?select=endpoint,p256dh,auth,user_id,profiles!inner(premium_until,banned)&profiles.banned=is.false")).json();
-    const now = Date.now();
-    const list = (Array.isArray(subs) ? subs : []).filter((s: any) => {
-      const prem = s.profiles?.premium_until && new Date(s.profiles.premium_until).getTime() > now;
-      return aud === "todos" || (aud === "premium" ? prem : !prem);
-    });
-    const payload = JSON.stringify({ title, body: text, url, icon: "/assets/icon-192.png", badge: "/assets/badge-72.png", tag: body.tag || undefined });
-    let sent = 0, failed = 0;
-    const gone: string[] = [];
-    await Promise.all(list.map(async (s: any) => {
-      try {
-        await webpush.sendNotification({ endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } }, payload, { TTL: 86400 });
-        sent++;
-      } catch (e: any) {
-        failed++;
-        if (e?.statusCode === 404 || e?.statusCode === 410) gone.push(s.endpoint);
-      }
-    }));
-    for (const ep of gone) await db(`push_subs?endpoint=eq.${encodeURIComponent(ep)}`, { method: "DELETE" });
-    return json({ sent, failed, removed: gone.length, audience: aud });
+    const r = await sendAll(keys, aud, { title, body: text, url, tag: body.tag || undefined });
+    return json({ ...r, audience: aud });
   } catch (e) {
     return json({ error: String((e as Error)?.message || e) }, 500);
   }
