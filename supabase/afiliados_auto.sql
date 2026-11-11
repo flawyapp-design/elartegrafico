@@ -21,7 +21,7 @@ begin
   if not public.is_admin() then raise exception 'solo admin'; end if;
   select coalesce(array_agg(distinct x), '{}') into ids
     from (select upper(regexp_replace(coalesce(v,''), '\s', '', 'g')) x from unnest(coalesce(p_ids, '{}')) v) t
-    where x ~ '^[A-Z]{1,5}[0-9]{3,12}$' or x ~ '^[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}$';  -- CR1234567 o el ID largo de Deriv Partners
+    where x ~ '^[A-Z]{1,5}[0-9]{3,12}$' or x ~ '^[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}$' or x ~ '^D-[A-Z0-9]{5,10}$';  -- CR1234567 o el ID largo de Deriv Partners
   if p_replace then delete from public.partner_clients; end if;
   insert into public.partner_clients (deriv_id) select unnest(ids) on conflict do nothing;
   get diagnostics n_add = row_count;
