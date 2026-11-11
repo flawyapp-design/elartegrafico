@@ -80,6 +80,11 @@ Deno.serve(async (req) => {
           : { title: `🏆 Ya salieron los ganadores`, body: `“${String(it.title).slice(0, 60)}”: entra y mira si quedaste entre los ${it.max_winners} primeros.`, url, tag: `reto-res-${it.id}` };
         sent += (await sendAll(keys, "todos", msg)).sent;
       }
+      // lanzamiento: a la hora programada se abre la academia y se avisa a todos
+      try {
+        const opened = await (await db("rpc/launch_claim", { method: "POST", body: "{}" })).json();
+        if (opened === true) sent += (await sendAll(keys, "todos", { title: "🚀 ¡La academia ya abrió!", body: "Entra ya: empieza con tu prueba gratis del módulo de introducción.", url: "https://academia.elartegrafico.com/#inicio", tag: "launch" })).sent;
+      } catch (_) { /* aún no existe */ }
       // sala Oro: borrar mensajes y fotos de más de 7 días
       try {
         const imgs: string[] = await (await db("rpc/room_cleanup_claim", { method: "POST", body: "{}" })).json();

@@ -111,7 +111,7 @@ async function mountChart(host,ex,o){
   let timer=null;
   const finish=async choice=>{
     if(answered)return;answered=true;pend=null;drawLines();steps();
-    let ans;try{ans=o.preview?o.preview:await API.grade(ex.id)}catch(e){answered=false;steps();
+    let ans;try{ans=o.preview?o.preview:o.grader?await o.grader(ex.id):await API.grade(ex.id)}catch(e){answered=false;steps();
       const msg={premium:"Este ejercicio es para alumnos premium.",demo_agotado:"Ya usaste tus 5 gráficas de prueba.",login:"Inicia sesión para responder."}[e.message]||e.message;
       $("[data-a=res]",host).innerHTML=`<div class="result bad"><b>${esc(msg)}</b>${e.message==="demo_agotado"||e.message==="premium"?'<a class="btn gold sm" href="#premium" style="justify-self:start">Ver cómo acceder</a>':""}</div>`;return}
     const cz=ans.zone!=null?+ans.zone:null,cs=ans.sl!=null?+ans.sl:null;
@@ -168,7 +168,7 @@ async function mountCalc(host,ex,o){
   host.innerHTML=`<div class="ex"><div class="row"><span class="pill gold">Cálculo</span>${o.preview?'<span class="pill info">Vista previa</span>':""}</div><div class="ex-q" style="font-size:17px">${esc(q)}</div>
     <form class="form" data-a="f"><label>Tu respuesta${d.unit?` (${esc(d.unit)})`:""}<input data-a="in" inputmode="decimal" autocomplete="off" placeholder="Ej. 0.35" style="max-width:240px"></label><div class="row"><button class="btn gold" data-a="ok">Comprobar</button></div></form><div data-a="res"></div></div>`;
   $("[data-a=f]",host).onsubmit=async e=>{e.preventDefault();const raw=$("[data-a=in]",host).value.replace(",",".").trim();const u=parseFloat(raw);if(!isFinite(u)){A.toast("Escribe un número");return}
-    const btn=$("[data-a=ok]",host);btn.disabled=true;let ans;try{ans=o.preview?o.preview:await API.grade(ex.id)}catch(x){btn.disabled=false;$("[data-a=res]",host).innerHTML=`<div class="result bad">${esc({premium:"Ejercicio para alumnos premium.",demo_agotado:"Ya usaste tus 5 ejercicios de prueba."}[x.message]||x.message)}</div>`;return}
+    const btn=$("[data-a=ok]",host);btn.disabled=true;let ans;try{ans=o.preview?o.preview:o.grader?await o.grader(ex.id):await API.grade(ex.id)}catch(x){btn.disabled=false;$("[data-a=res]",host).innerHTML=`<div class="result bad">${esc({premium:"Ejercicio para alumnos premium.",demo_agotado:"Ya usaste tus 5 ejercicios de prueba."}[x.message]||x.message)}</div>`;return}
     let c;try{c=evalExpr((ans.answer||{}).formula||"0",vars)}catch(x){c=NaN}
     const tol=((ans.answer||{}).tol_pct??2)/100;const rel=Math.abs(u-c)/Math.max(Math.abs(c),1e-9);
     const res=rel<=tol?"ok":rel<=3*tol?"mid":"bad";const pts=res==="ok"?10:res==="mid"?5:0;
@@ -186,7 +186,7 @@ async function mountOption(host,ex,o){
   host.innerHTML=`<div class="ex"><div class="row"><span class="pill gold">Pregunta</span>${o.preview?'<span class="pill info">Vista previa</span>':""}</div><div class="ex-q" style="font-size:17px">${esc(ex.prompt)}</div>
     <form data-a="f" style="display:grid;gap:12px"><div class="opts">${opts.map((t,i)=>`<label data-i="${i}"><input type="radio" name="${nm}" value="${i}"> <span>${esc(t)}</span></label>`).join("")}</div><div class="row"><button class="btn gold" data-a="ok">Responder</button></div></form><div data-a="res"></div></div>`;
   $("[data-a=f]",host).onsubmit=async e=>{e.preventDefault();const c=$(`input[name=${nm}]:checked`,host);if(!c){A.toast("Elige una opción");return}const pick=+c.value;
-    let ans;try{ans=o.preview?o.preview:await API.grade(ex.id)}catch(x){$("[data-a=res]",host).innerHTML=`<div class="result bad">${esc({premium:"Ejercicio para alumnos premium.",demo_agotado:"Ya usaste tus 5 ejercicios de prueba."}[x.message]||x.message)}</div>`;return}
+    let ans;try{ans=o.preview?o.preview:o.grader?await o.grader(ex.id):await API.grade(ex.id)}catch(x){$("[data-a=res]",host).innerHTML=`<div class="result bad">${esc({premium:"Ejercicio para alumnos premium.",demo_agotado:"Ya usaste tus 5 ejercicios de prueba."}[x.message]||x.message)}</div>`;return}
     const ok=+((ans.answer||{}).correct)===pick;$$("input",host).forEach(i=>i.disabled=true);$("[data-a=ok]",host).disabled=true;
     $$("[data-i]",host).forEach(l=>{const i=+l.dataset.i;if(i===+(ans.answer||{}).correct)l.classList.add("ok");else if(i===pick)l.classList.add("bad")});
     $("[data-a=res]",host).innerHTML=`<div class="result ${ok?"ok":"bad"}"><b class="big">${ok?"Correcto · +10 pts":"Incorrecto"}</b>${ans.explain?`<div class="prose" style="font-size:15.5px">${md(ans.explain)}</div>`:""}${o.next?`<div class="row"><button class="btn gold" data-a="next">${esc(o.nextLabel||"Siguiente")}</button></div>`:""}</div>`;

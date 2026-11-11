@@ -30,6 +30,10 @@ A.ROUTES.admin=sub=>{
         <button type="button" data-va="diamond"><b>💎 Diamond</b><small>Acceso a todo</small></button>
         <span class="dim">No cambia tu cuenta. Para salir toca "Volver a admin".</span></div></details>
       <div class="adm-st ${closed?"off":"on"}"><span class="dot"></span><div><b>Academia ${closed?"cerrada":"abierta"}</b><small>${closed?"Solo tú la ves":"Los alumnos pueden entrar"}</small></div><button class="btn sm ${closed?"gold":"bad"}" id="acSw">${closed?"Abrir":"Cerrar"}</button></div>
+      ${closed?`<form class="adm-launch" id="acL"><label for="acAt">🚀 Abrir sola el (hora Colombia)<input id="acAt" type="datetime-local" value="${toLoc((S.site||{}).academyOpenAt)}"></label>
+        <label for="acN">Mensaje del contador (opcional)<input id="acN" maxlength="120" value="${esc((S.site||{}).launchNote||"")}" placeholder="Ej.: precio de lanzamiento las primeras 48 h"></label>
+        <div class="row"><button class="btn sm gold" type="submit">Guardar</button>${(S.site||{}).academyOpenAt?'<button class="btn sm ghost" type="button" id="acX">Quitar fecha</button>':""}</div>
+        <small class="dim">Sale un contador en el inicio. A esa hora se abre sola, empieza la prueba gratis y se avisa a todos con una notificación.</small></form>`:""}
       <button type="button" class="adm-mbtn" id="admMb" aria-expanded="false">${ico(TICO[tab]||"news",20)}<span><small>Sección</small><b>${cur[1]}</b></span><i>▾</i></button>
       <nav class="adm-nav" aria-label="Secciones de administración">${GROUPS.map(([g,ks])=>`<div class="adm-g"><span class="adm-gt">${g}</span>${ks.map(k=>{const t=TABS.find(x=>x[0]===k);return `<button type="button" class="${tab===k?"on":""}" data-t="${k}"${tab===k?' aria-current="page"':""}>${ico(TICO[k]||"news",18)}<span>${t[1]}</span><i class="adm-b" data-badge="${k}"></i></button>`}).join("")}</div>`).join("")}</nav>
     </aside>
@@ -40,6 +44,10 @@ A.ROUTES.admin=sub=>{
   $("#admMb").onclick=()=>{const n=$(".adm-nav"),o=n.classList.toggle("open");$("#admMb").setAttribute("aria-expanded",String(o))};
   $("#acSw").onclick=()=>{const host=$("#acSw").parentElement;A.confirmInline(host,closed?"¿Abrir la academia a todos?":"¿Cerrar la academia?",async()=>{
     const ns=Object.assign({},S.site,{academyClosed:!closed},closed?{trialFrom:new Date().toISOString()}:{});try{await API.saveSite(ns);S.site=ns;A.applySite();toast(closed?"Academia abierta · la prueba gratis de 7 días empieza hoy para todos":"Academia cerrada para alumnos");A.ROUTES.admin(tab)}catch(x){toast(x.message);A.ROUTES.admin(tab)}})};
+  const acL=$("#acL");if(acL){const sv=async at=>{const ns=Object.assign({},S.site,{academyOpenAt:at,launchNote:$("#acN").value.trim()});if(!at)delete ns.academyOpenAt;
+      try{await API.saveSite(ns);S.site=ns;A.applySite();toast(at?"Listo: la academia abre sola el "+fmtDT(at):"Fecha quitada");A.ROUTES.admin(tab)}catch(x){toast(x.message)}};
+    acL.onsubmit=e=>{e.preventDefault();const v=fromLoc($("#acAt").value);if(!v){toast("Elige la fecha y la hora");return}if(new Date(v)<=new Date()){toast("Elige una fecha futura");return}sv(v)};
+    const x=$("#acX");if(x)x.onclick=()=>sv(null)}
   if(tab==="chat")return chat(chatU);
   ({cursos,resumen,sitio,banners,contenido,ejercicios,noticias,opiniones,resenas,pagos,alumnos,archivos,notif,legal,retos,afiliados,canjes,rpuntos})[tab]();
   const badge=(k,n)=>{const b=document.querySelector(`[data-badge="${k}"]`);if(b&&n){b.textContent=n;b.classList.add("on")}};
@@ -98,12 +106,25 @@ const fileBtn=(id,label="Subir imagen")=>`<label class="btn sm" for="${id}" styl
 function bindUpload(id,onUrl){const i=$("#"+id);if(!i)return;i.onchange=async e=>{const f=e.target.files[0];if(!f)return;toast("Subiendo…");try{const u=await API.upload(f);onUrl(u);toast("Archivo subido")}catch(x){toast(x.message)}}}
 
 /* ---------- estadísticas ---------- */
+/* ---------- qué necesita mi atención ---------- */
+async function attention(host){if(!host||!API.adminAttention)return;let a;try{a=await API.adminAttention()}catch(e){host.innerHTML=`<div class="note">Corre <b>supabase/novedades.sql</b> para ver aquí lo pendiente.</div>`;return}
+  const I=[];const add=(n,ic,t,sub,href,tone)=>{if(n)I.push(`<a class="attn-i ${tone||""}" href="${href}"><span class="attn-ic">${ic}</span><span><b>${n===true?"":n+" "}${t}</b>${sub?`<small>${sub}</small>`:""}</span><i>→</i></a>`)};
+  add(a.payments,"💳",a.payments===1?"pago por confirmar":"pagos por confirmar","Revísalos en tu Binance y apruébalos","#admin-pagos","hot");
+  add(a.dms,"💬",a.dms===1?"mensaje sin leer":"mensajes sin leer","De tus alumnos","#admin-chat","hot");
+  add(a.reports,"🚩",a.reports===1?"mensaje reportado en la Sala Oro":"mensajes reportados en la Sala Oro","Bórralos o silencia a quien corresponda","#oro-chat","hot");
+  add(a.redemptions,"💸",a.redemptions===1?"canje por pagar":"canjes por pagar","Pagos de puntos en USDT","#admin-canjes");
+  add(a.affiliates,"🤝",a.affiliates===1?"afiliado por verificar":"afiliados por verificar",a.affiliates_old?`${a.affiliates_old} ${a.affiliates_old===1?"está":"están"} en tu lista antigua: apruébalos con un clic`:"No están en tus listas: escríbeles si el ID está mal","#admin-afiliados");
+  add(a.reviews,"⭐",a.reviews===1?"opinión por aprobar":"opiniones por aprobar","","#admin-opiniones");
+  if(a.retos_on&&!a.reto_live&&!a.reto_next)add(true,"🎯","No hay ningún reto en juego ni programado",a.reto_drafts?`Tienes ${a.reto_drafts} en borrador: publica uno`:"Crea el de hoy para no perder la racha de tus alumnos","#admin-retos","warn");
+  add(a.expiring,"⏳",a.expiring===1?"plan vence esta semana":"planes vencen esta semana","Buen momento para escribirles y que renueven","#admin-alumnos");
+  const nx=a.reto_next?`<span class="attn-ok">🎯 Próximo reto: <b>${esc(fmtDT(a.reto_next))}</b></span>`:a.reto_live?'<span class="attn-ok">🎯 Hay un reto en juego ahora</span>':"";
+  host.innerHTML=`<div class="attn-h"><h2>Qué necesita tu atención</h2>${nx}</div>`+(I.length?`<div class="attn-l">${I.join("")}</div>`:`<div class="attn-zero">✅ Todo al día. No hay nada pendiente.</div>`)}
 async function resumen(){
-  H().innerHTML='<div class="muted">Cargando estadísticas…</div>';
-  let s;try{s=await API.adminStats()}catch(e){H().innerHTML=`<div class="empty">No se pudieron cargar las estadísticas: ${esc(e.message)}</div>`;return}
+  H().innerHTML='<div id="attn" class="attn"></div><div id="rsm"><div class="muted">Cargando estadísticas…</div></div>';attention($("#attn"));const RS=()=>$("#rsm");
+  let s;try{s=await API.adminStats()}catch(e){RS().innerHTML=`<div class="empty">No se pudieron cargar las estadísticas: ${esc(e.message)}</div>`;return}
   const k=[[s.users,"Usuarios registrados"],[s.premium,"Premium activos"],[s.new7,"Nuevos (7 días)"],[s.new30,"Nuevos (30 días)"],[s.visitors30,"Visitantes únicos (30 días)"],[s.views30,"Páginas vistas (30 días)"],[s.watch_hours,"Horas de video vistas"],[s.exercises_done,"Ejercicios resueltos"],[s.demo_done,"Gráficas de prueba usadas"],[s.rating!=null?(+s.rating).toFixed(2)+" / 5":"—","Calificación promedio"],[s.reviews,"Opiniones recibidas"],[s.comments,"Comentarios en comunidad"]];
   const daily=s.daily||[];const mx=Math.max(1,...daily.map(d=>d.views));const W=760,Hh=180,bw=W/Math.max(daily.length,1);
-  H().innerHTML=`<div class="kv statk">${k.map(([v,t])=>`<div><b>${esc(v??0)}</b><span>${t}</span></div>`).join("")}</div>
+  RS().innerHTML=`<div class="kv statk">${k.map(([v,t])=>`<div><b>${esc(v??0)}</b><span>${t}</span></div>`).join("")}</div>
     ${s.reviews_pending?`<div class="note">Tienes ${s.reviews_pending} ${s.reviews_pending===1?"opinión":"opiniones"} esperando aprobación. <a href="#admin-opiniones">Revisar</a></div>`:""}
     <div class="panel"><div class="sec-h"><h3>Visitas por día (últimos 30 días)</h3><span class="muted" style="font-size:13px"><span class="lg v"></span> páginas vistas <span class="lg u"></span> visitantes <span class="lg s"></span> registros</span></div>
       <div class="scroll" style="border:0;background:none"><svg viewBox="0 0 ${W} ${Hh+26}" style="width:100%;min-width:520px;height:auto" role="img" aria-label="Visitas por día">
@@ -311,6 +332,7 @@ async function editEx(e,a,les){
     <div class="three"><label for="xK">Tipo<select id="xK"><option value="grafica">Gráfica: zona y SL</option><option value="no-operar">Gráfica: aquí no se opera</option><option value="calculo">Cálculo con fórmula</option><option value="opcion">Opción múltiple</option></select></label>
       <label for="xD">Dónde aparece<select id="xD"><option value="demo">Prueba gratis (portada)</option><option value="practica">Práctica libre</option>${les.map(l=>`<option value="${esc(l.id)}">Lección: ${esc(l.title)}</option>`).join("")}</select></label>
       <label for="xO">Orden<input id="xO" type="number" value="${e.sort||1}"></label></div>
+    <label class="chk"><input type="checkbox" id="xFT" ${e.free_try?"checked":""}> Usar en <b>“Pruébalo sin registrarte”</b> del inicio (cualquiera lo puede hacer sin cuenta; usa solo uno)</label>
     <label for="xP">Enunciado / pregunta (opcional en gráficas)<input id="xP" value="${esc(e.prompt||"")}"></label>
     <div id="xbody"></div>
     <label for="xE">Explicación que verá el alumno al responder<textarea id="xE" style="min-height:100px">${esc(a.explain||"")}</textarea></label>
@@ -351,7 +373,7 @@ async function editEx(e,a,les){
       const test=()=>{try{const v=window.AGFormula.genVars($("#cV").value);const r=window.AGFormula.evalExpr($("#cF").value||"0",v);$("#cTest").textContent="Ejemplo con "+Object.entries(v).map(([k,x])=>k+"="+x).join(", ")+" → "+(+r).toFixed(+$("#cD").value||2)}catch(x){$("#cTest").textContent="Revisa la fórmula: "+x.message}};
       ["cV","cF","cD"].forEach(i=>$("#"+i).oninput=test);test()}
     else if(e.kind==="opcion"){const d=e.data||{};b.innerHTML=`<label for="oO">Opciones (una por línea)<textarea id="oO" style="min-height:120px">${esc((d.options||[]).join("\n"))}</textarea></label><label for="oC">Número de la opción correcta (1, 2, 3…)<input id="oC" type="number" min="1" value="${((a.answer||{}).correct??0)+1}" style="max-width:140px"></label>`}};
-  const collect=()=>{const k=$("#xK").value;const d=$("#xD").value;const o=Object.assign({},e,{kind:k,sort:+$("#xO").value||1,prompt:$("#xP").value.trim(),is_demo:d==="demo",lesson_id:d==="demo"||d==="practica"?null:d});
+  const collect=()=>{const k=$("#xK").value;const d=$("#xD").value;const o=Object.assign({},e,{kind:k,sort:+$("#xO").value||1,prompt:$("#xP").value.trim(),is_demo:d==="demo",lesson_id:d==="demo"||d==="practica"?null:d});if($("#xFT").checked||e.free_try!=null)o.free_try=$("#xFT").checked;
     const ans={zone:null,sl:null,answer:{},explain:$("#xE").value};
     if(k==="grafica"||k==="no-operar"){Object.assign(o,{market:$("#xM").value,side:$("#xS").value,tf_zone:$("#xTZ").value,tf_sl:$("#xTS").value,reveal_hours:+$("#xRH").value||24,target_r:+$("#xR").value||2,tol_pct:+$("#xTol").value||.35,t_end:e.t_end,data:{}});
       ans.zone=$("#xZ").value!==""?+$("#xZ").value:null;ans.sl=$("#xSL").value!==""?+$("#xSL").value:null;

@@ -1515,3 +1515,49 @@ body.pf-open{overflow:hidden}
 @media (prefers-reduced-motion:reduce){.pa-cd{animation:none}}
 .onb-q{width:100%;margin-bottom:8px;padding:11px 14px;border-radius:12px;border:1px solid var(--line2);background:var(--bg2);color:var(--fg);font:inherit;font-size:16px}
 .onb-cs button[hidden]{display:none}
+/* ---------- panel de atención (admin) ---------- */
+.attn{margin-bottom:22px}.attn-h{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}.attn-h h2{font-size:20px;margin:0}
+.attn-ok{font-size:13.5px;color:var(--muted)}
+.attn-l{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px}
+.attn-i{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:12px;align-items:center;padding:14px 16px;border-radius:16px;border:1px solid var(--line2);background:var(--card);text-decoration:none;color:var(--fg)}
+.attn-i span{display:grid;gap:2px}.attn-i small{color:var(--muted);font-size:12.5px;line-height:1.35}.attn-i i{font-style:normal;color:var(--gold)}
+.attn-ic{font-size:22px;width:42px;height:42px;border-radius:12px;display:grid!important;place-items:center;background:var(--bg)}
+.attn-i.hot{border-color:rgba(236,91,82,.55);background:linear-gradient(135deg,rgba(236,91,82,.1),transparent 60%),var(--card)}
+.attn-i.warn{border-color:rgba(216,176,98,.6);background:linear-gradient(135deg,rgba(216,176,98,.12),transparent 60%),var(--card)}
+.attn-i:hover{border-color:var(--gold)}
+.attn-zero{padding:16px;border-radius:16px;border:1px solid rgba(56,211,159,.4);background:rgba(56,211,159,.08);font-weight:700}
+.adm-launch{display:grid;gap:8px;margin-top:10px;padding:12px;border-radius:14px;border:1px dashed rgba(216,176,98,.5);background:rgba(216,176,98,.05);font-size:13px}.adm-launch input{width:100%}
+/* ---------- contador de lanzamiento ---------- */
+.launch{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:18px;margin:0 0 20px;padding:clamp(18px,3vw,28px);border-radius:var(--r2,20px);border:1px solid rgba(216,176,98,.55);background:radial-gradient(120% 140% at 0% 0%,rgba(216,176,98,.18),transparent 55%),linear-gradient(135deg,#0d1a46,#070d22);box-shadow:0 0 60px -26px rgba(216,176,98,.7)}
+.launch h2{margin:4px 0 12px;font-size:clamp(22px,3vw,30px)}.launch .gold-t{color:var(--gold)}
+.lc{display:flex;gap:10px}.lc div{display:grid;justify-items:center;min-width:72px;padding:10px 8px;border-radius:14px;background:rgba(6,11,26,.7);border:1px solid rgba(216,176,98,.35)}
+.lc b{font-size:clamp(28px,4vw,40px);font-weight:900;font-variant-numeric:tabular-nums;color:#fff;line-height:1}.lc span{font-size:11.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-top:4px}
+.launch-a{display:grid;gap:6px;justify-items:center;text-align:center}
+.launch.sm{margin:18px auto;max-width:640px;text-align:left}.soon .launch{text-align:left}
+@media (max-width:560px){.lc{gap:6px}.lc div{min-width:0;flex:1}.launch-a{width:100%}.launch-a .btn{width:100%}}
+/* ---------- probar sin registro ---------- */
+.demo-wrap{display:grid;gap:10px;align-content:start}.try-btn{justify-self:stretch;text-align:center}
+.try-end{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:16px;margin-top:20px;padding:22px;border-radius:20px;border:1px solid rgba(216,176,98,.55);background:linear-gradient(135deg,rgba(216,176,98,.14),transparent 60%),var(--card)}
+.try-end h2{margin:4px 0 6px}
+/* ---------- certificados ---------- */
+.cert-cta{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:14px;align-items:center;margin:0 0 18px;padding:16px 18px;border-radius:18px;border:1px solid var(--cc);background:linear-gradient(135deg,color-mix(in srgb,var(--cc) 18%,transparent),transparent 60%),var(--card)}
+.cert-cta>div{display:grid;gap:2px}.cert-ic{font-size:30px}
+@media (max-width:600px){.cert-cta{grid-template-columns:auto 1fr}.cert-cta .btn{grid-column:1/-1}}
+.cert-list{display:grid;gap:8px;margin-bottom:14px}
+.cert-page{display:grid;gap:16px;justify-items:center;padding:10px 0 30px}
+.cert-ok{padding:8px 16px;border-radius:999px;background:rgba(56,211,159,.12);border:1px solid rgba(56,211,159,.5);color:#7ef0cf;font-weight:700;font-size:14px}
+.cert{width:min(980px,100%);aspect-ratio:1.414/1;padding:14px;border-radius:14px;background:linear-gradient(135deg,#0e1b48,#060b1a);box-shadow:0 30px 80px -30px rgba(0,0,0,.8);color:#fff}
+.cert-in{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:clamp(4px,1vw,10px);text-align:center;padding:clamp(14px,3vw,36px);border:2px solid #d8b062;border-radius:10px;outline:1px solid rgba(216,176,98,.35);outline-offset:-10px;background:radial-gradient(80% 60% at 50% 0%,rgba(216,176,98,.14),transparent 70%)}
+.cert-top{display:flex;align-items:center;gap:10px;color:#d8b062;font-weight:800;letter-spacing:.14em;text-transform:uppercase;font-size:clamp(10px,1.3vw,13px)}.cert-top img{width:clamp(34px,5vw,56px);height:auto;border-radius:50%}
+.cert-k{font-size:clamp(18px,3vw,32px);font-weight:900;letter-spacing:.06em;text-transform:uppercase;color:#f3d88f}
+.cert-s{margin:0;color:#c9d3ea;font-size:clamp(11px,1.4vw,15px)}
+.cert-n{margin:0;font-size:clamp(26px,5.4vw,58px);font-weight:900;line-height:1.05;border-bottom:2px solid rgba(216,176,98,.6);padding:0 18px 6px}
+.cert-c{margin:0;font-size:clamp(16px,2.6vw,28px);color:var(--cc)}
+.cert-d{margin:0;color:#9fb0d6;font-size:clamp(10px,1.3vw,14px)}
+.cert-f{width:100%;display:flex;align-items:flex-end;justify-content:space-between;margin-top:auto;gap:10px}
+.cert-sig{display:grid;justify-items:center;min-width:28%;border-top:1px solid rgba(255,255,255,.4);padding-top:6px;font-size:clamp(10px,1.3vw,14px)}.cert-sig b{font-family:Georgia,serif;font-style:italic;font-size:clamp(14px,2vw,22px);color:#f3d88f}.cert-sig span{color:#9fb0d6}
+.cert-seal{font-size:clamp(34px,6vw,66px);filter:drop-shadow(0 0 18px rgba(216,176,98,.6))}
+.cert-qr{display:grid;justify-items:center;gap:4px;font-size:clamp(9px,1.1vw,12px);color:#c9d3ea}.cert-qr img{width:clamp(56px,9vw,96px);height:auto;background:#fff;border-radius:6px;padding:3px}
+.cert-v{color:#7f8fb5;font-size:clamp(9px,1vw,11px)}
+.cert-a{justify-content:center}
+@media print{@page{size:A4 landscape;margin:0}body *{visibility:hidden!important}.cert,.cert *{visibility:visible!important}.cert{position:fixed;inset:0;width:100vw;height:100vh;aspect-ratio:auto;border-radius:0;box-shadow:none;-webkit-print-color-adjust:exact;print-color-adjust:exact}}

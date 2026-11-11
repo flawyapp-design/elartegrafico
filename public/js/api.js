@@ -178,6 +178,8 @@ function SupabaseAPI(url,key){
     adminAffiliates(){return rpc("admin_affiliates")},
     reviewAffiliate(uid,ok,note){return rpc("review_affiliate",{p_user:uid,p_ok:!!ok,p_note:note||""})},
     publicProfile(u){return rpc("public_profile",{p_username:u})},
+    adminAttention(){return rpc("admin_attention")},claimCertificate(c){return rpc("claim_certificate",{p_course:c})},myCertificates(){return rpc("my_certificates")},verifyCertificate(code){return rpc("verify_certificate",{p_code:code})},
+    tryExercise(){return rpc("try_exercise")},async tryGrade(id){const r=await rpc("try_grade",{ex:id});if(r&&r.error)throw new Error(r.error);return r},
     roomFeed(since){return rpc("room_feed",{p_since:since||null})},roomSend(b,img){return rpc("room_send",{p_body:b||"",p_image:img||null})},roomAlive(ids){return rpc("room_alive",{p_ids:ids})},
     async roomDelete(id){const img=await rpc("room_delete",{p_id:id});const k=typeof img==="string"&&img.split("/storage/v1/object/public/sala/")[1];if(k)try{await req(`/storage/v1/object/sala/${k}`,{method:"DELETE"})}catch(e){}},
     roomReport(id){return rpc("room_report",{p_id:id})},roomMute(id,h){return rpc("room_mute",{p_message:id,p_hours:h})},
@@ -352,6 +354,19 @@ function LocalAPI(){
       L.forEach(x=>{if(tier==="activo"){db.ptier[x]="activo";saved++}else if(!db.ptier[x]){db.ptier[x]="antiguo";saved++}});
       let ok=0;(db.affiliates||[]).forEach(a=>{if((a.status==="pendiente"||a.status==="rechazado")&&db.ptier[String(a.deriv_id).toUpperCase()]==="activo"){Object.assign(a,{status:"verificado",admin_note:"Verificado automáticamente con la lista de socios activos",reviewed_at:now()});const p=db.profiles.find(x=>x.id===a.user_id);if(p)p.affiliate=true;ok++}});save();
       const v=Object.values(db.ptier);return{received:L.length,saved,moved_old:moved,approved:ok,active:v.filter(x=>x==="activo").length,old:v.filter(x=>x==="antiguo").length}},
+    /* novedades (modo local) */
+    async adminAttention(){need();const D=db.dms||{};return{payments:(db.payments||[]).filter(x=>x.status==="pendiente").length,affiliates:(db.affiliates||[]).filter(x=>x.status==="pendiente").length,affiliates_old:0,redemptions:(db.redemptions||[]).filter(x=>x.status==="pendiente").length,
+      reviews:(db.reviews||[]).filter(x=>!x.approved).length,dms:Object.values(D).reduce((n,t)=>n+t.messages.filter(m=>!m.from_admin&&!m.read_at).length,0),reports:(db.room||[]).filter(m=>(m.rep||[]).length).length,
+      retos_on:true,reto_live:(db.challenges||[]).some(c=>c.status==="publicado"&&new Date(c.starts_at)<=new Date()&&this._closeAt(c)>new Date()),reto_next:((db.challenges||[]).filter(c=>c.status==="publicado"&&new Date(c.starts_at)>new Date()).map(c=>c.starts_at).sort()[0])||null,
+      reto_drafts:(db.challenges||[]).filter(c=>c.status!=="publicado").length,expiring:db.profiles.filter(p=>p.premium_until&&new Date(p.premium_until)>new Date()&&new Date(p.premium_until)<new Date(Date.now()+7*864e5)).length}},
+    async claimCertificate(cid){const p=me();if(!p)throw new Error("Inicia sesión");db.certs=db.certs||[];let c=db.certs.find(x=>x.user_id===p.id&&x.course_id===cid);
+      if(!c){const co=(db.courses||[]).find(x=>x.id===cid)||{title:"Boom y Crash"};c={code:"EAG-"+Math.random().toString(16).slice(2,6).toUpperCase()+"-"+Math.random().toString(16).slice(2,6).toUpperCase(),user_id:p.id,course_id:cid,username:p.username,course_title:co.title,lessons:(db.lessons||[]).length,issued_at:new Date().toISOString()};db.certs.push(c);save()}
+      return c},
+    async myCertificates(){const p=me();return(db.certs||[]).filter(x=>p&&x.user_id===p.id)},
+    async verifyCertificate(code){const c=(db.certs||[]).find(x=>x.code===String(code||"").toUpperCase().trim());if(!c)return null;const p=db.profiles.find(x=>x.id===c.user_id)||{};const co=(db.courses||[]).find(x=>x.id===c.course_id)||{};
+      return Object.assign({},c,{avatar_url:p.avatar_url,country:p.country,color:co.color,icon:co.icon})},
+    async tryExercise(){const L=db.exercises.filter(e=>e.free_try);return(L[0]||db.exercises.filter(e=>e.is_demo&&(e.kind==="grafica"||e.kind==="no-operar")).sort(by("sort"))[0])||null},
+    async tryGrade(id){const t=await this.tryExercise();if(!t||t.id!==id)throw new Error("no_existe");const a=db.answers.find(x=>x.exercise_id===id)||{};return{zone:a.zone,sl:a.sl,answer:a.answer||{},explain:a.explain||""}},
     /* sala Oro (modo local) */
     _room(){db.room=db.room||[];return db.room},
     async roomFeed(since){const p=me();const pr=adm()?4:({diamond:4,oro:3,plata:2,cobre:1})[p&&p.plan]||0;if(!p||(!adm()&&!(isPrem(p)&&pr>=3)))throw new Error("El chat es exclusivo de los planes Oro y Diamond");

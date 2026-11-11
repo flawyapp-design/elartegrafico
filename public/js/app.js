@@ -40,7 +40,7 @@ function link(site,hash){hash=hash||"inicio";if(site===SITE)return"#"+hash;
   return location.pathname+(site==="academia"?"?sitio=academia"+(vq?"&"+vq:""):(vq?"?"+vq:""))+"#"+hash}
 try{const q=new URLSearchParams(location.search),v=q.get("ver");if(q.has("ver")){if(v&&v!=="admin")sessionStorage.setItem("ag_view_as",v);else sessionStorage.removeItem("ag_view_as");q.delete("ver");const qs=q.toString();history.replaceState(null,"",location.pathname+(qs?"?"+qs:"")+location.hash)}}catch(e){}
 const ACAD_R=new Set(["academia","modulo","leccion","practica","prueba","progreso","logros"]);
-const MAIN_R=new Set(["mensajes","oro","entrar","registro","recuperar","noticias","comunidad","nota","opiniones","mercados","legal","terminos","privacidad","retos","reto","ranking","puntos"]);
+const MAIN_R=new Set(["certificado","probar","mensajes","oro","entrar","registro","recuperar","noticias","comunidad","nota","opiniones","mercados","legal","terminos","privacidad","retos","reto","ranking","puntos"]);
 const toAcad=h=>link("academia",h),toMain=h=>link("main",h);
 
 /* ---------- utilidades UI ---------- */
@@ -168,7 +168,16 @@ function pageList(box,per){const items=[...box.children].filter(x=>!x.classList.
 function autoPage(root){root=root||app;if(!root)return;PAGE_RULES.forEach(([q,per])=>root.querySelectorAll(q).forEach(b=>{if(b.closest("[data-nopage]")||b.closest("form"))return;pageList(b,per)}))}
 {let pgT=null;new MutationObserver(ms=>{if(ms.every(m=>(m.target.closest&&m.target.closest(".pager"))||[...m.addedNodes,...m.removedNodes].every(x=>x.nodeType===1&&x.classList.contains("pager"))))return;clearTimeout(pgT);pgT=setTimeout(()=>autoPage(app),60)}).observe(app,{childList:true,subtree:true})}
 function clear(){cleanup.forEach(f=>{try{f()}catch(e){}});cleanup=[];const n=document.getElementById("admNote");if(n)n.remove()}
-const closedAcad=()=>!!(S.site&&S.site.academyClosed)&&!API.isAdmin();
+const launchAt=()=>{const t=S.site&&S.site.academyOpenAt;const d=t?new Date(t):null;return d&&!isNaN(d)?d:null};
+const closedAcad=()=>!!(S.site&&S.site.academyClosed)&&!(launchAt()&&launchAt()<=new Date())&&!API.isAdmin();
+/* contador de lanzamiento de la academia */
+function launchBox(compact){const d=launchAt();if(!(S.site&&S.site.academyClosed)||!d||d<=new Date())return"";const note=(S.site.launchNote||"").trim();
+  const when=d.toLocaleString("es-CO",{weekday:"long",day:"numeric",month:"long",hour:"numeric",minute:"2-digit",timeZone:"America/Bogota"});
+  return `<section class="launch${compact?" sm":""}"><div class="launch-t"><span class="eyebrow">🚀 Lanzamiento</span><h2>La academia abre en</h2>
+      <div class="lc" data-lc="${esc(d.toISOString())}">${["días","horas","min","seg"].map(u=>`<div><b>00</b><span>${u}</span></div>`).join("")}</div>
+      <p class="muted">${esc(when)} (hora Colombia)${note?` · <b class="gold-t">${esc(note)}</b>`:""}</p></div>
+    <div class="launch-a">${logged()?`<button type="button" class="btn gold" data-lpush>🔔 Avísame cuando abra</button><small class="dim">Te llega una notificación al celular</small>`:`<a class="btn gold" href="${toMain("registro")}">Crear cuenta gratis</a><small class="dim">Así entras apenas abra y te avisamos</small>`}</div></section>`}
+document.addEventListener("click",async e=>{const b=e.target.closest("[data-lpush]");if(!b)return;b.disabled=true;const ok=await enablePush();if(ok){b.textContent="✓ Te avisaremos";toast("Listo: te avisamos cuando abra")}else b.disabled=false});
 /* módulo disponible: a mano (available) o por fecha (open_at). Sin la columna (SQL viejo) se considera abierto. */
 function modOpen(m,ignoreAdmin){if(!m)return false;if(!ignoreAdmin&&admin())return true;if(m.available!==false)return true;return !!(m.open_at&&new Date(m.open_at)<=new Date())}
 /* orden obligatorio: con «Exige terminar el módulo anterior», el módulo se abre al aprobar todo el anterior
@@ -187,7 +196,7 @@ function closedView(){const s=S.site,p=API.profile()||{};
   app.innerHTML=`<section class="soon"><img src="${esc(s.logoFullUrl||"assets/logo_circle.webp")}" alt=""><span class="eyebrow">Academia</span>
     <h1>${esc(s.closedTitle||"La academia abre muy pronto")}</h1>
     <p class="muted">${esc(s.closedText||"Estamos terminando de montar las lecciones y los ejercicios. Tu cuenta ya quedó creada: cuando abramos, entras con el mismo usuario y tendrás tus 5 gráficas de prueba.")}</p>
-    ${p.username?`<span class="pill ok">Registrado como ${esc(p.username)}</span>`:""}
+    ${p.username?`<span class="pill ok">Registrado como ${esc(p.username)}</span>`:""}${launchBox(true)}
     <div class="row" style="justify-content:center"><a class="btn gold" href="${toMain("inicio")}">Volver a El Arte Gráfico</a>${s.discordUrl?`<a class="btn ghost" href="${esc(s.discordUrl)}" target="_blank" rel="noopener">Unirme al Discord</a>`:`<a class="btn ghost" href="${toMain("comunidad")}">Ver la comunidad</a>`}</div></section>`}
 /* ---------- modo claro / oscuro ---------- */
 function getTheme(){return document.documentElement.getAttribute("data-theme")==="light"?"light":"dark"}
@@ -285,6 +294,43 @@ function route(keep){if(/^#admin/.test(location.hash)&&API.isAdmin()){let v="";t
   if(!["perfil","nueva","legal","entrar","registro","mensajes"].includes(k))setTimeout(onboard,700);
 }
 window.addEventListener("hashchange",()=>route());
+
+/* ---------- certificados ---------- */
+function certCta(){if(!logged()||!S.courses)return"";const g=(S.courses||[]).filter(c=>(premium()||ownsCourse(c.id))&&graduated(c));
+  return g.map(c=>`<section class="cert-cta" style="--cc:${esc(c.color||"#d8b062")}"><span class="cert-ic">🎓</span><div><b>¡Te graduaste de ${esc(c.title)}!</b><span class="muted">Ya puedes descargar tu certificado con código verificable y compartirlo.</span></div><button type="button" class="btn gold" data-cert="${esc(c.id)}">Ver mi certificado</button></section>`).join("")}
+document.addEventListener("click",async e=>{const b=e.target.closest("[data-cert]");if(!b)return;busy(b,true);try{const c=await API.claimCertificate(b.dataset.cert);location.href=toMain("certificado-"+c.code)}catch(x){toast(x.message)}finally{busy(b,false)}});
+ROUTES.certificado=async code=>{code=String(code||"").toUpperCase();
+  app.innerHTML='<div class="muted" style="padding:40px;text-align:center">Verificando certificado…</div>';let c=null;try{c=code?await API.verifyCertificate(code):null}catch(e){}
+  if(!c){app.innerHTML=`<div class="empty">No encontramos el certificado <b class="mono">${esc(code||"")}</b>. Revisa el código.<a class="btn sm" href="#inicio">Ir al inicio</a></div>`;return}
+  const url=absUrl("main","certificado-"+c.code),d=new Date(c.issued_at).toLocaleDateString("es-CO",{day:"numeric",month:"long",year:"numeric"}),mine=logged()&&(API.profile()||{}).username===c.username;
+  app.innerHTML=`<div class="cert-page"><div class="cert-ok no-print">✓ Certificado verificado · emitido por El Arte Gráfico</div>
+    <article class="cert" style="--cc:${esc(c.color||"#d8b062")}"><div class="cert-in">
+      <div class="cert-top"><img src="${esc(S.site.logoFullUrl||"assets/logo_circle.webp")}" alt="El Arte Gráfico"><span>El Arte Gráfico · Academy</span></div>
+      <span class="cert-k">Certificado de finalización</span><p class="cert-s">Se certifica que</p>
+      <h1 class="cert-n">${esc(c.username)}</h1><p class="cert-s">completó y aprobó el curso</p>
+      <h2 class="cert-c">${esc(c.icon||"🎓")} ${esc(c.course_title)}</h2>
+      <p class="cert-d">${c.lessons} ${c.lessons===1?"lección aprobada":"lecciones aprobadas"} con ejercicios en gráficas reales · ${esc(d)}</p>
+      <div class="cert-f"><div class="cert-sig"><b>El Arte Gráfico</b><span>Instructor</span></div>
+        <div class="cert-seal" aria-hidden="true">🏅</div>
+        <div class="cert-qr"><img src="https://api.qrserver.com/v1/create-qr-code/?size=180x180&margin=4&data=${encodeURIComponent(url)}" alt="Código QR para verificar" width="96" height="96"><span class="mono">${esc(c.code)}</span></div></div>
+      <small class="cert-v">Verifica este certificado en ${esc(url.replace(/^https?:\/\//,""))}</small></div></article>
+    <div class="row no-print cert-a"><button class="btn gold" id="cPr">Descargar en PDF</button><button class="btn" id="cSh">Compartir</button>${mine?"":`<a class="btn ghost" href="${toMain("registro")}">Quiero el mío</a>`}</div>
+    <p class="muted no-print" style="text-align:center;font-size:13px">Para guardarlo, en la ventana de impresión elige “Guardar como PDF”.</p></div>`;
+  $("#cPr").onclick=()=>window.print();
+  $("#cSh").onclick=async()=>{const t=`Me certifiqué en ${c.course_title} con El Arte Gráfico 🎓`;try{if(navigator.share){await navigator.share({title:"Mi certificado",text:t,url});return}await navigator.clipboard.writeText(url);toast("Enlace copiado")}catch(e){}}};
+
+/* ---------- pruébalo sin registrarte ---------- */
+ROUTES.probar=async()=>{
+  app.innerHTML=`<div class="pagehead"><span class="eyebrow">Sin registro · gratis</span><h1>Pruébalo ahora</h1><p class="muted">Así se practica en la academia: mira la gráfica, <b>marca tu zona</b>, pon tu <b>stop loss</b> y confirma. Después la gráfica avanza vela por vela y ves qué habría pasado.</p></div>
+    <div id="tryBox"><div class="muted">Cargando la gráfica…</div></div><div id="tryEnd"></div>`;
+  let ex=null;try{ex=await API.tryExercise()}catch(e){}
+  if(!ex){$("#tryBox").innerHTML=`<div class="empty">La gráfica de prueba se publicará pronto.<a class="btn sm gold" href="#registro">Crear cuenta gratis</a></div>`;return}
+  const end=()=>{$("#tryEnd").innerHTML=`<section class="try-end"><div><span class="eyebrow">¿Qué tal te fue?</span><h2>${logged()?"Sigue practicando en la academia":"Esto es solo una de cientos"}</h2>
+      <p class="muted">${logged()?"Tienes más gráficas de prueba, el reto del día y el temario completo esperándote.":"Crea tu cuenta gratis y sigue con 5 gráficas de prueba más, el reto diario con premios en USDT y el ranking. Sin tarjeta."}</p></div>
+      <div class="row">${logged()?`<a class="btn gold" href="${toAcad("inicio")}">Ir a la academia</a><a class="btn ghost" href="#retos">Reto del día</a>`:`<a class="btn gold" href="#registro">Crear cuenta gratis</a><a class="btn ghost" href="#entrar">Ya tengo cuenta</a>`}</div></section>`;
+    setTimeout(()=>{const e=$(".try-end");if(e)e.scrollIntoView({behavior:"smooth",block:"center"})},600)};
+  const h=await Player.mount($("#tryBox"),ex,{grader:id=>API.tryGrade(id),onDone:()=>end(),next:()=>{location.hash=logged()?"#inicio":"#registro"}});
+  if(h)cleanup.push(h.destroy)};
 
 /* ---------- perfil público: tocar un nombre abre su tarjeta ---------- */
 function uL(n){return n?`<span class="ulink" role="button" tabindex="0" data-u="${esc(n)}" title="Ver perfil de ${esc(n)}">${esc(n)}</span>`:""}
@@ -563,7 +609,7 @@ async function memberHome(){
     ...(rewardsOn()||admin()?[["bolt","Reto del día","Gana puntos hoy","#retos"],["trophy","Ranking",`<span id="mhPos">Ver mi puesto</span>`,"#ranking"]]:[["layers","Mi progreso","Tabla de la academia",toAcad("progreso")],["news","Novedades","Publicaciones y avisos","#comunidad"]]),
     ["chat","Comunidad",s.discordUrl?"Entrar al Discord":"Noticias y avisos",s.discordUrl||"#comunidad",!!s.discordUrl],
     ["gear","Configuración","Perfil, app y notificaciones","#perfil"]];
-  app.innerHTML=`<div id="appCard"></div>
+  app.innerHTML=`<div id="appCard"></div>${launchBox(true)}
   <section class="mh">
     <div class="mh-bg" aria-hidden="true"></div>
     <div class="mh-id"><a class="mh-av" href="#perfil" title="Configuración">${avatar(p,84)}<span class="lvchip" title="${esc(lv.name)}">${lv.i+1}</span></a>
@@ -608,7 +654,9 @@ function leftTxt(t){const ms=new Date(t)-Date.now();if(ms<=0)return"cerrado";con
 function cdFmt(ms){if(ms<=0)return"0:00:00";const s=Math.floor(ms/1e3),h=Math.floor(s/3600),m=Math.floor(s%3600/60),x=s%60;return(h>=24?`${Math.floor(h/24)} d ${h%24}`:h)+":"+String(m).padStart(2,"0")+":"+String(x).padStart(2,"0")}
 const cdHtml=t=>`<span class="cd mono" data-cd="${esc(new Date(t).toISOString())}">${cdFmt(new Date(t)-Date.now())}</span>`;
 const hhmm=t=>{const d=new Date(t),sameDay=d.toDateString()===new Date().toDateString();return d.toLocaleString("es-CO",sameDay?{hour:"numeric",minute:"2-digit"}:{weekday:"short",hour:"numeric",minute:"2-digit"})};
-setInterval(()=>{document.querySelectorAll("[data-cd]").forEach(el=>{const ms=new Date(el.dataset.cd)-Date.now();el.textContent=cdFmt(ms);if(ms<=0&&!el.dataset.done){el.dataset.done="1";if(/^#retos?(-|$)/.test(location.hash))setTimeout(()=>route(true),2000)}})},1000);
+setInterval(()=>{document.querySelectorAll("[data-lc]").forEach(el=>{const ms=new Date(el.dataset.lc)-Date.now(),s=Math.max(0,Math.floor(ms/1e3)),v=[Math.floor(s/86400),Math.floor(s%86400/3600),Math.floor(s%3600/60),s%60];
+    el.querySelectorAll("b").forEach((b,i)=>{const t=String(v[i]).padStart(2,"0");if(b.textContent!==t)b.textContent=t});if(ms<=0&&!el.dataset.done){el.dataset.done="1";setTimeout(()=>{S.site.academyClosed=false;renderNav();route(true)},1500)}});
+  document.querySelectorAll("[data-cd]").forEach(el=>{const ms=new Date(el.dataset.cd)-Date.now();el.textContent=cdFmt(ms);if(ms<=0&&!el.dataset.done){el.dataset.done="1";if(/^#retos?(-|$)/.test(location.hash))setTimeout(()=>route(true),2000)}})},1000);
 /* al cerrar un reto que jugaste, te mostramos tu resultado una sola vez */
 function revealPop(c){if(!c||!c.closed||!c.answered)return false;const k="ag_rv_"+c.id;try{if(localStorage.getItem(k))return false;localStorage.setItem(k,"1")}catch(e){return false}
   if(c.my_place)pop({icon:"trophy",kicker:`¡Ganaste! · Puesto #${c.my_place}`,title:`+${c.my_points} puntos`,text:`Quedaste entre los ${c.max_winners} primeros en “${c.title}”.`,confetti:true,ms:5500});
@@ -909,8 +957,8 @@ async function mainHome(){
   const s=S.site,p=API.profile();
   const dItems=(s.discordItems&&s.discordItems.length?s.discordItems:DISC.items);
   app.innerHTML=`${logged()&&p?`<section class="welcome"><a class="welcome-av" href="#perfil" title="Configuración">${avatar(p,56)}</a><div style="flex:1;min-width:200px"><span class="eyebrow">Tu cuenta</span><h2>Hola, ${esc(p.username)}</h2><p class="muted">${closedAcad()&&!admin()?"Tu cuenta ya quedó creada. La academia abre muy pronto: te avisaremos por aquí y en la comunidad.":premium()?"Tienes acceso premium a toda la academia.":`Cuenta gratis · tienes ${Math.max(0,5-(p.demo_used||0))} de 5 gráficas de prueba en la academia.`}</p></div>${closedAcad()&&!admin()?'<span class="pill">Academia: próximamente</span>':`<a class="btn gold" href="${toAcad("inicio")}">Ir a la academia</a>`}</section>`:""}
-  <div id="appCard"></div>
-  <section class="hero2"><div id="hero"></div><div class="demo-card" id="demo" aria-label="Así se practica en la academia"></div></section>
+  <div id="appCard"></div>${launchBox()}
+  <section class="hero2"><div id="hero"></div><div class="demo-wrap"><div class="demo-card" id="demo" aria-label="Así se practica en la academia"></div><a class="btn gold try-btn" href="#probar">▶ Pruébalo ahora, sin registrarte</a></div></section>
   <section class="statband" id="stats"></section>
   ${promoBlock()}
   <section class="sec"><div class="sec-h"><div><span class="eyebrow">La academia</span><h2>Qué vas a aprender</h2></div><a href="${toAcad("inicio")}">Ir a la academia</a></div><div class="cards" id="cards"></div></section>
@@ -934,7 +982,7 @@ async function mainHome(){
   $("#cards").innerHTML=(s.cards||[]).map((c,i)=>`<div class="card"><span class="k">${String(i+1).padStart(2,"0")}</span><h3>${esc(c.title)}</h3><p>${esc(c.text)}</p></div>`).join("");
   $("#mkts").innerHTML=marketsHTML(s.markets||[],true);
   {const pb=$("#premiumBand");if(premium())pb.remove();else if(logged())pb.innerHTML=premiumBand();
-    else pb.innerHTML=`<div class="pb final"><div><span class="eyebrow">Empieza hoy</span><h2>Crea tu cuenta gratis y prueba el método</h2><p class="muted" style="max-width:60ch;margin-top:8px">Tienes 5 gráficas de prueba para marcar tu zona, poner tu stop loss y ver la repetición, y puedes jugar el reto del día desde ya. Sin tarjeta y sin compromiso.</p></div><div class="row"><a class="btn gold" href="#registro">Crear cuenta gratis</a><a class="btn ghost" href="#entrar">Ya tengo cuenta</a></div></div>`}
+    else pb.innerHTML=`<div class="pb final"><div><span class="eyebrow">Empieza hoy</span><h2>Crea tu cuenta gratis y prueba el método</h2><p class="muted" style="max-width:60ch;margin-top:8px">Tienes 5 gráficas de prueba para marcar tu zona, poner tu stop loss y ver la repetición, y puedes jugar el reto del día desde ya. Sin tarjeta y sin compromiso.</p></div><div class="row"><a class="btn ghost" href="${toMain("probar")}">Probar una gráfica ahora</a><a class="btn gold" href="#registro">Crear cuenta gratis</a><a class="btn ghost" href="#entrar">Ya tengo cuenta</a></div></div>`}
   API.publicReviews().then(r=>{if($("#revs"))$("#revs").innerHTML=reviewsHTML(r.slice(0,3),true)}).catch(()=>{});
   postsVis().then(p=>{if($("#newsMini"))$("#newsMini").innerHTML=p.slice(0,4).map(x=>`<a class="mini" href="#nota-${esc(x.id)}"><span class="dim">${fmtDate(x.created_at)} · ${esc(x.category||"Noticia")}</span><b>${esc(x.title)}</b></a>`).join("")||'<div class="muted">Pronto publicaremos noticias y actualizaciones.</div>'}).catch(()=>{if($("#newsMini"))$("#newsMini").innerHTML='<div class="muted">Sin publicaciones por ahora.</div>'});
 }
@@ -951,7 +999,7 @@ async function academyHome(){
   const prem=premium(),apct=total?Math.round(100*passed/total):0,acc=g.practice.n?Math.round(100*g.practice.ok/g.practice.n):0,demo=Math.max(0,5-(p.demo_used||0));
   const tiles=[["acad","Temario",`${passed} de ${total} lecciones`,"#academia"],["chart","Práctica",prem?"Gráficas ilimitadas":`${demo} gráficas de prueba`,prem?"#practica":"#prueba"],
     ["medal","Logros",`${acadAch().filter(a=>a.on).length} de ${acadAch().length} medallas`,"#logros"],["layers","Progreso",'<span id="mhPos">Ver mi puesto</span>',"#progreso"],["news","Comunidad","Novedades y avisos",toMain("comunidad")],["gear","Configuración","Perfil, app y notificaciones","#perfil"]];
-  app.innerHTML=`<section class="mh">
+  app.innerHTML=`${certCta()}<section class="mh">
     <div class="mh-bg" aria-hidden="true"></div>
     <div class="mh-id"><a class="mh-av" href="#perfil" title="Configuración">${avatar(p,84)}<span class="lvchip" title="${esc(lv.name)}">${lv.i+1}</span></a>
       <div class="mh-t"><span class="eyebrow">${saludo()} · Academia</span><h1>${esc(p.username||"")} ${flag(p.country||"")}</h1>
@@ -1264,7 +1312,7 @@ ROUTES.progreso=async()=>{app.innerHTML=`<div class="pagehead"><span class="eyeb
   catch(e){$("#rk").textContent="No se pudo cargar la tabla."}};
 const rkRow=(x,i)=>`<tr class="${x.is_me?"me ":""}${x.premium?"prem":""}"><td class="mono">${i<3?["🥇","🥈","🥉"][i]:i+1}</td><td><span class="who-cell">${avatar(x,28)}${uL(x.username)}${flag(x.country)}${x.premium?premTag():""}</span></td><td class="c-hide">${esc(levelOf(x.xp).name)}</td><td class="n c-hide">${x.lessons}</td><td class="n">${x.xp}</td></tr>`;
 const podio=(r,val=x=>x.xp+" pts")=>r.length<3?"":`<div class="podio">${[1,0,2].map(i=>{const x=r[i];return `<div class="pod p${i+1}${x.premium?" prem":""}"><div class="pav">${avatar(x,i?64:84)}</div><b>${uL(x.username)} ${flag(x.country)}</b><span class="pod-tags">${x.affiliate?affTag():""}${x.premium?premTag():'<span class="dim" style="font-size:13px">Gratis</span>'}</span><span class="mono">${esc(val(x))}</span><div class="step">${i+1}</div></div>`}).join("")}</div>`;
-ROUTES.perfil=arg=>{if(!logged()){location.hash="#entrar";return}setTimeout(()=>{const t={progreso:"cfgProg",app:"cfgApp",seguridad:"cfgSeg"}[arg];if(t&&$("#"+t))$("#"+t).scrollIntoView({behavior:"smooth",block:"start"})},150);const p=API.profile()||{},g=S.prog,lv=levelOf(g.xp);const pct=lv.to?Math.round(100*(g.xp-lv.from)/(lv.to-lv.from)):100;
+ROUTES.perfil=arg=>{if(!logged()){location.hash="#entrar";return}setTimeout(async()=>{const h=$("#myCerts");if(!h||!API.myCertificates)return;let L=[];try{L=await API.myCertificates()}catch(e){}h.innerHTML=(L.length?`<div class="panel cert-list"><h3>🎓 Mis certificados</h3>${L.map(c=>`<a class="item" href="${toMain("certificado-"+c.code)}"><span class="txt"><b>${esc(c.course_title)}</b><span class="mono dim">${esc(c.code)} · ${fmtDate(c.issued_at)}</span></span><span class="pill gold">Ver</span></a>`).join("")}</div>`:"")+certCta()},400);setTimeout(()=>{const t={progreso:"cfgProg",app:"cfgApp",seguridad:"cfgSeg"}[arg];if(t&&$("#"+t))$("#"+t).scrollIntoView({behavior:"smooth",block:"start"})},150);const p=API.profile()||{},g=S.prog,lv=levelOf(g.xp);const pct=lv.to?Math.round(100*(g.xp-lv.from)/(lv.to-lv.from)):100;
   app.innerHTML=`<div class="phead"><div class="phead-av">${avatar(p,96)}</div><div style="display:grid;gap:6px;min-width:0"><span class="eyebrow">Configuración</span><h1>${esc(p.username||"")}</h1>
       <p class="muted">${esc(p.email||"")} · ${premium()?`Premium${p.premium_until&&new Date(p.premium_until).getFullYear()<2090?` hasta ${fmtDate(p.premium_until)}`:""}`:"Cuenta gratis"}${p.country?` · ${flag(p.country)} ${esc(p.country)}`:""}</p>${p.bio?`<p>${esc(p.bio)}</p>`:""}</div></div>
     <nav class="cfgnav" aria-label="Secciones">${[["cfgPerfil","Perfil"],["cfgApp","App y notificaciones"],["cfgProg","Mi progreso"],["cfgSeg","Seguridad"]].map(([i,t])=>`<button type="button" data-cfg="${i}">${t}</button>`).join("")}</nav>
@@ -1275,7 +1323,7 @@ ROUTES.perfil=arg=>{if(!logged()){location.hash="#entrar";return}setTimeout(()=>
         <label for="aC">País<select id="aC"><option value="">Prefiero no decirlo</option>${COUNTRIES.map(c=>`<option ${p.country===c?"selected":""}>${esc(c)}</option>`).join("")}</select></label></div>
       <div class="row"><button class="btn gold" id="aS">Guardar cambios</button></div></form></section>
     <section class="sec" id="cfgApp"><h2>App y notificaciones</h2><div id="appSet"></div></section>
-    <section class="sec" id="cfgProg"><h2>Mi progreso</h2>
+    <section class="sec" id="cfgProg"><h2>Mi progreso</h2><div id="myCerts"></div>
     <div class="lvl"><div class="medal">${lv.i+1}</div><div style="display:grid;gap:8px;min-width:0"><h2>${esc(lv.name)}</h2><div class="bar"><i style="width:${pct}%"></i></div><div class="muted mono">${g.xp} pts${lv.to?` · faltan ${lv.to-g.xp} para el siguiente nivel`:""}</div></div></div>
     <div class="kv" style="margin-top:14px"><div><b>${Object.values(g.done).filter(d=>d.passed).length}</b><span>lecciones aprobadas</span></div><div><b>${g.practice.n}</b><span>ejercicios resueltos</span></div><div><b>${g.practice.n?Math.round(100*g.practice.ok/g.practice.n):0}%</b><span>aciertos</span></div><div><b>${g.streak||0}</b><span>días seguidos</span></div></div></section>
     <section class="sec"><div class="sec-h"><h2>Logros</h2><a href="${toAcad("logros")}">Ver todos</a></div>${(L=>`<div class="ach-show big">${L.filter(a=>a.on).map(a=>`<span title="${esc(a.t)}">${medal(a,48)}</span>`).join("")||'<span class="muted">Aún no tienes medallas.</span>'}</div><p class="muted">${L.filter(a=>a.on).length} de ${L.length} logros de la academia.</p>`)(acadAch())}</section>
