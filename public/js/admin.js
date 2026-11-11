@@ -43,7 +43,7 @@ A.ROUTES.admin=sub=>{
   $$("[data-t]").forEach(b=>b.onclick=()=>{location.hash="#admin-"+b.dataset.t});
   $("#admMb").onclick=()=>{const n=$(".adm-nav"),o=n.classList.toggle("open");$("#admMb").setAttribute("aria-expanded",String(o))};
   $("#acSw").onclick=()=>{const host=$("#acSw").parentElement;A.confirmInline(host,closed?"¿Abrir la academia a todos?":"¿Cerrar la academia?",async()=>{
-    const ns=Object.assign({},S.site,{academyClosed:!closed},closed?{trialFrom:new Date().toISOString()}:{});try{await API.saveSite(ns);S.site=ns;A.applySite();toast(closed?"Academia abierta · la prueba gratis de 7 días empieza hoy para todos":"Academia cerrada para alumnos");A.ROUTES.admin(tab)}catch(x){toast(x.message);A.ROUTES.admin(tab)}})};
+    const ns=Object.assign({},S.site,{academyClosed:!closed},closed?{trialFrom:new Date().toISOString()}:{});try{await API.saveSite(ns);S.site=ns;A.applySite();toast(closed?(+(S.site.trialDays??7)>0?`Academia abierta · la prueba gratis de ${S.site.trialDays??7} días empieza hoy para todos`:"Academia abierta"):"Academia cerrada para alumnos");A.ROUTES.admin(tab)}catch(x){toast(x.message);A.ROUTES.admin(tab)}})};
   const acL=$("#acL");if(acL){const sv=async at=>{const ns=Object.assign({},S.site,{academyOpenAt:at,launchNote:$("#acN").value.trim()});if(!at)delete ns.academyOpenAt;
       try{await API.saveSite(ns);S.site=ns;A.applySite();toast(at?"Listo: la academia abre sola el "+fmtDT(at):"Fecha quitada");A.ROUTES.admin(tab)}catch(x){toast(x.message)}};
     acL.onsubmit=e=>{e.preventDefault();const v=fromLoc($("#acAt").value);if(!v){toast("Elige la fecha y la hora");return}if(new Date(v)<=new Date()){toast("Elige una fecha futura");return}sv(v)};
