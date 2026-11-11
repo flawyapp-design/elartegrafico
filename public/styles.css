@@ -1589,3 +1589,14 @@ body.pf-open{overflow:hidden}
 .sc-soon{display:flex;flex-wrap:wrap;gap:8px}
 .tm-h{grid-column:1/-1;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin:14px 0 4px;padding-bottom:6px;border-bottom:1px solid var(--line)}
 .tm-h:first-child{margin-top:0}
+
+/* admin: temario agrupado por curso */
+.crs-g{border:1px solid var(--line);border-radius:var(--r2);margin-bottom:10px;background:var(--bg2);overflow:hidden}
+.crs-g>summary{display:flex;gap:10px;align-items:center;padding:10px 12px;cursor:pointer;list-style:none}
+.crs-g>summary::-webkit-details-marker{display:none}
+.crs-g>summary::after{content:"▾";margin-left:auto;color:var(--dim);transition:transform .2s}
+.crs-g:not([open])>summary::after{transform:rotate(-90deg)}
+.crs-g[open]>summary{border-bottom:1px solid var(--line)}
+.crs-ic{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;font-size:18px;flex:none}
+.crs-t{display:grid;gap:2px;min-width:0}.crs-t .dim{font-size:12px}
+.crs-g .crs-new{margin:8px 12px 12px}

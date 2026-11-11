@@ -265,16 +265,31 @@ async function banners(){
 
 /* ---------- módulos y lecciones ---------- */
 let sel={};
+/* módulos agrupados por curso, en el orden de los alumnos (curso por su orden, módulo por su orden) */
+function courseGroups(mods){const cs=(S.courses||[]).slice().sort((a,b)=>(a.sort||0)-(b.sort||0)),by=m=>(a,b)=>(a.sort||0)-(b.sort||0);
+  const g=cs.map(c=>[c,mods.filter(m=>m.course_id===c.id).sort(by())]);const rest=mods.filter(m=>!m.course_id||!cs.some(c=>c.id===m.course_id)).sort(by());
+  if(rest.length)g.push([null,rest]);return g}
+function lessonOptions(mods,les){const used=new Set();const out=courseGroups(mods).map(([c,ms])=>ms.map((m,i)=>{const ls=les.filter(l=>l.module_id===m.id).sort((a,b)=>(a.sort||0)-(b.sort||0));ls.forEach(l=>used.add(l.id));
+  return ls.length?`<optgroup label="${esc((c?c.title:"Sin curso")+" › "+(i+1)+". "+m.title)}">${ls.map((l,k)=>`<option value="${esc(l.id)}">${i+1}.${k+1} ${esc(l.title)}</option>`).join("")}</optgroup>`:""}).join("")).join("");
+  const rest=les.filter(l=>!used.has(l.id));return out+(rest.length?`<optgroup label="Otras">${rest.map(l=>`<option value="${esc(l.id)}">${esc(l.title)}</option>`).join("")}</optgroup>`:"")}
+function modOptions(mods){return courseGroups(mods).map(([c,ms])=>ms.length?`<optgroup label="${esc(c?(c.icon||"")+" "+c.title:"Sin curso")}">${ms.map((m,i)=>`<option value="${esc(m.id)}">${i+1}. ${esc(m.title)}</option>`).join("")}</optgroup>`:"").join("")}
 async function contenido(){
   let mods=[],les=[];try{mods=await API.modules();les=await API.lessons()}catch(e){}
-  H().innerHTML=`<div class="split"><div class="panel"><div class="sec-h"><h3>Temario</h3><button class="btn sm gold" id="nm">Nuevo módulo</button></div>
-    <div class="tree">${mods.map(m=>`<div class="m"><button data-s="m:${esc(m.id)}" class="${sel.id===m.id?"on":""}"><b>${esc(m.title)}</b><span class="tags"><span class="tag ${m.status==="publicado"?"pub":""}">${m.status==="publicado"?"Publicado":"Borrador"}</span>${m.status==="publicado"?`<span class="tag ${A.modOpen(m,true)?"pub":"lock"}">${A.modState(m)}</span>`:""}</span></button>
-      <div class="dim" style="padding:0 12px 6px;font-size:12px">${esc(m.category||"")}</div>
-      ${les.filter(l=>l.module_id===m.id).sort((a,b)=>a.sort-b.sort).map(l=>`<button class="l ${sel.id===l.id?"on":""}" data-s="l:${esc(l.id)}"><span>${esc(l.title)}</span><span class="tag ${l.status==="publicado"?"pub":""}">${l.status==="publicado"?"Pub.":"Borr."}</span></button>`).join("")}
-      <button class="l" data-nl="${esc(m.id)}" style="color:var(--gold)">+ Nueva lección</button></div>`).join("")||'<div class="muted">Aún no hay módulos.</div>'}</div></div><div class="panel" id="ed"><div class="muted">Elige un módulo o una lección para editarla.</div></div></div>`;
+  const CS=courseGroups(mods);
+  const lesOf=mid=>les.filter(l=>l.module_id===mid).sort((a,b)=>(a.sort||0)-(b.sort||0));
+  const selMod=sel.t==="m"?sel.id:sel.t==="l"?((les.find(l=>l.id===sel.id)||{}).module_id):null;
+  const selCourse=selMod?((mods.find(m=>m.id===selMod)||{}).course_id||""):null;
+  H().innerHTML=`<div class="split"><div class="panel"><div class="sec-h"><h3>Temario</h3></div>
+    <p class="dim" style="font-size:13px;margin:0 0 10px">Organizado por curso y en el orden en que lo ven los alumnos. Toca un curso para abrirlo o cerrarlo.</p>
+    <div class="tree">${CS.map(([c,ms],ci)=>`<details class="crs-g"${selCourse===null?(ci===0?" open":""):(selCourse===(c?c.id:"")?" open":"")}><summary><span class="crs-ic" style="background:${esc(c&&c.color||"#64739a")}">${esc(c?c.icon||"🎓":"📦")}</span><span class="crs-t"><b>${c?esc(c.title):"Sin curso"}</b><span class="dim">${c?(c.base?"Gratis con cuenta":esc(c.price||"")):"Solo suscriptores"} · ${ms.length} ${ms.length===1?"módulo":"módulos"} · ${(n=>n+(n===1?" lección":" lecciones"))(ms.reduce((a,m)=>a+lesOf(m.id).length,0))}${c&&c.status==="borrador"?" · borrador":""}</span></span></summary>
+      ${ms.map((m,mi)=>`<div class="m"><button data-s="m:${esc(m.id)}" class="${sel.id===m.id?"on":""}"><b><span class="mono dim">${mi+1}.</span> ${esc(m.title)}</b><span class="tags"><span class="tag ${m.status==="publicado"?"pub":""}">${m.status==="publicado"?"Publicado":"Borrador"}</span>${m.status==="publicado"?`<span class="tag ${A.modOpen(m,true)?"pub":"lock"}">${A.modState(m)}</span>`:""}${m.free?'<span class="tag free-t">Prueba</span>':""}</span></button>
+        <div class="dim" style="padding:0 12px 6px;font-size:12px">${esc(m.category||"")}</div>
+        ${lesOf(m.id).map((l,li)=>`<button class="l ${sel.id===l.id?"on":""}" data-s="l:${esc(l.id)}"><span><span class="mono dim">${mi+1}.${li+1}</span> ${esc(l.title)}</span><span class="tag ${l.status==="publicado"?"pub":""}">${l.status==="publicado"?"Pub.":"Borr."}</span></button>`).join("")}
+        <button class="l" data-nl="${esc(m.id)}" style="color:var(--gold)">+ Nueva lección</button></div>`).join("")||'<div class="muted" style="padding:8px 12px">Este curso aún no tiene módulos.</div>'}
+      <button class="btn sm ghost crs-new" data-nm="${c?esc(c.id):""}">+ Nuevo módulo${c?` en ${esc(c.title)}`:""}</button></details>`).join("")||'<div class="muted">Aún no hay módulos.</div>'}</div></div><div class="panel" id="ed"><div class="muted">Elige un módulo o una lección para editarla.</div></div></div>`;
   const cats=[...new Set(mods.map(m=>m.category).concat(["Fundamentos","Método El Arte Gráfico","Gestión y psicología","Sintéticos","Forex","Metales","Evaluación"]))].filter(Boolean);
   const reload=async()=>{await A.loadContent();contenido()};
-  $("#nm").onclick=async()=>{try{const m=await API.saveModule({title:"Nuevo módulo",descr:"",level:"",category:"Fundamentos",sort:(mods.length?Math.max(...mods.map(x=>x.sort||0)):0)+1,status:"borrador",locked:true,available:false});sel={t:"m",id:m.id};reload()}catch(x){toast(x.message)}};
+  $$("[data-nm]").forEach(b=>b.onclick=async()=>{const cid=b.dataset.nm||null;const same=mods.filter(x=>(x.course_id||null)===cid);try{const m=await API.saveModule({title:"Nuevo módulo",descr:"",level:"",category:cid&&(S.courses||[]).some(c=>c.id===cid&&c.base)?"Fundamentos":"Módulos",sort:(same.length?Math.max(...same.map(x=>x.sort||0)):(mods.length?Math.max(...mods.map(x=>x.sort||0)):0))+1,status:"borrador",locked:true,available:false,...(cid?{course_id:cid}:{})});sel={t:"m",id:m.id};reload()}catch(x){toast(x.message)}});
   $$("[data-nl]").forEach(b=>b.onclick=async()=>{const mid=b.dataset.nl;const ls=les.filter(l=>l.module_id===mid);try{const l=await API.saveLesson({module_id:mid,title:"Nueva lección",sort:(ls.length?Math.max(...ls.map(x=>x.sort||0)):0)+1,status:"borrador",video_url:"",body:"",min_score:80});sel={t:"l",id:l.id};reload()}catch(x){toast(x.message)}});
   $$("[data-s]").forEach(b=>b.onclick=()=>{const [t,id]=b.dataset.s.split(":");sel={t,id};contenido()});
   const ed=$("#ed");
@@ -297,7 +312,7 @@ async function contenido(){
   if(sel.t==="l"){const l=les.find(x=>x.id===sel.id);if(!l)return;
     ed.innerHTML=`<form class="form" id="fl"><div class="sec-h"><h3>Lección</h3><a class="btn sm ghost" href="#leccion-${esc(l.id)}">Ver como alumno</a></div>
       <label for="lT">Título<input id="lT" value="${esc(l.title)}"></label>
-      <div class="three"><label for="lM">Módulo<select id="lM">${mods.map(m=>`<option value="${esc(m.id)}">${esc(m.title)}</option>`).join("")}</select></label><label for="lO">Orden<input id="lO" type="number" value="${l.sort||1}"></label><label for="lS">Estado<select id="lS"><option value="borrador">Borrador</option><option value="publicado">Publicado</option></select></label></div>
+      <div class="three"><label for="lM">Módulo<select id="lM">${modOptions(mods)}</select></label><label for="lO">Orden<input id="lO" type="number" value="${l.sort||1}"></label><label for="lS">Estado<select id="lS"><option value="borrador">Borrador</option><option value="publicado">Publicado</option></select></label></div>
       <label for="lV">Video: enlace de Bunny Stream (recomendado), YouTube, Vimeo o MP4<input id="lV" value="${esc(l.video_url||"")}" placeholder="https://iframe.mediadelivery.net/embed/123456/abcd-…"><span class="dim" style="font-weight:400">En Bunny: Stream → tu librería → el video → botón “Embed” o “Copy video URL”. Pega aquí cualquiera de los dos.</span></label>
       <div class="row">${fileBtn("lVF","Subir video MP4")}<span class="dim" style="font-size:13px">Para videos largos usa YouTube oculto o Vimeo: cargan más rápido.</span></div>
       <label for="lB">Contenido (### subtítulo, - lista, **negrita**)<textarea id="lB" style="min-height:240px">${esc(l.body||"")}</textarea></label>
@@ -311,14 +326,14 @@ async function contenido(){
 }
 
 /* ---------- ejercicios ---------- */
-let exFilter="",exSel=null;
+let exFilter="",exSel=null,exMods=[];
 async function ejercicios(){
-  let list=[],les=[];try{list=await API.allExercises();les=await API.lessons()}catch(e){}
+  let list=[],les=[],mods=[];try{list=await API.allExercises();les=await API.lessons();mods=await API.modules()}catch(e){}exMods=mods;
   const lname=id=>id==null?"Práctica libre":(les.find(l=>l.id===id)||{}).title||"—";
   const where=e=>e.is_demo?"demo":e.lesson_id||"practica";
   const flt=e=>!exFilter||(exFilter==="demo"?e.is_demo:exFilter==="practica"?(!e.lesson_id&&!e.is_demo):e.lesson_id===exFilter);
   H().innerHTML=`<div class="split"><div class="panel"><div class="sec-h"><h3>Ejercicios</h3><button class="btn sm gold" id="nx">Nuevo</button></div>
-    <label class="form" for="xf"><select id="xf"><option value="">Todos</option><option value="demo">Prueba gratis (portada)</option><option value="practica">Práctica libre</option>${les.map(l=>`<option value="${esc(l.id)}">${esc(l.title)}</option>`).join("")}</select></label>
+    <label class="form" for="xf"><select id="xf"><option value="">Todos</option><option value="demo">Prueba gratis (portada)</option><option value="practica">Práctica libre</option>${lessonOptions(mods,les)}</select></label>
     <div class="list">${list.filter(flt).map(e=>`<button class="item" data-x="${esc(e.id)}" style="text-align:left;cursor:pointer"><span class="ico">${e.sort}</span><span class="txt"><b>${esc({grafica:"Gráfica",calculo:"Cálculo",opcion:"Pregunta","no-operar":"No operar"}[e.kind])} · ${e.kind==="grafica"||e.kind==="no-operar"?esc(MNAME[e.market]||e.market):esc(String(e.prompt||((e.data||{}).template)||"").slice(0,40))}</b><span>${e.is_demo?"Prueba gratis":esc(lname(e.lesson_id))}</span></span></button>`).join("")||'<div class="muted">Sin ejercicios.</div>'}</div></div>
     <div class="panel" id="xe"><div class="muted">Elige un ejercicio o crea uno nuevo.</div></div></div>`;
   $("#xf").value=exFilter;$("#xf").onchange=()=>{exFilter=$("#xf").value;ejercicios()};
@@ -330,7 +345,7 @@ async function editEx(e,a,les){
   const dest=e.is_demo?"demo":e.lesson_id||"practica";
   box.innerHTML=`<form class="form" id="xfm"><div class="sec-h"><h3>${e.id?"Editar ejercicio":"Nuevo ejercicio"}</h3><button type="button" class="btn sm" id="xpv">Probar como alumno</button></div>
     <div class="three"><label for="xK">Tipo<select id="xK"><option value="grafica">Gráfica: zona y SL</option><option value="no-operar">Gráfica: aquí no se opera</option><option value="calculo">Cálculo con fórmula</option><option value="opcion">Opción múltiple</option></select></label>
-      <label for="xD">Dónde aparece<select id="xD"><option value="demo">Prueba gratis (portada)</option><option value="practica">Práctica libre</option>${les.map(l=>`<option value="${esc(l.id)}">Lección: ${esc(l.title)}</option>`).join("")}</select></label>
+      <label for="xD">Dónde aparece<select id="xD"><option value="demo">Prueba gratis (portada)</option><option value="practica">Práctica libre</option>${lessonOptions(exMods,les)}</select></label>
       <label for="xO">Orden<input id="xO" type="number" value="${e.sort||1}"></label></div>
     <label class="chk"><input type="checkbox" id="xFT" ${e.free_try?"checked":""}> Usar en <b>“Pruébalo sin registrarte”</b> del inicio (cualquiera lo puede hacer sin cuenta; usa solo uno)</label>
     <label for="xP">Enunciado / pregunta (opcional en gráficas)<input id="xP" value="${esc(e.prompt||"")}"></label>
