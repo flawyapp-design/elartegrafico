@@ -1317,3 +1317,16 @@ nav.main .mnav-sw a.on{color:#1b1405!important;background:linear-gradient(180deg
 .pager button.on{background:linear-gradient(180deg,#f3d88f,#d8b062);color:#1b1405;border-color:transparent}
 .pager button[disabled]{opacity:.35;cursor:default}
 .pg-gap{align-self:center;padding:0 4px;color:var(--muted)}
+/* prueba gratis */
+.price.free{border-color:rgba(46,196,134,.45);background:linear-gradient(180deg,rgba(46,196,134,.08),transparent 55%),var(--card)}
+.price.free .price-v b{color:#5fe0a9}
+.free-tag{background:linear-gradient(180deg,#7df0bd,#2ec486)!important;color:#05261a!important}
+.tag.free-t{background:rgba(46,196,134,.14);color:#5fe0a9;border-color:rgba(46,196,134,.45)}
+.note.trial-note{border-color:rgba(46,196,134,.5);background:rgba(46,196,134,.08)}
+.trial-card{display:flex;gap:18px;align-items:center;margin:16px 0;padding:18px 20px;border-radius:var(--r2,16px);border:1px solid rgba(46,196,134,.5);background:linear-gradient(135deg,rgba(46,196,134,.14),transparent 60%),var(--bg2)}
+.trial-card .tc-ic{font-size:38px;flex:none}
+.trial-card .tc-t{flex:1;min-width:0;display:grid;gap:6px}.trial-card h3{margin:0}.trial-card .eyebrow{color:#5fe0a9}
+.trial-card .bar i{background:linear-gradient(90deg,#2ec486,#7df0bd)}
+.trial-card .tc-a{display:grid;gap:8px;flex:none}
+@media (max-width:700px){.trial-card{flex-wrap:wrap}.trial-card .tc-a{grid-auto-flow:column;width:100%}}
+:root[data-theme="light"] .price.free .price-v b,:root[data-theme="light"] .trial-card .eyebrow{color:#14935f}

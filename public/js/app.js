@@ -21,6 +21,11 @@ const blankProg=()=>({xp:0,done:{},streak:0,lastDay:"",practice:{n:0,ok:0,row:0,
 /* cada ejercicio da puntos solo la primera vez (repetirlo no suma más) */
 function exXP(ex,pts){if(!pts||!ex)return;S.prog.px=S.prog.px||[];const k=ex.id||"";if(k&&S.prog.px.includes(k))return;if(k){S.prog.px.push(k);if(S.prog.px.length>3000)S.prog.px=S.prog.px.slice(-3000)}addXP(pts)}
 const premium=()=>API.isPremium(), admin=()=>API.isAdmin(), logged=()=>!!API.user();
+/* prueba gratis: módulos marcados como "free" durante los primeros días de la cuenta */
+const trialDays=()=>{const d=(S.site||{}).trialDays;return d==null||d===""?7:Math.max(0,+d||0)};
+const trialLeft=()=>{if(!logged()||premium())return 0;const p=API.profile()||{},u=API.user()||{};const c=Math.max(new Date(p.created_at||u.created_at||Date.now()).getTime(),(S.site||{}).trialFrom?new Date(S.site.trialFrom).getTime():0);return Math.max(0,Math.ceil((c+trialDays()*864e5-Date.now())/864e5))};
+const inTrial=()=>trialLeft()>0;
+const canMod=m=>premium()||(!!m&&!!m.free&&inTrial());
 /* ---------- dos sitios con el mismo código: elartegrafico.com (principal) y academia.elartegrafico.com ---------- */
 const HOST=location.hostname,PROD=/(^|\.)elartegrafico\.com$/.test(HOST);
 const SITE=PROD?(/^academia\./.test(HOST)?"academia":"main"):(new URLSearchParams(location.search).get("sitio")==="academia"?"academia":"main");
@@ -369,16 +374,20 @@ function temarioBlock(host){if(!host)return;const pub=new Set((S.modules||[]).fi
   const tot=TEMARIO.reduce((a,x)=>a+x[1],0);
   host.innerHTML=TEMARIO.map(([t,n,lv],i)=>{const on=pub.has(t.toLowerCase());return `<div class="tm${on?" on":""}"><span class="tm-n mono">${String(i).padStart(2,"0")}</span><div><b>${esc(t)}</b><span class="dim">${n} lecciones · ${esc(lv)}</span></div>${on?'<span class="tag pub">Disponible</span>':'<span class="tag">Próximamente</span>'}</div>`}).join("")
     +`<p class="dim tm-foot">${TEMARIO.length} módulos · ${tot} lecciones con ejercicios en gráficas reales. Los módulos se van abriendo a medida que avanzas.</p>`}
+function freeCard(o={}){const d=trialDays(),fm=(S.modules||[]).filter(m=>m.free&&m.status!=="borrador");if(!d||!fm.length||premium())return"";
+  const cta=!logged()?`<a class="btn" href="${toMain("registro")}">Empezar gratis</a>`:inTrial()?`<a class="btn" href="${toAcad("inicio")}">Ir a mi clase gratis</a>`:'<span class="btn disabled" aria-disabled="true">Tu prueba ya terminó</span>';
+  return `<div class="price free"><span class="price-tag free-tag">Sin tarjeta</span><h3>Prueba gratis</h3><div class="price-v"><b>0</b><span>USD</span></div><span class="dim">por ${d} días${logged()&&inTrial()?` · te quedan ${trialLeft()}`:""}</span>
+    <ul class="checks"><li>${fm.length>1?"Módulos":"Módulo"} ${fm.map(m=>`“${esc(m.title)}”`).join(" y ")} completo</li><li>5 gráficas de práctica</li><li>Retos diarios y ranking</li><li>Noticias de la comunidad</li></ul>${cta}</div>`}
 function pricingBlock(host,o={}){if(!host)return;const s=S.site;const pl=(s.plans||[]).filter(x=>x&&x.name&&x.price);if(!pl.length||(premium()&&!o.page)){host.remove();return}const off=o.off??!!s.paymentsOff;
   const num=x=>{const m=String(x).replace(",",".").match(/\d+(\.\d+)?/);return m?parseFloat(m[0]):NaN};const cur=x=>String(x).replace(/[\d.,\s]+/g," ").trim()||"USD";
   const base=pl.find(x=>x.days<=31),bm=base?num(base.price)/(base.days/30):NaN;const fav=pl.length===3?1:pl.length>3?Math.floor(pl.length/2):-1;
   const items=(s.premiumItems||[]).slice(0,4);
   host.innerHTML=`${o.page?"":`<div class="sec-h"><div><span class="eyebrow">Precios</span><h2>Elige tu plan</h2></div><a href="#premium">Cómo pagar</a></div>`}
-    <div class="prices">${pl.map((x,i)=>{const v=num(x.price),pm=v/(x.days/30),ah=isFinite(bm)&&x.days>31&&pm<bm?Math.round(100*(1-pm/bm)):0;
+    <div class="prices${freeCard(o)?" has-free":""}">${freeCard(o)}${pl.map((x,i)=>{const v=num(x.price),pm=v/(x.days/30),ah=isFinite(bm)&&x.days>31&&pm<bm?Math.round(100*(1-pm/bm)):0;
       return `<div class="price${i===fav?" fav":""}">${i===fav?'<span class="price-tag">Más elegido</span>':""}<h3>${esc(x.name)}</h3><div class="price-v"><b>${esc(String(x.price).replace(/\s*[A-Za-z]+$/,""))}</b><span>${esc(cur(x.price))}</span></div>
         <span class="dim">${x.days>31&&isFinite(pm)?`≈ ${pm.toFixed(pm<10?1:0).replace(".0","")} ${esc(cur(x.price))} al mes`:"pago único por 30 días"}</span>${ah?`<span class="pill ok">Ahorras ${ah}%</span>`:""}
         <ul class="checks">${items.map(t=>`<li>${esc(t)}</li>`).join("")}</ul>${off?'<span class="btn disabled" aria-disabled="true">Disponible pronto</span>':o.page?`<button type="button" class="btn ${i===fav?"gold":""}" data-pick="${i}">Elegir ${esc(x.name)}</button>`:`<a class="btn ${i===fav?"gold":""}" href="${toMain("premium")}">Elegir ${esc(x.name)}</a>`}</div>`}).join("")}</div>
-    <p class="dim price-foot">${off?"Los pagos están pausados por ahora: te avisaremos cuando abran.":"Pagas con Binance Pay en USDT y activamos tu premium al confirmar el pago."}${o.page?"":" ¿Quieres probar antes? Con tu cuenta gratis tienes 5 gráficas de prueba."}</p>`;
+    <p class="dim price-foot">${off?"Los pagos están pausados por ahora: te avisaremos cuando abran.":"Pagas con Binance Pay en USDT y activamos tu premium al confirmar el pago."}${o.page||freeCard(o)?"":" ¿Quieres probar antes? Con tu cuenta gratis tienes 5 gráficas de prueba."}</p>`;
   $$("[data-pick]",host).forEach(b=>b.onclick=()=>{const sel=$("#pP");const k=pl[+b.dataset.pick];if(sel){const j=(S.site.plans||[]).findIndex(x=>x.name===k.name);if(j>=0)sel.value=String(j)}const t=$("#pay");if(t)t.scrollIntoView({behavior:"smooth",block:"start"})})}
 const FAQ_DEF=[["¿Necesito experiencia?","No. El temario empieza desde cero: qué es un bróker, cómo leer las velas y la estructura del mercado, hasta el método completo."],
   ["¿Con cuánto dinero empiezo?","Puedes aprender y practicar en una cuenta demo sin poner dinero. Cuando pases a real, el módulo de gestión del riesgo te enseña a calcular el lote según el tamaño de tu cuenta."],
@@ -441,6 +450,7 @@ async function memberHome(){
       <div><div class="mh-bl"><span>${lv.to?`Nivel ${lv.i+2} en ${lv.to-(g.xp||0)} pts`:"Nivel máximo"}</span><b class="mono">${lpct}%</b></div><div class="bar"><i style="width:${lpct}%"></i></div></div>
     </div>
   </section>
+  ${inTrial()?trialCard():""}
   <section class="mh-tiles">${tiles.map(([k,t,d,h,ext])=>`<a class="mt" href="${esc(h)}"${ext?' target="_blank" rel="noopener"':""}><span class="mt-i">${ico(k)}</span><b>${t}</b><span class="dim">${d}</span></a>`).join("")}</section>
   <section class="mh-grid">
     <div class="panel"><div class="sec-h"><h3>Novedades</h3><a href="#comunidad">Ver todo</a></div><div id="mhNews" class="mh-news"><div class="muted">Cargando…</div></div></div>
@@ -702,9 +712,13 @@ async function mainHome(){
 }
 
 /* ---------- panel de la academia ---------- */
+function trialNext(){for(const m of S.modules.filter(x=>x.free&&modOpen(x))){const ls=S.lindex.filter(l=>l.module_id===m.id).sort((a,b)=>(a.sort||0)-(b.sort||0));for(const l of ls){if(!(S.prog.done[l.id]&&S.prog.done[l.id].passed))return l}}return null}
+function trialCard(){const d=trialLeft(),ms=S.modules.filter(x=>x.free&&modOpen(x));if(!ms.length)return"";const ls=S.lindex.filter(l=>ms.some(m=>m.id===l.module_id)),ok=ls.filter(l=>S.prog.done[l.id]&&S.prog.done[l.id].passed).length;
+  return `<section class="trial-card"><div class="tc-ic">🎁</div><div class="tc-t"><span class="eyebrow">Prueba gratis · ${d===1?"último día":`te quedan ${d} días`}</span><h3>${ms.map(m=>esc(m.title)).join(" · ")}</h3><p class="muted">Tienes acceso completo a ${ms.length>1?"estos módulos":"este módulo"}: videos, ejercicios y medallas. Llevas ${ok} de ${ls.length} lecciones.</p>
+    <div class="bar"><i style="width:${ls.length?Math.round(100*ok/ls.length):0}%"></i></div></div><div class="tc-a"><a class="btn gold" href="${(trialNext()?"#leccion-"+esc(trialNext().id):"#modulo-"+esc(ms[0].id))}">${ok?"Seguir":"Empezar"}</a><a class="btn ghost sm" href="${toMain("premium")}">Ver planes</a></div></section>`}
 function nextLesson(){for(const m of S.modules){if(!modOpen(m)||m.optional)continue;const ls=S.lindex.filter(l=>l.module_id===m.id).sort((a,b)=>(a.sort||0)-(b.sort||0));for(const l of ls){if(!(S.prog.done[l.id]&&S.prog.done[l.id].passed))return l}}return null}
 async function academyHome(){
-  const p=API.profile()||{},g=S.prog,lv=levelOf(g.xp);const pct=lv.to?Math.round(100*(g.xp-lv.from)/(lv.to-lv.from)):100;const nx=premium()?nextLesson():null;
+  const p=API.profile()||{},g=S.prog,lv=levelOf(g.xp);const pct=lv.to?Math.round(100*(g.xp-lv.from)/(lv.to-lv.from)):100;const tri=inTrial(),nx=premium()?nextLesson():tri?trialNext():null;
   const passed=Object.values(g.done).filter(d=>d.passed).length,total=S.lindex.length;
   const prem=premium(),apct=total?Math.round(100*passed/total):0,acc=g.practice.n?Math.round(100*g.practice.ok/g.practice.n):0,demo=Math.max(0,5-(p.demo_used||0));
   const tiles=[["acad","Temario",`${passed} de ${total} lecciones`,"#academia"],["chart","Práctica",prem?"Gráficas ilimitadas":`${demo} gráficas de prueba`,prem?"#practica":"#prueba"],
@@ -714,13 +728,14 @@ async function academyHome(){
     <div class="mh-id"><a class="mh-av" href="#perfil" title="Configuración">${avatar(p,84)}<span class="lvchip" title="${esc(lv.name)}">${lv.i+1}</span></a>
       <div class="mh-t"><span class="eyebrow">${saludo()} · Academia</span><h1>${esc(p.username||"")} ${flag(p.country||"")}</h1>
         <div class="mh-chips">${prem?premTag():'<span class="tag">Cuenta gratis</span>'}${p.affiliate?affTag():""}<span class="tag">${esc(lv.name)}</span></div></div></div>
-    <div class="mh-cta">${prem?(nx?`<a class="btn gold btn-ic" href="#leccion-${esc(nx.id)}">${ico("play",18)}<span>Continuar: ${esc(nx.title)}</span></a>`:'<a class="btn gold" href="#practica">Ir a práctica</a>'):`<a class="btn gold" href="#prueba">Probar gratis (${demo} de 5)</a><a class="btn ghost" href="${toMain("premium")}">Hazte premium</a>`}</div>
+    <div class="mh-cta">${prem?(nx?`<a class="btn gold btn-ic" href="#leccion-${esc(nx.id)}">${ico("play",18)}<span>Continuar: ${esc(nx.title)}</span></a>`:'<a class="btn gold" href="#practica">Ir a práctica</a>'):`${tri&&nx?`<a class="btn gold btn-ic" href="#leccion-${esc(nx.id)}">${ico("play",18)}<span>Clase gratis: ${esc(nx.title)}</span></a>`:`<a class="btn gold" href="#prueba">Probar gratis (${demo} de 5)</a>`}<a class="btn ghost" href="${toMain("premium")}">Hazte premium</a>`}</div>
     <div class="mh-bars">
       <div><div class="mh-bl"><span>Lecciones aprobadas: ${passed}${total?` de ${total}`:""}</span><b class="mono">${apct}%</b></div><div class="bar"><i style="width:${apct}%"></i></div></div>
       <div><div class="mh-bl"><span>${lv.to?`Nivel ${lv.i+2} en ${lv.to-g.xp} pts`:"Nivel máximo"}</span><b class="mono">${pct}%</b></div><div class="bar"><i style="width:${pct}%"></i></div></div>
     </div>
     <div class="mh-mini"><span><b class="mono">${g.practice.n}</b> ejercicios</span><span><b class="mono">${acc}%</b> aciertos</span><span><b class="mono">${g.streak||0}</b> días seguidos</span></div>
   </section>
+  ${tri?trialCard():""}
   <section class="mh-tiles">${tiles.map(([k,t,d,h])=>`<a class="mt" href="${esc(h)}"><span class="mt-i">${ico2(k)}</span><b>${t}</b><span class="dim">${d}</span></a>`).join("")}</section>
   ${premium()?(m=>m?fbCard(m):"")(S.modules.find(needFb)):""}
   <div id="appCard"></div>
@@ -742,7 +757,7 @@ async function syllabus(host,limit){
   let n=0;host.innerHTML=Object.entries(groups).map(([cat,ms])=>{if(limit&&n>=limit)return"";return `<div class="syl-cat"><h3 class="cat">${esc(cat)}</h3><div class="grid">${ms.map(m=>{if(limit&&n>=limit)return"";n++;const ls=idx.filter(l=>l.module_id===m.id);const pr=modProgress(m.id,ls);
     const op=modOpen(m,true);
     return `<a class="mod ${op?"":"soon-mod"}" href="#modulo-${esc(m.id)}"><span class="num">${esc(m.level||cat)}</span><h3>${esc(m.title)}</h3><p>${esc(m.descr||"")}</p>
-      <div class="meta"><span>${ls.length} ${ls.length===1?"lección":"lecciones"}</span>${m.optional?'<span class="tag pub">Opcional</span>':""}${op?"":`<span class="tag lock">${esc(modState(m))}</span>`}${premium()||!op?"":'<span class="tag">Premium</span>'}${m.status!=="publicado"?'<span class="tag">Borrador</span>':""}</div>${premium()?`<div class="bar"><i style="width:${Math.round(pr*100)}%"></i></div>`:""}</a>`}).join("")}</div></div>`}).join("")}
+      <div class="meta"><span>${ls.length} ${ls.length===1?"lección":"lecciones"}</span>${m.optional?'<span class="tag pub">Opcional</span>':""}${m.free&&!premium()&&trialDays()?'<span class="tag free-t">Prueba gratis</span>':""}${op?"":`<span class="tag lock">${esc(modState(m))}</span>`}${premium()||!op?"":'<span class="tag">Premium</span>'}${m.status!=="publicado"?'<span class="tag">Borrador</span>':""}</div>${premium()?`<div class="bar"><i style="width:${Math.round(pr*100)}%"></i></div>`:""}</a>`}).join("")}</div></div>`}).join("")}
 function modProgress(mid,ls){ls=ls||S.lindex.filter(l=>l.module_id===mid);if(!ls.length||!S.prog)return 0;return ls.filter(l=>S.prog.done[l.id]&&S.prog.done[l.id].passed).length/ls.length}
 /* reproducir enlaces .m3u8 (Bunny "playlist.m3u8") también en Chrome/Android con hls.js */
 let hlsP=null;
@@ -876,17 +891,18 @@ ROUTES.premium=()=>{const s=S.site;const plans=(s.plans||[]).filter(x=>x&&x.name
 /* ---------- academia ---------- */
 ROUTES.academia=()=>{app.innerHTML=`<div class="pagehead"><span class="eyebrow">Academia</span><h1>Temario</h1><p class="muted">Avanza en orden: cada lección se aprueba con sus ejercicios y cada módulo se desbloquea al terminar el anterior.</p>${premium()?"":`<div class="note">Puedes ver el temario completo. Las lecciones y los ejercicios son para alumnos premium. <a href="#premium">Ver cómo acceder</a></div>`}</div><div id="syl"></div>`;syllabus($("#syl"))};
 ROUTES.modulo=id=>{const m=S.modules.find(x=>x.id===id);if(!m){app.innerHTML=`<div class="empty">Ese módulo no existe.<a class="btn sm" href="#academia">Ver temario</a></div>`;return}
-  const ls=S.lindex.filter(l=>l.module_id===id);const prev=prevReq(m);const closedM=!modOpen(m);const locked=closedM||(premium()&&modLocked(m));
-  app.innerHTML=`<div class="crumbs"><a href="#academia">Temario</a><span>/</span><span>${esc(m.category||"")}</span></div><div class="pagehead"><span class="eyebrow">${esc(m.level||m.category||"Módulo")}</span><h1>${esc(m.title)}</h1><p class="muted">${esc(m.descr||"")}</p>${premium()?`<div class="bar" style="max-width:420px"><i style="width:${Math.round(modProgress(id)*100)}%"></i></div>`:""}</div>
+  const ok=canMod(m),trial=!premium()&&ok;const ls=S.lindex.filter(l=>l.module_id===id);const prev=prevReq(m);const closedM=!modOpen(m);const locked=closedM||(ok&&modLocked(m));
+  app.innerHTML=`<div class="crumbs"><a href="#academia">Temario</a><span>/</span><span>${esc(m.category||"")}</span></div><div class="pagehead"><span class="eyebrow">${esc(m.level||m.category||"Módulo")}</span><h1>${esc(m.title)}</h1><p class="muted">${esc(m.descr||"")}</p>${ok?`<div class="bar" style="max-width:420px"><i style="width:${Math.round(modProgress(id)*100)}%"></i></div>`:""}</div>
   ${closedM?`<div class="note">${m.open_at?`Este módulo se habilita el <b>${esc(new Date(m.open_at).toLocaleString("es-CO",{day:"2-digit",month:"long",hour:"2-digit",minute:"2-digit"}))}</b>.`:"Este módulo se habilitará pronto. Te avisaremos en la comunidad."}</div>`:locked?(prev&&needFb(prev)?`<div class="note">Para abrir este módulo, deja tu reseña de “${esc(prev.title)}”. <a href="#resena-${esc(prev.id)}">Dejar mi reseña</a></div>`:`<div class="note">Este módulo se desbloquea al aprobar todas las lecciones de “${esc(prev.title)}”.</div>`):""}
-  ${premium()&&needFb(m)?fbCard(m):""}
+  ${trial?`<div class="note trial-note">🎁 <b>Prueba gratis:</b> este módulo es tuyo durante ${trialLeft()===1?"el último día":`${trialLeft()} días más`}. Después, sigue con premium. <a href="#premium">Ver planes</a></div>`:!ok&&inTrial()?`<div class="note">Este módulo es para alumnos premium. Tu prueba gratis incluye ${S.modules.filter(x=>x.free).map(x=>`“${esc(x.title)}”`).join(", ")||"el módulo de introducción"}.</div>`:""}
+  ${ok&&needFb(m)?fbCard(m):""}
   ${admin()&&m.ask_feedback!==false?`<div class="note admin-note">Vista de admin: a ti no te pide reseña. Los alumnos, al terminar este módulo, deben dejarla para abrir el siguiente. <a href="#resena-${esc(m.id)}">Ver el formulario como alumno</a></div>`:""}
   ${m.optional&&!closedM?`<div class="note">Módulo opcional: ${esc(m.optional_note||"si ya lo dominas, puedes saltarlo. No es necesario para abrir los módulos siguientes.")}</div>`:""}
   ${admin()&&!modOpen(m,true)?'<div class="note admin-note">Bloqueado para alumnos: solo tú lo ves abierto.</div>':""}
-  <div class="list">${ls.map((l,k)=>{const d=S.prog&&S.prog.done[l.id];const cerrada=premium()&&!locked&&!closedM&&!lessonOpen(l);return `<a class="item${cerrada?" lock":""}" href="${premium()&&!locked&&!cerrada?"#leccion-"+esc(l.id):closedM||cerrada||locked&&premium()?"#modulo-"+esc(m.id):"#premium"}"><span class="ico ${d&&d.passed?"done":""}">${d&&d.passed?"✓":cerrada?"🔒":k+1}</span><span class="txt"><b>${esc(l.title)}</b><span>${cerrada?`Aprueba la lección anterior con ${(ls[k-1]&&ls[k-1].min_score)||80}% para abrirla`:`${l.has_video?"Video · ":""}${d?`Mejor resultado ${d.best}%`:"Pendiente"}`}</span></span>${premium()?"":'<span class="tag">Premium</span>'}</a>`}).join("")||'<div class="empty">Este módulo todavía no tiene lecciones.</div>'}</div>`};
+  <div class="list">${ls.map((l,k)=>{const d=S.prog&&S.prog.done[l.id];const cerrada=ok&&!locked&&!closedM&&!lessonOpen(l);return `<a class="item${cerrada?" lock":""}" href="${ok&&!locked&&!cerrada?"#leccion-"+esc(l.id):closedM||cerrada||locked&&ok?"#modulo-"+esc(m.id):"#premium"}"><span class="ico ${d&&d.passed?"done":""}">${d&&d.passed?"✓":cerrada?"🔒":k+1}</span><span class="txt"><b>${esc(l.title)}</b><span>${cerrada?`Aprueba la lección anterior con ${(ls[k-1]&&ls[k-1].min_score)||80}% para abrirla`:`${l.has_video?"Video · ":""}${d?`Mejor resultado ${d.best}%`:"Pendiente"}`}</span></span>${ok?"":'<span class="tag">Premium</span>'}</a>`}).join("")||'<div class="empty">Este módulo todavía no tiene lecciones.</div>'}</div>`};
 ROUTES.leccion=async id=>{
   if(!logged()){location.hash="#entrar";return}
-  if(!premium()){app.innerHTML=paywall();return}
+  {const li0=S.lindex.find(x=>x.id===id),m0=li0&&S.modules.find(x=>x.id===li0.module_id);if(!premium()&&!(m0&&canMod(m0))){app.innerHTML=paywall();return}}
   {const li=S.lindex.find(x=>x.id===id);const mm=li&&S.modules.find(x=>x.id===li.module_id);if(mm&&!modOpen(mm)){location.hash="#modulo-"+mm.id;return}
    if(li&&!lessonOpen(li)){toast(mm&&modLocked(mm)?(needFb(prevReq(mm))?"Primero deja tu reseña del módulo anterior.":"Primero aprueba todas las lecciones del módulo anterior."):"Primero aprueba la lección anterior.");location.hash="#modulo-"+li.module_id;return}}
   app.innerHTML='<div class="muted">Cargando lección…</div>';

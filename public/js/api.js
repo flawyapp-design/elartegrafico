@@ -192,6 +192,8 @@ function LocalAPI(){
   const up=(arr,o)=>{if(!o.id)o.id=uuid();const i=arr.findIndex(x=>x.id===o.id);if(i>=0)arr[i]=Object.assign({},arr[i],o);else arr.push(Object.assign({created_at:now()},o));save();return Promise.resolve(arr.find(x=>x.id===o.id))};
   const rm=(k,id)=>{db[k]=db[k].filter(x=>x.id!==id);save();return Promise.resolve()};
   const by=k=>(a,b)=>(a[k]??0)-(b[k]??0);
+  const trialMod=mid=>{const p=me();if(!p)return false;const d=(db.site||{}).trialDays;const days=d==null||d===""?7:+d;const c=new Date(p.created_at||Date.now()).getTime();const m=db.modules.find(x=>x.id===mid);return !!(m&&m.free&&Date.now()<c+days*864e5)};
+  const trialLes=lid=>{const l=db.lessons.find(x=>x.id===lid);return !!(l&&trialMod(l.module_id))};
   const lessonOk=l=>{const m=db.modules.find(x=>x.id===l.module_id);return adm()||(l.status==="publicado"&&m&&m.status==="publicado")};
   return{
     mode:"local",
@@ -217,12 +219,12 @@ function LocalAPI(){
     async slides(place){return db.slides.filter(s=>s.place===place&&(s.active||adm())).sort(by("sort"))},
     async modules(){return db.modules.filter(m=>m.status==="publicado"||adm()).sort(by("sort"))},
     async lessonIndex(){return db.lessons.filter(lessonOk).sort(by("sort")).map(l=>({id:l.id,module_id:l.module_id,title:l.title,sort:l.sort,has_video:!!l.video_url}))},
-    async lesson(id){if(!this.isPremium())return null;const l=db.lessons.find(x=>x.id===id);return l&&lessonOk(l)?l:null},
+    async lesson(id){const l=db.lessons.find(x=>x.id===id);if(!this.isPremium()&&!(l&&trialMod(l.module_id)))return null;return l&&lessonOk(l)?l:null},
     async lessons(){return this.isPremium()?db.lessons.filter(lessonOk).sort(by("sort")):[]},
-    async exercises(f){const ok=e=>e.is_demo||this.isPremium();return db.exercises.filter(e=>ok(e)&&(f.demo?e.is_demo:f.practice?(!e.lesson_id&&!e.is_demo):e.lesson_id===f.lessonId)).sort(by("sort"))},
+    async exercises(f){const ok=e=>e.is_demo||this.isPremium()||(e.lesson_id&&trialLes(e.lesson_id));return db.exercises.filter(e=>ok(e)&&(f.demo?e.is_demo:f.practice?(!e.lesson_id&&!e.is_demo):e.lesson_id===f.lessonId)).sort(by("sort"))},
     async allExercises(){need();return db.exercises.slice().sort(by("sort"))},
     async grade(id){const p=me();if(!p)throw new Error("login");const e=db.exercises.find(x=>x.id===id);if(!e)throw new Error("no_existe");
-      const prem=this.isPremium();if(!prem){if(!e.is_demo)throw new Error("premium");if(p.demo_used>=5)throw new Error("demo_agotado");p.demo_used++;save()}
+      const prem=this.isPremium()||(!!e.lesson_id&&trialLes(e.lesson_id));if(!prem){if(!e.is_demo)throw new Error("premium");if(p.demo_used>=5)throw new Error("demo_agotado");p.demo_used++;save()}
       const a=db.answers.find(x=>x.exercise_id===id)||{};return{zone:a.zone??null,sl:a.sl??null,answer:a.answer||{},explain:a.explain||"",demo_left:prem?null:5-p.demo_used}},
     async progressGet(){return db.progress.find(x=>x.user_id===uid)||null},
     async progressSave(xp,data){const i=db.progress.findIndex(x=>x.user_id===uid);const o={user_id:uid,xp,data,updated_at:now()};if(i>=0)db.progress[i]=o;else db.progress.push(o);save()},
