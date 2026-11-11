@@ -1291,3 +1291,19 @@ nav.main .mnav-sw a.on{color:#1b1405!important;background:linear-gradient(180deg
 .toast.t-wait i{background:radial-gradient(circle at 35% 30%,#e3ebff,#8eaeff 45%,#3f63d6);color:#08143a}
 .toast.t-wait i svg{animation:tw 1s infinite}
 @keyframes tw{50%{opacity:.4}}
+.note.warn-note{border-color:rgba(232,160,60,.55);background:rgba(232,160,60,.09);margin-top:10px;font-size:13.5px}
+.pill.warn{background:rgba(232,160,60,.14);color:#f2b55c;border-color:rgba(232,160,60,.45)}
+.rt-opt.pick{border-color:var(--gold)!important;box-shadow:0 0 0 1px var(--gold) inset}
+.rt-wait{display:flex;gap:10px;align-items:center;margin-top:12px;padding:12px 14px;border-radius:12px;border:1px dashed var(--line2);color:var(--muted);font-size:14px}
+/* videos en publicaciones */
+.pvid{position:relative;aspect-ratio:16/9;border-radius:var(--r2,16px);overflow:hidden;background:#000;border:1px solid var(--line);margin:8px 0 18px}
+.pvid iframe,.pvid video{position:absolute;inset:0;width:100%;height:100%;border:0;background:#000}
+#pVp .pvid{max-width:520px;margin:4px 0 0}
+.post .thumb{position:relative}
+.vthumb{background:radial-gradient(circle at 30% 30%,#1a2c66,#0a1330)}
+.vplay{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:46px;height:46px;border-radius:50%;display:grid;place-items:center;padding-left:3px;font-size:16px;color:#1b1405;background:radial-gradient(circle at 35% 30%,#fff3cf,#f0cf7f 45%,#b8862f);box-shadow:0 6px 18px rgba(0,0,0,.45),0 0 0 4px rgba(216,176,98,.25)}
+/* aviso de cookies de estadística */
+.ck-bar{position:fixed;left:50%;bottom:calc(16px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:90;width:min(640px,calc(100% - 24px));display:flex;gap:14px;align-items:center;justify-content:space-between;padding:14px 16px;border-radius:16px;border:1px solid rgba(216,176,98,.5);background:linear-gradient(135deg,#1a2c66,#0a1330);color:#fff;box-shadow:0 18px 50px -10px rgba(0,0,0,.7);animation:popIn .4s ease}
+.ck-bar>div:first-child{display:grid;gap:3px;min-width:0}.ck-bar span{font-size:13px;color:#a9b4d2}.ck-bar a{color:#f3d88f}.ck-bar .row{flex:none;gap:8px}
+@media (max-width:860px){.ck-bar{bottom:calc(84px + env(safe-area-inset-bottom,0px));flex-direction:column;align-items:stretch}.ck-bar .row{justify-content:flex-end}}
+.form label.chk{display:block;color:var(--fg);line-height:1.5}.form label.chk input{width:auto!important;display:inline-block;vertical-align:-2px;margin:0 8px 0 0}

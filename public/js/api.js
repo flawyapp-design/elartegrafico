@@ -1,3 +1,4 @@
+/* © El Arte Gráfico. Todos los derechos reservados. Prohibida su copia o distribución sin autorización. */
 /* El Arte Gráfico Academy — capa de datos.
    SupabaseAPI: producción (Supabase Auth + REST + Storage, sin librerías).
    LocalAPI: modo de prueba en el navegador (sin servidor), mismas funciones. */
@@ -286,12 +287,12 @@ function LocalAPI(){
       return Object.assign({},f,{module_title:m.title||"",username:p.username||"",country:p.country||"",premium:!!(p.premium_until&&new Date(p.premium_until)>new Date())})}).sort((a,b)=>String(b.created_at).localeCompare(a.created_at))},
     /* retos (modo de prueba: misma lógica que el servidor) */
     async challengesFeed(){const L=db.challenges||[],t=Date.now();return L.filter(c=>c.status==="publicado"&&new Date(c.starts_at)<=t).sort((a,b)=>String(b.starts_at).localeCompare(a.starts_at)).map(c=>{
-      const E=(db.centries||[]).filter(e=>e.challenge_id===c.id),w=E.filter(e=>e.place!=null).length,me=E.find(e=>e.user_id===uid),k=(db.ckeys||{})[c.id]||{};const closed=new Date(c.ends_at)<=t||w>=c.max_winners,show=closed||!!me;
-      return Object.assign({},c,{winners:w,closed,my_correct:me?me.correct:null,my_place:me?me.place:null,my_points:me?me.points:null,answered:!!me,correct:show?k.correct:null,zone:show?k.zone:null,tol:show?k.tol:null,explain:show?k.explain:null})})},
+      const E=(db.centries||[]).filter(e=>e.challenge_id===c.id),w=E.filter(e=>e.place!=null).length,me=E.find(e=>e.user_id===uid),k=(db.ckeys||{})[c.id]||{};const closed=new Date(c.ends_at)<=t||w>=c.max_winners,show=closed;
+      return Object.assign({},c,{winners:w,closed,my_correct:me?me.correct:null,my_place:me?me.place:null,my_points:me?me.points:null,answered:!!me,correct:show?k.correct:null,zone:show&&k.zone!=null?k.zone+(+c.off||0):null,tol:show?k.tol:null,explain:show?k.explain:null,after_bars:show?c.after_bars:null,chart_t:null,my_answer:me?me.answer:null})})},
     async submitChallenge(id,ans){if(!uid)throw new Error("Inicia sesión para participar");const cfg=(db.site||{}).rewards||{};if(!cfg.enabled)throw new Error("Los retos todavía no están activos");
       const c=(db.challenges||[]).find(x=>x.id===id);if(!c||c.status!=="publicado"||new Date(c.starts_at)>Date.now())throw new Error("Ese reto no está disponible");if(new Date(c.ends_at)<=Date.now())throw new Error("Este reto ya cerró");
       db.centries=db.centries||[];if(db.centries.some(e=>e.challenge_id===id&&e.user_id===uid))throw new Error("Ya respondiste este reto");
-      const k=(db.ckeys||{})[id]||{},p=me();const ok=c.kind==="zona"?(k.zone!=null&&Math.abs(+ans.price-k.zone)<=(k.tol||0)):(+ans.option===k.correct);
+      const k=(db.ckeys||{})[id]||{},p=me();const ok=c.kind==="zona"?(k.zone!=null&&Math.abs(+ans.price-(+c.off||0)-k.zone)<=(k.tol||0)):(+ans.option===k.correct);
       const w=db.centries.filter(e=>e.challenge_id===id&&e.place!=null).length;let place=null,pts=0;
       if(ok&&w<c.max_winners){place=w+1;pts=(p.affiliate||cfg.halfIfNotAffiliate===false)?c.points:Math.ceil(c.points/2)}
       db.centries.push({id:uuid(),challenge_id:id,user_id:uid,answer:ans,correct:ok,place,points:pts,affiliate:!!p.affiliate,created_at:now()});save();

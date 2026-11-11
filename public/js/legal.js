@@ -154,6 +154,45 @@ Esta política rige desde el {FECHA}. Las bases de datos estarán vigentes mient
 ### Peticiones, quejas y reclamos
 Escríbenos a **{CORREO}**. Te responderemos en un plazo máximo de 15 días hábiles. También puedes acudir a la **Superintendencia de Industria y Comercio**.` },
 
+{ key: "retos", title: "Bases de los retos y puntos", text:
+`Última actualización: {FECHA}
+
+Estas bases regulan los **retos diarios**, los **puntos** y los **canjes** de {SITIO}, organizados por **{RESPONSABLE}** ("El Arte Gráfico"). Al participar en un reto o pedir un canje aceptas estas bases, además de los Términos y condiciones.
+
+### 1. Participación gratuita
+- Participar es **gratis**. No necesitas comprar nada, ni ser premium, ni depositar dinero en ningún bróker para jugar o ganar.
+- Los retos son una actividad **educativa y de comunidad**. No son apuestas, ni inversiones, ni asesoría financiera. Las gráficas son de momentos pasados del mercado.
+
+### 2. Quién puede participar
+- Personas **mayores de 18 años** con una cuenta registrada a su nombre.
+- **Una sola cuenta por persona.** Crear o usar varias cuentas para responder distintas opciones, compartir cuentas o jugar por otra persona está prohibido.
+- Las cuentas creadas **después de publicado un reto** pueden jugarlo, pero ese reto no les suma puntos. Desde el siguiente ya compiten.
+
+### 3. Cómo se ganan los puntos
+- Cada reto tiene un número de cupos (por ejemplo, 5). Ganan los primeros en **acertar**, según el orden en que **nuestro servidor** recibe las respuestas.
+- Cada cuenta responde **una sola vez** por reto. La respuesta correcta y la explicación se publican cuando el reto cierra.
+- Los **afiliados verificados de Deriv** (cuentas abiertas con el enlace de El Arte Gráfico y verificadas por nosotros) reciben los puntos completos. Las demás cuentas reciben la mitad.
+- Bonos: jugar 7 días seguidos da un bono de puntos. Los retos semanales pueden dar más puntos y tener más cupos.
+- El resultado oficial de cada reto es el que calcula la plataforma con sus propios datos. En los retos con gráfica, los precios y las fechas se muestran **desplazados** para que nadie pueda buscar la respuesta.
+
+### 4. Valor de los puntos y canjes
+- Los puntos **no son dinero**, no son un depósito y no se pueden vender ni pasar a otra cuenta. Solo se pueden canjear según estas bases.
+- La tasa de canje y el mínimo se muestran en "Mis puntos" (por ejemplo, 100 puntos = 1 USD, mínimo 500 puntos).
+- Los canjes se abren **una vez al mes**. El pago se hace en USDT a una cuenta de **Binance** que debe ser **del mismo titular** de la cuenta de El Arte Gráfico.
+- **Una cuenta de Binance solo puede recibir pagos de un usuario.**
+- Revisamos cada canje a mano antes de pagar. Podemos pedirte que confirmes tu identidad o tu cuenta de Binance. Pagamos dentro de los **10 días hábiles** siguientes a la aprobación.
+- Si un canje se rechaza, los puntos vuelven a tu saldo, salvo que el rechazo sea por trampa.
+- Los impuestos o costos que el pago genere para ti son tu responsabilidad.
+
+### 5. Trampas y sanciones
+Se consideran trampa, entre otras: usar varias cuentas, bots o programas automáticos; ponerse de acuerdo para repartir respuestas entre cuentas; aprovechar errores de la plataforma; usar datos falsos; o recibir pagos en cuentas de terceros.
+Si detectamos una trampa podemos, sin aviso previo: anular los puntos ganados, rechazar o revertir canjes, quitar la verificación de afiliado y suspender o cerrar las cuentas involucradas. Para revisar posibles trampas usamos la información de la cuenta y de la actividad en la plataforma (por ejemplo, la conexión desde la que se responde), según la Política de datos.
+
+### 6. Cambios
+Podemos cambiar estas bases, la tasa de canje, los puntos por reto, los bonos, o pausar o terminar los retos. Avisaremos en la plataforma. Los cambios no afectan los canjes que ya aprobamos. Si los retos terminan, tendrás al menos 30 días para canjear los puntos que ya cumplan el mínimo.
+
+### 7. Contacto
+Dudas o reclamos sobre un reto o un canje: {CORREO}.`},
 { key: "cookies", title: "Cookies y almacenamiento", text:
 `Última actualización: {FECHA}
 
@@ -164,6 +203,9 @@ Escríbenos a **{CORREO}**. Te responderemos en un plazo máximo de 15 días há
 - **Seguridad:** si está activa la verificación anti-bots de Cloudflare Turnstile, este servicio puede usar sus propias cookies técnicas.
 
 ### Qué no usamos
+### Cookies de estadística (opcionales)
+Si lo aceptas en el aviso que aparece al entrar, usamos **Google Analytics** para saber cuántas personas visitan la página y qué secciones se usan más. Google Analytics guarda cookies propias (por ejemplo, _ga) y recibe datos técnicos de tu visita, con la dirección IP anonimizada. Si no aceptas, no se carga. Puedes cambiar tu decisión borrando el almacenamiento del sitio en tu navegador.
+
 No usamos cookies de publicidad, ni de seguimiento entre sitios, ni vendemos información de navegación.
 
 ### Cómo controlarlas

@@ -1,4 +1,5 @@
-/* El Arte Gráfico Academy — aplicación (vanilla JS, sin compilación). */
+/* El Arte Gráfico Academy — aplicación. © El Arte Gráfico. Todos los derechos reservados.
+   Prohibida su copia, modificación o distribución sin autorización escrita. */
 (function(){
 "use strict";
 const API=window.AGAPI, CFG=window.AG_CONFIG||{}, Chart=window.AGChart;
@@ -462,7 +463,7 @@ function promoBlock(){if(!rewardsOn()&&!RW().teaser)return"";const on=rewardsOn(
 /* lista de retos */
 ROUTES.retos=async()=>{
   if(!rewardsOn()&&!admin()){app.innerHTML=`<div class="pagehead"><span class="eyebrow">Retos diarios</span><h1>Muy pronto</h1><p class="muted">Estamos preparando los retos diarios con premios. Te avisaremos por las notificaciones y la comunidad.</p></div>${promoBlock()}`;return}
-  app.innerHTML=`<div class="pagehead"><span class="eyebrow">Retos diarios</span><h1>Juega, acierta y gana</h1><p class="muted">Los primeros ${5} que aciertan cada reto ganan puntos. Los afiliados verificados de Deriv reciben los puntos completos; el resto, la mitad.</p></div>
+  app.innerHTML=`<div class="pagehead"><span class="eyebrow">Retos diarios</span><h1>Juega, acierta y gana</h1><p class="muted">Los primeros ${5} que aciertan cada reto ganan puntos. Los afiliados verificados de Deriv reciben los puntos completos; el resto, la mitad. <a href="${toMain("legal-retos")}">Bases de los retos</a></p></div>
     ${admin()&&!rewardsOn()?'<div class="note admin-note">Los retos están apagados para los alumnos. Actívalos en Administración → Retos y puntos → Ajustes.</div>':""}
     <div id="myPts"></div><section class="sec"><div class="sec-h"><h2>Abiertos ahora</h2><a href="#ranking">Ver ranking</a></div><div id="rtOpen" class="rt-grid"><div class="muted">Cargando…</div></div></section>
     <section class="sec"><div class="sec-h"><h2>Retos anteriores</h2></div><div id="rtPast" class="rt-list"></div></section>`;
@@ -495,21 +496,31 @@ ROUTES.reto=async id=>{
     ${!logged()?`<div class="rk-cta"><div><b>Ingresa para jugar</b><span class="muted">Crea tu cuenta gratis y participa en los retos diarios.</span></div><a class="btn gold" href="#registro">Crear cuenta</a></div>`:!rewardsOn()?'<div class="note admin-note">Vista de admin: los retos están apagados para los alumnos.</div>':""}
     <div class="rt-play panel">${c.image_url?`<img class="rt-img" src="${esc(c.image_url)}" alt="">`:""}${c.kind!=="opcion"?`<div class="chartbox rt-chart"><div class="cv" style="position:absolute;inset:0"></div><div class="chint">${c.kind==="zona"?"Toca la gráfica donde está tu zona":"Así iba el precio · ¿qué pasa después?"}</div></div>`:""}
       ${c.kind==="zona"?`<div class="row rt-zbar"><span id="rzv" class="muted">${can?"Toca la gráfica para poner tu zona":""}</span><button class="btn gold" id="rzOk" disabled ${can?"":"hidden"}>Enviar mi zona</button></div>`
-        :`<div class="rt-opts">${opts.map((o,i)=>`<button type="button" class="rt-opt${c.correct===i?" ok":""}${c.answered&&c.my_correct===false&&c.correct!==i?"":""}" data-o="${i}" ${can?"":"disabled"}><i>${String.fromCharCode(65+i)}</i><span>${esc(o)}</span></button>`).join("")}</div>`}
+        :`<div class="rt-opts">${opts.map((o,i)=>`<button type="button" class="rt-opt${c.correct===i?" ok":""}${c.my_answer&&+c.my_answer.option===i?" pick":""}" data-o="${i}" ${can?"":"disabled"}><i>${String.fromCharCode(65+i)}</i><span>${esc(o)}</span></button>`).join("")}</div>`}
       <div id="rtRes"></div></div>
     <section class="sec"><div class="sec-h"><h2>Ganadores</h2></div><div id="rtWin" class="muted">Cargando…</div></section>`;
   const res=$("#rtRes");
-  const show=(r,mine)=>{res.innerHTML=r.correct?(r.place?`<div class="result ok"><b class="big">¡Acertaste! Puesto #${r.place} · +${r.points} puntos</b>${!r.affiliate&&r.points<r.full_points?`<div>Como no eres afiliado verificado recibiste la mitad. <a href="#puntos-afiliado">Verifícate y gana los ${r.full_points} completos</a>.</div>`:""}</div>`
+  const show=(r,mine)=>{if(r.reason==="cuenta_nueva"){res.innerHTML=`<div class="result"><b class="big">Respuesta registrada</b><div>Tu cuenta se creó después de que salió este reto, así que este no suma puntos. Desde el próximo reto ya compites por los premios. <a href="${toMain("legal-retos")}">Ver bases</a></div></div>`;return}res.innerHTML=r.correct?(r.place?`<div class="result ok"><b class="big">¡Acertaste! Puesto #${r.place} · +${r.points} puntos</b>${!r.affiliate&&r.points<r.full_points?`<div>Como no eres afiliado verificado recibiste la mitad. <a href="#puntos-afiliado">Verifícate y gana los ${r.full_points} completos</a>.</div>`:""}</div>`
       :`<div class="result"><b class="big">Acertaste, pero ya se llenaron los ${c.max_winners} cupos</b><div>Sé de los primeros en el próximo reto. Activa las notificaciones para enterarte apenas salga.</div></div>`)
       :`<div class="result bad"><b class="big">No era esa</b><div>Mañana hay otro reto. ¡Sigue practicando en la academia!</div></div>`};
   if(c.answered)show({correct:c.my_correct,place:c.my_place,points:c.my_points,affiliate:(API.profile()||{}).affiliate,full_points:c.points});
   if(c.explain)res.insertAdjacentHTML("beforeend",`<div class="note" style="margin-top:12px"><b>Explicación:</b> ${esc(c.explain)}</div>`);
+  if(c.answered&&!c.closed)res.insertAdjacentHTML("beforeend",`<div class="rt-wait">🔒 La respuesta correcta y la explicación se muestran cuando cierre el reto (${leftTxt(c.ends_at)}).</div>`);
   const send=async ans=>{try{const r=await API.submitChallenge(c.id,ans);show(r);
-    if(r.correct&&r.place)pop({icon:"trophy",kicker:`¡Acertaste! · Puesto #${r.place}`,title:`+${r.points} puntos`,text:!r.affiliate&&r.points<r.full_points?`Verifícate como afiliado y gana los ${r.full_points} completos.`:"Quedaste entre los ganadores del reto.",confetti:true,ms:5000});
+    if(r.reason==="cuenta_nueva")pop({icon:"check",tone:"blue",kicker:"Respuesta registrada",title:"Desde el próximo reto ya sumas",text:"Las cuentas creadas después de publicado un reto juegan, pero no suman en ese reto."});
+    else if(r.correct&&r.place)pop({icon:"trophy",kicker:`¡Acertaste! · Puesto #${r.place}`,title:`+${r.points} puntos`,text:!r.affiliate&&r.points<r.full_points?`Verifícate como afiliado y gana los ${r.full_points} completos.`:"Quedaste entre los ganadores del reto.",confetti:true,ms:5000});
     else if(r.correct)pop({icon:"check",tone:"blue",kicker:"Acertaste",title:"Pero ya se llenaron los cupos",text:"Activa las notificaciones y sé de los primeros mañana."});
     else pop({icon:"x",tone:"red",kicker:"No era esa",title:"Mañana hay otro reto",text:"Mira la explicación cuando cierre y sigue practicando."});setTimeout(()=>ROUTES.reto(c.id),1800)}catch(x){toast(x.message)}};
   $$("[data-o]").forEach(b=>b.onclick=()=>{if(!can)return;$$("[data-o]").forEach(x=>{x.disabled=true;x.classList.toggle("pick",x===b)});send({option:+b.dataset.o})});
-  if(c.kind!=="opcion"&&c.market){try{const H=await h1Bars(c.market);const end=idxAt(H.bars,c.chart_t||H.bars[H.bars.length-1].t);const C=Chart.makeChart($(".rt-chart .cv"));
+  if(c.kind!=="opcion"&&c.bars&&c.bars.length){try{const row=a=>({t:a[0],o:a[1],h:a[2],l:a[3],c:a[4]});const vis=c.bars.map(row),aft=(c.after_bars||[]).map(row),dec=c.decimals||2;const C=Chart.makeChart($(".rt-chart .cv"));
+      const all=vis.concat(aft);C.setData(toC(all),dec);C.setRange(all.length-70,all.length+6);cleanup.push(()=>C.destroy&&C.destroy());
+      if(aft.length){const h=$(".rt-chart .chint");if(h)h.textContent="Así siguió el precio después de la última vela del reto";C.addLine({price:vis[vis.length-1].c,color:"rgba(200,208,222,.55)",lineWidth:1,lineStyle:"dotted",title:"Precio al cierre del reto"})}
+      if(c.zone!=null){C.addLine({price:c.zone,color:"#f3d88f",lineWidth:2,title:"Zona correcta",band:c.tol?c.zone+c.tol:null,bandColor:"rgba(216,176,98,.16)"});if(c.tol)C.addLine({price:c.zone-c.tol,color:"rgba(243,216,143,.5)",lineWidth:1,lineStyle:"dotted"})}
+      if(c.my_answer&&c.my_answer.price!=null)C.addLine({price:+c.my_answer.price,color:"#c8d0de",lineWidth:2,lineStyle:"dashed",title:"Tu zona"});
+      if(c.kind==="zona"&&can){let mine=null,ln=null;C.onClick(p=>{mine=p;if(ln)C.removeLine(ln);ln=C.addLine({price:p,color:"#c8d0de",lineWidth:2,lineStyle:"dashed",draggable:true,title:"Tu zona"});$("#rzv").textContent="Tu zona: "+p.toFixed(dec)+" · puedes arrastrarla";$("#rzOk").disabled=false});
+        C.onLineDrag((l,p)=>{if(l===ln){mine=p;$("#rzv").textContent="Tu zona: "+p.toFixed(dec)}});$("#rzOk").onclick=()=>{if(mine==null)return;$("#rzOk").disabled=true;send({price:+mine.toFixed(dec)})}}
+    }catch(e){const b=$(".rt-chart");if(b)b.innerHTML='<div class="empty">No se pudo cargar la gráfica.</div>'}}
+  else if(c.kind!=="opcion"&&c.market&&c.chart_t){try{const H=await h1Bars(c.market);const end=idxAt(H.bars,c.chart_t||H.bars[H.bars.length-1].t);const C=Chart.makeChart($(".rt-chart .cv"));
       const rev=(c.correct!=null||c.zone!=null)?36:0;const bars=H.bars.slice(Math.max(0,end-90),end+1+rev);C.setData(toC(bars),H.dec);C.setRange(bars.length-70,bars.length+6);cleanup.push(()=>C.destroy&&C.destroy());
       if(rev){const h=$(".rt-chart .chint");if(h)h.textContent="Así siguió el precio después de la última vela del reto";if(C.addMarker)C.addMarker({time:H.bars[end].t+TZ,text:"Aquí cerraba el reto"});else C.addLine&&C.addLine({price:H.bars[end].c,color:"rgba(200,208,222,.55)",lineWidth:1,lineStyle:"dotted",title:"Precio al cierre del reto"})}
       if(c.zone!=null){C.addLine({price:c.zone,color:"#f3d88f",lineWidth:2,title:"Zona correcta",band:c.tol?c.zone+c.tol:null,bandColor:"rgba(216,176,98,.16)"});if(c.tol)C.addLine({price:c.zone-c.tol,color:"rgba(243,216,143,.5)",lineWidth:1,lineStyle:"dotted"})}
@@ -542,7 +553,7 @@ ROUTES.puntos=async arg=>{if(!logged()){location.hash="#entrar";return}
     :pend?`<div class="note">Tienes un canje en revisión: <b>${pend.points} puntos (${ptsUsd(pend.points)})</b>. Te avisamos cuando lo paguemos.</div>`
     :r.balance<mn?`<div class="note">Te faltan <b>${mn-r.balance}</b> puntos para el mínimo de canje.</div>`
     :`<form class="form" id="cf"><div class="two"><label for="cP">Puntos a canjear<input id="cP" type="number" min="${mn}" max="${r.balance}" step="1" value="${r.balance}"></label><label>Recibes<b class="mono" id="cU" style="font-size:22px">${ptsUsd(r.balance)}</b></label></div>
-       <label for="cA">Tu Binance Pay ID o correo de Binance<input id="cA" maxlength="120" required placeholder="Ej.: 123456789"></label><button class="btn gold" id="cS">Enviar solicitud de canje</button><p class="dim" style="font-size:13px;margin:0">Revisamos y pagamos los canjes en los días siguientes al cierre del mes.</p></form>`);
+       <label for="cA">Tu Binance Pay ID o correo de Binance<input id="cA" maxlength="120" required placeholder="Ej.: 123456789"></label><button class="btn gold" id="cS">Enviar solicitud de canje</button><p class="dim" style="font-size:13px;margin:0">Revisamos y pagamos los canjes en los días siguientes al cierre del mes. La cuenta de Binance debe ser tuya. Al canjear aceptas las <a href="${toMain("legal-retos")}">bases de los retos</a>.</p></form>`);
   const cf=$("#cf");if(cf){$("#cP").oninput=()=>$("#cU").textContent=ptsUsd(Math.max(0,+$("#cP").value||0));
     cf.onsubmit=async e=>{e.preventDefault();try{busy($("#cS"),true);const _p=+$("#cP").value;await API.requestRedemption(_p,"binance",$("#cA").value.trim());pop({icon:"coin",kicker:"Canje enviado",title:`${_p} puntos → ${ptsUsd(_p)}`,text:"Lo revisamos y te enviamos el pago por Binance. Te avisamos cuando esté pagado.",confetti:true,ms:5200});ROUTES.puntos()}catch(x){toast(x.message)}finally{const b=$("#cS");if(b)busy(b,false)}}}
   const st=r.affiliate;$("#afl").innerHTML=`<h3>Afiliado de Deriv ${p.affiliate?affTag():""}</h3><p class="muted">Si abriste tu cuenta de Deriv con el enlace de El Arte Gráfico, eres afiliado: <b>ganas los puntos completos</b> en cada reto (los demás reciben la mitad) y te sale la etiqueta de afiliado.</p>`+
@@ -719,7 +730,17 @@ async function syllabus(host,limit){
     return `<a class="mod ${op?"":"soon-mod"}" href="#modulo-${esc(m.id)}"><span class="num">${esc(m.level||cat)}</span><h3>${esc(m.title)}</h3><p>${esc(m.descr||"")}</p>
       <div class="meta"><span>${ls.length} ${ls.length===1?"lección":"lecciones"}</span>${m.optional?'<span class="tag pub">Opcional</span>':""}${op?"":`<span class="tag lock">${esc(modState(m))}</span>`}${premium()||!op?"":'<span class="tag">Premium</span>'}${m.status!=="publicado"?'<span class="tag">Borrador</span>':""}</div>${premium()?`<div class="bar"><i style="width:${Math.round(pr*100)}%"></i></div>`:""}</a>`}).join("")}</div></div>`}).join("")}
 function modProgress(mid,ls){ls=ls||S.lindex.filter(l=>l.module_id===mid);if(!ls.length||!S.prog)return 0;return ls.filter(l=>S.prog.done[l.id]&&S.prog.done[l.id].passed).length/ls.length}
-const postCard=p=>`<a class="post${p.image_url?"":" noimg"}" href="#nota-${esc(p.id)}">${p.image_url?`<div class="thumb" style="background-image:url('${esc(p.image_url)}')"></div>`:""}<div style="display:grid;gap:6px;align-content:start;min-width:0"><div class="row"><span class="tag">${esc(p.category||"Noticia")}</span>${p.pinned?'<span class="tag pub">Fijado</span>':""}${p.premium_only?'<span class="tag">Premium</span>':""}<span class="dim" style="font-size:13px">${fmtDate(p.created_at)}</span></div><h3>${esc(p.title)}</h3><p class="muted clamp">${esc(String(p.body||"").slice(0,220))}</p></div></a>`;
+/* video de una publicación: Bunny, YouTube, Vimeo o archivo .mp4/.webm/.mov */
+function mediaVideo(u,poster){u=String(u||"").trim();if(!/^https:\/\//.test(u))return"";
+  const yt=u.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([\w-]{11})/),vm=u.match(/vimeo\.com\/(?:video\/)?(\d+)/),bn=u.match(/(?:iframe|player)\.mediadelivery\.net\/(?:embed|play)\/(\d+)\/([\w-]+)/);
+  const fr=src=>`<div class="pvid"><iframe src="${esc(src)}" loading="lazy" allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen title="Video"></iframe></div>`;
+  if(bn)return fr(`https://iframe.mediadelivery.net/embed/${bn[1]}/${bn[2]}?autoplay=false&preload=false&responsive=true`);
+  if(yt)return fr(`https://www.youtube-nocookie.com/embed/${yt[1]}?rel=0`);
+  if(vm)return fr(`https://player.vimeo.com/video/${vm[1]}`);
+  if(/\.(mp4|webm|mov|m4v)(\?|$)/i.test(u))return `<div class="pvid"><video controls playsinline preload="metadata"${poster?` poster="${esc(poster)}"`:""} src="${esc(u)}"></video></div>`;
+  return ""}
+
+const postCard=p=>`<a class="post${p.image_url||p.video_url?"":" noimg"}" href="#nota-${esc(p.id)}">${p.image_url?`<div class="thumb" style="background-image:url('${esc(p.image_url)}')">${p.video_url?'<span class="vplay" aria-label="Video">▶</span>':""}</div>`:p.video_url?'<div class="thumb vthumb"><span class="vplay" aria-label="Video">▶</span></div>':""}<div style="display:grid;gap:6px;align-content:start;min-width:0"><div class="row"><span class="tag">${esc(p.category||"Noticia")}</span>${p.pinned?'<span class="tag pub">Fijado</span>':""}${p.premium_only?'<span class="tag">Premium</span>':""}<span class="dim" style="font-size:13px">${fmtDate(p.created_at)}</span></div><h3>${esc(p.title)}</h3><p class="muted clamp">${esc(String(p.body||"").slice(0,220))}</p></div></a>`;
 function reviewsHTML(list,compact){if(!list.length)return `<div class="empty">Todavía no hay opiniones publicadas.${logged()?'<a class="btn sm" href="#opiniones">Escribir la primera</a>':""}</div>`;
   return `<div class="revs ${compact?"compact":""}">${list.map(r=>`<figure class="rev"><div class="stars" aria-label="${r.rating} de 5">${stars(r.rating)}</div><blockquote>${esc(r.body||"")}</blockquote><figcaption>${avatar(r,30)}<b>${esc(r.username)}</b>${r.premium?'<span class="tag pub">Premium</span>':""}<span class="dim">${fmtDate(r.created_at)}</span></figcaption></figure>`).join("")}</div>`}
 
@@ -904,7 +925,7 @@ function videoBlock(host,l){
   const shell=inner=>`<div class="vwrap"><div class="video">${inner}<div class="wm" aria-hidden="true">${esc(wmText)}</div></div>
     <div class="vbar"><span class="dim">Contenido exclusivo para ${esc(p.username||"alumnos")}. Prohibido grabar o compartir.</span><button type="button" class="btn sm ghost" data-fs>Pantalla completa</button></div></div>`;
   const mountExtras=()=>{const box=$(".video",host),wm=$(".wm",host);
-    const move=()=>{wm.style.left=(8+Math.random()*58)+"%";wm.style.top=(8+Math.random()*74)+"%"};move();const mv=setInterval(move,15000);cleanup.push(()=>clearInterval(mv));
+    const move=()=>{wm.style.left=(8+Math.random()*58)+"%";wm.style.top=(8+Math.random()*74)+"%"};move();const mv=setInterval(move,8000);cleanup.push(()=>clearInterval(mv));
     $("[data-fs]",host).onclick=()=>{const fs=document.fullscreenElement;if(fs){document.exitFullscreen&&document.exitFullscreen()}else{(box.requestFullscreen||box.webkitRequestFullscreen||(()=>{})).call(box)}}};
   if(bn){const src=`https://iframe.mediadelivery.net/embed/${bn[1]}/${bn[2]}?autoplay=false&preload=true&responsive=true`;
     host.innerHTML=shell(`<iframe src="${src}" title="${esc(l.title)}" loading="lazy" allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture" style="width:100%;height:100%;border:0"></iframe>`);mountExtras();
@@ -945,7 +966,7 @@ ROUTES.noticias=async()=>{app.innerHTML=`<div class="pagehead"><span class="eyeb
 ROUTES.nota=async id=>{app.innerHTML='<div class="muted">Cargando…</div>';let p=null;try{p=await API.post(id)}catch(e){}
   if(!p){app.innerHTML=`<div class="empty">Esta publicación no existe o es solo para premium.<a class="btn sm" href="#comunidad">Ver publicaciones</a></div>`;return}
   app.innerHTML=`<div class="crumbs"><a href="#comunidad">Comunidad</a><span>/</span><span>${esc(p.category||"Noticia")}</span></div>
-   <article class="article"><div class="pagehead"><span class="eyebrow">${esc(p.category||"Noticia")} · ${fmtDate(p.created_at)}</span><h1>${esc(p.title)}</h1></div>${p.image_url?`<div class="cover" style="background-image:url('${esc(p.image_url)}')"></div>`:""}<div class="prose">${md(p.body)}</div></article>
+   <article class="article"><div class="pagehead"><span class="eyebrow">${esc(p.category||"Noticia")} · ${fmtDate(p.created_at)}</span><h1>${esc(p.title)}</h1></div>${p.video_url&&mediaVideo(p.video_url,p.image_url)?mediaVideo(p.video_url,p.image_url):p.image_url?`<div class="cover" style="background-image:url('${esc(p.image_url)}')"></div>`:""}<div class="prose">${md(p.body)}</div></article>
    <section class="sec"><h2>Comentarios</h2><div id="cl" class="list"></div><div id="cf"></div></section>`;
   const load=async()=>{if(!logged()){$("#cl").innerHTML=`<div class="note"><a href="#entrar">Ingresa</a> para ver y escribir comentarios.</div>`;return}
     let cs=[];try{cs=await API.comments(id)}catch(e){}
@@ -1022,13 +1043,23 @@ ROUTES.admin=async sub=>{if(!admin()){location.hash="#inicio";return}app.innerHT
   try{await admLoad}catch(e){app.innerHTML='<div class="empty">No se pudo cargar la administración. Revisa tu conexión y recarga.</div>';return}
   if(ROUTES.admin.__lazy){app.innerHTML='<div class="empty">No se pudo cargar la administración.</div>';return}ROUTES.admin(sub)};
 ROUTES.admin.__lazy=true;
-window.AGAPP={ico,avatar,affTag,absUrl,enablePush,flag,premTag,legalText,modOpen,modState,SITE,ACAD,link,toAcad,toMain,S,API,$,$$,esc,md,toast,busy,fmtT,fmtDate,fmtDT,TZ,MARKETS,MNAME,h1Bars,m5Bars,idxAt,avgRange,toC,Chart,cleanupPush:f=>cleanup.push(f),route,ROUTES,app,premium,admin,logged,confirmInline,loadContent:()=>loadContent(),renderFoot:()=>renderFoot(),applySite:()=>applySite()};
+window.AGAPP={mediaVideo,ico,avatar,affTag,absUrl,enablePush,flag,premTag,legalText,modOpen,modState,SITE,ACAD,link,toAcad,toMain,S,API,$,$$,esc,md,toast,busy,fmtT,fmtDate,fmtDT,TZ,MARKETS,MNAME,h1Bars,m5Bars,idxAt,avgRange,toC,Chart,cleanupPush:f=>cleanup.push(f),route,ROUTES,app,premium,admin,logged,confirmInline,loadContent:()=>loadContent(),renderFoot:()=>renderFoot(),applySite:()=>applySite()};
 
 /* ---------- arranque ---------- */
 async function loadContent(){const [m,l]=await Promise.all([API.modules().catch(()=>[]),API.lessonIndex().catch(()=>[])]);S.modules=m||[];S.lindex=l||[]}
 function applySite(){const s=S.site,n=s.name||"El Arte Gráfico";$("#brandName").textContent=n.toUpperCase();if(s.logoUrl)$("#logoMark").src=s.logoUrl;
   $("#brandSub").textContent=ACAD?"ACADEMY":"TRADING · COMUNIDAD";document.body.dataset.site=SITE;
-  document.title=ACAD?n+" Academy":n+" · Trading, educación y comunidad";renderFoot()}
+  document.title=ACAD?n+" Academy":n+" · Trading, educación y comunidad";renderFoot();analytics()}
+/* Google Analytics: solo si hay ID y la persona acepta las cookies de estadística */
+let gaOn=false;
+function gaLoad(id){if(gaOn)return;gaOn=true;window.dataLayer=window.dataLayer||[];window.gtag=function(){dataLayer.push(arguments)};gtag("js",new Date());gtag("config",id,{anonymize_ip:true,page_path:location.pathname+location.hash.replace("#","/")});
+  const sc=document.createElement("script");sc.async=true;sc.src="https://www.googletagmanager.com/gtag/js?id="+encodeURIComponent(id);document.head.appendChild(sc);
+  window.addEventListener("hashchange",()=>{try{gtag("event","page_view",{page_path:location.pathname+location.hash.replace("#","/"),page_title:document.title})}catch(e){}})}
+function analytics(){const id=(S.site||{}).gaId;if(!id||!/^G-[A-Z0-9]+$/.test(id)||API.mode==="local")return;let c=null;try{c=localStorage.getItem("ag_cookies")}catch(e){}
+  if(c==="si"){gaLoad(id);return}if(c==="no"||$("#ckBar"))return;
+  const b=document.createElement("div");b.id="ckBar";b.className="ck-bar";b.setAttribute("role","dialog");b.setAttribute("aria-label","Cookies de estadística");
+  b.innerHTML=`<div><b>¿Nos ayudas a mejorar?</b><span>Usamos Google Analytics para saber qué partes de la página se usan más. Solo se activa si aceptas. <a href="${toMain("legal-cookies")}">Más información</a></span></div><div class="row"><button class="btn sm ghost" data-ck="no">No, gracias</button><button class="btn sm gold" data-ck="si">Aceptar</button></div>`;
+  document.body.appendChild(b);$$("[data-ck]",b).forEach(x=>x.onclick=()=>{try{localStorage.setItem("ag_cookies",x.dataset.ck)}catch(e){}b.remove();if(x.dataset.ck==="si")gaLoad(id)})}
 /* ---------- app instalable + notificaciones ---------- */
 const PWA={evt:null,reg:null};
 const isStandalone=()=>matchMedia("(display-mode: standalone)").matches||navigator.standalone===true;
@@ -1078,6 +1109,8 @@ async function appSettings(host){if(!host)return;const ps=await pushState();cons
   if(on)on.onclick=async()=>{await enablePush();appSettings(host)};if(off)off.onclick=async()=>{await disablePush();appSettings(host)};if(ins)ins.onclick=installApp}
 
 async function boot(){
+  {const h=location.hostname,ok=h==="elartegrafico.com"||/\.elartegrafico\.com$/.test(h)||h==="localhost"||h==="127.0.0.1"||h===""||(/\.vercel\.app$/.test(h)&&/elartegrafico|flawyapp/.test(h));
+   if(!ok){document.body.innerHTML=`<div style="min-height:100vh;display:grid;place-items:center;padding:24px;text-align:center;font-family:system-ui;background:#060b1a;color:#fff"><div><h1 style="font-size:24px">Copia no autorizada</h1><p style="color:#a9b4d2">Esta página es una copia de El Arte Gráfico. La original está en <a style="color:#f3d88f" href="https://elartegrafico.com">elartegrafico.com</a>.</p></div></div>`;return}}
   if("serviceWorker" in navigator&&location.protocol!=="file:")navigator.serviceWorker.register("/sw.js").then(r=>{PWA.reg=r}).catch(()=>{});
   if(API.mode==="local")$("#localbar").innerHTML=`<div class="localbar"><div class="wrap"><b>Modo de prueba</b><span>Los datos se guardan solo en este navegador. Administrador de prueba: admin@elartegrafico.com · admin1234</span><button id="rstLocal">Reiniciar datos de prueba</button></div></div>`;
   const r=$("#rstLocal");if(r)r.onclick=()=>API.resetLocal();

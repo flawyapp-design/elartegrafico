@@ -1,3 +1,4 @@
+/* © El Arte Gráfico. Todos los derechos reservados. Prohibida su copia o distribución sin autorización. */
 /* El Arte Gráfico Academy — panel de administración. */
 (function(){
 "use strict";
@@ -124,6 +125,8 @@ function sitio(){
     <h3>Preguntas frecuentes (inicio)</h3>
     <label for="sFq">Una por línea: Pregunta | Respuesta. Si lo dejas vacío se muestran las preguntas por defecto.<textarea id="sFq" style="min-height:110px" placeholder="¿Necesito experiencia? | No, empezamos desde cero.">${esc((s.faq||[]).map(x=>x.q+" | "+x.a).join("\n"))}</textarea></label>
     <h3>Aviso de academia cerrada</h3><div class="two"><label for="sAT">Título<input id="sAT" value="${esc(s.closedTitle||"")}" placeholder="La academia abre muy pronto"></label><label for="sAX">Texto<input id="sAX" value="${esc(s.closedText||"")}" placeholder="Estamos terminando de montar el contenido…"></label></div>
+    <h3>Google Analytics</h3>
+    <label for="sGA">ID de medición (empieza por G-). Se activa solo para quien acepte las cookies de estadística.<input id="sGA" value="${esc(s.gaId||"")}" placeholder="G-XXXXXXXXXX" autocomplete="off"></label>
     <h3>Comunidad y Discord (inicio de elartegrafico.com)</h3>
     <div class="two"><label for="sDU">Enlace de invitación al Discord<input id="sDU" value="${esc(s.discordUrl||"")}" placeholder="https://discord.gg/..."></label><label for="sDT">Título<input id="sDT" value="${esc(s.discordTitle||"")}" placeholder="La comunidad de El Arte Gráfico"></label></div>
     <label for="sDX">Texto<textarea id="sDX" style="min-height:70px">${esc(s.discordText||"")}</textarea></label>
@@ -156,7 +159,7 @@ function sitio(){
       derivRefUrl:$("#sRU").value.trim(),derivRefText:$("#sRT").value.trim(),derivRefNote:$("#sRN").value.trim(),
       binancePayId:$("#sBP").value.trim(),binanceName:$("#sBN").value.trim(),payNote:$("#sPN").value.trim(),
       plans:pairs($("#sPL").value).map(p=>({name:p[0],days:Math.max(1,Math.min(3650,parseInt(p[1])||30)),price:p[2]||""})),
-      closedTitle:$("#sAT").value.trim(),closedText:$("#sAX").value.trim(),discordUrl:$("#sDU").value.trim(),discordTitle:$("#sDT").value.trim(),discordText:$("#sDX").value.trim(),discordItems:$("#sDI").value.split("\n").map(x=>x.trim()).filter(Boolean),communityStats:pairs($("#sCS").value).map(p=>({v:p[0],t:p[1]||""})),
+      closedTitle:$("#sAT").value.trim(),closedText:$("#sAX").value.trim(),gaId:(/^G-[A-Z0-9]{4,20}$/i.test($("#sGA").value.trim())?$("#sGA").value.trim().toUpperCase():""),discordUrl:$("#sDU").value.trim(),discordTitle:$("#sDT").value.trim(),discordText:$("#sDX").value.trim(),discordItems:$("#sDI").value.split("\n").map(x=>x.trim()).filter(Boolean),communityStats:pairs($("#sCS").value).map(p=>({v:p[0],t:p[1]||""})),
       aboutTitle:$("#sAbT").value.trim(),aboutName:$("#sAbN").value.trim(),aboutText:$("#sAbX").value.trim(),aboutItems:$("#sAbI").value.split("\n").map(x=>x.trim()).filter(Boolean),
       aboutStats:pairs($("#sAbS").value).map(p=>({v:p[0],t:p[1]||""})),aboutTiktok:$("#sAbK").value.trim(),aboutHide:$("#sAbH").value==="1",
       faq:$("#sFq").value.split("\n").map(l=>{const i=l.indexOf("|");return i<0?null:{q:l.slice(0,i).trim(),a:l.slice(i+1).trim()}}).filter(x=>x&&x.q&&x.a),
@@ -316,12 +319,18 @@ async function noticias(){
   const edit=p=>{$("#pe").innerHTML=`<form class="form" id="pf"><h3>${p.id?"Editar publicación":"Nueva publicación"}</h3>
     <label for="pT">Título<input id="pT" value="${esc(p.title||"")}"></label><div class="two"><label for="pC">Categoría<input id="pC" list="pcats" value="${esc(p.category||"Noticia")}"><datalist id="pcats"><option value="Noticia"><option value="Anuncio"><option value="Actualización"><option value="Análisis"><option value="Comunidad"></datalist></label>
     <div class="row">${fileBtn("pI","Imagen de portada")}<input id="pU" value="${esc(p.image_url||"")}" placeholder="o URL de imagen" style="flex:1;min-width:180px"></div></div>
+    <label for="pV">Video (opcional)<span class="dim" style="font-weight:400"> · súbelo aquí (hasta 50 MB) o pega un enlace de Bunny, YouTube o un .mp4</span></label>
+    <div class="row"><label class="btn sm" for="pVf" style="cursor:pointer">Subir video</label><input id="pVf" type="file" hidden accept="video/mp4,video/webm,video/quicktime"><input id="pV" value="${esc(p.video_url||"")}" placeholder="https://iframe.mediadelivery.net/embed/… o https://youtu.be/…" style="flex:1;min-width:200px"></div>
+    <div id="pVp"></div>
     <label for="pB">Contenido<textarea id="pB" style="min-height:220px">${esc(p.body||"")}</textarea></label>
     <div class="three"><label style="display:flex;gap:8px;align-items:center;color:var(--fg)"><input type="checkbox" id="pPin" style="width:auto" ${p.pinned?"checked":""}> Fijar arriba</label><label style="display:flex;gap:8px;align-items:center;color:var(--fg)"><input type="checkbox" id="pPr" style="width:auto" ${p.premium_only?"checked":""}> Solo premium</label><label style="display:flex;gap:8px;align-items:center;color:var(--fg)"><input type="checkbox" id="pCo" style="width:auto" ${p.allow_comments!==false?"checked":""}> Permitir comentarios</label></div>
     <label style="display:flex;gap:8px;align-items:center;color:var(--fg)"><input type="checkbox" id="pNt" style="width:auto" ${p.id?"":"checked"}> Avisar a los alumnos con una notificación${p.id?" (es una edición: márcalo solo si el cambio es importante)":""}</label>
     <div class="row"><button class="btn gold" id="ps">Publicar</button>${p.id?`<a class="btn ghost" href="#nota-${esc(p.id)}">Ver</a><span id="pd"><button type="button" class="btn sm bad" id="pdb">Eliminar</button></span>`:""}</div></form>`;
     bindUpload("pI",u=>$("#pU").value=u);
-    $("#pf").onsubmit=async e=>{e.preventDefault();const o={title:$("#pT").value.trim()||"Sin título",category:$("#pC").value.trim()||"Noticia",image_url:$("#pU").value.trim(),body:$("#pB").value,pinned:$("#pPin").checked,premium_only:$("#pPr").checked,allow_comments:$("#pCo").checked};if(p.id)o.id=p.id;
+    const vprev=()=>{const u=$("#pV").value.trim();$("#pVp").innerHTML=u?A.mediaVideo(u,$("#pU").value.trim()):""};$("#pV").oninput=vprev;vprev();
+    $("#pVf").onchange=async e=>{const f=e.target.files[0];if(!f)return;if(f.size>50*1024*1024){toast("El video pesa más de 50 MB. Súbelo a Bunny o YouTube y pega el enlace.");return}
+      toast("Subiendo video… no cierres esta página");try{const u=await API.upload(f);$("#pV").value=u;vprev();toast("Video subido")}catch(x){toast(x.message)}};
+    $("#pf").onsubmit=async e=>{e.preventDefault();const o={title:$("#pT").value.trim()||"Sin título",category:$("#pC").value.trim()||"Noticia",image_url:$("#pU").value.trim(),video_url:$("#pV").value.trim(),body:$("#pB").value,pinned:$("#pPin").checked,premium_only:$("#pPr").checked,allow_comments:$("#pCo").checked};if(p.id)o.id=p.id;
       try{busy($("#ps"),true);const saved=await API.savePost(o);toast("Publicación guardada");
         if($("#pNt").checked){const pid=(saved&&saved.id)||o.id;const plain=String(o.body||"").replace(/[#*_>`\[\]()!-]+/g," ").replace(/\s+/g," ").trim();
           try{const r=await API.sendPush({title:(p.id?"Actualización: ":(o.category==="Anuncio"?"📢 ":"Nueva publicación: "))+o.title.slice(0,64),body:plain.slice(0,140)||"Toca para leerla en la comunidad.",url:A.absUrl("main",pid?"nota-"+pid:"comunidad"),audience:o.premium_only?"premium":"todos",tag:"post-"+(pid||"")});
@@ -403,11 +412,13 @@ async function retos(){
     $("#rK").value=x.kind||"opcion";
     $("#rWk").onchange=()=>{if($("#rWk").checked){if((+$("#rP").value||0)<=100)$("#rP").value=300;if((+$("#rW").value||0)<=5)$("#rW").value=10;$("#rP").oninput&&$("#rP").oninput()}};$("#rS").value=x.status||"borrador";
     const half=()=>$("#rHalf").textContent=(RWc().halfIfNotAffiliate?Math.ceil((+$("#rP").value||0)/2):(+$("#rP").value||0))+" pts";$("#rP").oninput=half;half();
-    let zone=k.zone??null,img=x.image_url||"";
+    let OFF=x.bars?(+x.off||0):null,cur=null;let zone=k.zone!=null?+(k.zone+(x.bars?(+x.off||0):0)).toFixed(x.decimals||3):null,img=x.image_url||"";
+    const SHf=t=>{const st=fromLoc($("#rA").value)||new Date().toISOString();return Math.floor(new Date(st).getTime()/36e5)*3600-3600-t};
     const body=async()=>{const kind=$("#rK").value;const ops=(x.options&&x.options.length?x.options:(kind==="tendencia"?["Sube","Baja"]:[]));
       const chartPart=kind!=="opcion"?`<div class="three"><label for="rM">Mercado<select id="rM">${MARKETS.map(m=>`<option value="${m}">${MNAME[m]}</option>`).join("")}</select></label>
           <label for="rC">Última vela que ven (hora Colombia)<input id="rC" type="datetime-local" value="${x.chart_t?toLoc(x.chart_t*1000):""}"></label><label for="rD">Operación<select id="rD"><option value="buy">Compra</option><option value="sell">Venta</option></select></label></div>
-        <div class="chartbox" style="height:340px"><div class="cv" style="position:absolute;inset:0"></div><div class="chint">${kind==="zona"?"Toca la gráfica para poner la zona correcta":"Vista previa: así la verán (lo gris de la derecha es lo que pasó después)"}</div></div>`:"";
+        <div class="chartbox" style="height:340px"><div class="cv" style="position:absolute;inset:0"></div><div class="chint">${kind==="zona"?"Toca la gráfica para poner la zona correcta":"Vista previa: así la verán (lo de la derecha de la flecha es lo que pasó después)"}</div></div>
+        <p class="dim" style="font-size:13px;margin:6px 0 0">🔒 Anti-trampas: los precios y las fechas de esta gráfica ya están desplazados, así que nadie puede buscar este momento en el historial de Deriv. Si pones precios en la pregunta, usa los que ves aquí.</p>`:"";
       $("#rBody").innerHTML=chartPart+(kind==="zona"?`<div class="two"><label for="rZo">Zona correcta (precio)<input id="rZo" type="number" step="any" value="${zone??""}"></label><label for="rTo">Margen permitido (±)<input id="rTo" type="number" step="any" value="${k.tol??""}" placeholder="se sugiere solo"></label></div>`
         :`<label for="rO">Opciones (una por línea)<textarea id="rO" style="min-height:${kind==="tendencia"?60:110}px">${esc(ops.join("\n"))}</textarea></label><label for="rCo">Respuesta correcta<select id="rCo"></select></label>`)
         +(kind==="opcion"?`<div class="row">${fileBtn("rI","Imagen (opcional)")}<input id="rIu" value="${esc(img)}" placeholder="o URL de imagen" style="flex:1;min-width:180px"></div>`:"");
@@ -416,14 +427,17 @@ async function retos(){
       if($("#rI"))bindUpload("rI",u=>{img=u;$("#rIu").value=u});
       if(kind!=="opcion"){$("#rM").value=x.market||"B1000";$("#rD").value=x.side||"buy";
         const draw=async()=>{const box=$("#rBody .cv");if(!box)return;box.innerHTML="";try{const Hh=await h1Bars($("#rM").value);const tt=$("#rC").value?Math.floor(new Date($("#rC").value+":00-05:00")/1000):Hh.bars[Hh.bars.length-30].t;
-          const e=idxAt(Hh.bars,tt);const bars=Hh.bars.slice(Math.max(0,e-90),Math.min(Hh.bars.length,e+25));const C=Chart.makeChart(box);C.setData(toC(bars),Hh.dec);C.setRange(bars.length-100,bars.length+4);
-          C.setMarkers([{time:Hh.bars[e].t+3600*0+TZ,position:"aboveBar",color:"#f3d88f",shape:"arrowDown",text:"lo que ven"}]);
+          const e=idxAt(Hh.bars,tt);
+          if(OFF==null){const p0=Hh.bars[e].c;OFF=+((Math.random()<.5?-1:1)*p0*(.05+Math.random()*.1)).toFixed(0)||7}
+          const SH=SHf(Hh.bars[e].t),fx=v=>+(v+OFF).toFixed(Hh.dec);cur={Hh,e,SH};
+          const bars=Hh.bars.slice(Math.max(0,e-90),Math.min(Hh.bars.length,e+25)).map(b=>({t:b.t+SH,o:fx(b.o),h:fx(b.h),l:fx(b.l),c:fx(b.c)}));const C=Chart.makeChart(box);C.setData(toC(bars),Hh.dec);C.setRange(bars.length-100,bars.length+4);
+          C.setMarkers([{time:Hh.bars[e].t+SH+TZ,position:"aboveBar",color:"#f3d88f",shape:"arrowDown",text:"lo que ven"}]);
           if(!$("#rC").value)$("#rC").value=toLoc(Hh.bars[e].t*1000);
           if(kind==="zona"){const sug=+(0.35*avgRange(Hh.bars,e)).toFixed(Hh.dec);const ln=()=>{C.clearLines();if(zone!=null)C.addLine({price:zone,color:"#f3d88f",lineWidth:2,title:"Zona correcta",draggable:true})};ln();
             if(!$("#rTo").value)$("#rTo").placeholder=`sugerido: ${sug}`;C.onClick(p=>{zone=+p.toFixed(Hh.dec);$("#rZo").value=zone;if(!$("#rTo").value)$("#rTo").value=sug;ln()});C.onLineDrag((l,p)=>{zone=+p;$("#rZo").value=p})}}catch(err){box.innerHTML='<div class="empty">No hay velas para ese mercado o fecha.</div>'}};
-        $("#rM").onchange=draw;$("#rC").onchange=draw;draw()}};
+        $("#rM").onchange=()=>{OFF=null;draw()};$("#rC").onchange=draw;$("#rA").onchange=draw;draw()}};
     $("#rK").onchange=body;await body();
-    if(x.id)API.adminChallengeEntries(x.id).then(L=>{const h=$("#rEn");if(!h)return;h.innerHTML=L.length?`<div class="tree">${L.map(e=>`<div class="item"><span class="txt"><b>${esc(e.username)} ${A.flag(e.country||"")}${e.affiliate?" "+A.affTag():""}</b><span>${fmtDT(e.created_at)} · ${e.answer&&e.answer.price!=null?"zona "+e.answer.price:"opción "+String.fromCharCode(65+(+((e.answer||{}).option)||0))}</span></span>${e.place?`<span class="pill ok">#${e.place} · +${e.points}</span>`:e.correct?'<span class="pill">Acertó sin cupo</span>':'<span class="pill">Falló</span>'}</div>`).join("")}</div>`:'<div class="muted">Nadie ha respondido todavía.</div>'}).catch(e=>{const h=$("#rEn");if(h)h.textContent=e.message});
+    if(x.id)API.adminChallengeEntries(x.id).then(L=>{const h=$("#rEn");if(!h)return;h.innerHTML=L.length?`<div class="tree">${L.map(e=>`<div class="item"><span class="txt"><b>${esc(e.username)} ${A.flag(e.country||"")}${e.affiliate?" "+A.affTag():""}</b><span>${fmtDT(e.created_at)} · ${e.answer&&e.answer.price!=null?"zona "+e.answer.price:"opción "+String.fromCharCode(65+(+((e.answer||{}).option)||0))}</span></span>${e.same_ip?`<span class="pill warn" title="Respondió desde la misma conexión que otras cuentas">⚠ misma conexión ×${e.same_ip}</span>`:""}${e.place?`<span class="pill ok">#${e.place} · +${e.points}</span>`:e.correct?'<span class="pill">Acertó sin cupo</span>':'<span class="pill">Falló</span>'}</div>`).join("")}</div>`:'<div class="muted">Nadie ha respondido todavía.</div>'}).catch(e=>{const h=$("#rEn");if(h)h.textContent=e.message});
     if($("#rDb"))$("#rDb").onclick=()=>A.confirmInline($("#rDel"),"¿Eliminar el reto y sus respuestas? Los puntos ganados se pierden.",async()=>{await API.delChallenge(x.id);toast("Reto eliminado");retos()});
     $("#rf").onsubmit=async e=>{e.preventDefault();const kind=$("#rK").value;
       const o={title:$("#rT").value.trim()||"Reto del día",kind,question:$("#rQ").value.trim(),status:$("#rS").value,points:Math.max(1,+$("#rP").value||100),max_winners:Math.max(1,Math.min(100,+$("#rW").value||5)),
@@ -433,7 +447,11 @@ async function retos(){
       if(kind!=="zona"){o.options=$("#rO").value.split("\n").map(s=>s.trim()).filter(Boolean);if(o.options.length<2){toast("Pon al menos 2 opciones");return}key.correct=+$("#rCo").value}
       if(kind==="opcion")o.image_url=($("#rIu").value||"").trim();
       if(kind!=="opcion"){o.market=$("#rM").value;o.side=$("#rD").value;o.chart_t=$("#rC").value?Math.floor(new Date($("#rC").value+":00-05:00")/1000):null;if(!o.chart_t){toast("Elige la última vela que verán");return}}
-      if(kind==="zona"){key.zone=$("#rZo").value===""?null:+$("#rZo").value;key.tol=$("#rTo").value===""?null:+$("#rTo").value;if(key.zone==null||!key.tol){toast("Marca la zona correcta y el margen");return}}
+      if(kind!=="opcion"){if(!cur){toast("Espera a que cargue la gráfica");return}const {Hh,e}=cur,SH=SHf(Hh.bars[e].t),fx=v=>+(v+OFF).toFixed(Hh.dec),row=b=>[b.t+SH,fx(b.o),fx(b.h),fx(b.l),fx(b.c)];
+        o.bars=Hh.bars.slice(Math.max(0,e-89),e+1).map(row);o.after_bars=Hh.bars.slice(e+1,e+37).map(row);o.decimals=Hh.dec;o.off=OFF;
+        if(o.after_bars.length<24){toast("Elige una vela más antigua: después de ella debe haber al menos un día de velas para saber la respuesta");return}}
+      else{o.bars=null;o.after_bars=null;o.off=0}
+      if(kind==="zona"){key.zone=$("#rZo").value===""?null:+(+$("#rZo").value-(OFF||0)).toFixed(cur?cur.Hh.dec:3);key.tol=$("#rTo").value===""?null:+$("#rTo").value;if(key.zone==null||!key.tol){toast("Marca la zona correcta y el margen");return}}
       try{busy($("#rSv"),true);const saved=await API.saveChallenge(o,key);toast("Reto guardado");
         if($("#rN").checked&&o.status==="publicado"&&API.sendPush){try{await API.sendPush({title:"🎯 Nuevo reto: "+o.title.slice(0,60),body:`Los primeros ${o.max_winners} en acertar ganan ${o.points} puntos. ¡Corre!`,url:A.absUrl("main","reto-"+saved.id),audience:"todos",tag:"reto-"+saved.id});toast("Notificación enviada")}catch(x){toast("Guardado, pero la notificación falló: "+x.message)}}
         retos()}catch(x){toast(x.message)}finally{const b=$("#rSv");if(b)busy(b,false)}};
@@ -460,7 +478,7 @@ async function canjes(){
   const c=RWc(),pend=list.filter(r=>r.status==="pendiente"),done=list.filter(r=>r.status!=="pendiente");
   const tot=pend.reduce((s,r)=>s+(+r.usd||0),0);
   const card=r=>`<article class="ucard"><div class="uc-who"><div><b>${esc(r.username)}${r.affiliate?" "+A.affTag():""}</b><span class="dim">${esc(r.email||"")}</span></div></div>
-    <div class="uc-st"><div><small>Canje</small><b class="mono">${r.points} pts</b><span class="dim">${Number(r.usd).toLocaleString("es-CO",{style:"currency",currency:"USD"})}</span></div><div><small>Pagar a (${esc(r.method)})</small><b class="mono sel">${esc(r.account)}</b></div><div><small>Saldo actual</small><span class="mono">${r.balance??"—"} pts</span></div><div><small>Fecha</small><span>${fmtDate(r.created_at)}</span>${r.admin_note?`<span class="dim">${esc(r.admin_note)}</span>`:""}</div></div>
+    <div class="uc-st"><div><small>Canje</small><b class="mono">${r.points} pts</b><span class="dim">${Number(r.usd).toLocaleString("es-CO",{style:"currency",currency:"USD"})}</span></div><div><small>Pagar a (${esc(r.method)})</small><b class="mono sel">${esc(r.account)}</b></div><div><small>Saldo actual</small><span class="mono">${r.balance??"—"} pts</span></div><div><small>Fecha</small><span>${fmtDate(r.created_at)}</span>${r.admin_note?`<span class="dim">${esc(r.admin_note)}</span>`:""}</div></div>${(r.dup_account||r.dup_ip||(r.account_age_days!=null&&r.account_age_days<7))?`<div class="note warn-note">⚠ Revisa antes de pagar:${r.dup_account?` <b>esta cuenta de Binance la usaron ${r.dup_account} usuario(s) más</b>.`:""}${r.dup_ip?` Jugó retos desde la misma conexión que <b>${r.dup_ip} cuenta(s)</b> más (puede ser la misma casa o el mismo operador móvil).`:""}${r.account_age_days!=null&&r.account_age_days<7?` La cuenta tiene solo <b>${r.account_age_days} día(s)</b>.`:""}</div>`:""}
     <div class="uc-act row" data-host="${esc(r.id)}">${r.status==="pendiente"?`<button class="btn sm" data-cp="${esc(r.account)}">Copiar cuenta</button><button class="btn sm ok" data-pay="${esc(r.id)}">Marcar pagado</button><button class="btn sm bad" data-rej="${esc(r.id)}">Rechazar</button>`:r.status==="pagado"?'<span class="pill ok">Pagado</span>':'<span class="pill">Rechazado · puntos devueltos</span>'}</div></article>`;
   H().innerHTML=`<div class="acad-switch ${c.redeemOpen?"on":"off"}"><div><b>Canjes ${c.redeemOpen?"abiertos":"cerrados"}</b><span class="muted">${c.redeemOpen?"Los alumnos pueden enviar solicitudes de canje ahora.":"Los puntos se acumulan. Abre los canjes una vez al mes (por ejemplo, los primeros días) y ciérralos cuando termines de pagar."}</span></div><button class="btn ${c.redeemOpen?"bad":"gold"}" id="cwSw">${c.redeemOpen?"Cerrar canjes":"Abrir canjes"}</button></div>
     <div class="panel"><div class="sec-h"><h3>Por pagar (${pend.length})</h3><span class="muted">Total: <b class="mono">${tot.toLocaleString("es-CO",{style:"currency",currency:"USD"})}</b></span></div><p class="muted" style="margin-top:0">Envía el pago por Binance Pay a la cuenta del alumno y luego márcalo como pagado. Si lo rechazas, los puntos vuelven a su saldo.</p><div class="ulist">${pend.map(card).join("")||'<div class="muted">No hay canjes por pagar.</div>'}</div></div>

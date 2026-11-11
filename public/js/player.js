@@ -1,3 +1,4 @@
+/* © El Arte Gráfico. Todos los derechos reservados. Prohibida su copia o distribución sin autorización. */
 /* El Arte Gráfico Academy — reproductor de ejercicios: gráfica (zona en H1/M5, SL en M5, repetición), cálculo con fórmula y opción múltiple. */
 (function(){
 "use strict";

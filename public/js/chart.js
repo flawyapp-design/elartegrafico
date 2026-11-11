@@ -1,3 +1,4 @@
+/* © El Arte Gráfico. Todos los derechos reservados. Prohibida su copia o distribución sin autorización. */
 /* El Arte Gráfico — motor de gráficas en canvas (sin librerías), con manejo tipo TradingView:
    - arrastrar el gráfico mueve tiempo y precio
    - arrastrar el eje de precios (derecha) estira/encoge el precio; doble clic en el eje o botón "A" = escala automática
