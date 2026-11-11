@@ -524,3 +524,7 @@ nav.main a.navx{color:var(--gold2)}
 .dd .menu button#ddInst{text-align:left}
 #nf .kv{grid-template-columns:repeat(3,minmax(0,1fr))}#nf .kv>div{padding:10px}#nf .kv b{font-size:20px}
 >>>>>>> 052e26a (App instalable (PWA) y notificaciones push: aviso para instalar/activar, ajustes en Mi cuenta, envío desde administración y al publicar noticias)
+.cfgnav{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0 4px;position:sticky;top:70px;z-index:5;background:var(--bg);padding:8px 0}
+.cfgnav button{border:1px solid var(--line2);background:var(--card);color:var(--fg);border-radius:999px;padding:8px 14px;font-weight:600;font-size:14px;cursor:pointer}
+.cfgnav button:hover{border-color:var(--gold3);color:var(--gold2)}
+#cfgPerfil,#cfgApp,#cfgProg,#cfgSeg{scroll-margin-top:130px}

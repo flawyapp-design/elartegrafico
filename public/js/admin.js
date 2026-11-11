@@ -52,7 +52,7 @@ async function notif(){
       <div class="row"><button class="btn gold" id="ns">Enviar notificación</button><span class="muted" id="nr"></span></div>
       <p class="dim" style="font-size:13px;margin:0">Solo la reciben quienes activaron las notificaciones (en Mi cuenta o en el aviso del inicio). No abuses: 1 a 3 por semana es lo ideal.</p></form>
     <div class="panel"><h3>Vista previa</h3><div class="npv"><img src="assets/icon-192.png" alt="" width="40" height="40"><div><b id="pvT">Nuevo módulo disponible</b><span id="pvB">Ya puedes ver “Gestión del riesgo” en la academia.</span><small>elartegrafico.com · ahora</small></div></div>
-      <h3 style="margin-top:18px">Para que te lleguen a ti</h3><p class="muted" style="font-size:14px">Entra a <b>Mi cuenta → App y notificaciones</b> en tu celular y actívalas. En iPhone primero agrega la app a la pantalla de inicio desde Safari.</p></div></div>`;
+      <h3 style="margin-top:18px">Para que te lleguen a ti</h3><p class="muted" style="font-size:14px">Entra a <b>Configuración → App y notificaciones</b> en tu celular y actívalas. En iPhone primero agrega la app a la pantalla de inicio desde Safari.</p></div></div>`;
   const pv=()=>{$("#pvT").textContent=$("#nT").value||"Nuevo módulo disponible";$("#pvB").textContent=$("#nB").value||"Ya puedes ver “Gestión del riesgo” en la academia."};$("#nT").oninput=pv;$("#nB").oninput=pv;
   $("#nD").onchange=()=>{$("#nUl").hidden=$("#nD").value!==""};
   $("#nf").onsubmit=async e=>{e.preventDefault();const title=$("#nT").value.trim(),body=$("#nB").value.trim(),url=$("#nD").value||$("#nU").value.trim();
