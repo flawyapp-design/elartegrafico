@@ -280,12 +280,14 @@ async function noticias(){
     <div class="row">${fileBtn("pI","Imagen de portada")}<input id="pU" value="${esc(p.image_url||"")}" placeholder="o URL de imagen" style="flex:1;min-width:180px"></div></div>
     <label for="pB">Contenido<textarea id="pB" style="min-height:220px">${esc(p.body||"")}</textarea></label>
     <div class="three"><label style="display:flex;gap:8px;align-items:center;color:var(--fg)"><input type="checkbox" id="pPin" style="width:auto" ${p.pinned?"checked":""}> Fijar arriba</label><label style="display:flex;gap:8px;align-items:center;color:var(--fg)"><input type="checkbox" id="pPr" style="width:auto" ${p.premium_only?"checked":""}> Solo premium</label><label style="display:flex;gap:8px;align-items:center;color:var(--fg)"><input type="checkbox" id="pCo" style="width:auto" ${p.allow_comments!==false?"checked":""}> Permitir comentarios</label></div>
-    <label style="display:flex;gap:8px;align-items:center;color:var(--fg)"><input type="checkbox" id="pNt" style="width:auto"> Enviar notificación a los alumnos al publicar</label>
+    <label style="display:flex;gap:8px;align-items:center;color:var(--fg)"><input type="checkbox" id="pNt" style="width:auto" ${p.id?"":"checked"}> Avisar a los alumnos con una notificación${p.id?" (es una edición: márcalo solo si el cambio es importante)":""}</label>
     <div class="row"><button class="btn gold" id="ps">Publicar</button>${p.id?`<a class="btn ghost" href="#nota-${esc(p.id)}">Ver</a><span id="pd"><button type="button" class="btn sm bad" id="pdb">Eliminar</button></span>`:""}</div></form>`;
     bindUpload("pI",u=>$("#pU").value=u);
     $("#pf").onsubmit=async e=>{e.preventDefault();const o={title:$("#pT").value.trim()||"Sin título",category:$("#pC").value.trim()||"Noticia",image_url:$("#pU").value.trim(),body:$("#pB").value,pinned:$("#pPin").checked,premium_only:$("#pPr").checked,allow_comments:$("#pCo").checked};if(p.id)o.id=p.id;
-      try{busy($("#ps"),true);await API.savePost(o);toast("Publicación guardada");
-        if($("#pNt").checked){try{const r=await API.sendPush({title:o.title.slice(0,80),body:(o.category||"Comunidad")+" · toca para leer",url:A.absUrl("main","comunidad"),audience:o.premium_only?"premium":"todos"});toast(`Notificación enviada a ${r.sent} dispositivos`)}catch(x){toast("Publicado, pero la notificación falló: "+x.message)}}
+      try{busy($("#ps"),true);const saved=await API.savePost(o);toast("Publicación guardada");
+        if($("#pNt").checked){const pid=(saved&&saved.id)||o.id;const plain=String(o.body||"").replace(/[#*_>`\[\]()!-]+/g," ").replace(/\s+/g," ").trim();
+          try{const r=await API.sendPush({title:(p.id?"Actualización: ":(o.category==="Anuncio"?"📢 ":"Nueva publicación: "))+o.title.slice(0,64),body:plain.slice(0,140)||"Toca para leerla en la comunidad.",url:A.absUrl("main",pid?"nota-"+pid:"comunidad"),audience:o.premium_only?"premium":"todos",tag:"post-"+(pid||"")});
+            toast(r.sent?`Publicado y notificado a ${r.sent} dispositivo${r.sent===1?"":"s"}`:"Publicado. Aún nadie tiene las notificaciones activadas.")}catch(x){toast("Publicado, pero la notificación falló: "+x.message)}}
         noticias()}catch(x){toast(x.message)}finally{busy($("#ps"),false)}};
     const d=$("#pdb");if(d)d.onclick=()=>A.confirmInline($("#pd"),"¿Eliminar la publicación y sus comentarios?",async()=>{await API.delPost(p.id);toast("Publicación eliminada");noticias()})};
   $("#np").onclick=()=>edit({});$$("[data-p]").forEach(b=>b.onclick=()=>edit(list.find(p=>p.id===b.dataset.p)));
