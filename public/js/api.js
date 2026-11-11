@@ -178,6 +178,11 @@ function SupabaseAPI(url,key){
     adminAffiliates(){return rpc("admin_affiliates")},
     reviewAffiliate(uid,ok,note){return rpc("review_affiliate",{p_user:uid,p_ok:!!ok,p_note:note||""})},
     publicProfile(u){return rpc("public_profile",{p_username:u})},
+    roomFeed(since){return rpc("room_feed",{p_since:since||null})},roomSend(b,img){return rpc("room_send",{p_body:b||"",p_image:img||null})},roomAlive(ids){return rpc("room_alive",{p_ids:ids})},
+    async roomDelete(id){const img=await rpc("room_delete",{p_id:id});const k=typeof img==="string"&&img.split("/storage/v1/object/public/sala/")[1];if(k)try{await req(`/storage/v1/object/sala/${k}`,{method:"DELETE"})}catch(e){}},
+    roomReport(id){return rpc("room_report",{p_id:id})},roomMute(id,h){return rpc("room_mute",{p_message:id,p_hours:h})},
+    async uploadRoom(blob){if(!sess||!sess.user)throw new Error("Inicia sesión");const name=`${sess.user.id}/s-${Date.now()}.webp`;
+      await req(`/storage/v1/object/sala/${name}`,{method:"POST",body:blob,isFile:true,headers:{"Content-Type":blob.type||"image/webp"}});return `${url}/storage/v1/object/public/sala/${name}`},
     dmSend(body,user,topic){return rpc("dm_send",{p_body:body,p_user:user||null,p_topic:topic||null})},dmMine(){return rpc("dm_mine")},dmBadge(){return rpc("dm_badge")},
     adminDmThreads(){return rpc("admin_dm_threads")},adminDmThread(u){return rpc("admin_dm_thread",{p_user:u})},adminDmClose(u){return rpc("admin_dm_close",{p_user:u})},
     adminPartnerImport(ids,monthly,tier){return rpc("admin_partner_import",{p_ids:ids,p_monthly:!!monthly,p_tier:tier==="antiguo"?"antiguo":"activo"})},adminPartnerApproveOld(){return rpc("admin_partner_approve_old")},adminPartnerInfo(){return rpc("admin_partner_info")},
@@ -347,6 +352,17 @@ function LocalAPI(){
       L.forEach(x=>{if(tier==="activo"){db.ptier[x]="activo";saved++}else if(!db.ptier[x]){db.ptier[x]="antiguo";saved++}});
       let ok=0;(db.affiliates||[]).forEach(a=>{if((a.status==="pendiente"||a.status==="rechazado")&&db.ptier[String(a.deriv_id).toUpperCase()]==="activo"){Object.assign(a,{status:"verificado",admin_note:"Verificado automáticamente con la lista de socios activos",reviewed_at:now()});const p=db.profiles.find(x=>x.id===a.user_id);if(p)p.affiliate=true;ok++}});save();
       const v=Object.values(db.ptier);return{received:L.length,saved,moved_old:moved,approved:ok,active:v.filter(x=>x==="activo").length,old:v.filter(x=>x==="antiguo").length}},
+    /* sala Oro (modo local) */
+    _room(){db.room=db.room||[];return db.room},
+    async roomFeed(since){const p=me();const pr=adm()?4:({diamond:4,oro:3,plata:2,cobre:1})[p&&p.plan]||0;if(!p||(!adm()&&!(isPrem(p)&&pr>=3)))throw new Error("El chat es exclusivo de los planes Oro y Diamond");
+      return this._room().filter(m=>!since||m.created_at>since).slice(-150).map(m=>{const q=db.profiles.find(x=>x.id===m.user_id)||{};return Object.assign({},m,{username:q.username,avatar_url:q.avatar_url,country:q.country,plan:isPrem(q)?q.plan:null,affiliate:!!q.affiliate,is_admin:q.role==="admin",mine:m.user_id===p.id,reports:adm()?(m.rep||[]).length:0,muted:false})})},
+    async roomSend(b,img){const p=me();b=String(b||"").trim();if(!b&&!img)throw new Error("Escribe un mensaje");if(!adm()&&/(https?:\/\/|www\.|t\.me\/)/i.test(b))throw new Error("Los enlaces no están permitidos en el chat");
+      const m={id:"r"+Date.now()+Math.random().toString(36).slice(2,6),user_id:p.id,body:b,image_url:img||null,created_at:new Date().toISOString()};this._room().push(m);save();return m},
+    async roomAlive(ids){return this._room().filter(m=>ids.includes(m.id)).map(m=>m.id)},
+    async roomDelete(id){db.room=this._room().filter(m=>m.id!==id);save()},
+    async roomReport(id){const m=this._room().find(x=>x.id===id);if(m){m.rep=m.rep||[];if(!m.rep.includes(me().id))m.rep.push(me().id);save()}},
+    async roomMute(){},
+    async uploadRoom(blob){return await new Promise((ok,no)=>{const r=new FileReader();r.onload=()=>ok(r.result);r.onerror=no;r.readAsDataURL(blob)})},
     async publicProfile(u){const p=db.profiles.find(x=>(x.username||"").toLowerCase()===String(u||"").toLowerCase());if(!p||p.banned)return null;const g=db.progress.find(x=>x.user_id===p.id)||{xp:0,data:{}};
       const L=(db.lessons||[]).filter(l=>l.status==="publicado"),done=(g.data||{}).done||{},E=(db.centries||[]).filter(e=>e.user_id===p.id);const pr=p.premium_until&&new Date(p.premium_until)>new Date();
       return{username:p.username,avatar_url:p.avatar_url,country:p.country,since:p.created_at||new Date().toISOString(),is_admin:p.role==="admin",is_me:me()&&me().id===p.id,premium:!!pr,plan:pr?(p.plan||null):null,affiliate:!!p.affiliate,

@@ -32,12 +32,13 @@ async function vapid() {
 // envía a los suscritos (todos / premium / gratis) y limpia los que ya no existen
 async function sendAll(keys: any, aud: string, msg: Record<string, unknown>, only?: string) {
   webpush.setVapidDetails("mailto:soporte@elartegrafico.com", keys.public_key, keys.private_key);
-  const subs = await (await db("push_subs?select=endpoint,p256dh,auth,user_id,profiles!inner(premium_until,banned,role)&profiles.banned=is.false")).json();
+  const subs = await (await db("push_subs?select=endpoint,p256dh,auth,user_id,profiles!inner(premium_until,banned,role,plan)&profiles.banned=is.false")).json();
   const now = Date.now();
   const list = (Array.isArray(subs) ? subs : []).filter((s: any) => {
     const prem = s.profiles?.premium_until && new Date(s.profiles.premium_until).getTime() > now;
     if (only === "admins") return s.profiles?.role === "admin";
     if (only) return s.user_id === only;
+    if (aud === "oro") return (prem && ["oro", "diamond"].includes(s.profiles?.plan)) || s.profiles?.role === "admin";
     return aud === "todos" || (aud === "premium" ? prem : !prem);
   });
   const payload = JSON.stringify({ icon: "/assets/icon-192.png", badge: "/assets/badge-72.png", ...msg });
@@ -79,6 +80,12 @@ Deno.serve(async (req) => {
           : { title: `🏆 Ya salieron los ganadores`, body: `“${String(it.title).slice(0, 60)}”: entra y mira si quedaste entre los ${it.max_winners} primeros.`, url, tag: `reto-res-${it.id}` };
         sent += (await sendAll(keys, "todos", msg)).sent;
       }
+      // sala Oro: borrar mensajes y fotos de más de 7 días
+      try {
+        const imgs: string[] = await (await db("rpc/room_cleanup_claim", { method: "POST", body: "{}" })).json();
+        const paths = (Array.isArray(imgs) ? imgs : []).map((u) => String(u).split("/storage/v1/object/public/sala/")[1]).filter(Boolean);
+        if (paths.length) await fetch(`${URL_}/storage/v1/object/sala`, { method: "DELETE", headers: { Authorization: `Bearer ${SR}`, apikey: SR, "Content-Type": "application/json" }, body: JSON.stringify({ prefixes: paths }) });
+      } catch (_) { /* la sala aún no existe */ }
       // respuestas del chat: aviso al admin
       const dms = await (await db("rpc/dm_push_claim", { method: "POST", body: "{}" })).json();
       for (const d of (Array.isArray(dms) ? dms : [])) {
@@ -99,7 +106,7 @@ Deno.serve(async (req) => {
     const title = String(body.title || "").slice(0, 80);
     const text = String(body.body || "").slice(0, 200);
     const url = String(body.url || "/").slice(0, 300);
-    const aud = ["todos", "premium", "gratis"].includes(body.audience) ? body.audience : "todos";
+    const aud = ["todos", "premium", "gratis", "oro"].includes(body.audience) ? body.audience : "todos";
     if (!title) return json({ error: "Escribe un título" }, 400);
 
     const only = typeof body.user_id === "string" && /^[0-9a-f-]{36}$/i.test(body.user_id) ? body.user_id : undefined;

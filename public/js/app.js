@@ -699,11 +699,13 @@ ROUTES.reto=async id=>{
 const WHEEL=[["+50 XP","#2a3f7a"],["+100 XP","#1a2c66"],["Medalla","#7a5a12"],["+250 XP","#2a3f7a"],["+500 XP","#1a2c66"],["+1 día","#14935f"]];
 const MEDALS={trebol:["☘️","Trébol de la suerte"],herradura:["🧲","Herradura"],estrella:["⭐","Estrella fugaz"],cometa:["☄️","Cometa"],diamante:["💎","Diamante"]};
 const bogotaDay=()=>new Date(Date.now()-5*3600e3).toISOString().slice(0,10);
-ROUTES.oro=async()=>{if(!logged()){location.hash="#entrar";return}
-  if(planRank()<3){app.innerHTML=`<section class="oro-hero locked"><div class="oro-crown">👑</div><span class="eyebrow">Exclusivo plan Oro</span><h1>Sala Oro</h1><p class="muted">La parte privada de El Arte Gráfico para los suscriptores Oro.</p>
-      <div class="oro-perks"><div><b>🔴 En vivo privado</b><span>Lives solo para Oro: dudas, análisis y operativa en directo, con la grabación después.</span></div><div><b>📈 Operativas</b><span>Las operaciones que comparto: zona, entrada, stop y cómo terminó.</span></div><div><b>💎 ¿Quieres todo?</b><span>Con Diamond tienes la Sala Oro, todos los cursos y todas las publicaciones exclusivas.</span></div><div><b>🚀 Acceso anticipado</b><span>Los cursos y módulos nuevos, antes que nadie.</span></div></div>
-      <div class="row" style="justify-content:center"><a class="btn gold" href="#premium">Ver plan Oro</a></div></section>`;return}
-  app.innerHTML=`<section class="oro-hero"><div class="oro-crown">👑</div><span class="eyebrow">Plan Oro</span><h1>Sala Oro</h1><p class="muted">Lives privados y operativas.</p></section>
+ROUTES.oro=async arg=>{if(!logged()){location.hash="#entrar";return}
+  if(planRank()<3){app.innerHTML=`<section class="oro-hero locked"><div class="oro-crown">👑</div><span class="eyebrow">Exclusivo Oro y Diamond</span><h1>Sala Oro</h1><p class="muted">La parte privada de El Arte Gráfico para los suscriptores Oro y Diamond.</p>
+      <div class="oro-perks"><div><b>💬 Chat privado</b><span>La sala de chat de los traders Oro y Diamond: comparte tus gráficas, pregunta y aprende con los demás.</span></div><div><b>🔴 En vivo privado</b><span>Lives solo para Oro: dudas, análisis y operativa en directo, con la grabación después.</span></div><div><b>📈 Operativas</b><span>Las operaciones que comparto: zona, entrada, stop y cómo terminó.</span></div><div><b>💎 ¿Quieres todo?</b><span>Con Diamond tienes la Sala Oro, todos los cursos y todas las publicaciones exclusivas.</span></div><div><b>🚀 Acceso anticipado</b><span>Los cursos y módulos nuevos, antes que nadie.</span></div></div>
+      <div class="row" style="justify-content:center"><a class="btn gold" href="#premium">Ver planes Oro y Diamond</a></div></section>`;return}
+  const tabs=`<div class="seg oro-seg"><a class="${arg==="chat"?"":"on"}" href="#oro">🔴 Lives y operativas</a><a class="${arg==="chat"?"on":""}" href="#oro-chat">💬 Chat</a></div>`;
+  if(arg==="chat")return roomView(tabs);
+  app.innerHTML=`<section class="oro-hero"><div class="oro-crown">👑</div><span class="eyebrow">Oro y Diamond</span><h1>Sala Oro</h1><p class="muted">Lives privados, operativas y el chat de la sala.</p></section>${tabs}
     <section class="sec oro-grid">${false?`<div class="panel wheel-box"><h2>🎡 Ruleta del día</h2><p class="muted" id="whTxt">Un giro gratis cada día. Siempre ganas algo.</p>
       <div class="wheel-wrap"><div class="wheel-ptr">▼</div><svg id="wheel" viewBox="-110 -110 220 220" aria-hidden="true">${WHEEL.map(([t,c],i)=>{const a0=(i*60-90)*Math.PI/180,a1=((i+1)*60-90)*Math.PI/180,am=((i+.5)*60-90)*Math.PI/180;
         return `<path d="M0 0 L${100*Math.cos(a0)} ${100*Math.sin(a0)} A100 100 0 0 1 ${100*Math.cos(a1)} ${100*Math.sin(a1)} Z" fill="${c}" stroke="#d8b062" stroke-width="1.5"/><text x="${62*Math.cos(am)}" y="${62*Math.sin(am)}" fill="#fff" font-size="11" font-weight="800" text-anchor="middle" dominant-baseline="middle" transform="rotate(${i*60+30} ${62*Math.cos(am)} ${62*Math.sin(am)})">${t}</text>`}).join("")}<circle r="16" fill="#d8b062"/><text y="1" font-size="14" text-anchor="middle" dominant-baseline="middle">👑</text></svg></div>
@@ -727,6 +729,57 @@ ROUTES.oro=async()=>{if(!logged()){location.hash="#entrar";return}
     setTimeout(()=>{if(r.prize==="xp")addXP(Math.floor(r.amount/(planRank()>=2?2:1)));
       const m=MEDALS[r.label];pop({icon:r.prize==="dia"?"spark":r.prize==="medalla"?"star":"up",kicker:"Ruleta Oro",title:r.prize==="medalla"?`${m?m[0]:"🏅"} ${m?m[1]:r.label}`:r.label,text:r.prize==="dia"?"Sumamos un día más a tu suscripción.":r.prize==="medalla"?"Nueva medalla de la suerte para tu colección.":"Sumado a tu nivel.",confetti:true,ms:5000});
       spins.unshift(Object.assign({},r,{created_at:new Date().toISOString()}));med();go.textContent="Ya giraste hoy · vuelve mañana";$("#whTxt").textContent="Vuelve mañana por tu próximo giro."},4300)}};
+/* ---------- chat de la Sala Oro ---------- */
+async function fitImage(file,max=1600){const img=await new Promise((ok,no)=>{const i=new Image();i.onload=()=>ok(i);i.onerror=()=>no(new Error("No se pudo leer la imagen"));i.src=URL.createObjectURL(file)});
+  const k=Math.min(1,max/Math.max(img.naturalWidth,img.naturalHeight)),c=document.createElement("canvas");c.width=Math.round(img.naturalWidth*k);c.height=Math.round(img.naturalHeight*k);
+  c.getContext("2d").drawImage(img,0,0,c.width,c.height);URL.revokeObjectURL(img.src);return await new Promise(ok=>c.toBlob(b=>ok(b),"image/webp",.8))}
+async function roomView(tabs){
+  app.innerHTML=`<section class="oro-hero sm"><span class="eyebrow">Oro y Diamond</span><h1>Sala Oro</h1></section>${tabs}
+  <section class="room"><details class="room-rules"><summary>📌 Reglas de la sala</summary><ul>
+    <li>Respeto ante todo. Nada de insultos, política ni spam.</li><li>Los enlaces no están permitidos (solo El Arte Gráfico puede compartirlos).</li>
+    <li><b>Nadie te va a pedir dinero ni manejar tu cuenta.</b> Si alguien lo hace, repórtalo con ⋯ → Reportar.</li>
+    <li>Lo que se comparte aquí es educativo: <b>no es asesoría financiera</b> ni señales garantizadas. Cada quien opera bajo su propio riesgo.</li>
+    <li>Los mensajes y fotos se borran solos a los 7 días.</li></ul></details>
+    <div class="room-log" id="rmLog" aria-live="polite"><div class="muted" style="margin:auto">Cargando…</div></div>
+    <div class="room-prev" id="rmPrev" hidden></div>
+    <form class="room-in" id="rmF"><label class="room-cam" title="Adjuntar una foto de tu gráfica" aria-label="Adjuntar foto">${ico("image",20)}<input type="file" accept="image/*" id="rmImg" hidden></label>
+      <textarea rows="1" maxlength="1000" placeholder="Escribe a la sala…" aria-label="Mensaje"></textarea><button class="btn gold" type="submit">Enviar</button></form></section>`;
+  const log=$("#rmLog"),f=$("#rmF"),ta=$("textarea",f),seen=new Map();let last=null,file=null,first=true;
+  const hr=t=>new Date(t).toLocaleTimeString("es-CO",{hour:"numeric",minute:"2-digit"}),dd=t=>new Date(t).toLocaleDateString("es-CO",{weekday:"long",day:"numeric",month:"long"});
+  const lk=t=>esc(t).replace(/\n/g,"<br>").replace(/(https?:\/\/[^\s<]+)/g,'<a href="$1" target="_blank" rel="noopener">$1</a>');
+  const one=m=>`<div class="rm${m.mine?" me":""}${m.is_admin?" adm":""}" data-id="${esc(m.id)}" data-day="${esc(dd(m.created_at))}">${avatar(m,36)}<div class="rm-b">
+      <div class="rm-h">${uL(m.username)}${flag(m.country||"")}${m.is_admin?'<span class="tag pub">El Arte Gráfico</span>':m.plan?premTag(m.plan):""}${m.affiliate?affTag():""}<span class="dim">${hr(m.created_at)}</span>${m.reports?`<span class="rm-rep" title="Reportes">⚠ ${m.reports}</span>`:""}${m.muted?'<span class="rm-rep">🔇</span>':""}
+        <button type="button" class="rm-more" data-m="${esc(m.id)}" aria-label="Opciones del mensaje">⋯</button></div>
+      ${m.body?`<div class="rm-t">${m.is_admin?lk(m.body):esc(m.body).replace(/\n/g,"<br>")}</div>`:""}${m.image_url?`<a class="rm-img" href="${esc(m.image_url)}" target="_blank" rel="noopener"><img loading="lazy" src="${esc(m.image_url)}" alt="Foto de ${esc(m.username||"")}"></a>`:""}</div></div>`;
+  const days=()=>{$$(".rm-day",log).forEach(x=>x.remove());let p="";$$(".rm",log).forEach(el=>{if(el.dataset.day!==p){p=el.dataset.day;el.insertAdjacentHTML("beforebegin",`<div class="rm-day">${esc(p)}</div>`)}})};
+  const load=async()=>{let L;try{L=await API.roomFeed(last)}catch(e){if(first)log.innerHTML=`<div class="empty">${esc(e.message)}</div>`;return}
+    const atB=log.scrollHeight-log.scrollTop-log.clientHeight<80;if(first){log.innerHTML=L.length?"":'<div class="room-empty">👋 Aún no hay mensajes. ¡Saluda a la sala!</div>'}
+    let add=false;L.forEach(m=>{if(seen.has(m.id))return;seen.set(m.id,m);const e=$(".room-empty",log);if(e)e.remove();log.insertAdjacentHTML("beforeend",one(m));add=true;if(!last||m.created_at>last)last=m.created_at});
+    if(add){days();if(atB||first)log.scrollTop=log.scrollHeight}first=false};
+  const prune=async()=>{const ids=[...seen.keys()];if(!ids.length)return;try{const a=new Set(await API.roomAlive(ids));ids.forEach(i=>{if(!a.has(i)){seen.delete(i);const el=log.querySelector(`[data-id="${CSS.escape(i)}"]`);if(el)el.remove()}});days()}catch(e){}};
+  await load();if(matchMedia("(max-width:860px)").matches){const r=$(".room");if(r)r.scrollIntoView({block:"start"})}
+  log.addEventListener("load",e=>{if(e.target.tagName==="IMG"&&log.scrollHeight-log.scrollTop-log.clientHeight<400)log.scrollTop=log.scrollHeight},true);
+  const t1=setInterval(()=>{if(!document.hidden)load()},5000),t2=setInterval(()=>{if(!document.hidden)prune()},30000);cleanup.push(()=>{clearInterval(t1);clearInterval(t2);const m=$("#rmMenu");if(m)m.remove()});
+  ta.addEventListener("input",()=>{ta.style.height="auto";ta.style.height=Math.min(140,ta.scrollHeight)+"px"});
+  ta.addEventListener("keydown",e=>{if(e.key==="Enter"&&!e.shiftKey&&matchMedia("(pointer:fine)").matches){e.preventDefault();f.requestSubmit()}});
+  const prev=()=>{const p=$("#rmPrev");if(!file){p.hidden=true;p.innerHTML="";return}p.hidden=false;p.innerHTML=`<img src="${URL.createObjectURL(file)}" alt=""><span>Foto lista para enviar</span><button type="button" class="btn sm ghost" id="rmX">Quitar</button>`;$("#rmX").onclick=()=>{file=null;prev()}};
+  $("#rmImg").onchange=async e=>{const x=e.target.files[0];e.target.value="";if(!x)return;if(!/^image\//.test(x.type)){toast("Solo imágenes");return}try{file=await fitImage(x)}catch(er){toast(er.message);return}prev()};
+  f.onsubmit=async e=>{e.preventDefault();const v=ta.value.trim();if(!v&&!file)return;const b=$("button[type=submit]",f);busy(b,true);
+    try{let img=null;if(file)img=await API.uploadRoom(file);await API.roomSend(v,img);
+      if(admin()&&API.sendPush)API.sendPush({title:"👑 Sala Oro · El Arte Gráfico",body:(v||"📷 Compartió una foto").slice(0,140),url:absUrl("main","oro-chat"),audience:"oro",tag:"sala"}).catch(()=>{});
+      ta.value="";ta.style.height="auto";file=null;prev();await load();log.scrollTop=log.scrollHeight}catch(x){toast(x.message)}finally{busy(b,false);ta.focus()}};
+  log.addEventListener("click",e=>{const b=e.target.closest(".rm-more");if(!b)return;const id=b.dataset.m,m=seen.get(id);if(!m)return;let mn=$("#rmMenu");if(mn)mn.remove();
+    mn=document.createElement("div");mn.id="rmMenu";mn.className="rm-menu";const A=[];
+    if(!m.mine)A.push(["rep","🚩 Reportar"]);if(m.mine||admin())A.push(["del","🗑 Borrar mensaje"]);
+    if(admin()&&!m.mine&&!m.is_admin)A.push(["m24","🔇 Silenciar 24 horas"],["mall","⛔ Silenciar para siempre"],["m0","🔊 Quitar silencio"]);
+    mn.innerHTML=A.map(([k,t])=>`<button type="button" data-a="${k}">${t}</button>`).join("");document.body.appendChild(mn);
+    const r=b.getBoundingClientRect();mn.style.top=Math.min(innerHeight-mn.offsetHeight-10,r.bottom+6)+"px";mn.style.left=Math.max(10,Math.min(innerWidth-mn.offsetWidth-10,r.right-mn.offsetWidth))+"px";
+    const off=ev=>{if(!mn.contains(ev.target)){mn.remove();document.removeEventListener("pointerdown",off,true)}};setTimeout(()=>document.addEventListener("pointerdown",off,true),0);
+    mn.onclick=async ev=>{const a=ev.target.closest("[data-a]");if(!a)return;mn.remove();
+      try{if(a.dataset.a==="rep"){await API.roomReport(id);toast("Gracias, lo revisaremos")}
+        else if(a.dataset.a==="del"){await API.roomDelete(id);seen.delete(id);const el=log.querySelector(`[data-id="${CSS.escape(id)}"]`);if(el)el.remove();days();toast("Mensaje borrado")}
+        else{const h={m24:24,mall:null,m0:0}[a.dataset.a];await API.roomMute(id,h);toast(h===0?"Ya puede escribir de nuevo":h?"Silenciado 24 horas":"Silenciado para siempre")}}catch(x){toast(x.message)}}});
+}
 /* ranking de puntos (El Arte Gráfico) */
 ROUTES.ranking=async per=>{per=per==="total"?"total":"mes";
   const mes=new Date().toLocaleDateString("es-CO",{month:"long",year:"numeric"});
