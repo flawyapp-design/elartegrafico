@@ -26,7 +26,8 @@ A.ROUTES.admin=sub=>{
         <button type="button" data-va="curso"><b>Con un curso</b><small>Compró el curso suelto (de por vida)</small></button>
         <button type="button" data-va="cobre"><b>🟤 Cobre</b><small>Suscripción de 1 mes</small></button>
         <button type="button" data-va="plata"><b>⚪ Plata</b><small>Suscripción de 6 meses</small></button>
-        <button type="button" data-va="oro"><b>🟡 Oro</b><small>12 meses, con Sala Oro y ruleta</small></button>
+        <button type="button" data-va="oro"><b>🟡 Oro</b><small>12 meses, con Sala Oro</small></button>
+        <button type="button" data-va="diamond"><b>💎 Diamond</b><small>Acceso a todo, con ruleta</small></button>
         <span class="dim">No cambia tu cuenta. Para salir toca "Volver a admin".</span></div></details>
       <div class="adm-st ${closed?"off":"on"}"><span class="dot"></span><div><b>Academia ${closed?"cerrada":"abierta"}</b><small>${closed?"Solo tú la ves":"Los alumnos pueden entrar"}</small></div><button class="btn sm ${closed?"gold":"bad"}" id="acSw">${closed?"Abrir":"Cerrar"}</button></div>
       <button type="button" class="adm-mbtn" id="admMb" aria-expanded="false">${ico(TICO[tab]||"news",20)}<span><small>Sección</small><b>${cur[1]}</b></span><i>▾</i></button>
@@ -151,7 +152,7 @@ function sitio(){
     <div class="two"><label for="sRT">Texto del botón<input id="sRT" value="${esc(s.derivRefText||"")}" placeholder="Abrir mi cuenta en Deriv"></label><label for="sRN">Aviso debajo del botón (opcional)<input id="sRN" value="${esc(s.derivRefNote||"")}" placeholder="Enlace de socio: Deriv le paga una comisión a El Arte Gráfico…"></label></div>
     <h3>Pagos con Binance Pay</h3><p class="muted" style="margin:0">El alumno paga a tu Binance Pay ID y registra el ID de orden en la página Premium. Tú lo confirmas en Administración → Pagos.</p>
     <div class="two"><label for="sBP">Tu Binance Pay ID<input id="sBP" value="${esc(s.binancePayId||"")}" placeholder="Ej.: 123456789"></label><label for="sBN">Nombre que ven al pagar (opcional)<input id="sBN" value="${esc(s.binanceName||"")}" placeholder="El Arte Gráfico"></label></div>
-    <label for="sPL">Planes (uno por línea: Nombre | días | precio)<textarea id="sPL" style="min-height:80px" placeholder="Mensual | 30 | 20 USDT&#10;Trimestral | 90 | 50 USDT">${esc((s.plans||[]).map(x=>[x.name,x.days,x.price].join(" | ")).join("\n"))}</textarea></label>
+    <label for="sPL">Planes (uno por línea: Nombre | días | precio | placa). Placa: cobre, plata, oro o diamond; si la dejas vacía sale de los días.<textarea id="sPL" style="min-height:80px" placeholder="Cobre | 30 | 10 USDT | cobre&#10;Diamond | 30 | 100 USDT | diamond">${esc((s.plans||[]).map(x=>[x.name,x.days,x.price].concat(x.tier?[x.tier]:[]).join(" | ")).join("\n"))}</textarea></label>
     <label for="sPN">Indicaciones extra para pagar (opcional)<input id="sPN" value="${esc(s.payNote||"")}" placeholder="Ej.: envía exactamente el monto en USDT"></label>
     <h3>Contacto y pie de página</h3><label for="sCo">Contacto (WhatsApp, correo…)<input id="sCo" value="${esc(s.contact||"")}"></label>
     <label for="sSo">Redes (una por línea: Nombre | enlace)<textarea id="sSo" style="min-height:80px" placeholder="Instagram | https://instagram.com/...">${esc(s.social||"")}</textarea></label>
@@ -170,7 +171,7 @@ function sitio(){
       premiumTitle:$("#sPT").value.trim(),premiumText:$("#sPX").value.trim(),premiumItems:$("#sPI").value.split("\n").map(x=>x.trim()).filter(Boolean),
       derivPartnerCode:$("#sPC").value.trim(),derivRefUrl:$("#sRU").value.trim(),derivRefText:$("#sRT").value.trim(),derivRefNote:$("#sRN").value.trim(),
       binancePayId:$("#sBP").value.trim(),binanceName:$("#sBN").value.trim(),payNote:$("#sPN").value.trim(),
-      plans:pairs($("#sPL").value).map(p=>({name:p[0],days:Math.max(1,Math.min(3650,parseInt(p[1])||30)),price:p[2]||""})),
+      plans:pairs($("#sPL").value).map(p=>{const o={name:p[0],days:Math.max(1,Math.min(3650,parseInt(p[1])||30)),price:p[2]||""},t=String(p[3]||"").trim().toLowerCase().replace("diamante","diamond");if(["cobre","plata","oro","diamond"].includes(t))o.tier=t;return o}),
       closedTitle:$("#sAT").value.trim(),closedText:$("#sAX").value.trim(),trialDays:Math.max(0,Math.min(60,parseInt($("#sTD").value,10)||0)),gaId:(/^G-[A-Z0-9]{4,20}$/i.test($("#sGA").value.trim())?$("#sGA").value.trim().toUpperCase():""),discordUrl:$("#sDU").value.trim(),discordTitle:$("#sDT").value.trim(),discordText:$("#sDX").value.trim(),discordItems:$("#sDI").value.split("\n").map(x=>x.trim()).filter(Boolean),communityStats:pairs($("#sCS").value).map(p=>({v:p[0],t:p[1]||""})),
       aboutTitle:$("#sAbT").value.trim(),aboutName:$("#sAbN").value.trim(),aboutText:$("#sAbX").value.trim(),aboutItems:$("#sAbI").value.split("\n").map(x=>x.trim()).filter(Boolean),
       aboutStats:pairs($("#sAbS").value).map(p=>({v:p[0],t:p[1]||""})),aboutTiktok:$("#sAbK").value.trim(),aboutHide:$("#sAbH").value==="1",
@@ -577,6 +578,8 @@ async function resenas(){
 async function alumnos(){
   H().innerHTML='<div class="muted">Cargando…</div>';let list=[];try{list=await API.users()}catch(e){H().innerHTML=`<div class="empty">${esc(e.message)}</div>`;return}
   const isP=u=>u.premium_until&&new Date(u.premium_until)>new Date();
+  const GIVE=()=>{const pl=(S.site&&S.site.plans)||[],N={cobre:"Cobre",plata:"Plata",oro:"Oro",diamond:"Diamond"},D={cobre:30,plata:180,oro:365,diamond:30};
+    return Object.keys(N).map(t=>{const x=pl.find(p=>(p.tier||(p.days>=300?"oro":p.days>=150?"plata":"cobre"))===t);return{t,n:N[t],d:x?+x.days:D[t]}})};
   const venc=u=>u.premium_until&&new Date(u.premium_until)<=new Date();
   let q="",fil="todos",pais="";const draw=()=>{const f=list.filter(u=>(!q||(u.username+" "+u.email).toLowerCase().includes(q))
       &&(fil==="todos"||(fil==="premium"&&isP(u))||(fil==="gratis"&&!isP(u))||(fil==="vencido"&&venc(u))||(fil==="suspendido"&&u.banned))
@@ -588,10 +591,11 @@ async function alumnos(){
         <div><small>Acceso</small>${isP(u)?A.premTag(u.plan)+`<span class="dim">hasta ${fmtDate(u.premium_until)}</span>`:venc(u)?`<span class="tag">Vencido</span><span class="dim">el ${fmtDate(u.premium_until)}</span>`:'<span class="tag">Gratis</span>'}${(u.courses||[]).map(cid=>{const c=(S.courses||[]).find(x=>x.id===cid);return c?`<span class="crs-tag" style="--cc:${esc(c.color)}">${esc(c.icon||"")} ${esc(c.title)}</span>`:""}).join("")}</div>
         <div><small>Puntos</small><b class="mono">${u.xp||0}</b></div><div><small>Prueba</small><b class="mono">${u.demo_used||0}/5</b></div><div><small>Registro</small><span>${fmtDate(u.created_at)}</span></div></div>
       <div class="uc-act row">
-        <button class="btn sm ok" data-add="${esc(u.id)}:30">+30 días</button><button class="btn sm" data-add="${esc(u.id)}:90">+90 días</button>
+        <label class="uc-plan uc-give"><span>Dar plan</span><select data-give="${esc(u.id)}"><option value="">Elegir…</option>${GIVE().map(g=>`<option value="${g.t}:${g.d}">${A.TIERS?A.TIERS[g.t].i:""} ${g.n} · ${g.d} días</option>`).join("")}</select></label>
+        <button class="btn sm ok" data-add="${esc(u.id)}:30">+30 días</button>
         <label class="uc-date"><span>Hasta</span><input type="date" data-date="${esc(u.id)}" aria-label="Premium hasta"></label>
         <details class="uc-more"><summary class="btn sm ghost">Más ▾</summary><div class="uc-menu">
-          ${isP(u)?`<button class="btn sm" data-rm="${esc(u.id)}">Quitar premium</button><label class="uc-plan">Placa<select data-plan="${esc(u.id)}"><option value="cobre">🟤 Cobre</option><option value="plata">⚪ Plata</option><option value="oro">🟡 Oro</option></select></label>`:""}
+          ${isP(u)?`<button class="btn sm" data-rm="${esc(u.id)}">Quitar premium</button><label class="uc-plan">Cambiar placa (sin tocar días)<select data-plan="${esc(u.id)}"><option value="cobre">🟤 Cobre</option><option value="plata">⚪ Plata</option><option value="oro">🟡 Oro</option><option value="diamond">💎 Diamond</option></select></label>`:""}
           ${(S.courses||[]).map(c=>{const has=(u.courses||[]).includes(c.id);return `<button class="btn sm ${has?"ghost":""}" data-crs="${esc(u.id)}|${esc(c.id)}|${has?0:1}">${has?"Quitar":"Dar"} curso ${esc(c.title)}</button>`}).join("")}
           <button class="btn sm ghost" data-ban="${esc(u.id)}">${u.banned?"Reactivar cuenta":"Suspender cuenta"}</button><button class="btn sm ghost" data-demo="${esc(u.id)}">Reiniciar prueba gratis</button>
           <button class="btn sm ghost" data-rxp="${esc(u.id)}">Reiniciar puntos</button><button class="btn sm bad" data-rall="${esc(u.id)}">Reiniciar avance</button>
@@ -599,6 +603,8 @@ async function alumnos(){
       </div></article>`).join("")||'<div class="muted">Sin resultados.</div>';
     const set=async(id,patch,msg)=>{try{await API.setUser(id,patch);Object.assign(list.find(u=>u.id===id),patch);toast(msg);draw()}catch(x){toast(x.message)}};
     $$("[data-add]").forEach(b=>b.onclick=()=>{const [id,d]=b.dataset.add.split(":");const u=list.find(x=>x.id===id);const base=isP(u)?new Date(u.premium_until):new Date();base.setDate(base.getDate()+(+d));set(id,{premium_until:base.toISOString()},`Premium hasta ${fmtDate(base)}`)});
+    $$("[data-give]").forEach(sl=>sl.onchange=()=>{if(!sl.value)return;const [t,d]=sl.value.split(":");const u=list.find(x=>x.id===sl.dataset.give);const base=isP(u)?new Date(u.premium_until):new Date();base.setDate(base.getDate()+(+d));
+      set(u.id,{premium_until:base.toISOString(),plan:t},`${u.username}: ${t[0].toUpperCase()+t.slice(1)} hasta ${fmtDate(base)}`)});
     $$("[data-date]").forEach(i=>i.onchange=()=>{if(i.value)set(i.dataset.date,{premium_until:new Date(i.value+"T23:59:00-05:00").toISOString()},"Fecha de premium actualizada")});
     $$("[data-rm]").forEach(b=>b.onclick=()=>set(b.dataset.rm,{premium_until:null},"Premium retirado"));
     $$("[data-plan]").forEach(sl=>{const u=list.find(x=>x.id===sl.dataset.plan);sl.value=u&&u.plan?u.plan:"cobre";sl.onchange=()=>set(sl.dataset.plan,{plan:sl.value},"Placa actualizada")});

@@ -1400,3 +1400,9 @@ nav.main .mnav-sw a.on{color:#1b1405!important;background:linear-gradient(180deg
 .rt-susp{border:1px dashed rgba(216,176,98,.45)}.rt-susp .rt-cdl{margin-top:8px}
 @media(max-width:640px){.rt-cdbox{justify-items:start;width:100%}}
 .rt-autoclose{display:grid;gap:2px;align-content:end;padding:8px 12px;border:1px dashed var(--line2);border-radius:12px;font-size:13px}.rt-autoclose b{color:var(--gold)}
+/* plan Diamond */
+.prem-tag.t-diamond{background:linear-gradient(135deg,#e9fbff,#8fe3ff 45%,#b9a6ff)!important;color:#0b1838!important;box-shadow:0 0 14px rgba(143,227,255,.6)}
+.tag.t-diamond{background:rgba(143,227,255,.14);color:#bff0ff;border-color:rgba(143,227,255,.5)}
+.price.tier-diamond{border-color:rgba(143,227,255,.75);background:linear-gradient(180deg,rgba(143,227,255,.12),rgba(185,166,255,.06) 40%,transparent 65%),var(--card);box-shadow:0 0 44px -12px rgba(143,227,255,.55)}
+.price-tag.dia-tag{background:linear-gradient(135deg,#8fe3ff,#b9a6ff);color:#0b1838}
+.uc-give select{min-width:170px}
