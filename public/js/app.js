@@ -465,8 +465,8 @@ const statsBand=()=>API.publicStats().then(st=>{if(!$("#stats"))return;$("#stats
 const DISC={title:"La comunidad de El Arte Gráfico",text:"Un espacio para traders que operan con reglas: análisis del día, dudas resueltas, avisos del método y acompañamiento entre alumnos.",items:["Análisis y zonas compartidas a diario","Avisos de actualizaciones y nuevas lecciones","Sala Oro: chat privado, lives y operativas para Oro y Diamond","Mensajes privados con El Arte Gráfico para resolver tus dudas"]};
 
 /* ---------- bloques del inicio ---------- */
-const TEMARIO_F=3;/* los primeros 3 son del curso gratis Fundamentos del trading; desde "Bienvenida" es Boom y Crash */
-const TEMARIO=[["La plataforma: Deriv y MT5",6,"Básico"],["Velas japonesas",5,"Básico"],["Estructura del mercado",6,"Básico"],["Bienvenida e introducción",5,"Introducción"],
+const TEMARIO_F=4;/* los primeros 4 son del curso gratis Fundamentos del trading; el resto es Boom y Crash */
+const TEMARIO=[["Bienvenida e introducción",5,"Introducción"],["La plataforma: Deriv y MT5",6,"Básico"],["Velas japonesas",5,"Básico"],["Estructura del mercado",6,"Básico"],
   ["Fractales y zonas",6,"Intermedio"],["Las entradas: Inicio, Punta y Aislada",7,"Intermedio"],["Stop loss y manejo de la operación",6,"Intermedio"],
   ["Gestión del riesgo",6,"Gestión"],["Psicología y rachas",5,"Gestión"],["Boom y Crash a fondo",6,"Avanzado"],["Tu plan de trading y tu diario",5,"Avanzado"],
   ["Medir tu estrategia con datos",5,"Avanzado"],["Examen final",3,"Evaluación"]];

@@ -2,9 +2,8 @@
 -- Curso base "Fundamentos del trading". Correr DESPUÉS de novedades.sql. Se puede correr varias veces.
 --  - Nuevo curso "Fundamentos del trading" (primero en la lista), GRATIS y completo para cualquier
 --    cuenta registrada. No se vende.
---  - Los módulos con categoría "Fundamentos" pasan a este curso (abrir cuenta, Deriv y MT5, velas…), MENOS
---    "Bienvenida e introducción": esa es de Boom y Crash y se queda (o vuelve) a ese curso.
---  - Si ya lo habías corrido, córrelo otra vez: devuelve la introducción a Boom y Crash.
+--  - Los módulos con categoría "Fundamentos" pasan a este curso (abrir cuenta, Deriv y MT5, velas…), y
+--    "Bienvenida e introducción" queda como el PRIMER módulo de Fundamentos.
 -- =====================================================================
 alter table public.courses add column if not exists base boolean not null default false;
 
@@ -22,12 +21,13 @@ update public.modules set course_id = (select id from public.courses where base 
 where lower(coalesce(category, '')) like 'fundamento%'
   and lower(title) not like '%bienvenida%' and lower(title) not like '%introducci%';
 
--- la introducción es de Boom y Crash (cada mercado se mueve distinto): vuelve al primer curso de pago
+-- la introducción (bienvenida, qué es un bróker, sintéticos, expectativas) va de PRIMERA en Fundamentos
 update public.modules set
-  course_id = (select id from public.courses where not base order by sort, created_at limit 1),
-  category = 'Introducción'
+  course_id = (select id from public.courses where base order by created_at limit 1),
+  sort = coalesce((select min(m2.sort) from public.modules m2 join public.courses c2 on c2.id = m2.course_id
+                   where c2.base and m2.id <> public.modules.id), 1) - 1
 where (lower(title) like '%bienvenida%' or lower(title) like '%introducci%')
-  and exists (select 1 from public.courses where not base);
+  and exists (select 1 from public.courses where base);
 
 -- acceso: el curso que compraste, o el curso gratis si tienes cuenta
 create or replace function public.course_module_ok(mid uuid) returns boolean
