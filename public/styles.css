@@ -1612,3 +1612,26 @@ body.pf-open{overflow:hidden}
 @media (max-width:760px){#tmp .tm-x{display:none}#tmp .tm-more{display:inline-flex;grid-column:1/-1;justify-self:start}}
 
 .rk-usd{color:var(--ok,#35c4a2);font-weight:600;font-size:.88em;white-space:nowrap}
+
+/* admin: reseñas de módulos */
+.rs-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:6px 0 14px}
+.rs-k{display:grid;gap:4px;padding:14px 16px;border:1px solid var(--line);border-radius:14px;background:var(--bg2)}
+.rs-k b{font-size:24px;font-variant-numeric:tabular-nums;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.rs-k span{color:var(--mut);font-size:13px}
+.rs-top{display:grid;grid-template-columns:minmax(220px,320px) 1fr;gap:16px;align-items:start}
+.rs-dist{display:grid;gap:6px}
+.rs-bar{display:grid;grid-template-columns:44px 1fr 34px;gap:10px;align-items:center;background:none;border:1px solid transparent;border-radius:10px;padding:6px 8px;color:var(--fg);font:inherit;cursor:pointer;text-align:left}
+.rs-bar:hover{background:var(--bg2)}.rs-bar.on{border-color:var(--gold);background:rgba(216,176,98,.1)}
+.rs-bar i{height:10px;border-radius:6px;background:var(--line);overflow:hidden;display:block}
+.rs-bar s{display:block;height:100%;background:var(--gold);border-radius:6px;text-decoration:none}
+.rs-bar span:last-child{text-align:right;color:var(--mut)}
+#rsT tr.on td{background:rgba(216,176,98,.1)}
+.rs-fil{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+.rs-fil>*{flex:1 1 150px}.rs-fil #rsQ{flex:2 1 220px}.rs-fil #rsX{flex:0 0 auto}.rs-fil [hidden]{display:none}
+.rs-fil input,.rs-fil select{background:var(--bg2);border:1px solid var(--line2);border-radius:10px;padding:10px 12px;color:var(--fg);min-width:0}
+.rs-day{margin:18px 0 8px;font-size:14px;color:var(--gold2)}
+.rs-day::first-letter{text-transform:uppercase}
+.rs-day:first-child{margin-top:0}
+.fb-item.bad{border-color:rgba(236,91,82,.45)}
+@media (max-width:1100px){.rs-top{grid-template-columns:1fr}}
+@media (max-width:640px){.rs-kpis{grid-template-columns:1fr 1fr}}

@@ -662,19 +662,73 @@ function rpuntos(){const c=RWc();
 async function resenas(){
   H().innerHTML='<div class="muted">Cargando…</div>';let list=[];
   try{list=await API.adminFeedback()}catch(e){H().innerHTML=`<div class="empty">No se pudieron cargar las reseñas. Si aún no lo hiciste, corre <b>supabase/resenas_modulos.sql</b> en Supabase.<span class="dim">${esc(e.message)}</span></div>`;return}
+  if(!list.length){H().innerHTML='<div class="panel"><h3>Reseñas de módulos</h3><div class="empty">Aún no hay reseñas. Aparecerán aquí cuando los alumnos terminen un módulo.</div></div>';return}
   const est=n=>`<span class="fb-st" aria-label="${n} de 5">${"★".repeat(n)}<i>${"★".repeat(5-n)}</i></span>`;
-  const mods=[...new Map(list.map(f=>[f.module_id,f.module_title])).entries()];
-  let fm="",fr=0;
-  const draw=()=>{const f=list.filter(x=>(!fm||x.module_id===fm)&&(!fr||x.rating<=fr));
-    $("#rsL").innerHTML=f.map(x=>`<article class="fb-item"><header>${est(x.rating)}<b>${esc(x.username)}</b> ${A.flag(x.country||"")}${x.premium?A.premTag():""}<span class="dim">${esc(x.module_title)} · ${fmtDate(x.created_at)}</span></header>
-      <div class="two"><div><span class="eyebrow">Cómo le pareció</span><p>${esc(x.liked)}</p></div><div><span class="eyebrow">Qué mejorar</span><p>${esc(x.improve)}</p></div></div></article>`).join("")||'<div class="muted">Sin reseñas con ese filtro.</div>'};
-  const res=mods.map(([id,t])=>{const xs=list.filter(f=>f.module_id===id);const av=xs.reduce((s,f)=>s+f.rating,0)/xs.length;return `<div class="fb-mod"><b>${esc(t)}</b><span><span class="mono">${av.toFixed(1)}</span> ${est(Math.round(av))}</span><span class="dim">${xs.length} reseña${xs.length===1?"":"s"}</span></div>`}).join("");
-  H().innerHTML=`<div class="panel"><div class="sec-h"><h3>Reseñas de módulos (${list.length})</h3><span class="muted">Privadas: solo las ves tú</span></div>
-    ${list.length?`<div class="fb-mods">${res}</div>
-    <div class="ufil" style="grid-template-columns:1fr 1fr"><select id="rsM" aria-label="Módulo"><option value="">Todos los módulos</option>${mods.map(([id,t])=>`<option value="${esc(id)}">${esc(t)}</option>`).join("")}</select>
-      <select id="rsR" aria-label="Estrellas"><option value="0">Todas las calificaciones</option><option value="3">3 estrellas o menos (para mejorar)</option><option value="2">2 estrellas o menos</option></select></div>
-    <div id="rsL" class="fb-list"></div>`:'<div class="empty">Aún no hay reseñas. Aparecerán aquí cuando los alumnos terminen un módulo.</div>'}</div>`;
-  if(list.length){$("#rsM").onchange=()=>{fm=$("#rsM").value;draw()};$("#rsR").onchange=()=>{fr=+$("#rsR").value;draw()};draw()}
+  /* días en hora de Colombia */
+  const dia=d=>new Date(new Date(d).getTime()-5*3600e3).toISOString().slice(0,10);
+  const hoy=dia(Date.now()),ayer=dia(Date.now()-864e5);
+  const diaTxt=k=>k===hoy?"Hoy":k===ayer?"Ayer":new Date(k+"T12:00:00Z").toLocaleDateString("es-CO",{weekday:"long",day:"numeric",month:"long",year:"numeric",timeZone:"UTC"});
+  const mods=[...new Map(list.map(f=>[f.module_id,f.module_title])).entries()].sort((a,b)=>String(a[1]).localeCompare(b[1]));
+  const prom=xs=>xs.length?xs.reduce((s,f)=>s+f.rating,0)/xs.length:0;
+  let F={q:"",m:"",r:"",per:"todo",d:"",ord:"nuevas"};
+  const pasa=x=>{
+    if(F.m&&x.module_id!==F.m)return false;
+    if(F.r==="baja"?x.rating>3:F.r&&x.rating!==+F.r)return false;
+    const k=dia(x.created_at);
+    if(F.per==="hoy"&&k!==hoy)return false;
+    if(F.per==="7"&&Date.now()-new Date(x.created_at)>7*864e5)return false;
+    if(F.per==="30"&&Date.now()-new Date(x.created_at)>30*864e5)return false;
+    if(F.per==="dia"&&F.d&&k!==F.d)return false;
+    if(F.q){const t=(x.username+" "+x.liked+" "+x.improve+" "+x.module_title).toLowerCase();if(!t.includes(F.q))return false}
+    return true};
+  const ordenar=a=>a.sort(F.ord==="viejas"?(x,y)=>String(x.created_at).localeCompare(y.created_at):F.ord==="peor"?(x,y)=>x.rating-y.rating||String(y.created_at).localeCompare(x.created_at)
+    :F.ord==="mejor"?(x,y)=>y.rating-x.rating||String(y.created_at).localeCompare(x.created_at):(x,y)=>String(y.created_at).localeCompare(x.created_at));
+  const tarjeta=x=>`<article class="fb-item${x.rating<=2?" bad":""}"><header>${est(x.rating)}<b>${esc(x.username)}</b> ${A.flag(x.country||"")}${x.premium?A.premTag():""}<span class="dim">${esc(x.module_title)} · ${new Date(x.created_at).toLocaleTimeString("es-CO",{hour:"numeric",minute:"2-digit",timeZone:"America/Bogota"})}</span></header>
+      <div class="two"><div><span class="eyebrow">Cómo le pareció</span><p>${esc(x.liked)||'<span class="dim">—</span>'}</p></div><div><span class="eyebrow">Qué mejorar</span><p>${esc(x.improve)||'<span class="dim">—</span>'}</p></div></div></article>`;
+  const draw=()=>{
+    const f=ordenar(list.filter(pasa));
+    /* indicadores del filtro actual */
+    const av=prom(f),buenas=f.filter(x=>x.rating>=4).length,sem=list.filter(x=>Date.now()-new Date(x.created_at)<=7*864e5).length;
+    $("#rsK").innerHTML=[[f.length,"reseñas"+(f.length!==list.length?` de ${list.length}`:"")],[f.length?av.toFixed(1)+" "+est(Math.round(av)):"—","promedio"],[f.length?Math.round(100*buenas/f.length)+" %":"—","con 4 o 5 estrellas"],[sem,"en los últimos 7 días"]]
+      .map(([v,t])=>`<div class="rs-k"><b>${v}</b><span>${t}</span></div>`).join("");
+    /* reparto por estrellas (clic = filtrar) */
+    const base=list.filter(x=>{const r=F.r;F.r="";const ok=pasa(x);F.r=r;return ok}),mx=Math.max(1,...[5,4,3,2,1].map(n=>base.filter(x=>x.rating===n).length));
+    $("#rsD").innerHTML=[5,4,3,2,1].map(n=>{const c=base.filter(x=>x.rating===n).length;return `<button type="button" class="rs-bar${String(F.r)===String(n)?" on":""}" data-rs="${n}" aria-label="Filtrar ${n} estrellas"><span class="mono">${n} ★</span><i><s style="width:${100*c/mx}%"></s></i><span class="mono">${c}</span></button>`}).join("");
+    $$("[data-rs]").forEach(b=>b.onclick=()=>{F.r=String(F.r)===b.dataset.rs?"":b.dataset.rs;$("#rsR").value=F.r;draw()});
+    /* lista agrupada por día */
+    let html="",prev="";
+    if(F.ord==="nuevas"||F.ord==="viejas")f.forEach(x=>{const k=dia(x.created_at);if(k!==prev){html+=`<h4 class="rs-day">${diaTxt(k)} <span class="dim">· ${f.filter(y=>dia(y.created_at)===k).length}</span></h4>`;prev=k}html+=tarjeta(x)});
+    else html=f.map(tarjeta).join("");
+    $("#rsL").innerHTML=html||'<div class="muted">Sin reseñas con estos filtros.</div>';
+    /* resumen por módulo */
+    $("#rsT").innerHTML=mods.map(([id,t])=>{const xs=list.filter(x=>x.module_id===id),a=prom(xs),ult=xs.reduce((m,x)=>x.created_at>m?x.created_at:m,"");
+      return `<tr class="${F.m===id?"on":""}" data-rm="${esc(id)}" style="cursor:pointer"><td>${esc(t)}</td><td class="n"><span class="mono">${a.toFixed(1)}</span> ${est(Math.round(a))}</td><td class="n">${xs.length}</td><td class="n">${xs.filter(x=>x.rating<=3).length}</td><td class="c-hide" style="white-space:nowrap">${new Date(ult).toLocaleDateString("es-CO",{day:"numeric",month:"short",timeZone:"America/Bogota"})}</td></tr>`}).join("");
+    $$("[data-rm]").forEach(r=>r.onclick=()=>{F.m=F.m===r.dataset.rm?"":r.dataset.rm;$("#rsM").value=F.m;draw()});
+  };
+  H().innerHTML=`<div class="panel"><div class="sec-h"><h3>Reseñas de módulos</h3><div class="row" style="gap:8px"><span class="muted">Privadas: solo las ves tú</span><button class="btn sm ghost" id="rsCsv">Descargar CSV</button></div></div>
+    <div class="rs-kpis" id="rsK"></div>
+    <div class="rs-top"><div class="rs-dist" id="rsD"></div>
+      <div class="scroll"><table class="tbl"><thead><tr><th>Módulo</th><th style="text-align:right">Promedio</th><th style="text-align:right">Reseñas</th><th style="text-align:right">3★ o menos</th><th class="c-hide">Última</th></tr></thead><tbody id="rsT"></tbody></table></div></div></div>
+  <div class="panel"><div class="rs-fil">
+      <input id="rsQ" type="search" placeholder="Buscar por alumno o comentario" aria-label="Buscar">
+      <select id="rsM" aria-label="Módulo"><option value="">Todos los módulos</option>${mods.map(([id,t])=>`<option value="${esc(id)}">${esc(t)}</option>`).join("")}</select>
+      <select id="rsR" aria-label="Estrellas"><option value="">Todas las estrellas</option><option value="5">5 estrellas</option><option value="4">4 estrellas</option><option value="3">3 estrellas</option><option value="2">2 estrellas</option><option value="1">1 estrella</option><option value="baja">3 o menos (para mejorar)</option></select>
+      <select id="rsP" aria-label="Fecha"><option value="todo">Todas las fechas</option><option value="hoy">Hoy</option><option value="7">Últimos 7 días</option><option value="30">Últimos 30 días</option><option value="dia">Un día exacto…</option></select>
+      <input id="rsDia" type="date" aria-label="Día" hidden max="${hoy}">
+      <select id="rsO" aria-label="Orden"><option value="nuevas">Más recientes</option><option value="viejas">Más antiguas</option><option value="peor">Peor calificación primero</option><option value="mejor">Mejor calificación primero</option></select>
+      <button class="btn sm ghost" id="rsX">Limpiar</button></div>
+    <div id="rsL" class="fb-list"></div></div>`;
+  let tq;$("#rsQ").oninput=()=>{clearTimeout(tq);tq=setTimeout(()=>{F.q=$("#rsQ").value.trim().toLowerCase();draw()},150)};
+  $("#rsM").onchange=()=>{F.m=$("#rsM").value;draw()};
+  $("#rsR").onchange=()=>{F.r=$("#rsR").value;draw()};
+  $("#rsP").onchange=()=>{F.per=$("#rsP").value;$("#rsDia").hidden=F.per!=="dia";if(F.per==="dia"&&!F.d){F.d=hoy;$("#rsDia").value=hoy}draw()};
+  $("#rsDia").onchange=()=>{F.d=$("#rsDia").value;draw()};
+  $("#rsO").onchange=()=>{F.ord=$("#rsO").value;draw()};
+  $("#rsX").onclick=()=>{F={q:"",m:"",r:"",per:"todo",d:"",ord:"nuevas"};["#rsQ","#rsM","#rsR"].forEach(k=>$(k).value="");$("#rsP").value="todo";$("#rsO").value="nuevas";$("#rsDia").hidden=true;draw()};
+  $("#rsCsv").onclick=()=>{const q=v=>`"${String(v??"").replace(/"/g,'""')}"`;
+    const rows=[["Fecha","Alumno","País","Módulo","Estrellas","Cómo le pareció","Qué mejorar"],...ordenar(list.filter(pasa)).map(x=>[new Date(x.created_at).toLocaleString("es-CO",{timeZone:"America/Bogota"}),x.username,x.country,x.module_title,x.rating,x.liked,x.improve])];
+    const a=document.createElement("a");a.href=URL.createObjectURL(new Blob(["\ufeff"+rows.map(r=>r.map(q).join(",")).join("\n")],{type:"text/csv"}));a.download=`resenas-modulos-${hoy}.csv`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1e3)};
+  draw();
 }
 
 /* ---------- alumnos ---------- */
