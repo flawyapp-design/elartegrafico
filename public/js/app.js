@@ -1002,7 +1002,8 @@ async function mainHome(){
   <section class="cta-band" id="premiumBand"></section>`;
   API.slides("home").then(sl=>slider($("#hero"),sl,{emblem:false})).catch(()=>slider($("#hero"),[],{emblem:false}));statsBand();demoChart($("#demo"));aboutBlock($("#about"));temarioBlock($("#tmp"));pricingBlock($("#precios"));faqBlock($("#faq"));appCard($("#appCard"));
   if(s.discordUrl)discordCounts(s.discordUrl).then(d=>{const h=$("#cstats");if(!h||!d||!d.members)return;
-    h.insertAdjacentHTML("afterbegin",`<div><b class="mono">${fmtN(d.members)}</b><span>miembros en Discord</span></div>${d.online?`<div><b class="mono"><i class="live"></i>${fmtN(d.online)}</b><span>conectados ahora</span></div>`:""}`)});
+    h.querySelectorAll("[data-dc]").forEach(x=>x.remove());/* si el inicio se pinta dos veces, no se duplican */
+    h.insertAdjacentHTML("afterbegin",`<div data-dc><b class="mono">${fmtN(d.members)}</b><span>miembros en Discord</span></div>${d.online?`<div data-dc><b class="mono"><i class="live"></i>${fmtN(d.online)}</b><span>conectados ahora</span></div>`:""}`)});
   $("#cards").innerHTML=(s.cards||[]).map((c,i)=>`<div class="card"><span class="k">${String(i+1).padStart(2,"0")}</span><h3>${esc(c.title)}</h3><p>${esc(c.text)}</p></div>`).join("");
   $("#mkts").innerHTML=marketsHTML(s.markets||[],true);
   {const pb=$("#premiumBand");if(premium())pb.remove();else if(logged())pb.innerHTML=premiumBand();
