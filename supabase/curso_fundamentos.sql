@@ -19,7 +19,8 @@ update public.courses set sort = greatest(sort, 1) where not base;
 -- los módulos de fundamentos pasan al curso base
 update public.modules set course_id = (select id from public.courses where base order by created_at limit 1)
 where lower(coalesce(category, '')) like 'fundamento%'
-  and lower(title) not like '%bienvenida%' and lower(title) not like '%introducci%';
+  and lower(title) not like '%bienvenida%' and lower(title) not like '%introducci%'
+  and lower(title) not like '%estructura%';   -- Estructura del mercado abre el curso de Boom y Crash
 
 -- la introducción (bienvenida, qué es un bróker, sintéticos, expectativas) va de PRIMERA en Fundamentos
 update public.modules set
