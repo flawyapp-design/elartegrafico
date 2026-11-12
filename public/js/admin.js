@@ -7,11 +7,11 @@ let tab="resumen";
 const GROUPS=[["General",["resumen","chat"]],["Academia",["cursos","contenido","ejercicios","banners","noticias","archivos"]],["Retos y puntos",["top","retos","afiliados","canjes","rpuntos"]],["Alumnos",["alumnos","pagos","resenas","opiniones","notif"]],["Sitio",["sitio","legal"]]];
 const TICO={top:"star",chat:"chat",cursos:"acad",retos:"bolt",afiliados:"users",canjes:"card",rpuntos:"gear",resumen:"chart",sitio:"site",banners:"image",contenido:"layers",ejercicios:"acad",noticias:"news",opiniones:"star",resenas:"msg",pagos:"card",alumnos:"users",archivos:"folder",notif:"bell",legal:"scale"};
 const TDESC={chat:"Conversaciones privadas con cada alumno. Se borran solas a los días que definas, o al instante con Finalizar.",cursos:"Cursos que se venden sueltos (de por vida) y cómo se ven los planes Cobre, Plata y Oro.",retos:"Crea el reto del día: cuestionario, ¿sube o baja? o marcar la zona. Los primeros en acertar ganan puntos.",afiliados:"Verifica quién abrió su cuenta de Deriv con tu enlace de socio: ganan los puntos completos.",
-  top:"Los 10 primeros del ranking. Suma o quita puntos a cualquier alumno.",canjes:"Retiros de saldo de los retos express y canjes de puntos: paga y márcalos.",rpuntos:"Activa los retos, define cuánto vale cada punto y el mínimo para canjear.",resumen:"Cómo va la academia: alumnos, visitas y actividad.",sitio:"Textos, portada, precios, enlaces y datos de contacto de la web.",banners:"Imágenes y mensajes del carrusel de la portada y del ingreso.",
+  top:"Los 10 primeros del ranking. Suma o quita puntos o saldo en dólares a cualquier alumno.",canjes:"Retiros de saldo de los retos express y canjes de puntos: paga y márcalos.",rpuntos:"Activa los retos, define cuánto vale cada punto y el mínimo para canjear.",resumen:"Cómo va la academia: alumnos, visitas y actividad.",sitio:"Textos, portada, precios, enlaces y datos de contacto de la web.",banners:"Imágenes y mensajes del carrusel de la portada y del ingreso.",
   contenido:"Módulos, lecciones, videos y el orden del temario.",ejercicios:"Gráficas, cálculos y preguntas de cada lección y de la práctica.",noticias:"Publicaciones de la comunidad y avisos.",
   opiniones:"Opiniones públicas de los alumnos: aprueba u oculta.",resenas:"Lo que dicen los alumnos al terminar cada módulo (privado).",pagos:"Pagos de Binance por confirmar y el historial.",
   alumnos:"Cuentas, premium, puntos y avance de cada alumno.",archivos:"Imágenes y archivos subidos.",notif:"Envía avisos al celular de los alumnos.",legal:"Términos, privacidad y avisos legales."};
-const TABS=[["chat","Mensajes"],["cursos","Cursos y planes"],["top","Top y puntos"],["retos","Retos diarios"],["afiliados","Afiliados Deriv"],["canjes","Canjes"],["rpuntos","Ajustes de puntos"],["resumen","Estadísticas"],["sitio","Sitio y textos"],["banners","Banners"],["contenido","Módulos y lecciones"],["ejercicios","Ejercicios"],["noticias","Noticias"],["opiniones","Opiniones"],["resenas","Reseñas de módulos"],["pagos","Pagos"],["alumnos","Alumnos"],["archivos","Archivos"],["notif","Notificaciones"],["legal","Legal"]];
+const TABS=[["chat","Mensajes"],["cursos","Cursos y planes"],["top","Top, puntos y saldo"],["retos","Retos diarios"],["afiliados","Afiliados Deriv"],["canjes","Canjes"],["rpuntos","Ajustes de puntos"],["resumen","Estadísticas"],["sitio","Sitio y textos"],["banners","Banners"],["contenido","Módulos y lecciones"],["ejercicios","Ejercicios"],["noticias","Noticias"],["opiniones","Opiniones"],["resenas","Reseñas de módulos"],["pagos","Pagos"],["alumnos","Alumnos"],["archivos","Archivos"],["notif","Notificaciones"],["legal","Legal"]];
 A.ROUTES.admin=sub=>{
   if(!A.admin()){app.innerHTML=`<div class="empty">Esta sección es solo para administradores.<a class="btn sm" href="#inicio">Volver</a></div>`;return}
   let chatU=null;if(sub&&/^chat-/.test(sub)){tab="chat";chatU=sub.slice(5)}else if(sub&&TABS.some(t=>t[0]===sub))tab=sub;
@@ -660,6 +660,19 @@ async function top(){
     try{btn&&busy(btn,true);const r=await API.adminAdjustPoints(u,pts,mot||"");toast(`${r.username}: ${pts>0?"+":""}${pts} pts · saldo ${r.saldo}`);top()}catch(x){toast(x.message)}finally{btn&&busy(btn,false)}};
   $$("[data-pq]").forEach(b=>b.onclick=()=>{const i=$(`[data-pp="${CSS.escape(b.dataset.pq)}"]`);aplicar(b.dataset.pq,i&&i.value,"",b)});
   $("#pjF").onsubmit=e=>{e.preventDefault();aplicar($("#pjU").value.trim(),$("#pjP").value,$("#pjM").value.trim(),$("#pjB"))};
+  /* saldo en dólares (retos express) */
+  const U=v=>Number(v||0).toLocaleString("es-CO",{style:"currency",currency:"USD"});
+  const box=document.createElement("div");box.className="two";H().appendChild(box);
+  let UL=null;try{UL=await API.adminUsdLog()}catch(e){}
+  box.innerHTML=`<form class="panel form" id="sjF"><h3>💵 Sumar o quitar saldo (USD)</h3>
+      <p class="dim" style="font-size:13px;margin:0">El saldo es lo que el alumno puede retirar al instante. Úsalo para premios de lives, sorteos o correcciones. Le llega un mensaje avisándole.</p>
+      <label for="sjU">Usuario<input id="sjU" placeholder="nombre de usuario" autocomplete="off"></label>
+      <div class="two"><label for="sjV">Monto (USD)<input id="sjV" type="number" step="0.01" placeholder="2 para sumar · -2 para quitar"></label>
+      <label for="sjM">Motivo (opcional)<input id="sjM" maxlength="120" placeholder="Ej.: premio del live"></label></div>
+      <button class="btn gold" id="sjB">Aplicar</button></form>
+    <div class="panel"><h3>Últimos ajustes de saldo</h3>${UL===null?'<div class="muted">Aparece cuando corras <b>saldo_admin.sql</b>.</div>':UL.length?`<div class="tree">${UL.map(x=>`<div class="item"><span class="txt"><b>${esc(x.username)} · <span style="color:${x.usd>0?"var(--ok)":"var(--bad)"}">${x.usd>0?"+":"−"}${U(Math.abs(x.usd))}</span></b><span>${fmtDate(x.created_at)}${x.motivo?" · "+esc(x.motivo):""}</span></span></div>`).join("")}</div>`:'<div class="muted">Aún no has hecho ajustes de saldo.</div>'}</div>`;
+  $("#sjF").onsubmit=async e=>{e.preventDefault();const u=$("#sjU").value.trim(),v=+$("#sjV").value;if(!u||!v){toast("Escribe el usuario y el monto (ej. 2 o -2)");return}
+    try{busy($("#sjB"),true);const r=await API.adminAdjustUsd(u,v,$("#sjM").value.trim());toast(`${r.username}: ${v>0?"+":"−"}${U(Math.abs(v))} · saldo ${U(r.saldo)}`);top()}catch(x){toast(x.message)}finally{const b=$("#sjB");if(b)busy(b,false)}};
 }
 function rpuntos(){const c=RWc();
   H().innerHTML=`<form class="form" id="wf">
