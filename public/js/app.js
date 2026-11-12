@@ -553,7 +553,7 @@ const TIER_ITEMS={
   cobre:["Todos los cursos de la academia","Práctica ilimitada en gráficas reales","Zona exclusiva: novedades, tutoriales y actualizaciones","Comentar en la comunidad","Placa Cobre en tu perfil"],
   plata:["Todo lo de Cobre","Doble XP: subes de nivel el doble de rápido","Publicaciones solo Plata y Oro (análisis)","Placa Plata en tu perfil"],
   oro:["Todo lo de Plata","👑 Sala Oro: lives privados y operativas","Acceso anticipado a cursos nuevos","Placa Oro y nombre dorado"],
-  diamond:["♾️ Vitalicio: pagas una vez y es para siempre","💎 Acceso a TODO: todos los cursos y los que salgan","Todo lo de Oro: Sala Oro, lives y operativas","Todas las publicaciones exclusivas","Doble XP","Placa Diamond 💎"]};
+  diamond:["♾️ Vitalicio: un solo pago y el acceso es para siempre","💎 Acceso a TODO: todos los cursos y los que salgan","Todo lo de Oro: Sala Oro, lives y operativas","Todas las publicaciones exclusivas","Doble XP","Placa Diamond 💎"]};
 function pricingBlock(host,o={}){if(!host)return;const s=S.site;const pl=(s.plans||[]).filter(x=>x&&x.name&&x.price);const cs=(S.courses||[]).filter(c=>c.status!=="borrador"&&!c.base),bases=(S.courses||[]).filter(c=>c.status!=="borrador"&&c.base);
   if((!pl.length&&!cs.length)||(premium()&&!o.page)){host.remove();return}const off=o.off??!!s.paymentsOff;
   const num=x=>{const m=String(x).replace(",",".").match(/\d+(\.\d+)?/);return m?parseFloat(m[0]):NaN};const cur=x=>String(x).replace(/[\d.,\s]+/g," ").trim()||"USD";
@@ -561,7 +561,7 @@ function pricingBlock(host,o={}){if(!host)return;const s=S.site;const pl=(s.plan
   const btn=(lbl,attr,gold)=>off?'<span class="btn disabled" aria-disabled="true">Disponible pronto</span>':o.page?`<button type="button" class="btn ${gold?"gold":""}" ${attr}>${lbl}</button>`:`<a class="btn ${gold?"gold":""}" href="${toMain("premium")}">${lbl}</a>`;
   const plans=pl.map((x,i)=>{const t=tierOfPlan(x),T=TIERS[t],v=num(x.price),life=x.days>=3650,pm=v/(x.days/30),ah=!life&&isFinite(bm)&&x.days>31&&pm<bm?Math.round(100*(1-pm/bm)):0;
       return `<div class="price tier-${t}${t==="plata"?" fav":""}">${t==="plata"?'<span class="price-tag">Más elegido</span>':t==="oro"?'<span class="price-tag oro-tag">Mejor valor</span>':t==="diamond"?'<span class="price-tag dia-tag">Acceso total</span>':""}<h3><span class="tier-i">${T.i}</span> ${T.n}</h3><span class="dim tier-d">${life&&!/vital/i.test(x.name)?"Vitalicio · ":""}${esc(x.name)}</span><div class="price-v"><b>${esc(String(x.price).replace(/\s*[A-Za-z]+$/,""))}</b><span>${esc(cur(x.price))}</span></div>
-        <span class="dim">${life?"un solo pago · acceso de por vida, sin mensualidades":x.days>31&&isFinite(pm)?`≈ ${pm.toFixed(pm<10?1:0).replace(".0","")} ${esc(cur(x.price))} al mes`:`pago único por ${x.days>=28&&x.days<=31?"1 mes":x.days+" días"}, sin renovación automática`}</span>${ah?`<span class="pill ok">Ahorras ${ah}%</span>`:""}
+        <span class="dim">${life?"pago único · quedas con acceso de por vida":x.days>31&&isFinite(pm)?`≈ ${pm.toFixed(pm<10?1:0).replace(".0","")} ${esc(cur(x.price))} al mes`:`pago único por ${x.days>=28&&x.days<=31?"1 mes":x.days+" días"}, sin renovación automática`}</span>${ah?`<span class="pill ok">Ahorras ${ah}%</span>`:""}
         <ul class="checks">${TIER_ITEMS[t].map(t2=>`<li>${esc(t2)}</li>`).join("")}</ul>${myPlan()===t&&premium()?'<span class="pill ok">Tu plan actual</span>':""}${btn("Elegir "+T.n,`data-pick="${i}"`,t!=="cobre")}</div>`}).join("");
   const courses=cs.map(c=>{const mine=ownsCourse(c.id);return `<div class="price crs-card" style="--cc:${esc(c.color||"#d8b062")}"><span class="price-tag crs-ptag">Pago único</span><h3><span class="tier-i">${esc(c.icon||"🎓")}</span> Curso ${esc(c.title)}</h3><span class="dim tier-d">De por vida</span><div class="price-v"><b>${esc(String(c.price||"40 USD").replace(/\s*[A-Za-z]+$/,""))}</b><span>${esc(cur(c.price||"40 USD"))}</span></div><span class="dim">un solo pago, sin mensualidades</span>
       <ul class="checks"><li>Todo el curso ${esc(c.title)}: videos y ejercicios</li><li>Sus actualizaciones incluidas</li><li>Medallas del curso</li><li>Placa del curso y ✓ Graduado al terminarlo</li><li class="no">Sin zona exclusiva ni Sala Oro</li></ul>${mine?'<span class="pill ok">Ya es tuyo</span>':btn("Comprar curso",`data-pickc="${esc(c.id)}"`,false)}</div>`}).join("");
@@ -1471,7 +1471,9 @@ async function boot(){
   const r=$("#rstLocal");if(r)r.onclick=()=>API.resetLocal();
   const pSite=API.site().catch(()=>({}));                     // los ajustes del sitio no dependen de la sesión
   let rec=false;try{rec=(await API.init()).recovery}catch(e){}
-  S.site=await pSite||{};applySite();
+  S.site=await pSite||{};
+  /* Diamond siempre es de por vida, aunque en Admin hayan quedado otros días */
+  if(Array.isArray(S.site.plans))S.site.plans.forEach(x=>{if(x&&x.tier==="diamond")x.days=36500});applySite();
   await Promise.all([loadProg(),loadContent()]);S.loaded=true;
   if(rec)location.hash="#nueva-clave";
   route();
