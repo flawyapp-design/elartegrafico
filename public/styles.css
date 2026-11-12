@@ -1600,3 +1600,9 @@ body.pf-open{overflow:hidden}
 .crs-ic{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;font-size:18px;flex:none}
 .crs-t{display:grid;gap:2px;min-width:0}.crs-t .dim{font-size:12px}
 .crs-g .crs-new{margin:8px 12px 12px}
+
+/* admin alumnos: resumen por plan y curso */
+.uchips{display:flex;flex-wrap:wrap;gap:8px;margin:4px 0 10px}
+.uchip{display:inline-flex;gap:8px;align-items:center;padding:7px 12px;border-radius:999px;border:1px solid var(--line);background:var(--bg2);color:var(--fg);font:inherit;font-size:13px;cursor:pointer}
+.uchip b{font-variant-numeric:tabular-nums;color:var(--gold2)}
+.uchip.on{border-color:var(--gold);background:rgba(216,176,98,.14)}

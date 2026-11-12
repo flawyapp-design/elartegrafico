@@ -659,14 +659,29 @@ async function alumnos(){
   const GIVE=()=>{const pl=(S.site&&S.site.plans)||[],N={cobre:"Cobre",plata:"Plata",oro:"Oro",diamond:"Diamond"},D={cobre:30,plata:180,oro:365,diamond:36500};
     return Object.keys(N).map(t=>{const x=pl.find(p=>(p.tier||(p.days>=300?"oro":p.days>=150?"plata":"cobre"))===t);return{t,n:N[t],d:x?+x.days:D[t]}})};
   const venc=u=>u.premium_until&&new Date(u.premium_until)<=new Date();
-  let q="",fil="todos",pais="";const draw=()=>{const f=list.filter(u=>(!q||(u.username+" "+u.email).toLowerCase().includes(q))
-      &&(fil==="todos"||(fil==="premium"&&isP(u))||(fil==="gratis"&&!isP(u))||(fil==="vencido"&&venc(u))||(fil==="suspendido"&&u.banned))
+  /* filtros: acceso, plan (placa), curso comprado y rol, cada uno con su conteo */
+  const TIER=u=>isP(u)?(u.plan||"cobre"):"",paidC=(S.courses||[]).filter(c=>!c.base);
+  const FIL=k=>k==="todos"?()=>true:k==="premium"?isP:k==="gratis"?u=>!isP(u)&&!(u.courses||[]).length:k==="sinplan"?u=>!isP(u):k==="vencido"?venc:k==="suspendido"?u=>u.banned:k==="admin"?u=>u.role==="admin"
+    :k==="concurso"?u=>(u.courses||[]).length>0:k.startsWith("plan:")?u=>TIER(u)===k.slice(5):k.startsWith("curso:")?u=>(u.courses||[]).includes(k.slice(6)):()=>true;
+  const cnt=k=>list.filter(FIL(k)).length,opt=(k,t)=>`<option value="${esc(k)}">${t} (${cnt(k)})</option>`;
+  const TN={cobre:"🟤 Cobre",plata:"⚪ Plata",oro:"🟡 Oro",diamond:"💎 Diamond"};
+  const filOpts=()=>`<option value="todos">Todos (${list.length})</option>
+    <optgroup label="Acceso">${opt("premium","Con plan activo")}${opt("concurso","Con algún curso comprado")}${opt("gratis","Solo cuenta gratis (sin plan ni curso)")}${opt("sinplan","Sin plan activo")}${opt("vencido","Plan vencido")}</optgroup>
+    <optgroup label="Plan">${Object.keys(TN).map(t=>opt("plan:"+t,TN[t])).join("")}</optgroup>
+    ${paidC.length?`<optgroup label="Curso comprado">${paidC.map(c=>opt("curso:"+c.id,`${c.icon||"🎓"} ${c.title}`)).join("")}</optgroup>`:""}
+    <optgroup label="Otros">${opt("admin","Admins")}${opt("suspendido","Suspendidos")}</optgroup>`;
+  const chips=()=>[["premium","Con plan"],...Object.keys(TN).map(t=>["plan:"+t,TN[t]]),...paidC.map(c=>["curso:"+c.id,`${c.icon||"🎓"} ${c.title}`]),["gratis","Solo gratis"]]
+    .map(([k,t])=>`<button class="uchip${fil===k?" on":""}" data-uf="${esc(k)}">${t} <b>${cnt(k)}</b></button>`).join("");
+  let q="",fil="todos",pais="";const draw=()=>{$("#uchips").innerHTML=chips();$$("[data-uf]").forEach(b=>b.onclick=()=>{fil=fil===b.dataset.uf?"todos":b.dataset.uf;$("#uf").value=fil;draw()});const f=list.filter(u=>(!q||(u.username+" "+u.email).toLowerCase().includes(q))
+      &&FIL(fil)(u)
       &&(!pais||(pais==="-"?!u.country:u.country===pais)));
     $("#uN").textContent=f.length===list.length?"":`Mostrando ${f.length} de ${list.length}`;
+    {const sel=$("#uf");if(sel){sel.innerHTML=filOpts();sel.value=fil}}
+    $("#uPA").textContent=`${cnt("premium")} con plan · ${cnt("concurso")} con curso`;
     $("#ut").innerHTML=f.map(u=>`<article class="ucard${u.banned?" ban":""}">
       <div class="uc-who">${A.avatar?A.avatar(u,44):""}<div><b>${esc(u.username)} ${A.flag(u.country||"")}${u.role==="admin"?' <span class="tag pub">Admin</span>':""}${u.banned?' <span class="tag">Suspendido</span>':""}</b><span class="dim">${esc(u.email||"")}</span></div></div>
       <div class="uc-st">
-        <div><small>Acceso</small>${isP(u)?A.premTag(u.plan)+`<span class="dim">${new Date(u.premium_until).getFullYear()>=2090?"de por vida":"hasta "+fmtDate(u.premium_until)}</span>`:venc(u)?`<span class="tag">Vencido</span><span class="dim">el ${fmtDate(u.premium_until)}</span>`:'<span class="tag">Gratis</span>'}${(u.courses||[]).map(cid=>{const c=(S.courses||[]).find(x=>x.id===cid);return c?`<span class="crs-tag" style="--cc:${esc(c.color)}">${esc(c.icon||"")} ${esc(c.title)}</span>`:""}).join("")}</div>
+        <div><small>Acceso</small>${isP(u)?A.premTag(u.plan)+`<span class="dim">${new Date(u.premium_until).getFullYear()>=2090?"de por vida":"hasta "+fmtDate(u.premium_until)}</span>`:venc(u)?`<span class="tag">Vencido</span><span class="dim">el ${fmtDate(u.premium_until)}</span>`:(u.courses||[]).length?"":'<span class="tag">Gratis</span>'}${(u.courses||[]).map(cid=>{const c=(S.courses||[]).find(x=>x.id===cid);return c?`<span class="crs-tag" style="--cc:${esc(c.color)}">${esc(c.icon||"")} ${esc(c.title)}</span>`:""}).join("")}</div>
         <div><small>Puntos</small><b class="mono">${u.xp||0}</b></div><div><small>Prueba</small><b class="mono">${u.demo_used||0}/5</b></div><div><small>Registro</small><span>${fmtDate(u.created_at)}</span></div></div>
       <div class="uc-act row">
         <label class="uc-plan uc-give"><span>Dar plan</span><select data-give="${esc(u.id)}"><option value="">Elegir…</option>${GIVE().map(g=>`<option value="${g.t}:${g.d}">${A.TIERS?A.TIERS[g.t].i:""} ${g.n} · ${g.d>=3650?"de por vida":g.d+" días"}</option>`).join("")}</select></label>
@@ -696,10 +711,11 @@ async function alumnos(){
     $$("[data-rxp]").forEach(b=>b.onclick=()=>reset(b.dataset.rxp,"puntos"));
     $$("[data-rall]").forEach(b=>b.onclick=()=>reset(b.dataset.rall,"todo"));
     $$("[data-role]").forEach(b=>b.onclick=()=>{const u=list.find(x=>x.id===b.dataset.role);set(u.id,{role:u.role==="admin"?"user":"admin"},"Rol actualizado")})};
-  H().innerHTML=`<div class="panel"><div class="sec-h"><h3>Alumnos (${list.length})</h3><span class="muted">${list.filter(isP).length} premium activos</span></div>
+  H().innerHTML=`<div class="panel"><div class="sec-h"><h3>Alumnos (${list.length})</h3><span class="muted" id="uPA"></span></div>
     <div class="ufil"><input id="uq" placeholder="Buscar por usuario o correo">
-      <select id="uf" aria-label="Filtrar por acceso"><option value="todos">Todos</option><option value="premium">Premium activos (${list.filter(isP).length})</option><option value="gratis">Gratis (${list.filter(u=>!isP(u)).length})</option><option value="vencido">Premium vencido (${list.filter(venc).length})</option><option value="suspendido">Suspendidos (${list.filter(u=>u.banned).length})</option></select>
+      <select id="uf" aria-label="Filtrar por acceso, plan o curso">${filOpts()}</select>
       <select id="up" aria-label="Filtrar por país"><option value="">Todos los países</option>${[...new Set(list.map(u=>u.country).filter(Boolean))].sort().map(c=>`<option>${esc(c)}</option>`).join("")}<option value="-">Sin país</option></select></div>
+    <div id="uchips" class="uchips"></div>
     <div id="uN" class="dim" style="font-size:13px"></div>
     <div id="ut" class="ulist"></div></div>
     <details class="panel reset-all"><summary><b>Reinicio general para el lanzamiento</b><span class="muted">Deja a todos los alumnos en cero sin borrar sus cuentas ni su premium.</span></summary>
