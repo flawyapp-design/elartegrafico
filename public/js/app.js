@@ -255,7 +255,7 @@ function renderNav(){sideState();viewBar();document.body.classList.toggle("is-ac
         <div class="dm-items">
           <a href="${ACAD?"#perfil":"#perfil"}">${ico("gear",18)}<span>Configuración</span></a>
           <a href="${ACAD?"#perfil-progreso":"#perfil-progreso"}">${ico("chart",18)}<span>Mi progreso</span></a>
-          ${rewardsOn()||admin()?`<a href="${toMain("puntos")}">${ico("card",18)}<span>Mis puntos</span></a><a href="${toMain("ranking")}">${ico("trophy",18)}<span>Ranking de retos</span></a>`:""}
+          ${rewardsOn()||admin()?`<a href="${toMain("puntos")}">${ico("card",18)}<span>Saldo y puntos</span></a><a href="${toMain("ranking")}">${ico("trophy",18)}<span>Ranking de retos</span></a>`:""}
           ${!admin()?`<a href="${toMain("mensajes")}">${ico("chat",18)}<span>Mensajes</span>${S.dm&&S.dm.unread?`<em class="nbadge">${S.dm.unread}</em>`:""}</a>`:""}
           <a href="${toAcad("progreso")}">${ico("layers",18)}<span>Tabla de progreso</span></a>
           ${premium()?"":`<a href="${toMain("premium")}" class="dm-gold">${ico("crown",18)}<span>Hazte premium</span></a>`}
@@ -660,6 +660,7 @@ async function memberHome(){
 const RW=()=>(S.site&&S.site.rewards)||{};
 const rewardsOn=()=>RW().enabled!==false;
 const affTag=()=>'<span class="aff-tag" title="Afiliado verificado de Deriv"><svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.2 4.2L19 7"/></svg>Afiliado</span>';
+const usdF=v=>(+v||0).toLocaleString("es-CO",{style:"currency",currency:"USD",minimumFractionDigits:2});
 const ptsUsd=p=>{const r=Math.max(1,+RW().ptsPerUsd||100);return (p/r).toLocaleString("es-CO",{style:"currency",currency:"USD",minimumFractionDigits:2})};
 const KIND={opcion:"Cuestionario",tendencia:"¿Sube o baja?",zona:"Marca la zona"};
 function leftTxt(t){const ms=new Date(t)-Date.now();if(ms<=0)return"cerrado";const h=Math.floor(ms/36e5),m=Math.floor(ms%36e5/6e4);return h>=24?`cierra en ${Math.floor(h/24)} d ${h%24} h`:h?`cierra en ${h} h ${m} min`:`cierra en ${m} min`}
@@ -672,7 +673,7 @@ setInterval(()=>{document.querySelectorAll("[data-lc]").forEach(el=>{const ms=ne
   document.querySelectorAll("[data-cd]").forEach(el=>{const ms=new Date(el.dataset.cd)-Date.now();el.textContent=cdFmt(ms);if(ms<=0&&!el.dataset.done){el.dataset.done="1";if(/^#retos?(-|$)/.test(location.hash))setTimeout(()=>route(true),2000)}})},1000);
 /* al cerrar un reto que jugaste, te mostramos tu resultado una sola vez */
 function revealPop(c){if(!c||!c.closed||!c.answered)return false;const k="ag_rv_"+c.id;try{if(localStorage.getItem(k))return false;localStorage.setItem(k,"1")}catch(e){return false}
-  if(c.my_place)pop({icon:"trophy",kicker:`¡Ganaste! · Puesto #${c.my_place}`,title:`+${c.my_points} puntos`,text:`Quedaste entre los ${c.max_winners} primeros en “${c.title}”.`,confetti:true,ms:5500});
+  if(c.my_place)pop({icon:"trophy",kicker:`¡Ganaste! · Puesto #${c.my_place}`,title:c.express?`+${usdF(c.my_usd)} a tu saldo`:`+${c.my_points} puntos`,text:c.express?"Ya puedes retirarlo cuando quieras en Saldo y puntos.":`Quedaste entre los ${c.max_winners} primeros en “${c.title}”.`,confetti:true,ms:5500});
   else if(c.my_correct)pop({icon:"check",tone:"blue",kicker:"Acertaste",title:"Pero otros llegaron primero",text:"Los cupos se los llevaron los más rápidos. ¡En el próximo responde antes!"});
   else pop({icon:"x",tone:"red",kicker:"Resultado del reto",title:"Esta vez no era",text:"Mira la respuesta y la explicación, y vuelve por el próximo reto."});return true}
 /* bloque publicitario: El Arte Gráfico te paga por participar */
@@ -701,12 +702,12 @@ ROUTES.retos=async()=>{
     <section class="sec"><div class="sec-h"><h2>Retos anteriores</h2></div><div id="rtPast" class="rt-list"></div></section>`;
   ptsCard($("#myPts"));
   let L=[];try{L=await API.challengesFeed()}catch(e){$("#rtOpen").innerHTML=`<div class="empty">No se pudieron cargar los retos.</div>`;return}
-  const card=c=>{return `<a class="rt-card${c.answered?" done":""}${c.closed?" closed":""}${c.weekly?" weekly":""}" href="#reto-${esc(c.id)}">
-    ${c.weekly?`<span class="rt-wk">${ico2("crown",14)}Reto semanal</span>`:""}<div class="rt-top"><span class="rt-k">${ico(c.kind==="opcion"?"msg":c.kind==="tendencia"?"chart":"layers",16)}${KIND[c.kind]}</span><span class="rt-pts">+${c.points} pts</span></div>
+  const card=c=>{return `<a class="rt-card${c.answered?" done":""}${c.closed?" closed":""}${c.weekly?" weekly":""}${c.express?" express":""}" href="#reto-${esc(c.id)}">
+    ${c.express?`<span class="rt-wk rt-ex">⚡ Reto express · premio en dólares</span>`:c.weekly?`<span class="rt-wk">${ico2("crown",14)}Reto semanal</span>`:""}<div class="rt-top"><span class="rt-k">${ico(c.kind==="opcion"?"msg":c.kind==="tendencia"?"chart":"layers",16)}${KIND[c.kind]}</span><span class="rt-pts">${c.express?usdF(c.prize_usd):`+${c.points} pts`}</span></div>
     <b class="rt-t">${esc(c.title)}</b>
     ${c.closed?`<div class="rt-cupos">${Array.from({length:c.max_winners},(_,i)=>`<i class="${i<(c.winners||0)?"on":""}"></i>`).join("")}<span>Cerrado · ${c.winners||0} ganador${c.winners===1?"":"es"}</span></div>`
       :`<div class="rt-cdl"><span>⏳ Resultados en</span>${cdHtml(c.ends_at)}</div>`}
-    <div class="rt-bot"><span class="dim">${c.closed?fmtDate(c.starts_at):`${c.players?`👥 ${c.players} ${c.players===1?"respondió":"respondieron"} · `:""}Top ${c.max_winners} gana`}</span>${c.answered&&!c.closed?'<span class="pill">✓ Enviada · en suspenso</span>':c.answered?(c.my_place?`<span class="pill ok">Ganaste · +${c.my_points}</span>`:c.my_correct?'<span class="pill">Acertaste sin cupo</span>':'<span class="pill">Fallaste</span>'):c.closed?'<span class="pill">Ver respuesta</span>':'<span class="btn sm gold">Jugar</span>'}</div></a>`};
+    <div class="rt-bot"><span class="dim">${c.closed?fmtDate(c.starts_at):`${c.players?`👥 ${c.players} ${c.players===1?"respondió":"respondieron"} · `:""}Top ${c.max_winners} gana${c.express?" dólares":""}`}</span>${c.answered&&!c.closed?'<span class="pill">✓ Enviada · en suspenso</span>':c.answered?(c.my_place?`<span class="pill ok">Ganaste · +${c.express?usdF(c.my_usd):c.my_points}</span>`:c.my_correct?'<span class="pill">Acertaste sin cupo</span>':'<span class="pill">Fallaste</span>'):c.closed?'<span class="pill">Ver respuesta</span>':'<span class="btn sm gold">Jugar</span>'}</div></a>`};
   const open=L.filter(c=>!c.closed),past=L.filter(c=>c.closed);
   {const nv=past.filter(c=>c.answered).sort((a,b)=>new Date(b.ends_at)-new Date(a.ends_at));for(const c of nv)if(revealPop(c))break}
   $("#rtOpen").innerHTML=open.map(card).join("")||'<div class="empty">No hay retos abiertos en este momento. El próximo sale pronto: activa las notificaciones para enterarte primero.</div>';
@@ -715,10 +716,12 @@ ROUTES.retos=async()=>{
 };
 /* tarjeta de mis puntos */
 async function ptsCard(host,withStreak){if(!host)return;if(!logged()){host.innerHTML=`<div class="rk-cta"><div><b>Crea tu cuenta para participar</b><span class="muted">Necesitas una cuenta gratis para jugar los retos y acumular puntos.</span></div><a class="btn gold" href="#registro">Crear cuenta</a></div>`;return}
-  let r=null;try{r=await API.myRewards()}catch(e){}if(!r||!host.isConnected)return;const p=API.profile()||{};
-  host.innerHTML=`<div class="pts-card"><div class="pts-main"><span class="eyebrow">Mis puntos</span><b class="mono">${r.balance}</b><span class="dim">≈ ${ptsUsd(r.balance)} · este mes +${r.month}</span></div>
+  let r=null,w=null;try{[r,w]=await Promise.all([API.myRewards(),API.myWallet().catch(()=>null)])}catch(e){}if(!r||!host.isConnected)return;const p=API.profile()||{};
+  host.innerHTML=`<div class="pts-card${w?" wallet":""}">${w?`<div class="pts-bal"><a class="bal usd" href="#puntos-saldo"><span class="eyebrow">💵 Saldo</span><b class="mono">${usdF(w.usd)}</b><span class="dim">De retos express · retíralo cuando quieras</span></a>
+      <a class="bal" href="#puntos"><span class="eyebrow">⭐ Puntos</span><b class="mono">${r.balance}</b><span class="dim">≈ ${ptsUsd(r.balance)} · este mes +${r.month} · canje mensual</span></a></div>`
+    :`<div class="pts-main"><span class="eyebrow">Mis puntos</span><b class="mono">${r.balance}</b><span class="dim">≈ ${ptsUsd(r.balance)} · este mes +${r.month}</span></div>`}
     <div class="pts-st"><div><b class="mono">${r.wins}</b><span>retos ganados</span></div><div><b class="mono">${r.played}</b><span>jugados</span></div><div>${p.affiliate?affTag():`<span class="tag">${r.affiliate==="pendiente"?"Afiliado: en revisión":"No afiliado"}</span>`}<span>${p.affiliate?"puntos completos":"recibes la mitad"}</span></div></div>
-    <div class="pts-act"><a class="btn gold" href="#puntos">${RW().redeemOpen?"Canjear puntos":"Mis puntos"}</a>${p.affiliate?"":`<a class="btn ghost" href="#puntos-afiliado">Verificar afiliado</a>`}</div></div>${withStreak!==false?streakCard(r):""}`;
+    <div class="pts-act">${w&&+w.usd>=+(w.min_usd||1)?`<a class="btn gold" href="#puntos-saldo">Retirar ${usdF(w.usd)}</a>`:""}<a class="btn ${w&&+w.usd>=+(w.min_usd||1)?"ghost":"gold"}" href="#puntos">${RW().redeemOpen?"Canjear puntos":"Mis puntos"}</a>${p.affiliate?"":`<a class="btn ghost" href="#puntos-afiliado">Verificar afiliado</a>`}</div></div>${withStreak!==false?streakCard(r):""}`;
   const L=evalAch(RETO_ACH,r);checkAch("retos",L);const sh=$("#retoAch");if(sh)sh.innerHTML=achHero(L,"Retos · Logros",L.filter(a=>a.on).length?"Tus medallas de retos":"Gana tu primera medalla de retos")+achGroups(L)}
 /* jugar un reto */
 ROUTES.reto=async id=>{
@@ -726,7 +729,7 @@ ROUTES.reto=async id=>{
   if(!c){app.innerHTML=`<div class="empty">Ese reto no existe o todavía no está publicado.<a class="btn sm" href="#retos">Ver retos</a></div>`;return}
   const opts=(c.options&&c.options.length?c.options:(c.kind==="tendencia"?["Sube","Baja"]:[]));const can=!c.closed&&!c.answered&&logged()&&rewardsOn();
   app.innerHTML=`<div class="crumbs"><a href="#retos">Retos</a><span>/</span><span>${esc(c.title)}</span></div>
-    <div class="rt-head"><div><span class="eyebrow">${c.weekly?"Reto semanal · ":""}${KIND[c.kind]} · +${c.points} pts${API.profile()&&!API.profile().affiliate?` (tú: +${Math.ceil(c.points/2)})`:""}</span><h1>${esc(c.title)}</h1>${c.question?`<p class="muted">${esc(c.question)}</p>`:""}</div>
+    <div class="rt-head"><div><span class="eyebrow">${c.express?"⚡ Reto express · ":c.weekly?"Reto semanal · ":""}${KIND[c.kind]} · ${c.express?`${usdF(c.prize_usd)} por ganador${API.profile()&&!API.profile().affiliate&&RW().halfIfNotAffiliate!==false?` (tú: ${usdF(Math.round(c.prize_usd*50)/100)})`:""}`:`+${c.points} pts${API.profile()&&!API.profile().affiliate?` (tú: +${Math.ceil(c.points/2)})`:""}`}</span><h1>${esc(c.title)}</h1>${c.question?`<p class="muted">${esc(c.question)}</p>`:""}</div>
       ${c.closed?`<div class="rt-meta"><div class="rt-cupos big">${Array.from({length:c.max_winners},(_,i)=>`<i class="${i<(c.winners||0)?"on":""}"></i>`).join("")}</div><span>Reto cerrado · ${c.winners||0} ganador${c.winners===1?"":"es"}</span></div>`
         :`<div class="rt-meta rt-cdbox"><span>Resultados en</span><b>${cdHtml(c.ends_at)}</b><small>a las ${esc(hhmm(c.ends_at))} · top ${c.max_winners} gana${c.players?` · 👥 ${c.players}`:""}</small></div>`}</div>
     ${!logged()?`<div class="rk-cta"><div><b>Ingresa para jugar</b><span class="muted">Crea tu cuenta gratis y participa en los retos diarios.</span></div><a class="btn gold" href="#registro">Crear cuenta</a></div>`:!rewardsOn()?'<div class="note admin-note">Vista de admin: los retos están apagados para los alumnos.</div>':""}
@@ -737,10 +740,10 @@ ROUTES.reto=async id=>{
     <section class="sec"><div class="sec-h"><h2>Ganadores</h2></div><div id="rtWin" class="muted">Cargando…</div></section>`;
   const res=$("#rtRes");
   const wait=()=>{res.innerHTML=`<div class="result rt-susp"><b class="big">✓ Respuesta enviada</b><div>Nadie sabe todavía si ganó. A las <b>${esc(hhmm(c.ends_at))}</b> se revelan la respuesta correcta y los ${c.max_winners} primeros que acertaron.</div><div class="rt-cdl">⏳ ${cdHtml(c.ends_at)}</div></div>`};
-  const show=(r,mine)=>{if(r.reason==="cuenta_nueva"){res.innerHTML=`<div class="result"><b class="big">Respuesta registrada</b><div>Tu cuenta se creó después de que salió este reto, así que este no suma puntos. Desde el próximo reto ya compites por los premios. <a href="${toMain("legal-retos")}">Ver bases</a></div></div>`;return}res.innerHTML=r.correct?(r.place?`<div class="result ok"><b class="big">¡Acertaste! Puesto #${r.place} · +${r.points} puntos</b>${!r.affiliate&&r.points<r.full_points?`<div>Como no eres afiliado verificado recibiste la mitad. <a href="#puntos-afiliado">Verifícate y gana los ${r.full_points} completos</a>.</div>`:""}</div>`
+  const show=(r,mine)=>{if(r.reason==="cuenta_nueva"){res.innerHTML=`<div class="result"><b class="big">Respuesta registrada</b><div>Tu cuenta se creó después de que salió este reto, así que este no suma puntos. Desde el próximo reto ya compites por los premios. <a href="${toMain("legal-retos")}">Ver bases</a></div></div>`;return}res.innerHTML=r.correct?(r.place?`<div class="result ok"><b class="big">¡Acertaste! Puesto #${r.place} · +${r.express?usdF(r.usd)+" a tu saldo":r.points+" puntos"}</b>${r.express?`<div><a href="#puntos-saldo">Retirar mi saldo</a></div>`:""}${!r.express&&!r.affiliate&&r.points<r.full_points?`<div>Como no eres afiliado verificado recibiste la mitad. <a href="#puntos-afiliado">Verifícate y gana los ${r.full_points} completos</a>.</div>`:""}</div>`
       :`<div class="result"><b class="big">Acertaste, pero ya se llenaron los ${c.max_winners} cupos</b><div>Sé de los primeros en el próximo reto. Activa las notificaciones para enterarte apenas salga.</div></div>`)
       :`<div class="result bad"><b class="big">No era esa</b><div>Mañana hay otro reto. ¡Sigue practicando en la academia!</div></div>`};
-  if(c.answered&&!c.closed)wait();else if(c.answered)show({correct:c.my_correct,place:c.my_place,points:c.my_points,affiliate:(API.profile()||{}).affiliate,full_points:c.points});
+  if(c.answered&&!c.closed)wait();else if(c.answered)show({correct:c.my_correct,place:c.my_place,points:c.my_points,affiliate:(API.profile()||{}).affiliate,full_points:c.points,express:c.express,usd:c.my_usd});
   if(c.explain)res.insertAdjacentHTML("beforeend",`<div class="note" style="margin-top:12px"><b>Explicación:</b> ${esc(c.explain)}</div>`);
   if(c.closed)revealPop(c);
   const send=async ans=>{try{const r=await API.submitChallenge(c.id,ans);if(r.reason==="cuenta_nueva")show(r);else if(r.received)wait();else show(r);
@@ -865,9 +868,23 @@ ROUTES.ranking=async per=>{per=per==="total"?"total":"mes";
       :`<div class="rk-cta"><div><b>${yo?`Vas en el puesto #${r.indexOf(yo)+1} con ${yo.points} puntos`:"Aún no tienes puntos este mes"}</b><span class="muted">Juega el reto de hoy: los primeros 5 en acertar ganan.</span></div><a class="btn gold" href="#retos">Ver retos</a></div>`;
     $("#rk").innerHTML=cta+(r.length?`${podio(r,x=>x.points+" pts"+(RW().ptsPerUsd?` (${ptsUsd(x.points)})`:""))}<div class="scroll"><table class="tbl rk"><thead><tr><th>#</th><th>Participante</th><th class="c-hide" style="text-align:right">Retos ganados</th><th style="text-align:right">Puntos${RW().ptsPerUsd?" (USD)":""}</th></tr></thead><tbody>${r.map((x,i)=>`<tr class="${x.is_me?"me ":""}${x.premium?"prem":""}"><td class="mono">${i<3?["🥇","🥈","🥉"][i]:i+1}</td><td><span class="who-cell">${avatar(x,28)}${uL(x.username)}${flag(x.country)}${x.affiliate?affTag():""}${x.premium?premTag():""}</span></td><td class="n c-hide">${x.wins}</td><td class="n">${x.points}${RW().ptsPerUsd?` <span class="rk-usd">(${ptsUsd(x.points)})</span>`:""}</td></tr>`).join("")}</tbody></table></div>`:'<div class="empty">Todavía no hay puntos en este periodo.</div>')}
   catch(e){$("#rk").textContent="No se pudo cargar el ranking."}};
+/* saldo en dólares (retos express): retiro cuando quiera */
+async function saldoPanel(ir){const h=$("#sld");if(!h)return;let w=null;try{w=await API.myWallet()}catch(e){return}if(!w||!h.isConnected)return;h.hidden=false;
+  const mn=+(w.min_usd||1),pend=(w.retiros||[]).find(x=>x.status==="pendiente"),ES={pendiente:'<span class="pill gold">En camino</span>',pagado:'<span class="pill ok">Pagado</span>',rechazado:'<span class="pill">Rechazado</span>'};
+  h.innerHTML=`<div class="sec-h"><h3>💵 Retirar mi saldo</h3><b class="mono" style="font-size:22px;color:var(--ok)">${usdF(w.usd)}</b></div>
+    <p class="muted">Lo que ganas en los retos express va directo a tu saldo en dólares. Puedes retirarlo cuando quieras desde ${usdF(mn)}, por Binance (USDT).</p>`+
+    (pend?`<div class="note">Tienes un retiro en camino: <b>${usdF(pend.usd)}</b> a ${esc(pend.account)}. Te avisamos por Mensajes cuando lo enviemos.</div>`
+    :+w.usd<mn?`<div class="note">${+w.usd>0?`Te faltan ${usdF(mn-w.usd)} para el retiro mínimo.`:"Aún no tienes saldo. Gana un reto express y aparece aquí."}</div>`
+    :`<form class="form" id="wf"><div class="two"><label for="wU">Monto (USD)<input id="wU" type="number" min="${mn}" max="${w.usd}" step="0.01" value="${w.usd}"></label>
+      <label for="wA">Tu Binance Pay ID o correo de Binance<input id="wA" maxlength="120" required placeholder="Ej.: 123456789"></label></div>
+      <button class="btn gold" id="wS">Retirar ahora</button><p class="dim" style="font-size:13px;margin:0">La cuenta de Binance debe ser tuya. Te avisamos por Mensajes cuando te enviemos el pago. Al retirar aceptas las <a href="${toMain("legal-retos")}">bases de los retos</a>.</p></form>`)+
+    ((w.retiros||[]).length?`<h4 style="margin:16px 0 8px">Mis retiros</h4><div class="tree">${w.retiros.map(x=>`<div class="item"><span class="txt"><b>${usdF(x.usd)} · ${esc(x.account)}</b><span>${fmtDate(x.created_at)}${x.admin_note?` · ${esc(x.admin_note)}`:""}</span></span>${ES[x.status]||""}</div>`).join("")}</div>`:"");
+  const f=$("#wf");if(f)f.onsubmit=async e=>{e.preventDefault();try{busy($("#wS"),true);const v=+$("#wU").value;await API.requestUsdWithdrawal(v,$("#wA").value.trim());
+    pop({icon:"coin",kicker:"Retiro enviado",title:`${usdF(v)} en camino`,text:"Te llegó la confirmación en Mensajes. Te avisamos ahí mismo cuando te enviemos el pago.",confetti:true,ms:5200});ROUTES.puntos("saldo")}catch(x){toast(x.message)}finally{const b=$("#wS");if(b)busy(b,false)}};
+  if(ir)setTimeout(()=>h.scrollIntoView({behavior:"smooth",block:"start"}),200)}
 /* mis puntos: canjes y afiliado */
 ROUTES.puntos=async arg=>{if(!logged()){location.hash="#entrar";return}
-  app.innerHTML=`<div class="pagehead"><span class="eyebrow">Retos diarios</span><h1>Mis puntos</h1><p class="muted">Tu saldo, tus canjes y tu verificación de afiliado.</p></div><div id="myPts"></div>
+  app.innerHTML=`<div class="pagehead"><span class="eyebrow">Retos</span><h1>Saldo y puntos</h1><p class="muted">Tu saldo en dólares de los retos express, tus puntos, tus canjes y tu verificación de afiliado.</p></div><div id="myPts"></div><section class="panel" id="sld" hidden></section>
     <div class="two pts-two"><section class="panel" id="cnj"><h3>Canjear por dinero</h3><div class="muted">Cargando…</div></section><section class="panel" id="afl"><h3>Afiliado de Deriv</h3><div class="muted">Cargando…</div></section></div>
     <section class="panel" id="hist"><h3>Mis canjes</h3><div class="muted">Cargando…</div></section><section class="sec" id="retoAch"></section>`;
   ptsCard($("#myPts"));let r=null;try{r=await API.myRewards()}catch(e){}if(!r)return;const c=RW(),p=API.profile()||{},rate=Math.max(1,+c.ptsPerUsd||100),mn=+(c.minRedeem??500);
@@ -888,6 +905,7 @@ ROUTES.puntos=async arg=>{if(!logged()){location.hash="#entrar";return}
   const af=$("#af");if(af)af.onsubmit=async e=>{e.preventDefault();try{busy($("#aS"),true);const rr=await API.requestAffiliate($("#aD").value);if(rr&&rr.status==="verificado"){const pf=API.profile();if(pf)pf.affiliate=true;pop({icon:"check",tone:"green",kicker:"¡Verificado al instante!",title:"Ya eres afiliado de El Arte Gráfico",text:"Desde ahora ganas los puntos completos en cada reto y te sale la etiqueta de afiliado.",confetti:true,ms:5200})}else pop({icon:"send",tone:"green",kicker:"Verificación enviada",title:"Revisamos tu ID de Deriv",text:"Cuando te aprobemos ganas los puntos completos y te sale la etiqueta de afiliado."});ROUTES.puntos("afiliado")}catch(x){toast(x.message)}finally{const b=$("#aS");if(b)busy(b,false)}};
   const H=r.redemptions||[];const ES={pendiente:'<span class="pill gold">En revisión</span>',pagado:'<span class="pill ok">Pagado</span>',rechazado:'<span class="pill">Rechazado</span>'};
   $("#hist").innerHTML=`<h3>Mis canjes</h3>`+(H.length?`<div class="tree">${H.map(x=>`<div class="item"><span class="txt"><b>${x.points} puntos · ${ptsUsd(x.points)}</b><span>${fmtDate(x.created_at)}${x.admin_note?` · ${esc(x.admin_note)}`:""}</span></span>${ES[x.status]||""}</div>`).join("")}</div>`:'<div class="muted">Aún no has hecho canjes.</div>');
+  saldoPanel(arg==="saldo");
   if(arg==="afiliado")setTimeout(()=>{const a=$("#afl");if(a)a.scrollIntoView({behavior:"smooth",block:"start"})},200);
 };
 /* =====================================================================

@@ -76,14 +76,16 @@ Deno.serve(async (req) => {
       for (const it of (Array.isArray(items) ? items : [])) {
         const url = `https://elartegrafico.com/#reto-${it.id}`;
         const msg = it.what === "nuevo"
-          ? { title: `🎯 Nuevo reto: ${String(it.title).slice(0, 60)}`, body: `Tienes hasta las ${hora(it.close_at)} para responder. Los primeros ${it.max_winners} en acertar ganan ${it.points} puntos.`, url, tag: `reto-${it.id}` }
+          ? (Number(it.prize_usd) > 0
+            ? { title: `⚡ Reto express: ${String(it.title).slice(0, 60)}`, body: `Tienes hasta las ${hora(it.close_at)}. Los primeros ${it.max_winners} en acertar ganan US$ ${Number(it.prize_usd).toFixed(2).replace(".", ",")} cada uno, retirables al instante.`, url, tag: `reto-${it.id}` }
+            : { title: `🎯 Nuevo reto: ${String(it.title).slice(0, 60)}`, body: `Tienes hasta las ${hora(it.close_at)} para responder. Los primeros ${it.max_winners} en acertar ganan ${it.points} puntos.`, url, tag: `reto-${it.id}` })
           : { title: `🏆 Ya salieron los ganadores`, body: `“${String(it.title).slice(0, 60)}”: entra y mira si quedaste entre los ${it.max_winners} primeros.`, url, tag: `reto-res-${it.id}` };
         sent += (await sendAll(keys, "todos", msg)).sent;
       }
       // lanzamiento: a la hora programada se abre la academia y se avisa a todos
       try {
         const opened = await (await db("rpc/launch_claim", { method: "POST", body: "{}" })).json();
-        if (opened === true) sent += (await sendAll(keys, "todos", { title: "🚀 ¡La academia ya abrió!", body: "Entra ya: empieza con tu prueba gratis del módulo de introducción.", url: "https://academia.elartegrafico.com/#inicio", tag: "launch" })).sent;
+        if (opened === true) sent += (await sendAll(keys, "todos", { title: "🚀 ¡La academia ya abrió!", body: "Entra ya: el curso Fundamentos del trading es gratis con tu cuenta.", url: "https://academia.elartegrafico.com/#inicio", tag: "launch" })).sent;
       } catch (_) { /* aún no existe */ }
       // sala Oro: borrar mensajes y fotos de más de 7 días
       try {

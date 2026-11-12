@@ -196,7 +196,7 @@ Escríbenos a **{CORREO}**. Te responderemos en un plazo máximo de 15 días há
 { key: "retos", title: "Bases de los retos y puntos", text:
 `Última actualización: {FECHA}
 
-Estas bases regulan los **retos diarios**, los **puntos** y los **canjes** de {SITIO}, organizados por **{RESPONSABLE}** ("El Arte Gráfico"). Al participar en un reto o pedir un canje aceptas estas bases, además de los Términos y condiciones.
+Estas bases regulan los **retos diarios**, los **retos express**, los **puntos**, el **saldo** y los **canjes** de {SITIO}, organizados por **{RESPONSABLE}** ("El Arte Gráfico"). Al participar en un reto o pedir un canje aceptas estas bases, además de los Términos y condiciones.
 
 ### 1. Participación gratuita
 - Participar es **gratis**. No necesitas comprar nada, ni tener un plan, ni depositar dinero en ningún bróker para jugar o ganar.
@@ -227,6 +227,13 @@ Estas bases regulan los **retos diarios**, los **puntos** y los **canjes** de {S
 - Revisamos cada canje a mano antes de pagar. Podemos pedirte que confirmes tu identidad o tu cuenta de Binance. Pagamos dentro de los **10 días hábiles** siguientes a la aprobación.
 - Si un canje se rechaza, los puntos vuelven a tu saldo, salvo que el rechazo sea por trampa.
 - Los impuestos o costos que el pago genere para ti son tu responsabilidad.
+
+### 4A. Retos express y saldo en dólares
+- Los **retos express** son retos cortos (por ejemplo, de 30 minutos) cuyo premio es un monto en **dólares (USD)** por ganador, en vez de puntos. El premio y la duración se muestran en cada reto.
+- Igual que en los retos diarios, los resultados se revelan al cierre; los afiliados verificados de Deriv reciben el premio completo y el resto, la mitad.
+- Los premios van a tu **saldo**, que puedes pedir retirar **en cualquier momento** desde el mínimo que se muestra en "Saldo y puntos", por Binance (USDT), a una cuenta **del mismo titular**. Solo puedes tener un retiro en camino a la vez.
+- Revisamos cada retiro antes de pagar y aplican las mismas reglas de verificación, trampas y sanciones de estas bases. Si un retiro se rechaza, el monto vuelve a tu saldo, salvo que el rechazo sea por trampa.
+- Participar es gratis: no hay que pagar ni depositar nada para jugar ni para ganar.
 
 ### 5. Trampas y sanciones
 Se consideran trampa, entre otras: usar varias cuentas, bots o programas automáticos; ponerse de acuerdo para repartir respuestas entre cuentas; aprovechar errores de la plataforma; usar datos falsos; o recibir pagos en cuentas de terceros.
