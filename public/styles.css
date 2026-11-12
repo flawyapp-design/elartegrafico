@@ -1610,3 +1610,5 @@ body.pf-open{overflow:hidden}
 /* inicio en celular: temario corto */
 .tm-more{display:none}
 @media (max-width:760px){#tmp .tm-x{display:none}#tmp .tm-more{display:inline-flex;grid-column:1/-1;justify-self:start}}
+
+.rk-usd{color:var(--ok,#35c4a2);font-weight:600;font-size:.88em;white-space:nowrap}
