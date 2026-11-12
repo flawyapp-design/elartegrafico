@@ -1606,3 +1606,7 @@ body.pf-open{overflow:hidden}
 .uchip{display:inline-flex;gap:8px;align-items:center;padding:7px 12px;border-radius:999px;border:1px solid var(--line);background:var(--bg2);color:var(--fg);font:inherit;font-size:13px;cursor:pointer}
 .uchip b{font-variant-numeric:tabular-nums;color:var(--gold2)}
 .uchip.on{border-color:var(--gold);background:rgba(216,176,98,.14)}
+
+/* inicio en celular: temario corto */
+.tm-more{display:none}
+@media (max-width:760px){#tmp .tm-x{display:none}#tmp .tm-more{display:inline-flex;grid-column:1/-1;justify-self:start}}
