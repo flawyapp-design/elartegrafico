@@ -4,14 +4,14 @@
 "use strict";
 const A=window.AGAPP;const {$,$$,esc,API,S,toast,busy,fmtT,fmtDate,fmtDT,TZ,MARKETS,MNAME,h1Bars,m5Bars,idxAt,avgRange,toC,Chart,app}=A;
 let tab="resumen";
-const GROUPS=[["General",["resumen","chat"]],["Academia",["cursos","contenido","ejercicios","banners","noticias","archivos"]],["Retos y puntos",["retos","afiliados","canjes","rpuntos"]],["Alumnos",["alumnos","pagos","resenas","opiniones","notif"]],["Sitio",["sitio","legal"]]];
-const TICO={chat:"chat",cursos:"acad",retos:"bolt",afiliados:"users",canjes:"card",rpuntos:"gear",resumen:"chart",sitio:"site",banners:"image",contenido:"layers",ejercicios:"acad",noticias:"news",opiniones:"star",resenas:"msg",pagos:"card",alumnos:"users",archivos:"folder",notif:"bell",legal:"scale"};
+const GROUPS=[["General",["resumen","chat"]],["Academia",["cursos","contenido","ejercicios","banners","noticias","archivos"]],["Retos y puntos",["top","retos","afiliados","canjes","rpuntos"]],["Alumnos",["alumnos","pagos","resenas","opiniones","notif"]],["Sitio",["sitio","legal"]]];
+const TICO={top:"star",chat:"chat",cursos:"acad",retos:"bolt",afiliados:"users",canjes:"card",rpuntos:"gear",resumen:"chart",sitio:"site",banners:"image",contenido:"layers",ejercicios:"acad",noticias:"news",opiniones:"star",resenas:"msg",pagos:"card",alumnos:"users",archivos:"folder",notif:"bell",legal:"scale"};
 const TDESC={chat:"Conversaciones privadas con cada alumno. Se borran solas a los días que definas, o al instante con Finalizar.",cursos:"Cursos que se venden sueltos (de por vida) y cómo se ven los planes Cobre, Plata y Oro.",retos:"Crea el reto del día: cuestionario, ¿sube o baja? o marcar la zona. Los primeros en acertar ganan puntos.",afiliados:"Verifica quién abrió su cuenta de Deriv con tu enlace de socio: ganan los puntos completos.",
-  canjes:"Solicitudes para cambiar puntos por dinero: paga y márcalas.",rpuntos:"Activa los retos, define cuánto vale cada punto y el mínimo para canjear.",resumen:"Cómo va la academia: alumnos, visitas y actividad.",sitio:"Textos, portada, precios, enlaces y datos de contacto de la web.",banners:"Imágenes y mensajes del carrusel de la portada y del ingreso.",
+  top:"Los 10 primeros del ranking. Suma o quita puntos a cualquier alumno.",canjes:"Solicitudes para cambiar puntos por dinero: paga y márcalas.",rpuntos:"Activa los retos, define cuánto vale cada punto y el mínimo para canjear.",resumen:"Cómo va la academia: alumnos, visitas y actividad.",sitio:"Textos, portada, precios, enlaces y datos de contacto de la web.",banners:"Imágenes y mensajes del carrusel de la portada y del ingreso.",
   contenido:"Módulos, lecciones, videos y el orden del temario.",ejercicios:"Gráficas, cálculos y preguntas de cada lección y de la práctica.",noticias:"Publicaciones de la comunidad y avisos.",
   opiniones:"Opiniones públicas de los alumnos: aprueba u oculta.",resenas:"Lo que dicen los alumnos al terminar cada módulo (privado).",pagos:"Pagos de Binance por confirmar y el historial.",
   alumnos:"Cuentas, premium, puntos y avance de cada alumno.",archivos:"Imágenes y archivos subidos.",notif:"Envía avisos al celular de los alumnos.",legal:"Términos, privacidad y avisos legales."};
-const TABS=[["chat","Mensajes"],["cursos","Cursos y planes"],["retos","Retos diarios"],["afiliados","Afiliados Deriv"],["canjes","Canjes"],["rpuntos","Ajustes de puntos"],["resumen","Estadísticas"],["sitio","Sitio y textos"],["banners","Banners"],["contenido","Módulos y lecciones"],["ejercicios","Ejercicios"],["noticias","Noticias"],["opiniones","Opiniones"],["resenas","Reseñas de módulos"],["pagos","Pagos"],["alumnos","Alumnos"],["archivos","Archivos"],["notif","Notificaciones"],["legal","Legal"]];
+const TABS=[["chat","Mensajes"],["cursos","Cursos y planes"],["top","Top y puntos"],["retos","Retos diarios"],["afiliados","Afiliados Deriv"],["canjes","Canjes"],["rpuntos","Ajustes de puntos"],["resumen","Estadísticas"],["sitio","Sitio y textos"],["banners","Banners"],["contenido","Módulos y lecciones"],["ejercicios","Ejercicios"],["noticias","Noticias"],["opiniones","Opiniones"],["resenas","Reseñas de módulos"],["pagos","Pagos"],["alumnos","Alumnos"],["archivos","Archivos"],["notif","Notificaciones"],["legal","Legal"]];
 A.ROUTES.admin=sub=>{
   if(!A.admin()){app.innerHTML=`<div class="empty">Esta sección es solo para administradores.<a class="btn sm" href="#inicio">Volver</a></div>`;return}
   let chatU=null;if(sub&&/^chat-/.test(sub)){tab="chat";chatU=sub.slice(5)}else if(sub&&TABS.some(t=>t[0]===sub))tab=sub;
@@ -49,7 +49,7 @@ A.ROUTES.admin=sub=>{
     acL.onsubmit=e=>{e.preventDefault();const v=fromLoc($("#acAt").value);if(!v){toast("Elige la fecha y la hora");return}if(new Date(v)<=new Date()){toast("Elige una fecha futura");return}sv(v)};
     const x=$("#acX");if(x)x.onclick=()=>sv(null)}
   if(tab==="chat")return chat(chatU);
-  ({cursos,resumen,sitio,banners,contenido,ejercicios,noticias,opiniones,resenas,pagos,alumnos,archivos,notif,legal,retos,afiliados,canjes,rpuntos})[tab]();
+  ({cursos,resumen,sitio,banners,contenido,ejercicios,noticias,opiniones,resenas,pagos,alumnos,archivos,notif,legal,retos,afiliados,canjes,rpuntos,top})[tab]();
   const badge=(k,n)=>{const b=document.querySelector(`[data-badge="${k}"]`);if(b&&n){b.textContent=n;b.classList.add("on")}};
   if(API.dmBadge)API.dmBadge().then(b=>badge("chat",b&&b.unread)).catch(()=>{});
   if(API.adminAffiliates)API.adminAffiliates().then(l=>badge("afiliados",(l||[]).filter(x=>x.status==="pendiente").length)).catch(()=>{});
@@ -610,6 +610,31 @@ async function canjes(){
   $$("[data-pay]").forEach(b=>b.onclick=()=>A.confirmInline(b.closest("[data-host]"),"¿Ya enviaste el pago?",async()=>{try{await API.reviewRedemption(b.dataset.pay,true,"");toast("Canje marcado como pagado");canjes()}catch(x){toast(x.message)}}));
   $$("[data-rej]").forEach(b=>b.onclick=()=>{const host=b.closest("[data-host]");host.innerHTML=`<input id="jN" placeholder="Motivo (lo verá el alumno)" maxlength="300" style="flex:1;min-width:180px;background:var(--bg2);border:1px solid var(--line2);border-radius:8px;padding:7px;color:var(--fg)"><button class="btn sm bad" id="jY">Rechazar</button><button class="btn sm ghost" id="jC">Cancelar</button>`;
     $("#jC").onclick=canjes;$("#jY").onclick=async()=>{try{await API.reviewRedemption(b.dataset.rej,false,$("#jN").value.trim());toast("Canje rechazado");canjes()}catch(x){toast(x.message)}}});
+}
+/* top 10 y ajuste manual de puntos */
+let topPer="mes";
+async function top(){
+  const c=RWc(),usd=p=>c.ptsPerUsd?` <span class="rk-usd">(${(p/Math.max(1,+c.ptsPerUsd)).toLocaleString("es-CO",{style:"currency",currency:"USD",minimumFractionDigits:2})})</span>`:"";
+  H().innerHTML='<div class="muted">Cargando…</div>';
+  let L=[],G=[];try{[L,G]=await Promise.all([API.adminPointsTop(topPer,10),API.adminPointsLog()])}catch(e){H().innerHTML=`<div class="empty">${esc(e.message)}</div>`;return}
+  const fila=(x,i)=>`<tr><td class="mono">${i<3?["🥇","🥈","🥉"][i]:i+1}</td><td><b>${esc(x.username)}</b>${x.affiliate?' <span class="tag pub">Afiliado</span>':""}</td>
+    <td class="n">${x.points}${usd(x.points)}</td><td class="n c-hide">${x.wins}</td><td class="n c-hide">${x.saldo}</td>
+    <td><div class="row" style="gap:6px;flex-wrap:nowrap"><input type="number" step="1" placeholder="+50 / -50" data-pp="${esc(x.username)}" style="width:110px"><button class="btn sm" data-pq="${esc(x.username)}">Aplicar</button></div></td></tr>`;
+  H().innerHTML=`<div class="panel"><div class="sec-h"><h3>Top 10</h3><div class="seg rk-seg" style="margin:0"><a href="javascript:void 0" data-tp="mes" class="${topPer==="mes"?"on":""}">Este mes</a><a href="javascript:void 0" data-tp="total" class="${topPer==="total"?"on":""}">Histórico</a></div></div>
+    ${L.length?`<div class="scroll"><table class="tbl rk"><thead><tr><th>#</th><th>Alumno</th><th style="text-align:right">Puntos</th><th class="c-hide" style="text-align:right">Retos ganados</th><th class="c-hide" style="text-align:right">Saldo para canjear</th><th>Sumar o quitar</th></tr></thead><tbody>${L.map(fila).join("")}</tbody></table></div>`:'<div class="muted">Todavía nadie tiene puntos en este periodo.</div>'}
+    <p class="dim" style="font-size:13px">«Puntos» es lo que cuenta para el ranking del periodo. «Saldo» es lo que puede canjear (ya descontados sus canjes).</p></div>
+  <div class="two"><form class="panel form" id="pjF"><h3>Sumar o quitar puntos a cualquier alumno</h3>
+      <label for="pjU">Usuario<input id="pjU" placeholder="nombre de usuario" autocomplete="off"></label>
+      <div class="two"><label for="pjP">Puntos<input id="pjP" type="number" step="1" placeholder="50 para sumar · -50 para quitar"></label>
+      <label for="pjM">Motivo (opcional)<input id="pjM" maxlength="120" placeholder="Ej.: premio del live, corrección"></label></div>
+      <button class="btn gold" id="pjB">Aplicar</button>
+      <p class="dim" style="font-size:13px">Los puntos sumados cuentan para el ranking de este mes y para canjear. No se puede dejar a nadie con saldo negativo.</p></form>
+    <div class="panel"><h3>Últimos ajustes</h3>${G.length?`<div class="tree">${G.map(x=>`<div class="item"><span class="txt"><b>${esc(x.username)} · <span style="color:${x.points>0?"var(--ok)":"var(--bad)"}">${x.points>0?"+":""}${x.points} pts</span></b><span>${fmtDate(x.created_at)}${x.motivo?" · "+esc(x.motivo):""}</span></span></div>`).join("")}</div>`:'<div class="muted">Aún no has hecho ajustes.</div>'}</div></div>`;
+  $$("[data-tp]").forEach(a=>a.onclick=()=>{topPer=a.dataset.tp;top()});
+  const aplicar=async(u,pts,mot,btn)=>{pts=parseInt(pts,10);if(!u||!pts){toast("Escribe el usuario y los puntos (ej. 50 o -50)");return}
+    try{btn&&busy(btn,true);const r=await API.adminAdjustPoints(u,pts,mot||"");toast(`${r.username}: ${pts>0?"+":""}${pts} pts · saldo ${r.saldo}`);top()}catch(x){toast(x.message)}finally{btn&&busy(btn,false)}};
+  $$("[data-pq]").forEach(b=>b.onclick=()=>{const i=$(`[data-pp="${CSS.escape(b.dataset.pq)}"]`);aplicar(b.dataset.pq,i&&i.value,"",b)});
+  $("#pjF").onsubmit=e=>{e.preventDefault();aplicar($("#pjU").value.trim(),$("#pjP").value,$("#pjM").value.trim(),$("#pjB"))};
 }
 function rpuntos(){const c=RWc();
   H().innerHTML=`<form class="form" id="wf">
