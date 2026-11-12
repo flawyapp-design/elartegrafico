@@ -1203,7 +1203,7 @@ ROUTES.premium=()=>{const s=S.site;const plans=(s.plans||[]).filter(x=>x&&x.name
       ${mine.length?`<h3>Mis pagos</h3><div class="list">${mine.map(r=>`<div class="item"><span class="txt"><b>${esc(r.plan)} · ${esc(r.amount)}</b><span>ID ${esc(r.order_id)} · ${fmtDT(r.created_at)}${r.status==="rechazado"&&r.admin_note?` · ${esc(r.admin_note)}`:""}</span></span>${estado[r.status]||""}</div>`).join("")}</div>`:""}`;
     $("#pf").onsubmit=async e=>{e.preventDefault();const pv=$("#pP").value||"p:0";const crs=pv.startsWith("c:")?(S.courses||[]).find(c=>c.id===pv.slice(2)):null;const pl=crs?{name:"Curso "+crs.title,days:30,price:crs.price||"40 USD"}:(plans[+pv.slice(2)]||plans[0]);const oid=$("#pO").value.replace(/\s+/g,"");
       if(!/^[A-Za-z0-9-]{4,80}$/.test(oid)){$("#pE").textContent="Escribe el ID de orden tal como sale en Binance (solo números y letras).";return}
-      try{busy($("#pB"),true);await API.payRequest({plan:pl.name,days:pl.days,amount:pl.price,order_id:oid,note:$("#pN").value.trim(),course_id:crs?crs.id:null});pop({icon:"coin",kicker:"Pago registrado",title:"Estamos confirmando tu pago",text:"Te avisamos apenas activemos tu premium."});draw()}
+      try{busy($("#pB"),true);await API.payRequest({plan:pl.name,days:pl.days,amount:pl.price,order_id:oid,note:$("#pN").value.trim(),course_id:crs?crs.id:null});pop({icon:"coin",kicker:"Pago registrado",title:"Estamos confirmando tu pago",text:"Te avisamos apenas lo activemos. Tu pago quedó en Mensajes: si se demora, escríbenos por ahí."});draw()}
       catch(x){$("#pE").textContent=/duplicate|unique|ya fue registrado/i.test(x.message)?"Ese ID de orden ya fue registrado.":x.message}finally{const b=$("#pB");if(b)busy(b,false)}}};
   draw()};
 
