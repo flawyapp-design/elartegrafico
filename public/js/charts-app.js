@@ -261,18 +261,18 @@ function start(){
     const el=document.createElement("div");el.className="mtfrow";el.style.setProperty("--n",SAVE.tfFav.length);grid.appendChild(el);
     mtf={el,sym:sym.ticker,minis:[]};
     SAVE.tfFav.forEach((t,i)=>{const per=perOf(t),g=gran(per);
-      const box=document.createElement("button");box.className="mini";box.innerHTML=`<span class="mh"><b>${t}</b><em>Toca para ampliar</em></span><span class="mc"></span>`;el.appendChild(box);
+      const box=document.createElement("button");box.className="mini";box.title="Ver "+tfName(per)+" en grande";box.innerHTML=`<span class="mh"><b>${t}</b><em></em></span><span class="mc"></span>`;el.appendChild(box);
       const mc=box.querySelector(".mc"),c=KC.init(mc,{locale:"es-ES",timezone:TZ,styles:MINI});
       try{c.setPriceVolumePrecision(sym.pricePrecision||3,0);c.setScrollEnabled(false);c.setZoomEnabled(false);c.setOffsetRightDistance(6)}catch(e){}
       const m={t,box,mc,c,key:sym.ticker+":"+g,who:"mtf"+i+":"+Date.now()};mtf.minis.push(m);
-      feed.ask({ticks_history:sym.ticker,style:"candles",granularity:g,end:"latest",count:90}).then(r=>{if(!mtf||!mtf.minis.includes(m))return;c.applyNewData((r.candles||[]).map(toK));fit(m)}).catch(()=>{});
+      feed.ask({ticks_history:sym.ticker,style:"candles",granularity:g,end:"latest",count:60}).then(r=>{if(!mtf||!mtf.minis.includes(m))return;c.applyNewData((r.candles||[]).map(toK));fit(m)}).catch(()=>{});
       hubOn(m.key,m.who,sym.ticker,g,d=>{try{c.updateData(d)}catch(e){}});
       box.onclick=()=>{try{panes[0].kc.setPeriod(per)}catch(e){}setTimeout(()=>{decorateAll();mtfMark()},50)}});
     mtfMark();relayout()}
-  function fit(m){try{const w=m.mc.clientWidth||200;m.c.resize();m.c.setBarSpace(Math.max(1.5,(w-12)/90))}catch(e){}}
+  function fit(m){try{const w=m.mc.clientWidth||200;m.c.resize();m.c.setBarSpace(Math.max(1.5,(w-14)/60))}catch(e){}}
   function mtfResize(){if(mtf)mtf.minis.forEach(fit)}
   function mtfMark(){if(!mtf)return;let cur="";try{cur=panes[0].kc.getPeriod().text}catch(e){}
-    mtf.minis.forEach(m=>{const on=m.t===cur;m.box.classList.toggle("on",on);m.box.querySelector("em").textContent=on?"Seleccionada":"Toca para ampliar"})}
+    mtf.minis.forEach(m=>{const on=m.t===cur;m.box.classList.toggle("on",on);m.box.querySelector("em").textContent=on?"Seleccionada":""})}
 
   /* recordar mercado y temporalidad de cada gráfico; mantener la barra decorada */
   setInterval(()=>{let ch=false;panes.forEach((p,j)=>{try{const s=p.kc.getSymbol().ticker,t=p.kc.getPeriod().text,o=SAVE.panes[j]||{};if(o.s!==s||o.p!==t){SAVE.panes[j]={s,p:t};ch=true}}catch(e){}});
