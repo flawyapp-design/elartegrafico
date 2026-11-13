@@ -238,6 +238,17 @@ window.EAGWidget=function(o){
       <button class="dt" data-x="clear" title="Borrar todos los dibujos de este mercado">${svg("trash")}</button>`;
     dbar.querySelectorAll(".dt[data-k]").forEach(b=>b.onclick=()=>b.dataset.k==="cross"?cancelDraw():startTool(b.dataset.k));
     dbar.querySelectorAll(".dg .more").forEach(b=>b.onclick=e=>{e.stopPropagation();const g=TOOLS.find(x=>x.g===b.parentNode.dataset.g);openToolMenu(g,b.parentNode)});
+    /* mantener presionado o deslizar sobre el botón abre la lista; soltar sobre una herramienta la elige */
+    dbar.querySelectorAll(".dg>.dt").forEach(b=>{
+      let st=null,tm=null,opened=false;
+      const open=()=>{if(opened)return;opened=true;clearTimeout(tm);const g=TOOLS.find(x=>x.g===b.parentNode.dataset.g);openToolMenu(g,b.parentNode);b.classList.add("hold")};
+      b.addEventListener("pointerdown",e=>{if(e.button!==0)return;st={x:e.clientX,y:e.clientY};opened=false;tm=setTimeout(open,320);try{b.setPointerCapture(e.pointerId)}catch(x){}});
+      b.addEventListener("pointermove",e=>{if(!st)return;if(Math.hypot(e.clientX-st.x,e.clientY-st.y)>8)open();
+        if(opened&&menu){menu.querySelectorAll("button").forEach(x=>x.classList.remove("hov"));const t=document.elementFromPoint(e.clientX,e.clientY),it=t&&t.closest(".wmenu button");it&&it.classList.add("hov")}});
+      b.addEventListener("pointerup",e=>{clearTimeout(tm);b.classList.remove("hold");if(!st)return;st=null;
+        if(opened){const t=document.elementFromPoint(e.clientX,e.clientY),it=t&&t.closest(".wmenu button");if(it)it.click();b.dataset.skip="1";setTimeout(()=>delete b.dataset.skip,50)}});
+      b.addEventListener("pointercancel",()=>{clearTimeout(tm);st=null;b.classList.remove("hold")});
+      b.addEventListener("click",e=>{if(b.dataset.skip){e.stopImmediatePropagation();e.preventDefault()}},true)});
     dbar.querySelector('[data-x="magnet"]').onclick=()=>{magnet=magnet==="normal"?"weak_magnet":magnet==="weak_magnet"?"strong_magnet":"normal";ovs.forEach((v,id)=>chart.overrideOverlay({id,mode:magnet}));o.onMagnet&&o.onMagnet(magnet);paintDbar()};
     dbar.querySelector('[data-x="lock"]').onclick=()=>{locked=!locked;ovs.forEach((v,id)=>{v.lock=locked;chart.overrideOverlay({id,lock:locked})});persist();paintDbar()};
     dbar.querySelector('[data-x="hide"]').onclick=()=>{hidden=!hidden;ovs.forEach((v,id)=>chart.overrideOverlay({id,visible:!hidden}));paintDbar()};
