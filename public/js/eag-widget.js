@@ -422,7 +422,8 @@ window.EAGWidget=function(o){
         if((e.overlay.name==="eagLong"||e.overlay.name==="eagShort")&&e.overlay.points.length<3)autoPos(e.overlay);
         if(BOX.test(e.overlay.name)&&e.overlay.points.length<8&&e.overlay.points.length>=2){const ps=e.overlay.points;chart.overrideOverlay({id:e.overlay.id,points:boxPts({timestamp:tsOf(ps[0]),dataIndex:ps[0].dataIndex,value:ps[0].value},{timestamp:tsOf(ps[1]),dataIndex:ps[1].dataIndex,value:ps[1].value})})}
         capture(chart.getOverlayById(e.overlay.id)||e.overlay);if(e.overlay.name==="eagText")setTimeout(()=>editText(e.overlay.id),30);return false},
-      onPressedMoveEnd:e=>{capture(e.overlay);return false},
+      onPressedMoveStart:()=>{movingOv=true;return false},
+      onPressedMoveEnd:e=>{movingOv=false;capture(e.overlay);return false},
       onSelected:e=>{selId=e.overlay.id;showStyleBar(e.overlay.id);return false},
       onDeselected:e=>{if(selId===e.overlay.id){selId=null;hideStyleBar()}return false},
       onRemoved:e=>{if(bulk)return false;ovs.delete(e.overlay.id);if(selId===e.overlay.id){selId=null;hideStyleBar()}persist();return false},
@@ -558,6 +559,17 @@ window.EAGWidget=function(o){
     const r0=yDrag.r0,mid=(r0.from+r0.to)/2,half=(r0.to-r0.from)/2*k,from=mid-half,to=mid+half;
     yDrag.ax._autoCalcTickFlag=false;yDrag.ax._range=Object.assign({},r0,{from,to,range:to-from,realFrom:from,realTo:to,realRange:to-from});try{chart.adjustPaneViewport(false,true,true,true)}catch(x){}},{capture:true,passive:false});
   chartEl.addEventListener("touchend",()=>{yDrag=null},{capture:true});
+  /* mover el gráfico hacia arriba y abajo arrastrando (dedo o mouse), como TradingView */
+  let vpan=null,movingOv=false;
+  chartEl.addEventListener("pointerdown",e=>{if(e.button!==0||drawingId||brushOn||e.shiftKey)return;let ya;try{ya=chart.getSize("candle_pane","yAxis")}catch(x){return}if(!ya)return;
+    const r=chartEl.getBoundingClientRect(),x=e.clientX-r.left,y=e.clientY-r.top;if(x>=ya.left||y>ya.height)return;
+    const ax=chart._candlePane&&chart._candlePane.getAxisComponent();if(!ax||!ax._range)return;
+    vpan={x0:e.clientX,y0:e.clientY,ax,h:ya.height,r0:Object.assign({},ax._range),on:false}},true);
+  addEventListener("pointermove",e=>{const v=vpan;if(!v||movingOv)return;const dy=e.clientY-v.y0,dx=e.clientX-v.x0;
+    if(!v.on){if(Math.abs(dy)<10)return;if(Math.abs(dy)<Math.abs(dx)*.5){vpan=null;return}v.on=true}
+    const r0=v.r0,sh=dy*(r0.to-r0.from)/Math.max(1,v.h),from=r0.from+sh,to=r0.to+sh;
+    v.ax._autoCalcTickFlag=false;v.ax._range=Object.assign({},r0,{from,to,range:to-from,realFrom:from,realTo:to,realRange:to-from});try{chart.adjustPaneViewport(false,true,true,true)}catch(x){}});
+  ["pointerup","pointercancel"].forEach(t=>addEventListener(t,()=>{vpan=null}));
   /* Shift + clic: regla rápida, como en TradingView */
   chartEl.addEventListener("pointerdown",e=>{if(e.shiftKey&&!drawingId&&e.button===0)startTool("eagMeasure")},true);
 
