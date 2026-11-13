@@ -40,7 +40,7 @@ const perOf=t=>PERIODS.find(p=>p.text===t)||PERIODS[0];
 
 /* ===================== Datos de Deriv (WebSocket) ===================== */
 const APPID=CFG.DERIV_APP_ID||1089;
-const ENDPOINTS=[`wss://ws.derivws.com/websockets/v3?app_id=${APPID}&l=ES`,"wss://api.derivws.com/trading/v1/options/ws/public"];
+const ENDPOINTS=["wss://api.derivws.com/trading/v1/options/ws/public",`wss://ws.derivws.com/websockets/v3?app_id=${APPID}&l=ES`];
 function Feed(onStatus){
   let ws=null,ep=0,opened=false,backoff=1000,rid=1,ping=null;
   const pend=new Map(),subs=new Map(),byRid=new Map(),queue=[];
@@ -49,23 +49,23 @@ function Feed(onStatus){
     st("conn");opened=false;
     try{ws=new WebSocket(ENDPOINTS[ep])}catch(e){return retry()}
     ws.onopen=()=>{opened=true;window.EAG_EP=ENDPOINTS[ep];backoff=1000;st("live");
-      while(queue.length)ws.send(queue.shift());
+      queue.length=0;pend.forEach(p=>ws.send(p.t));
       subs.forEach(s=>sendSub(s));
       clearInterval(ping);ping=setInterval(()=>{if(ws&&ws.readyState===1)ws.send('{"ping":1}')},25000)};
     ws.onmessage=e=>{let m;try{m=JSON.parse(e.data)}catch(x){return}
-      const r=m.req_id;
+      const r=m.req_id||(m.echo_req&&m.echo_req.req_id);
       if(r&&pend.has(r)){const p=pend.get(r);pend.delete(r);m.error?p.rej(new Error(m.error.message||m.error.code)):p.res(m);return}
       const s=r&&byRid.get(r);if(!s)return;
       if(m.error){s.err&&s.err(m.error);return}
-      if(m.subscription&&m.subscription.id)s.id=m.subscription.id;
+      const sid=(m.subscription&&m.subscription.id)||(m.ohlc&&m.ohlc.id)||(m.tick&&m.tick.id);if(sid)s.id=sid;
       s.on(m)};
-    ws.onclose=()=>{clearInterval(ping);pend.forEach(p=>p.rej(new Error("Conexión perdida")));pend.clear();
+    ws.onclose=()=>{clearInterval(ping);
       if(!opened)ep=(ep+1)%ENDPOINTS.length;st("off");retry()};
     ws.onerror=()=>{};
   }
   function retry(){setTimeout(connect,backoff);backoff=Math.min(backoff*2,15000)}
-  function raw(o){const t=JSON.stringify(o);if(ws&&ws.readyState===1)ws.send(t);else queue.push(t)}
-  function ask(o,ms=20000){const id=rid++;return new Promise((res,rej)=>{pend.set(id,{res,rej});raw(Object.assign({},o,{req_id:id}));
+  function raw(o){const t=JSON.stringify(o);if(ws&&ws.readyState===1)ws.send(t)}
+  function ask(o,ms=25000){const id=rid++;return new Promise((res,rej)=>{const t=JSON.stringify(Object.assign({},o,{req_id:id}));pend.set(id,{res,rej,t});if(ws&&ws.readyState===1)ws.send(t);
     setTimeout(()=>{if(pend.has(id)){pend.delete(id);rej(new Error("Tiempo de espera agotado"))}},ms)})}
   function sendSub(s){if(s.rid)byRid.delete(s.rid);s.rid=rid++;s.id=null;byRid.set(s.rid,s);raw(Object.assign({},s.req,{req_id:s.rid,subscribe:1}))}
   function sub(key,req,on,err){unsub(key);const s={key,req,on,err};subs.set(key,s);sendSub(s)}
@@ -76,6 +76,8 @@ function Feed(onStatus){
 
 /* ===================== Mercados ===================== */
 const FALLBACK=["BOOM1000","BOOM900","BOOM600","BOOM500","BOOM300N","CRASH1000","CRASH900","CRASH600","CRASH500","CRASH300N"].map(s=>({symbol:s,display_name:s.replace(/(BOOM|CRASH)(\d+)N?/,(a,b,c)=>(b==="BOOM"?"Boom ":"Crash ")+c+" Index"),market:"synthetic_index",market_display_name:"Índices sintéticos",submarket:"crash_index",submarket_display_name:"Boom/Crash",pip:0.001,exchange_is_open:1}));
+const SUBN={crash_index:"Boom/Crash",random_index:"Volatilidad",jump_index:"Jump",step_index:"Step",range_index:"Range Break",random_daily:"Daily Reset",forex_basket:"Canasta forex",commodity_basket:"Canasta materias primas",major_pairs:"Forex mayores",minor_pairs:"Forex menores",metals:"Metales",non_stable_coin:"Cripto",americas_OTC:"Índices América",asia_oceania_OTC:"Índices Asia/Oceanía",europe_OTC:"Índices Europa"};
+const norm=s=>({symbol:s.symbol||s.underlying_symbol,display_name:s.display_name||s.underlying_symbol_name||s.symbol||s.underlying_symbol,market:s.market,submarket:s.submarket,submarket_display_name:SUBN[s.submarket]||s.submarket_display_name||s.submarket,pip:s.pip||s.pip_size,exchange_is_open:s.exchange_is_open,is_trading_suspended:s.is_trading_suspended});
 const TABS=[["fav","★ Favoritos"],["bc","Boom/Crash"],["syn","Sintéticos"],["fx","Forex"],["cr","Cripto"],["cm","Materias primas"],["ix","Índices"]];
 const tabOf=s=>s.submarket==="crash_index"?"bc":s.market==="synthetic_index"?"syn":s.market==="forex"?"fx":s.market==="cryptocurrency"?"cr":s.market==="commodities"?"cm":"ix";
 const prec=pip=>{const s=String(pip||0.01);return s.includes("e-")?+s.split("e-")[1]:(s.split(".")[1]||"").length};
@@ -128,7 +130,7 @@ function start(){
   /* ---------- lista de mercados ---------- */
   let SYMS=FALLBACK.slice(),bySym={};
   const idx=()=>{bySym={};SYMS.forEach(s=>bySym[s.symbol]=s)};idx();
-  const ready=feed.ask({active_symbols:"brief"}).then(m=>{const a=(m.active_symbols||[]).filter(s=>s.symbol&&!s.is_trading_suspended);if(a.length){SYMS=a;idx()}}).catch(()=>{});
+  const ready=feed.ask({active_symbols:"brief"}).then(m=>{const a=(m.active_symbols||[]).map(norm).filter(s=>s.symbol&&!s.is_trading_suspended);if(a.length){SYMS=a;idx()}}).catch(()=>{});
   const findInfo=t=>bySym[t]?info(bySym[t]):{ticker:t,name:t,shortName:t,exchange:"Deriv",pricePrecision:3,volumePrecision:0};
 
   /* Deriv no deja suscribirse dos veces al mismo flujo: un solo flujo por mercado+temporalidad, repartido a los gráficos */
