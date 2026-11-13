@@ -601,13 +601,16 @@ window.EAGWidget=function(o){
       e.stopPropagation();e.preventDefault();
       const name=v.name,styles=v.styles,extendData=v.extendData;bulk=true;try{chart.removeOverlay(drawingId)}catch(x){}bulk=false;ovs.delete(drawingId);drawingId=null;
       const id=makeOverlay({name,styles:styles||undefined,extendData:extendData||undefined,points:[p0,p0]},false);if(!id){syncPan();return}
-      dd={id,name,p0,x0:t.x,y0:t.y,moved:false};setPts(id,name,p0,p0);syncPan()},{capture:true,passive:false});
+      dd={id,name,p0,x0:t.x,y0:t.y,lx:t.x,ly:t.y,moved:false};setPts(id,name,p0,p0);syncPan()},{capture:true,passive:false});
     chartEl.addEventListener("touchmove",e=>{if(!dd)return;e.stopPropagation();e.preventDefault();const t=rel(e.touches[0]);
-      if(Math.hypot(t.x-dd.x0,t.y-dd.y0)>6)dd.moved=true;const p1=ptAt(t.x,t.y);if(p1)setPts(dd.id,dd.name,dd.p0,p1)},{capture:true,passive:false});
+      if(Math.hypot(t.x-dd.x0,t.y-dd.y0)>6)dd.moved=true;dd.lx=t.x;dd.ly=t.y;const p1=ptAt(t.x,t.y);if(p1)setPts(dd.id,dd.name,dd.p0,p1)},{capture:true,passive:false});
     const end=e=>{if(!dd)return;e.stopPropagation();e.preventDefault();const d=dd;dd=null;
       if(!d.moved){/* toque sin arrastrar: se pone de un tamaño normal para estirarlo después */
-        const W=chartEl.clientWidth,dx=Math.min(110,W*.28),dy=/^(segment|rayLine|straightLine|fibonacciLine)$/.test(d.name)?-50:60;
+        const W=chartEl.clientWidth,dx=BOX.test(d.name)?Math.max(110,W*.3):Math.min(110,W*.28),dy=/^(segment|rayLine|straightLine|fibonacciLine)$/.test(d.name)?-50:60;
         const p1=ptAt(d.x0+dx,d.y0+dy);if(p1)setPts(d.id,d.name,d.p0,p1)}
+      else if(BOX.test(d.name)||d.name==="rect"){/* zonas y rectángulos: ancho mínimo para que el cuadro del centro se vea bien */
+        const W=chartEl.clientWidth,minW=Math.max(110,W*.3),dxp=d.lx-d.x0;
+        if(Math.abs(dxp)<minW){const sg=dxp<0&&d.x0-minW>8?-1:1,p1=ptAt(d.x0+sg*minW,d.ly);if(p1)setPts(d.id,d.name,d.p0,p1)}}
       dbar.querySelectorAll(".dt").forEach(b=>b.classList.remove("act"));
       try{capture(chart.getOverlayById(d.id))}catch(x){}syncPan()};
     chartEl.addEventListener("touchend",end,{capture:true,passive:false});chartEl.addEventListener("touchcancel",end,{capture:true,passive:false});
