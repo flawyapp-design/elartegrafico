@@ -112,7 +112,7 @@ function start(){
       <span class="st" id="st"><i></i><span>Conectando…</span></span>
       <span class="grow"></span>
       <span class="who">${esc(prof.username||"")}</span>
-      <button class="btn" id="wlb" title="Lista de mercados">☰ Mercados</button>
+      <button class="btn" id="wlb" title="Lista de mercados">☰<span class="t"> Mercados</span></button>
     </header>
     <div class="main" id="main">
       <div class="grid" id="grid"></div>
