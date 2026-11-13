@@ -393,7 +393,7 @@ function start(){
       onSettings:()=>openSettings("apariencia"),getDecimals:()=>CF().dec,getFont:()=>CF().font,
       getToolStyle:n=>(SAVE.toolStyles||{})[n],onToolStyle:(n,st)=>{SAVE.toolStyles=Object.assign({},SAVE.toolStyles,{[n]:st});save()},onReload:()=>{if(MTFS[i])buildMTF(i)},onToggleMtf:()=>{SAVE.panes[i]=Object.assign({},SAVE.panes[i],{mtf:!(SAVE.panes[i]||{}).mtf});save();syncStrips()},onToast:t=>toast(t),getAlerts:tk=>ALERTS.filter(a=>a.active&&a.symbol===tk),onCreateAlert:a=>alertDialog(a),
       onIndicators:d=>{SAVE.panes[i]=Object.assign({},SAVE.panes[i],{ind:d});save()},
-      onMagnet:m=>{SAVE.magnet=m;save()},axisType:sv.ax,onAxisType:t=>{SAVE.panes[i]=Object.assign({},SAVE.panes[i],{ax:t});save()},getToolFav:()=>SAVE.toolFav,onToolFav:k=>{SAVE.toolFav=SAVE.toolFav.includes(k)?SAVE.toolFav.filter(x=>x!==k):SAVE.toolFav.concat(k);save();renderToolFav()},onLastTools:t=>{SAVE.lastTools=t;save()},
+      onMagnet:m=>{SAVE.magnet=m;save()},getTfav:()=>!SAVE.hide.tf&&SAVE.toolFav.length>0,onTfav:()=>{if(!SAVE.toolFav.length){SAVE.hide.tf=false;save();applyHide();toast("Aún no tienes favoritas: abre una lista de herramientas (doble toque) y marca la ☆. Aparecen en la barra rápida.");return}SAVE.hide.tf=!SAVE.hide.tf;save();applyHide();panes.forEach(p=>{try{p.kc.refreshBar()}catch(e){}})},axisType:sv.ax,onAxisType:t=>{SAVE.panes[i]=Object.assign({},SAVE.panes[i],{ax:t});save()},getToolFav:()=>SAVE.toolFav,onToolFav:k=>{SAVE.toolFav=SAVE.toolFav.includes(k)?SAVE.toolFav.filter(x=>x!==k):SAVE.toolFav.concat(k);save();renderToolFav()},onLastTools:t=>{SAVE.lastTools=t;save()},
       onDrawingsChange:tk=>(window.__eagSync&&window.__eagSync(),panes).forEach(q2=>{if(q2!==p&&q2.kc&&q2.kc.getSymbol().ticker===tk)q2.kc.reloadDrawings()})});
     p.kc=kc;
     setTimeout(()=>{try{kc.setStyles(styFor())}catch(e){}},0);
@@ -768,9 +768,9 @@ function start(){
     tfav.classList.toggle("vert",!!SAVE.tfavVert);
     tfav.innerHTML=`<span class="tg" title="Arrastra para mover · doble clic: girar">⋮⋮</span>`+SAVE.toolFav.map(k=>`<button data-t="${k}" title="${esc(T.name(k))}">${T.icon(k,18)}</button>`).join("")+
       `<button class="tx" title="Ocultar barra (vuelve en Vista)">×</button>`;
-    tfav.style.display=SAVE.toolFav.length&&!SAVE.hide.tf?"":"none";
+    tfav.style.display=SAVE.toolFav.length&&!SAVE.hide.tf?"":"none";appw.classList.toggle("has-tfav",SAVE.toolFav.length>0);
     tfav.querySelectorAll("[data-t]").forEach(b=>b.onclick=()=>{const p=panes[active];if(p&&p.kc.startTool){tfav.querySelectorAll("[data-t]").forEach(x=>x.classList.toggle("on",x===b));p.kc.startTool(b.dataset.t);setTimeout(()=>b.classList.remove("on"),4000)}});
-    tfav.querySelector(".tx").onclick=()=>{SAVE.hide.tf=true;save();applyHide()};
+    tfav.querySelector(".tx").onclick=()=>{SAVE.hide.tf=true;save();applyHide();panes.forEach(p=>{try{p.kc.refreshBar()}catch(e){}});toast("Barra rápida oculta. Vuelve a mostrarla con la ★ de la barra de dibujo.")};
     const g=tfav.querySelector(".tg");
     g.addEventListener("pointerdown",e=>{if(e.button!==0)return;e.preventDefault();const r=tfav.getBoundingClientRect(),dx=e.clientX-r.left,dy=e.clientY-r.top;try{g.setPointerCapture(e.pointerId)}catch(x){}tfav.classList.add("moving");
       const mv=ev=>{SAVE[tfKey()]={x:Math.round(ev.clientX-dx),y:Math.round(ev.clientY-dy)};placeTfav()};
@@ -780,7 +780,7 @@ function start(){
     requestAnimationFrame(placeTfav)}
   addEventListener("resize",()=>placeTfav());
   sortable(tfav,"[data-t]",SAVE.tfavVert?"y":"x",ord=>{SAVE.toolFav=ord;save();renderToolFav()});
-  window.__tfavR=()=>{tfav.style.display=SAVE.toolFav.length&&!SAVE.hide.tf?"":"none";requestAnimationFrame(placeTfav)};
+  window.__tfavR=()=>{appw.classList.toggle("has-tfav",SAVE.toolFav.length>0);tfav.style.display=SAVE.toolFav.length&&!SAVE.hide.tf?"":"none";requestAnimationFrame(placeTfav)};
   applyHide();applyCfg();applyLayoutPrefs();setLayout(lay);renderToolFav();setTab(tab);renderTabs();
   ready.then(()=>{setTab(tab);renderTabs();panes.forEach(p=>{try{const t=p.kc.getSymbol().ticker;if(bySym[t]&&info(bySym[t]).pricePrecision!==p.kc.getSymbol().pricePrecision)p.kc.setSymbol(info(bySym[t]))}catch(e){}})});
   addEventListener("resize",()=>{if(mobile()&&!["l1","l2v","mtf"].includes(lay))setLayout("l1")});

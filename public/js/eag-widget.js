@@ -365,6 +365,7 @@ window.EAGWidget=function(o){
       `<i class="dsep"></i><button class="dt tg${magnet!=="normal"?" on":""}" data-x="magnet" title="${magnet==="strong_magnet"?"Imán fuerte":magnet==="weak_magnet"?"Imán débil":"Imán apagado"}">${svg("magnet",21)}<em>${magnet==="strong_magnet"?"F":magnet==="weak_magnet"?"D":""}</em></button>
       <button class="dt tg${locked?" on":""}" data-x="lock" title="${locked?"Desbloquear dibujos":"Bloquear todos los dibujos"}">${svg(locked?"lock":"unlock",21)}</button>
       <button class="dt tg${hidden?" on":""}" data-x="hide" title="${hidden?"Mostrar dibujos":"Ocultar todos los dibujos"}">${svg(hidden?"eyeoff":"eye",21)}</button>
+      ${o.onTfav?`<button class="dt tg" data-x="tfav" title="Barra rápida de dibujos favoritos (mostrar u ocultar)"><b class="dstar">★</b></button>`:""}
       <button class="dt" data-x="clear" title="Borrar todos los dibujos de este mercado">${svg("trash",21)}</button>`;
     dbar.querySelector(".dtf").onclick=e=>{e.stopPropagation();o.onTFClick&&o.onTFClick(e.currentTarget)};
     dbar.querySelector('[data-mi="sym"]').onclick=e=>{e.stopPropagation();o.onSymbolClick&&o.onSymbolClick(e.currentTarget)};
@@ -389,6 +390,7 @@ window.EAGWidget=function(o){
     dbar.querySelector('[data-x="magnet"]').onclick=()=>{magnet=magnet==="normal"?"weak_magnet":magnet==="weak_magnet"?"strong_magnet":"normal";ovs.forEach((v,id)=>chart.overrideOverlay({id,mode:magnet}));o.onMagnet&&o.onMagnet(magnet);paintDbar()};
     dbar.querySelector('[data-x="lock"]').onclick=()=>{locked=!locked;ovs.forEach((v,id)=>{v.lock=locked;chart.overrideOverlay({id,lock:locked})});persist();paintDbar()};
     dbar.querySelector('[data-x="hide"]').onclick=()=>{hidden=!hidden;ovs.forEach((v,id)=>chart.overrideOverlay({id,visible:!hidden}));paintDbar()};
+    const tfb=dbar.querySelector('[data-x="tfav"]');if(tfb)tfb.onclick=e=>{e.stopPropagation();o.onTfav()};
     const cl=dbar.querySelector('[data-x="clear"]');cl.onclick=()=>{if(!ovs.size)return;if(!cl.classList.contains("confirm")){cl.classList.add("confirm");cl.title="Toca otra vez para borrar todo";setTimeout(()=>{cl.classList.remove("confirm");cl.title="Borrar todos los dibujos de este mercado"},2500);return}
       bulk=true;try{chart.removeOverlay()}catch(e){}bulk=false;ovs.clear();persist();hideStyleBar();paintDbar();setTimeout(renderAlerts,0)};
   }
