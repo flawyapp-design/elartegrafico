@@ -398,6 +398,8 @@ html.light .trialchip{color:var(--gold)}
 html,body{overscroll-behavior:none}.dbar{overscroll-behavior:contain;touch-action:pan-y}
 /* celular: la tira de multitemporalidad se desliza de lado; deslizar un mini hacia arriba lo pasa al grande */
 @media (max-width:900px),(hover:none){.mini .mc{pointer-events:none}.mini{touch-action:pan-x}.mtfrow{touch-action:pan-x;-webkit-overflow-scrolling:touch}}
+/* con varios gráficos la barra de cada uno siempre se ve (para cambiar mercado y temporalidad), aunque esté oculta en vista de uno */
+.app.h-pb.multi .wbar{display:flex!important}.app.h-pb.multi .dmini{display:none!important}
 </style>
 </head>
 <body>

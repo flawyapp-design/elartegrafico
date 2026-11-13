@@ -392,7 +392,7 @@ function start(){
   function setLayout(k){
     if(mobile()&&!["l1","l2v","mtf"].includes(k))k="l1";
     lay=k;SAVE.layout=k;save();const n=visible();
-    grid.className="grid "+k;
+    grid.className="grid "+k;appw.classList.toggle("multi",n>1);
     while(panes.length<n)panes.push(makePane(panes.length));
     panes.forEach((p,j)=>p.el.style.display=j<n?"":"none");
     document.querySelectorAll(".lay button").forEach(b=>b.classList.toggle("on",b.dataset.l===k));
