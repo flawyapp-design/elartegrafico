@@ -16,9 +16,15 @@ const hexA=(h,a)=>{h=String(h||GOLD).replace("#","");if(h.length===3)h=h.split("
 /* ===================== Herramientas propias ===================== */
 const BOX=/^(eagZone|eagRect|eagBuyZone|eagSellZone)$/;
 /* de 2 esquinas opuestas a los 8 puntos de la caja */
-function boxPts(a,b){const L=(a.timestamp||0)<=(b.timestamp||0)?a:b,R=L===a?b:a,T=Math.max(a.value,b.value),B=Math.min(a.value,b.value);
-  const mid={timestamp:Math.round(((L.timestamp||0)+(R.timestamp||0))/2)};if(L.dataIndex!=null&&R.dataIndex!=null)mid.dataIndex=Math.round((L.dataIndex+R.dataIndex)/2);
-  const P=(x,v)=>Object.assign(x.dataIndex!=null?{dataIndex:x.dataIndex}:{},{timestamp:x.timestamp,value:v});
+/* rectángulo/zonas: 2 esquinas → 8 puntos. Ojo: un punto dibujado a la derecha de la última vela no trae hora (solo índice);
+   antes se tomaba como hora 0 y el cuadro "se iba" años atrás al estirarlo. */
+const okT=t=>typeof t==="number"&&t>1e11;
+function boxPts(a,b){const both=a.dataIndex!=null&&b.dataIndex!=null;
+  const aFirst=both?a.dataIndex<=b.dataIndex:(okT(a.timestamp)&&okT(b.timestamp)?a.timestamp<=b.timestamp:(okT(a.timestamp)?true:!okT(b.timestamp)));
+  const L=aFirst?a:b,R=aFirst?b:a,T=Math.max(a.value,b.value),B=Math.min(a.value,b.value);
+  const mid={};if(both)mid.dataIndex=Math.round((L.dataIndex+R.dataIndex)/2);if(okT(L.timestamp)&&okT(R.timestamp))mid.timestamp=Math.round((L.timestamp+R.timestamp)/2);
+  if(mid.dataIndex==null&&mid.timestamp==null){if(L.dataIndex!=null)mid.dataIndex=L.dataIndex;if(okT(L.timestamp))mid.timestamp=L.timestamp}
+  const P=(x,v)=>{const o={value:v};if(x.dataIndex!=null)o.dataIndex=x.dataIndex;if(okT(x.timestamp))o.timestamp=x.timestamp;return o};
   return[P(L,T),P(R,T),P(R,B),P(L,B),P(mid,T),P(R,(T+B)/2),P(mid,B),P(L,(T+B)/2)]}
 let registered=false;
 function registerAll(){
@@ -113,7 +119,7 @@ function registerAll(){
     const X={timestamp:pp.timestamp,dataIndex:pp.dataIndex};
     if([0,3,7].includes(i))Lp=X;if([1,2,5].includes(i))Rp=X;if([0,1,4].includes(i))T=pp.value;if([2,3,6].includes(i))B=pp.value;
     const np=boxPts(Object.assign({},Lp,{value:T}),Object.assign({},Rp,{value:B}));
-    np.forEach((p,k)=>{points[k].timestamp=p.timestamp;points[k].dataIndex=p.dataIndex;points[k].value=p.value})};
+    np.forEach((p,k)=>{if(p.timestamp!=null)points[k].timestamp=p.timestamp;else delete points[k].timestamp;if(p.dataIndex!=null)points[k].dataIndex=p.dataIndex;points[k].value=p.value})};
   [["eagZone","zoneR"],["eagRect","rect"],["eagBuyZone","buy"],["eagSellZone","sell"]].forEach(([n,k])=>KC.registerOverlay({name:n,totalStep:3,needDefaultPointFigure:true,needDefaultXAxisFigure:false,needDefaultYAxisFigure:true,
     createPointFigures:boxFig(k),performEventPressedMove:boxMove}));
   /* Línea horizontal con precio (como TradingView) */
