@@ -365,6 +365,9 @@ window.EAGWidget=function(o){
     if(!sbar.hidden&&!sbar.contains(t)&&!chartEl.contains(t)&&!(menu&&menu.contains(t))){hideStyleBar()}};
   ["pointerdown","mousedown","touchstart"].forEach(ev=>document.addEventListener(ev,outside,{capture:true,passive:true}));
   addEventListener("blur",()=>{if(menu&&!menu.classList.contains("panel"))closeMenu()});
+  const dbarFade=()=>{const t=dbar.scrollTop,h=dbar.clientHeight,H=dbar.scrollHeight;dbar.classList.toggle("more-t",t>4);dbar.classList.toggle("more-b",t+h<H-4)};
+  dbar.addEventListener("scroll",()=>requestAnimationFrame(dbarFade),{passive:true});addEventListener("resize",()=>setTimeout(dbarFade,100));
+  try{new ResizeObserver(()=>dbarFade()).observe(dbar)}catch(e){}try{new MutationObserver(()=>setTimeout(dbarFade,0)).observe(dbar,{childList:true})}catch(e){}
   function paintDbar(){
     dbar.innerHTML=`<div class="dmini"><button class="dt dtf" title="Temporalidad (todas)"><b>${esc(per.text)}</b></button><button class="dt" data-mi="sym" title="Cambiar mercado">${svg("list",17)}</button><button class="dt" data-mi="ind" title="Indicadores">${svg("fx",17)}</button><i class="dsep"></i></div><button class="dt" data-k="cross" title="Cursor (cancelar dibujo)">${svg("cross",21)}</button><button class="dt" data-k="eagMeasure" title="Regla: medir puntos (también Shift + clic)">${tsvg("eagMeasure",22)}</button><button class="dt${brushOn?" act":""}" data-b="1" title="Pincel: dibuja o escribe a mano sobre el gráfico">${tsvg("eagBrush",22)}</button><i class="dsep"></i>`+
       TOOLS.map(g=>{const cur=lastTool[g.g]||g.items[0][0];return`<div class="dg" data-g="${g.g}"><button class="dt" data-k="${cur}" title="${esc(TNAME[cur])} · doble clic: ver todas">${tsvg(cur,22)}</button><button class="more" title="${esc(g.t)}">${svg("caret",9)}</button></div>`}).join("")+
