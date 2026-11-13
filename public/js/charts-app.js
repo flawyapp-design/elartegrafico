@@ -224,8 +224,9 @@ function start(){
       crosshair:{show:!!c.cross},xAxis:{show:!!c.axis},yAxis:{show:!!c.axis}}};
   const BGS=["#060b1a","#000000","#131722","#0b1d17","#1a1033","#ffffff","#f5f1e6","#eef3fb"];
   function applyCfg(){const c=CF();
-    appw.classList.toggle("light",light());appw.classList.toggle("h-wm",!c.wm);
-    appw.style.setProperty("--chartbg",c.bg||(light()?"#ffffff":"#060b1a"));
+    document.documentElement.classList.toggle("light",light());appw.classList.toggle("h-wm",!c.wm);
+    document.documentElement.style.setProperty("--chartbg",c.bg||(light()?"#ffffff":"#060b1a"));
+    const tc=document.querySelector('meta[name="theme-color"]');tc&&tc.setAttribute("content",light()?"#ffffff":"#060b1a");
     panes.forEach(p=>{try{if(p.kc.getTheme()!==c.theme)p.kc.setTheme(c.theme)}catch(e){}setTimeout(()=>{try{p.kc.setStyles(styFor())}catch(e){}},40)});
     if(mtf)mtf.minis.forEach(m=>{try{m.c.setStyles({candle:{bar:barOf()}})}catch(e){}})}
   function openCfg(anchor){const c=CF();
@@ -302,7 +303,7 @@ function start(){
       feed.ask({ticks_history:sym.ticker,style:"candles",granularity:g,end:"latest",count:60}).then(r=>{if(!mtf||!mtf.minis.includes(m))return;const L=(r.candles||[]).map(toK);c.applyNewData(L);fit(m);m.live(L[L.length-1])}).catch(()=>{});
       const mp=box.querySelector(".mp");
       const live=d=>{if(!d)return;const ch=(d.close-d.open)/d.open*100;mp.innerHTML=`${(+d.close).toFixed(sym.pricePrecision||3)} <i class="${ch>=0?"up":"dn"}">${ch>=0?"▲":"▼"}${Math.abs(ch).toFixed(2)}%</i>`;
-        box.classList.remove("tick");void box.offsetWidth;box.classList.add("tick")};
+};
       m.live=live;
       hubOn(m.key,m.who,sym.ticker,g,d=>{try{c.updateData(d);live(d)}catch(e){}});
       const big=()=>{try{panes[0].kc.setPeriod(per)}catch(e){}afterTF();box.classList.add("flyup");setTimeout(()=>box.classList.remove("flyup"),450)};box.querySelector(".mh").onclick=big;
