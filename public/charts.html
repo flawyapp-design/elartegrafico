@@ -32,7 +32,7 @@ a{color:var(--gold2)}button,select,input{font:inherit;color:inherit}
 .grid.l4{grid-template:1fr 1fr/1fr 1fr}.grid.l6{grid-template:1fr 1fr/1fr 1fr 1fr}
 .pane{position:relative;background:var(--bg);min-width:0;min-height:0;outline:2px solid transparent;outline-offset:-2px}
 .pane.act{outline-color:rgba(216,176,98,.55)}
-.pane .kc{position:absolute;inset:0}
+.pane>.kc{position:absolute!important;top:0!important;left:0!important;right:0!important;bottom:0!important;width:auto!important;height:auto!important}
 .wl{border-left:1px solid var(--line);background:var(--bg2);display:grid;grid-template-rows:auto auto 1fr auto;min-height:0;overflow:hidden}
 .wl h3{margin:0;padding:10px 12px 6px;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--gold)}
 .wl input{margin:0 10px 8px;background:var(--card);border:1px solid var(--line2);border-radius:8px;padding:7px 9px}

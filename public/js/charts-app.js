@@ -170,7 +170,7 @@ function start(){
     const sv=SAVE.panes[i]||{},sym=sv.s||DEF[i%DEF.length],per=perOf(sv.p||(i===0?"5m":"1m"));
     const kc=new KP.KLineChartPro({container:el.firstChild,symbol:findInfo(sym),period:per,periods:PERIODS,datafeed:Datafeed(),
       theme:"dark",locale:"es-ES",timezone:TZ,drawingBarVisible:!mobile()&&i===0,mainIndicators:[],subIndicators:[],
-      watermark:'<span style="font:700 22px/1 sans-serif;letter-spacing:.2em;color:rgba(216,176,98,.07)">EL ARTE GRÁFICO</span>'});
+      watermark:'<span style="font:700 18px/1 sans-serif;letter-spacing:.2em;white-space:nowrap;color:rgba(216,176,98,.07)">EL ARTE GRÁFICO</span>'});
     setTimeout(()=>{try{kc.setStyles(STY)}catch(e){}},0);
     el.addEventListener("pointerdown",()=>setActive(i),true);
     return{el,kc};
