@@ -170,7 +170,7 @@ function start(){
   }
 
   /* ---------- qué se ve y qué no ---------- */
-  const PARTS=[["top","Barra superior"],["pb","Barra de temporalidades y herramientas"],["db","Barra de dibujo"],["tf","Barra flotante de dibujos favoritos"],["ft","Pestañas de mercados favoritos"],["wl","Lista de mercados"]];
+  const PARTS=[["top","Barra superior"],["pb","Barra de temporalidades y herramientas"],["bb","Barra inferior (rangos, reloj y escala)"],["db","Barra de dibujo"],["tf","Barra flotante de dibujos favoritos"],["ft","Pestañas de mercados favoritos"],["wl","Lista de mercados"]];
   SAVE.hide=SAVE.hide&&typeof SAVE.hide==="object"?SAVE.hide:{};
   function applyHide(){PARTS.forEach(([k])=>appw.classList.toggle("h-"+k,!!SAVE.hide[k]));if(window.__tfavR)window.__tfavR();relayout();setTimeout(()=>{try{placeFab()}catch(e){}},60)}
   const allHidden=()=>PARTS.every(([k])=>SAVE.hide[k]);
@@ -293,12 +293,12 @@ function start(){
   const DEF=["BOOM1000","CRASH1000","BOOM500","CRASH500","BOOM300N","CRASH300N"];
   SAVE.panes=Array.isArray(SAVE.panes)?SAVE.panes:[];
   const grid=$("#grid"),panes=[];let active=0;
-  const UP="#0ecb81",DN="#f6465d",NC="#9da1aa";
+  const UP="#089981",DN="#f23645",NC="#9da1aa";
   /* ---------- ajustes del gráfico (tema, fondo, cuadrícula, velas…) ---------- */
   const CDEF={theme:"dark",bg:"",grid:true,wmMode:"both",wmOp:10,wmSize:100,wmColor:"auto",up:UP,dn:DN,type:"candle_solid",last:true,hl:true,cross:true,wm:true,axis:true};
   SAVE.cfg=Object.assign({},CDEF,SAVE.cfg||{});
   /* velas: pasar a los colores nuevos si tenía los de antes por defecto */
-  if(["#35c4a2","#22ab94"].includes(SAVE.cfg.up))SAVE.cfg.up=UP;if(["#ec5b52","#f23645"].includes(SAVE.cfg.dn))SAVE.cfg.dn=DN;
+  if(["#35c4a2","#22ab94","#0ecb81"].includes(SAVE.cfg.up))SAVE.cfg.up=UP;if(["#ec5b52","#f6465d"].includes(SAVE.cfg.dn))SAVE.cfg.dn=DN;
   const CF=()=>SAVE.cfg,light=()=>CF().theme==="light";
   const barOf=()=>{const c=CF();return{upColor:c.up,downColor:c.dn,noChangeColor:NC,upBorderColor:c.up,downBorderColor:c.dn,noChangeBorderColor:NC,upWickColor:c.up,downWickColor:c.dn,noChangeWickColor:NC}};
   const styFor=()=>{const c=CF(),gc=light()?"rgba(16,18,24,.06)":"rgba(255,255,255,.045)";
@@ -352,7 +352,7 @@ function start(){
       onSymbolClick:anc=>{setActive(i);const a=anc&&anc.nodeType?anc:el.querySelector(".wsym");pop.hidden||pop.dataset.for!=="sym"?openSymPicker(p,a):closePop()},
       onSettings:a=>{pop.hidden||pop.dataset.for!=="cfg"?openCfg(a):closePop()},
       onIndicators:d=>{SAVE.panes[i]=Object.assign({},SAVE.panes[i],{ind:d});save()},
-      onMagnet:m=>{SAVE.magnet=m;save()},getToolFav:()=>SAVE.toolFav,onToolFav:k=>{SAVE.toolFav=SAVE.toolFav.includes(k)?SAVE.toolFav.filter(x=>x!==k):SAVE.toolFav.concat(k);save();renderToolFav()},onLastTools:t=>{SAVE.lastTools=t;save()},
+      onMagnet:m=>{SAVE.magnet=m;save()},axisType:sv.ax,onAxisType:t=>{SAVE.panes[i]=Object.assign({},SAVE.panes[i],{ax:t});save()},getToolFav:()=>SAVE.toolFav,onToolFav:k=>{SAVE.toolFav=SAVE.toolFav.includes(k)?SAVE.toolFav.filter(x=>x!==k):SAVE.toolFav.concat(k);save();renderToolFav()},onLastTools:t=>{SAVE.lastTools=t;save()},
       onDrawingsChange:tk=>panes.forEach(q2=>{if(q2!==p&&q2.kc&&q2.kc.getSymbol().ticker===tk)q2.kc.reloadDrawings()})});
     p.kc=kc;
     setTimeout(()=>{try{kc.setStyles(styFor())}catch(e){}},0);

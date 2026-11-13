@@ -24,7 +24,7 @@ function registerAll(){
       const p=overlay.points,pp=(precision&&precision.price)||3,e=coordinates[0],s=coordinates[1],t=coordinates[2]||{x:s.x,y:e.y-(s.y-e.y)*2};
       const x1=Math.min(e.x,s.x),x2=Math.max(e.x,s.x,t.x||s.x),w=Math.max(x2-x1,40);
       const ev=p[0].value,sv=p[1].value,tv=p[2]?p[2].value:ev+(ev-sv)*2,risk=Math.abs(ev-sv),rew=Math.abs(tv-ev),long=sv<ev;
-      const ex=overlay.extendData||{};const cu=ex.up||"#0ecb81",cd=ex.dn||"#f6465d";
+      const ex=overlay.extendData||{};const cu=ex.up||"#089981",cd=ex.dn||"#f23645";
       const pct=v=>(v/ev*100).toFixed(2)+"%";
       const lab=(x,y,txt,bg)=>({type:"text",ignoreEvent:true,attrs:{x,y,text:txt,align:"center",baseline:"middle"},styles:{color:"#fff",size:11,backgroundColor:bg,paddingLeft:6,paddingRight:6,paddingTop:3,paddingBottom:3,borderRadius:4}});
       const cx=x1+w/2;
@@ -41,7 +41,7 @@ function registerAll(){
     const p=overlay.points,pp=(precision&&precision.price)||3,e=coordinates[0],s=coordinates[1],t=coordinates[2];
     const x1=Math.min(e.x,s.x,t.x),x2=Math.max(e.x,s.x,t.x),w=Math.max(x2-x1,30);
     const ev=p[0].value,sv=p[1].value,tv=p[2].value,risk=Math.abs(ev-sv),rew=Math.abs(tv-ev);
-    const ex=overlay.extendData||{},cu=ex.up||"#0ecb81",cd=ex.dn||"#f6465d";
+    const ex=overlay.extendData||{},cu=ex.up||"#089981",cd=ex.dn||"#f23645";
     const pct=v=>(v/ev*100).toFixed(2)+"%";
     const lab=(x,y,txt,bg)=>({type:"text",ignoreEvent:true,attrs:{x,y,text:txt,align:"center",baseline:"middle"},styles:{color:"#fff",size:11,backgroundColor:bg,paddingLeft:7,paddingRight:7,paddingTop:3,paddingBottom:3,borderRadius:4}});
     const cx=x1+w/2,okDir=side==="long"?(tv>ev&&sv<ev):(tv<ev&&sv>ev);
@@ -60,7 +60,7 @@ function registerAll(){
     createPointFigures:({overlay,coordinates,precision})=>{
       if(coordinates.length<2)return[];
       const[a,b]=coordinates,p=overlay.points,pp=(precision&&precision.price)||3;
-      const d=p[1].value-p[0].value,up=d>=0,col=up?"#2962ff":"#f6465d",pip=Math.pow(10,-pp),ticks=Math.round(Math.abs(d)/pip);
+      const d=p[1].value-p[0].value,up=d>=0,col=up?"#2962ff":"#f23645",pip=Math.pow(10,-pp),ticks=Math.round(Math.abs(d)/pip);
       const bars=(p[1].dataIndex!=null&&p[0].dataIndex!=null)?p[1].dataIndex-p[0].dataIndex:0;
       const ms=Math.abs((p[1].timestamp||0)-(p[0].timestamp||0)),mins=Math.round(ms/6e4);
       const tt=mins>=1440?Math.floor(mins/1440)+"d "+Math.floor(mins%1440/60)+"h":mins>=60?Math.floor(mins/60)+"h "+(mins%60)+"m":mins+"m";
@@ -92,7 +92,7 @@ function registerAll(){
       return K.map((v,i)=>{if(v==null)return{};let ok=true,s=0;for(let j=i-sd+1;j<=i;j++){if(K[j]==null)ok=false;else s+=K[j]}return ok?{k:v,d:s/sd}:{k:v}})}});
   KC.registerIndicator({name:"DONCHIAN",shortName:"Donchian",series:"price",precision:2,calcParams:[20],shouldOhlc:true,figures:[{key:"up",title:"Sup: ",type:"line"},{key:"mid",title:"Med: ",type:"line"},{key:"dn",title:"Inf: ",type:"line"}],
     calc:(L,ind)=>{const n=ind.calcParams[0];return L.map((k,i)=>{if(i<n-1)return{};let hh=-Infinity,ll=Infinity;for(let j=i-n+1;j<=i;j++){hh=Math.max(hh,L[j].high);ll=Math.min(ll,L[j].low)}return{up:hh,dn:ll,mid:(hh+ll)/2}})}});
-  KC.registerIndicator({name:"SUPERTREND",shortName:"SuperTrend",series:"price",precision:2,calcParams:[10,3],shouldOhlc:true,figures:[{key:"up",title:"Alcista: ",type:"line",styles:()=>({color:"#0ecb81"})},{key:"dn",title:"Bajista: ",type:"line",styles:()=>({color:"#f6465d"})}],
+  KC.registerIndicator({name:"SUPERTREND",shortName:"SuperTrend",series:"price",precision:2,calcParams:[10,3],shouldOhlc:true,figures:[{key:"up",title:"Alcista: ",type:"line",styles:()=>({color:"#089981"})},{key:"dn",title:"Bajista: ",type:"line",styles:()=>({color:"#f23645"})}],
     calc:(L,ind)=>{const[n,m]=ind.calcParams;let atr=null,fu=0,fl=0,trend=1;
       return L.map((k,i)=>{const pc=i?L[i-1].close:k.close,tr=Math.max(k.high-k.low,Math.abs(k.high-pc),Math.abs(k.low-pc));
         atr=atr==null?tr:(atr*(n-1)+tr)/n;if(i<n)return{};const hl=(k.high+k.low)/2,bu=hl+m*atr,bl=hl-m*atr;
@@ -173,16 +173,16 @@ const TI={
   fiveWaves:'<path d="M2 19 6 11l3 4 5-10 3 6 5-8"/>',
   eightWaves:'<path d="M1 19l3-6 2 3 3-8 2 4 3-9 3 10 3-4 3 6"/>',
   anyWaves:'<path d="M2 16c3-8 5 6 8-2s5 6 8-2 3 2 4 0"/>',
-  eagLong:'<rect x="4" y="4" width="16" height="8" fill="#0ecb81" opacity=".45" stroke="none"/><rect x="4" y="12" width="16" height="6" fill="#f6465d" opacity=".45" stroke="none"/><path d="M4 12h16M9 9l3-3 3 3"/>',
-  eagShort:'<rect x="4" y="6" width="16" height="6" fill="#f6465d" opacity=".45" stroke="none"/><rect x="4" y="12" width="16" height="8" fill="#0ecb81" opacity=".45" stroke="none"/><path d="M4 12h16M9 15l3 3 3-3"/>',
-  eagPosition:'<rect x="4" y="4" width="16" height="7" fill="#0ecb81" opacity=".35" stroke="none"/><rect x="4" y="11" width="16" height="7" fill="#f6465d" opacity=".35" stroke="none"/><path d="M4 11h16"/>',
+  eagLong:'<rect x="4" y="4" width="16" height="8" fill="#089981" opacity=".45" stroke="none"/><rect x="4" y="12" width="16" height="6" fill="#f23645" opacity=".45" stroke="none"/><path d="M4 12h16M9 9l3-3 3 3"/>',
+  eagShort:'<rect x="4" y="6" width="16" height="6" fill="#f23645" opacity=".45" stroke="none"/><rect x="4" y="12" width="16" height="8" fill="#089981" opacity=".45" stroke="none"/><path d="M4 12h16M9 15l3 3 3-3"/>',
+  eagPosition:'<rect x="4" y="4" width="16" height="7" fill="#089981" opacity=".35" stroke="none"/><rect x="4" y="11" width="16" height="7" fill="#f23645" opacity=".35" stroke="none"/><path d="M4 11h16"/>',
   eagMeasure:'<path d="M3 17 17 3l4 4L7 21z"/><path d="m7 13 2 2M10 10l2 2M13 7l2 2"/>',
   eagText:'<path d="M5 6V4h14v2M12 4v16M9 20h6"/>',
   simpleAnnotation:'<rect x="3" y="3" width="18" height="10" rx="2"/><path d="M12 13v8"/>'+P(12,21),
   simpleTag:'<path d="M3 12h7"/><path d="M10 7h9l2 5-2 5h-9z"/>'};
 const tsvg=(k,s=18)=>`<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${TI[k]||""}</svg>`;
 const svg=(k,s=18)=>`<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${IC[k]||""}</svg>`;
-const COLORS=["#e2b55c","#f3d08a","#ffffff","#9da1aa","#2962ff","#0ecb81","#f6465d","#ff9800","#9c27b0","#e91e63","#00bcd4","#000000"];
+const COLORS=["#e2b55c","#f3d08a","#ffffff","#9da1aa","#2962ff","#089981","#f23645","#ff9800","#9c27b0","#e91e63","#00bcd4","#000000"];
 const IND=[ // [nombre, nombre en español, dónde]
   ["MA","Media móvil (MA)","main"],["EMA","Media exponencial (EMA)","main"],["SMA","Media suavizada (SMA)","main"],["WMA","Media ponderada (WMA)","main"],
   ["BOLL","Bandas de Bollinger","main"],["DONCHIAN","Canales de Donchian","main"],["SUPERTREND","SuperTrend","main"],["SAR","SAR parabólico","main"],["BBI","BBI (promedio de medias)","main"],
@@ -211,7 +211,9 @@ window.EAGWidget=function(o){
   root.innerHTML=`<div class="wbar"><button class="wsym" title="Cambiar mercado"><b></b>${svg("caret",12)}</button><button class="wtf" title="Todas las temporalidades"><b></b>${svg("caret",11)}</button><span class="wfav"></span><span class="wsp"></span>
       <button class="wb" data-a="ind" title="Indicadores">${svg("fx")}<span>Indicadores</span></button><button class="wb" data-a="cfg" title="Ajustes del gráfico">${svg("gear")}</button><button class="wb" data-a="shot" title="Captura (descargar imagen)">${svg("cam")}</button><button class="wb" data-a="full" title="Pantalla completa">${svg("full")}</button></div>
     <div class="wbody"><div class="dbar"></div><div class="wchart"><div class="wwm"><div class="wm-s"></div><div class="wm-b">EL ARTE GRÁFICO</div></div>
-      <div class="wnav"><button data-n="left" title="Mover a la izquierda">${svg("chevl",16)}</button><button data-n="right" title="Mover a la derecha">${svg("chevr",16)}</button><i></i><button data-n="reset" title="Volver al precio actual (zoom normal)">${svg("reset",16)}</button><button data-n="reload" title="Recargar el gráfico (si se traba)">${svg("reload",16)}</button></div></div></div>`;
+      <div class="wnav"><button data-n="left" title="Mover a la izquierda">${svg("chevl",16)}</button><button data-n="right" title="Mover a la derecha">${svg("chevr",16)}</button><i></i><button data-n="reset" title="Volver al precio actual (zoom normal)">${svg("reset",16)}</button><button data-n="reload" title="Recargar el gráfico (si se traba)">${svg("reload",16)}</button></div></div></div>
+    <div class="wfoot"><span class="wrng">${[["1D",1],["5D",5],["1M",30],["3M",90],["6M",180],["1A",365],["Todo",0]].map(([t,d])=>`<button data-d="${d}" title="${d?"Ver "+t:"Ver todo el historial cargado"}">${t}</button>`).join("")}</span><span class="wsp"></span>
+      <span class="wcd" title="Tiempo para el cierre de la vela"></span><span class="wclk" title="Hora de Colombia (UTC-5)"></span><i class="wsep"></i><button class="wax" data-ax="percentage" title="Escala en porcentaje">%</button><button class="wax" data-ax="log" title="Escala logarítmica">log</button><button class="wax" data-ax="normal" title="Escala normal (automática)">auto</button></div>`;
   const $=s=>root.querySelector(s),chartEl=$(".wchart"),dbar=$(".dbar");
   const chart=KC.init(chartEl,{locale:"es-ES",timezone:o.timezone});(window.__eagCharts=window.__eagCharts||[]).push(chart);
   let sym=o.symbol,per=o.period,theme=o.theme||"dark",extra={},gen=0,subKey=null,ready=false,selId=null;
@@ -265,6 +267,22 @@ window.EAGWidget=function(o){
     else{const f=el.requestFullscreen||el.webkitRequestFullscreen;if(f)f.call(el);else o.onFullscreenFallback&&o.onFullscreenFallback()}};
   const fsSync=()=>{const on=!!(document.fullscreenElement||document.webkitFullscreenElement),b=root.querySelector('[data-a="full"]');b.classList.toggle("on",on);b.title=on?"Salir de pantalla completa (Esc)":"Pantalla completa";b.innerHTML=svg(on?"unfull":"full")};
   document.addEventListener("fullscreenchange",fsSync);document.addEventListener("webkitfullscreenchange",fsSync);
+
+  /* ---------- barra inferior: rangos, reloj, cierre de vela y escala ---------- */
+  let axisType=o.axisType||"normal";
+  root.querySelectorAll(".wrng button").forEach(b=>b.onclick=()=>{const L=chart.getDataList();if(!L.length)return;const days=+b.dataset.d,w=Math.max(100,chartEl.clientWidth-70);
+    const bars=days?Math.min(L.length,Math.max(5,Math.round(days*864e5/msOf(per)))):L.length;
+    try{chart.setBarSpace(Math.max(1,Math.min(40,w/bars)));chart.scrollToRealTime(250)}catch(e){}
+    root.querySelectorAll(".wrng button").forEach(x=>x.classList.toggle("on",x===b));setTimeout(()=>b.classList.remove("on"),1500)});
+  const paintAx=()=>root.querySelectorAll(".wax").forEach(x=>x.classList.toggle("on",x.dataset.ax===axisType));
+  root.querySelectorAll(".wax").forEach(b=>b.onclick=()=>{axisType=axisType===b.dataset.ax&&b.dataset.ax!=="normal"?"normal":b.dataset.ax;applyStyles();paintAx();o.onAxisType&&o.onAxisType(axisType)});
+  paintAx();
+  const two=n=>String(n).padStart(2,"0"),cdEl=$(".wcd"),clkEl=$(".wclk");
+  const tick=()=>{if(!root.isConnected)return clearInterval(clkT);const now=Date.now(),bog=new Date(now-5*36e5);
+    clkEl.textContent=`${two(bog.getUTCHours())}:${two(bog.getUTCMinutes())}:${two(bog.getUTCSeconds())} (UTC-5)`;
+    const L=chart.getDataList(),last=L[L.length-1];if(last){const left=Math.max(0,last.timestamp+msOf(per)-now),s2=Math.floor(left/1000),h=Math.floor(s2/3600),m=Math.floor(s2%3600/60);
+      cdEl.textContent=`Cierra en ${h?h+":"+two(m):m}:${two(s2%60)}`;cdEl.classList.toggle("soon",left<10000)}};
+  const clkT=setInterval(tick,1000);tick();
 
   /* ---------- navegación rápida (abajo al centro) ---------- */
   let bs0=null;setTimeout(()=>{try{bs0=chart.getBarSpace()}catch(e){}},0);
@@ -447,7 +465,12 @@ window.EAGWidget=function(o){
     draw("");ov.onclick=e=>{if(e.target===ov)ov.remove()};document.body.appendChild(ov);box.querySelector(".mq").focus()}
 
   /* ---------- tema y estilos ---------- */
-  function applyStyles(){chart.setStyles(deep(themeStyles(theme==="light"),extra))}
+  /* leyenda de una línea como TradingView: mercado · temporalidad · O H L C y cambio */
+  function legend(){const light=theme==="light",tx=light?"#5c616b":"#9da1aa",up=((extra.candle||{}).bar||{}).upColor||"#089981",dn=((extra.candle||{}).bar||{}).downColor||"#f23645",fg=light?"#15171c":"#ececee";
+    return(d)=>{const c=d.current;if(!c)return[];const p=d.prev||c,col=c.close>=c.open?up:dn,pp=sym.pricePrecision||3,f=v=>(+v).toFixed(pp),ch=c.close-p.close,pc=p.close?ch/p.close*100:0;
+      return[{title:{text:`${sym.name||sym.ticker} · ${per.text}`,color:fg},value:{text:"",color:fg}},{title:{text:"O",color:tx},value:{text:f(c.open),color:col}},{title:{text:"H",color:tx},value:{text:f(c.high),color:col}},
+        {title:{text:"L",color:tx},value:{text:f(c.low),color:col}},{title:{text:"C",color:tx},value:{text:f(c.close),color:col}},{title:{text:"",color:tx},value:{text:`${ch>=0?"+":""}${f(ch)} (${ch>=0?"+":""}${pc.toFixed(2)}%)`,color:ch>=0?up:dn}}]}}
+  function applyStyles(){chart.setStyles(deep(deep(themeStyles(theme==="light"),extra),{yAxis:{type:axisType},candle:{tooltip:{showRule:"always",showType:"standard",custom:legend(),text:{size:12,marginLeft:10,marginTop:8,marginRight:10}}}}))}
   new ResizeObserver(()=>chart.resize()).observe(chartEl);
 
   /* inicio */
