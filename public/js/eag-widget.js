@@ -113,7 +113,7 @@ function registerAll(){
     if([0,3,7].includes(i))Lp=X;if([1,2,5].includes(i))Rp=X;if([0,1,4].includes(i))T=pp.value;if([2,3,6].includes(i))B=pp.value;
     const np=boxPts(Object.assign({},Lp,{value:T}),Object.assign({},Rp,{value:B}));
     np.forEach((p,k)=>{points[k].timestamp=p.timestamp;points[k].dataIndex=p.dataIndex;points[k].value=p.value})};
-  [["eagZone","zoneR"],["eagRect","rect"],["eagBuyZone","buy"],["eagSellZone","sell"]].forEach(([n,k])=>KC.registerOverlay({name:n,totalStep:3,needDefaultPointFigure:true,needDefaultXAxisFigure:true,needDefaultYAxisFigure:true,
+  [["eagZone","zoneR"],["eagRect","rect"],["eagBuyZone","buy"],["eagSellZone","sell"]].forEach(([n,k])=>KC.registerOverlay({name:n,totalStep:3,needDefaultPointFigure:true,needDefaultXAxisFigure:false,needDefaultYAxisFigure:true,
     createPointFigures:boxFig(k),performEventPressedMove:boxMove}));
   /* Línea horizontal con precio (como TradingView) */
   /* indicadores extra */

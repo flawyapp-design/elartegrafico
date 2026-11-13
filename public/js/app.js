@@ -2,6 +2,8 @@
    Prohibida su copia, modificación o distribución sin autorización escrita. */
 (function(){
 "use strict";
+/* sin zoom de página (pellizco en iPhone): se siente como una app */
+["gesturestart","gesturechange"].forEach(ev=>document.addEventListener(ev,e=>e.preventDefault(),{passive:false}));
 const API=window.AGAPI, CFG=window.AG_CONFIG||{}, Chart=window.AGChart;
 const $=(s,r=document)=>r.querySelector(s), $$=(s,r=document)=>[...r.querySelectorAll(s)];
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
