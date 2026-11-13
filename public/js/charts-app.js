@@ -91,7 +91,7 @@ const gate=(h1,p,btns)=>{app.innerHTML=`<div class="gate"><img src="assets/logo_
   try{await API.init()}catch(e){}
   if(!API.user())return gate("EAG Charts","Gráficos en vivo de Boom y Crash, sintéticos, forex y más, con herramientas de análisis. Ingresa con tu cuenta de El Arte Gráfico.",`<a class="btn gold" href="${MAIN}#entrar">Ingresar</a><a class="btn" href="${MAIN}#registro">Crear cuenta</a>`);
   if(!(API.isPremium()||API.isAdmin()))return gate("Exclusivo para miembros","EAG Charts está incluido en los planes de El Arte Gráfico. Activa tu plan y vuelve a esta página.",`<a class="btn gold" href="${MAIN}#premium">Ver planes</a><a class="btn" href="${ACAD}">Ir a la academia</a>`);
-  if(!window.klinechartspro||!window.klinecharts)return gate("No se pudo cargar","Revisa tu conexión y recarga la página.",`<button class="btn gold" onclick="location.reload()">Recargar</button>`);
+  if(!window.klinecharts||!window.EAGWidget)return gate("No se pudo cargar","Revisa tu conexión y recarga la página.",`<button class="btn gold" onclick="location.reload()">Recargar</button>`);
   start();
 })();
 
@@ -203,18 +203,10 @@ function start(){
     pop.querySelectorAll(".tfr").forEach(r=>r.onclick=e=>{
       const f=e.target.closest("[data-f]");
       if(f){const t=f.dataset.f;SAVE.tfFav=SAVE.tfFav.includes(t)?SAVE.tfFav.filter(x=>x!==t):SAVE.tfFav.concat(t).sort((a,b)=>tfOrder(a)-tfOrder(b));save();decorateAll();if(lay==="mtf")buildMTF();openTF(pane,anchor);return}
-      try{pane.kc.setPeriod(perOf(r.dataset.t))}catch(x){}closePop();setTimeout(()=>{decorateAll();mtfMark()},50)});
+      try{pane.kc.setPeriod(perOf(r.dataset.t))}catch(x){}closePop();afterTF()});
     pop.dataset.for="tf";showPop(anchor,"left")}
-  function decorate(p){
-    const pb=p.el.querySelector(".klinecharts-pro-period-bar");if(!pb)return;
-    let dd=pb.querySelector(".tfdd");
-    if(!dd){dd=document.createElement("span");dd.className="item tfdd";dd.title="Todas las temporalidades";dd.innerHTML=`<b></b>${ICON.caret}`;
-      const sy=pb.querySelector(".symbol");sy&&sy.after(dd);dd.onclick=e=>{e.stopPropagation();pop.hidden||pop.dataset.for!=="tf"?openTF(p,dd):closePop()};
-      pb.querySelectorAll(".item.tools").forEach(t=>{if(!t.title)t.title=t.textContent.trim()})}
-    let cur="";try{cur=p.kc.getPeriod().text}catch(e){}
-    dd.querySelector("b").textContent=cur;
-    pb.querySelectorAll(".item.period").forEach((sp,i)=>{const t=(PERIODS[i]||{}).text;sp.style.display=SAVE.tfFav.includes(t)?"":"none"})}
-  const decorateAll=()=>panes.forEach(decorate);
+  const decorateAll=()=>panes.forEach(p=>{try{p.kc.refreshBar()}catch(e){}});
+  const afterTF=()=>setTimeout(()=>{decorateAll();mtfMark()},30);
 
   /* ---------- gráficos ---------- */
   const DEF=["BOOM1000","CRASH1000","BOOM500","CRASH500","BOOM300N","CRASH300N"];
@@ -258,11 +250,19 @@ function start(){
   function makePane(i){
     const el=document.createElement("div");el.className="pane";el.innerHTML='<div class="kc"></div>';grid.appendChild(el);
     const sv=SAVE.panes[i]||{},sym=sv.s||DEF[i%DEF.length],per=perOf(sv.p||(i===0?"5m":"1m"));
-    const kc=new KP.KLineChartPro({container:el.firstChild,symbol:findInfo(sym),period:per,periods:PERIODS,datafeed:Datafeed(),
-      theme:CF().theme,locale:"es-ES",timezone:TZ,drawingBarVisible:!mobile()&&i===0,mainIndicators:[],subIndicators:[],
-      watermark:'<span style="font:700 18px/1 sans-serif;letter-spacing:.2em;white-space:nowrap;color:rgba(216,176,98,.07)">EL ARTE GRÁFICO</span>'});
-    const p={el,kc};
-    setTimeout(()=>{try{kc.setStyles(styFor())}catch(e){}decorate(p)},0);
+    const p={el,kc:null};
+    const kc=window.EAGWidget({container:el.firstChild,symbol:findInfo(sym),period:per,datafeed:Datafeed(),theme:CF().theme,timezone:TZ,
+      indicators:sv.ind,magnet:SAVE.magnet,lastTools:SAVE.lastTools,
+      getFavTF:()=>SAVE.tfFav,
+      onPickTF:t=>{kc.setPeriod(perOf(t));afterTF()},
+      onTFClick:a=>{setActive(i);pop.hidden||pop.dataset.for!=="tf"?openTF(p,a):closePop()},
+      onSymbolClick:()=>{setActive(i);q.value="";if(mobile())main.classList.add("wlopen");else if(SAVE.hide.wl){SAVE.hide.wl=false;save();applyHide()}renderList();q.focus()},
+      onSettings:a=>{pop.hidden||pop.dataset.for!=="cfg"?openCfg(a):closePop()},
+      onIndicators:d=>{SAVE.panes[i]=Object.assign({},SAVE.panes[i],{ind:d});save()},
+      onMagnet:m=>{SAVE.magnet=m;save()},onLastTools:t=>{SAVE.lastTools=t;save()},
+      onDrawingsChange:tk=>panes.forEach(q2=>{if(q2!==p&&q2.kc&&q2.kc.getSymbol().ticker===tk)q2.kc.reloadDrawings()})});
+    p.kc=kc;
+    setTimeout(()=>{try{kc.setStyles(styFor())}catch(e){}},0);
     el.addEventListener("pointerdown",()=>{if(active!==i)setActive(i)},true);
     return p;
   }
@@ -287,7 +287,7 @@ function start(){
 
   /* ---------- multitemporalidad ---------- */
   let mtf=null;
-  const MINI=()=>({grid:{show:false},candle:{bar:barOf(),tooltip:{showRule:"none"},priceMark:{high:{show:false},low:{show:false},last:{line:{show:false},text:{show:false}}}},
+  const MINI=()=>({grid:{show:false},candle:{bar:barOf(),tooltip:{showRule:"none"},priceMark:{high:{show:false},low:{show:false},last:{show:true,line:{show:true,style:"dashed",size:1},text:{show:false}}}},
     xAxis:{show:false},yAxis:{show:false},crosshair:{show:false},separator:{size:0}});
   function destroyMTF(){if(!mtf)return;mtf.minis.forEach(m=>{hubOff(m.key,m.who);try{KC.dispose(m.mc)}catch(e){}});mtf.el.remove();mtf=null}
   function buildMTF(){
@@ -295,13 +295,17 @@ function start(){
     const el=document.createElement("div");el.className="mtfrow";el.style.setProperty("--n",SAVE.tfFav.length);grid.appendChild(el);
     mtf={el,sym:sym.ticker,minis:[]};
     SAVE.tfFav.forEach((t,i)=>{const per=perOf(t),g=gran(per);
-      const box=document.createElement("button");box.className="mini";box.title="Ver "+tfName(per)+" en grande";box.innerHTML=`<span class="mh"><b>${t}</b><em></em></span><span class="mc"></span>`;el.appendChild(box);
+      const box=document.createElement("button");box.className="mini";box.title="Ver "+tfName(per)+" en grande";box.innerHTML=`<span class="mh"><b>${t}</b><span class="mp"></span><em></em></span><span class="mc"></span>`;el.appendChild(box);
       const mc=box.querySelector(".mc"),c=KC.init(mc,{locale:"es-ES",timezone:TZ,styles:MINI()});
       try{c.setPriceVolumePrecision(sym.pricePrecision||3,0);c.setScrollEnabled(false);c.setZoomEnabled(false);c.setOffsetRightDistance(6)}catch(e){}
       const m={t,box,mc,c,key:sym.ticker+":"+g,who:"mtf"+i+":"+Date.now()};mtf.minis.push(m);
-      feed.ask({ticks_history:sym.ticker,style:"candles",granularity:g,end:"latest",count:60}).then(r=>{if(!mtf||!mtf.minis.includes(m))return;c.applyNewData((r.candles||[]).map(toK));fit(m)}).catch(()=>{});
-      hubOn(m.key,m.who,sym.ticker,g,d=>{try{c.updateData(d)}catch(e){}});
-      box.onclick=()=>{try{panes[0].kc.setPeriod(per)}catch(e){}setTimeout(()=>{decorateAll();mtfMark()},50)}});
+      feed.ask({ticks_history:sym.ticker,style:"candles",granularity:g,end:"latest",count:60}).then(r=>{if(!mtf||!mtf.minis.includes(m))return;const L=(r.candles||[]).map(toK);c.applyNewData(L);fit(m);m.live(L[L.length-1])}).catch(()=>{});
+      const mp=box.querySelector(".mp");
+      const live=d=>{if(!d)return;const ch=(d.close-d.open)/d.open*100;mp.innerHTML=`${(+d.close).toFixed(sym.pricePrecision||3)} <i class="${ch>=0?"up":"dn"}">${ch>=0?"▲":"▼"}${Math.abs(ch).toFixed(2)}%</i>`;
+        box.classList.remove("tick");void box.offsetWidth;box.classList.add("tick")};
+      m.live=live;
+      hubOn(m.key,m.who,sym.ticker,g,d=>{try{c.updateData(d);live(d)}catch(e){}});
+      box.onclick=()=>{try{panes[0].kc.setPeriod(per)}catch(e){}afterTF()}});
     mtfMark();relayout()}
   function fit(m){try{const w=m.mc.clientWidth||200;m.c.resize();m.c.setBarSpace(Math.max(1.5,(w-14)/60))}catch(e){}}
   function mtfResize(){if(mtf)mtf.minis.forEach(fit)}
@@ -309,8 +313,8 @@ function start(){
     mtf.minis.forEach(m=>{const on=m.t===cur;m.box.classList.toggle("on",on);m.box.querySelector("em").textContent=on?"Seleccionada":""})}
 
   /* recordar mercado y temporalidad de cada gráfico; mantener la barra decorada */
-  setInterval(()=>{let ch=false;panes.forEach((p,j)=>{try{const s=p.kc.getSymbol().ticker,t=p.kc.getPeriod().text,o=SAVE.panes[j]||{};if(o.s!==s||o.p!==t){SAVE.panes[j]={s,p:t};ch=true}}catch(e){}});
-    decorateAll();if(ch){save();paintList();paintTabs();if(mtf&&curSym(0)!==mtf.sym)buildMTF();else mtfMark()}},700);
+  setInterval(()=>{let ch=false;panes.forEach((p,j)=>{try{const s=p.kc.getSymbol().ticker,t=p.kc.getPeriod().text,o=SAVE.panes[j]||{};if(o.s!==s||o.p!==t){SAVE.panes[j]=Object.assign({},o,{s,p:t});ch=true}}catch(e){}});
+    if(ch){decorateAll();save();paintList();paintTabs();if(mtf&&curSym(0)!==mtf.sym)buildMTF();else mtfMark()}},700);
 
   /* ---------- panel de mercados y pestañas de favoritos ---------- */
   SAVE.fav=Array.isArray(SAVE.fav)?SAVE.fav:["BOOM1000","CRASH1000","BOOM500","CRASH500"];
