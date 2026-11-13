@@ -115,6 +115,45 @@ const IC={
   caret:'<path d="m6 9 6 6 6-6"/>',
   copy:'<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M4 16V4h12"/>',
   front:'<rect x="9" y="9" width="11" height="11" rx="1"/><path d="M15 9V4H4v11h5"/>'};
+
+/* íconos de cada herramienta (24×24) */
+const P=(x,y)=>`<circle cx="${x}" cy="${y}" r="1.7" fill="currentColor" stroke="none"/>`;
+const TI={
+  segment:'<path d="M5 19 19 5"/>'+P(5,19)+P(19,5),
+  rayLine:'<path d="M5 19 22 2"/>'+P(5,19)+P(13,11),
+  straightLine:'<path d="M1 23 23 1"/>'+P(8,16)+P(16,8),
+  arrow:'<path d="M5 19 19 5M11 5h8v8"/>',
+  horizontalStraightLine:'<path d="M1 12h22"/>'+P(12,12),
+  horizontalRayLine:'<path d="M6 12h17"/>'+P(6,12),
+  horizontalSegment:'<path d="M5 12h14"/>'+P(5,12)+P(19,12),
+  verticalStraightLine:'<path d="M12 1v22"/>'+P(12,12),
+  priceLine:'<path d="M3 14h12"/><rect x="15" y="10.5" width="7" height="7" rx="1.5"/>'+P(5,14),
+  parallelStraightLine:'<path d="M2 15 15 2M9 22 22 9"/>'+P(6,11)+P(13,18),
+  priceChannelLine:'<path d="M2 16 16 2M2 22 22 6"/><path d="M8 20 20 8" stroke-dasharray="2 2"/>',
+  fibonacciLine:'<path d="M3 4h18M3 9h18M3 13h18M3 17h18M3 21h18"/>'+P(3,4)+P(21,21),
+  fibonacciExtension:'<path d="M3 20 9 8l5 7M14 5h8M14 10h8M14 15h8"/>',
+  fibonacciSegment:'<path d="M4 5h10M4 10h12M4 14h14M4 19h16"/>'+P(4,19)+P(14,5),
+  fibonacciSpeedResistanceFan:'<path d="M3 21 21 3M3 21 21 9M3 21 21 15M3 21h18"/>',
+  fibonacciCircle:'<circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="10"/>',
+  fibonacciSpiral:'<path d="M12 12a2 2 0 0 1 2 2 4 4 0 0 1-4 4 6 6 0 0 1-6-6 8 8 0 0 1 8-8 10 10 0 0 1 10 10"/>',
+  gannBox:'<rect x="3" y="3" width="18" height="18"/><path d="M3 21 21 3M3 12h18M12 3v18" stroke-dasharray="2 2"/>',
+  eagZone:'<path d="M3 8h20M3 15h20"/><rect x="3" y="8" width="20" height="7" fill="currentColor" opacity=".18" stroke="none"/>'+P(3,8)+P(9,15),
+  rect:'<rect x="4" y="6" width="16" height="12" rx="1"/>',
+  circle:'<circle cx="12" cy="12" r="8"/>',
+  triangle:'<path d="M12 4 21 20H3z"/>',
+  parallelogram:'<path d="M7 6h14l-4 12H3z"/>',
+  xabcd:'<path d="M2 18 7 6l4 9 5-11 6 14"/>'+P(2,18)+P(7,6)+P(11,15)+P(16,4)+P(22,18),
+  abcd:'<path d="M3 18 9 6l5 9 7-10"/>'+P(3,18)+P(9,6)+P(14,15)+P(21,5),
+  threeWaves:'<path d="M3 18 9 7l5 7 7-10"/>',
+  fiveWaves:'<path d="M2 19 6 11l3 4 5-10 3 6 5-8"/>',
+  eightWaves:'<path d="M1 19l3-6 2 3 3-8 2 4 3-9 3 10 3-4 3 6"/>',
+  anyWaves:'<path d="M2 16c3-8 5 6 8-2s5 6 8-2 3 2 4 0"/>',
+  eagPosition:'<rect x="4" y="4" width="16" height="7" fill="#35c4a2" opacity=".35" stroke="none"/><rect x="4" y="11" width="16" height="7" fill="#ec5b52" opacity=".35" stroke="none"/><path d="M4 11h16"/>',
+  eagMeasure:'<path d="M3 17 17 3l4 4L7 21z"/><path d="m7 13 2 2M10 10l2 2M13 7l2 2"/>',
+  eagText:'<path d="M5 6V4h14v2M12 4v16M9 20h6"/>',
+  simpleAnnotation:'<rect x="3" y="3" width="18" height="10" rx="2"/><path d="M12 13v8"/>'+P(12,21),
+  simpleTag:'<path d="M3 12h7"/><path d="M10 7h9l2 5-2 5h-9z"/>'};
+const tsvg=(k,s=18)=>`<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${TI[k]||""}</svg>`;
 const svg=(k,s=18)=>`<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${IC[k]||""}</svg>`;
 const COLORS=["#d8b062","#f3d88f","#ffffff","#93a1c4","#2f8cff","#35c4a2","#ec5b52","#ff9f1c","#b46cff","#ff5fa2","#00c2d1","#000000"];
 const IND=[ // [nombre, nombre en español, dónde]
@@ -191,8 +230,8 @@ window.EAGWidget=function(o){
   let menu=null;const closeMenu=()=>{if(menu){menu.remove();menu=null}};
   document.addEventListener("pointerdown",e=>{if(menu&&!menu.contains(e.target)&&!e.target.closest(".dg .more"))closeMenu()});
   function paintDbar(){
-    dbar.innerHTML=`<button class="dt" data-k="cross" title="Cursor (cancelar dibujo)">${svg("cross")}</button><button class="dt" data-k="eagMeasure" title="Regla: medir puntos (también Shift + clic)">${svg("ruler")}</button><i class="dsep"></i>`+
-      TOOLS.map(g=>{const cur=lastTool[g.g]||g.items[0][0];return`<div class="dg" data-g="${g.g}"><button class="dt" data-k="${cur}" title="${esc(TNAME[cur])}">${svg(g.g)}</button><button class="more" title="${esc(g.t)}">${svg("caret",9)}</button></div>`}).join("")+
+    dbar.innerHTML=`<button class="dt" data-k="cross" title="Cursor (cancelar dibujo)">${svg("cross")}</button><button class="dt" data-k="eagMeasure" title="Regla: medir puntos (también Shift + clic)">${tsvg("eagMeasure")}</button><i class="dsep"></i>`+
+      TOOLS.map(g=>{const cur=lastTool[g.g]||g.items[0][0];return`<div class="dg" data-g="${g.g}"><button class="dt" data-k="${cur}" title="${esc(TNAME[cur])}">${tsvg(cur)}</button><button class="more" title="${esc(g.t)}">${svg("caret",9)}</button></div>`}).join("")+
       `<i class="dsep"></i><button class="dt tg${magnet!=="normal"?" on":""}" data-x="magnet" title="${magnet==="strong_magnet"?"Imán fuerte":magnet==="weak_magnet"?"Imán débil":"Imán apagado"}">${svg("magnet")}<em>${magnet==="strong_magnet"?"F":magnet==="weak_magnet"?"D":""}</em></button>
       <button class="dt tg${locked?" on":""}" data-x="lock" title="${locked?"Desbloquear dibujos":"Bloquear todos los dibujos"}">${svg(locked?"lock":"unlock")}</button>
       <button class="dt tg${hidden?" on":""}" data-x="hide" title="${hidden?"Mostrar dibujos":"Ocultar todos los dibujos"}">${svg(hidden?"eyeoff":"eye")}</button>
@@ -206,7 +245,7 @@ window.EAGWidget=function(o){
       chart.removeOverlay();ovs.clear();persist();hideStyleBar();paintDbar()};
   }
   function openToolMenu(g,anchor){closeMenu();menu=document.createElement("div");menu.className="wmenu";
-    menu.innerHTML=`<div class="mt">${esc(g.t)}</div>`+g.items.map(([k,t])=>`<button data-k="${k}" class="${(lastTool[g.g]||g.items[0][0])===k?"on":""}">${esc(t)}</button>`).join("");
+    menu.innerHTML=`<div class="mt">${esc(g.t)}</div>`+g.items.map(([k,t])=>`<button data-k="${k}" class="${(lastTool[g.g]||g.items[0][0])===k?"on":""}">${tsvg(k,20)}<span>${esc(t)}</span></button>`).join("");
     document.body.appendChild(menu);const r=anchor.getBoundingClientRect();menu.style.left=(r.right+6)+"px";menu.style.top=Math.min(r.top,innerHeight-menu.offsetHeight-8)+"px";
     menu.querySelectorAll("button").forEach(b=>b.onclick=()=>{lastTool[g.g]=b.dataset.k;o.onLastTools&&o.onLastTools(lastTool);closeMenu();paintDbar();startTool(b.dataset.k)})}
   let drawingId=null;
@@ -253,7 +292,7 @@ window.EAGWidget=function(o){
     const d=JSON.parse(JSON.stringify(v));d.points=d.points.map(p=>({timestamp:p.timestamp+shift,value:p.value}));const nid=makeOverlay(d,false);if(nid){ovs.get(nid).done=true;persist()}}
   function toggleLock(id){const v=ovs.get(id);if(!v)return;v.lock=!v.lock;chart.overrideOverlay({id,lock:v.lock});persist();if(!sbar.hidden)showStyleBar(id)}
   function showStyleBar(id){const v=ovs.get(id);if(!v)return;const c=curStyle(id);
-    sbar.innerHTML=`<span class="sn">${esc(TNAME[v.name]||v.name)}</span><label class="cc" title="Color"><i style="background:${c.color}"></i><input type="color" value="${/^#/.test(c.color)?c.color.slice(0,7):"#d8b062"}"></label>
+    sbar.innerHTML=`<span class="sn">${tsvg(v.name,16)}${esc(TNAME[v.name]||v.name)}</span><label class="cc" title="Color"><i style="background:${c.color}"></i><input type="color" value="${/^#/.test(c.color)?c.color.slice(0,7):"#d8b062"}"></label>
       ${v.name==="eagPosition"?"":`<select title="Grosor">${[1,2,3,4].map(n=>`<option value="${n}" ${+c.size===n?"selected":""}>${n}px</option>`).join("")}</select>
       <select title="Tipo de línea"><option value="solid" ${c.dash==="solid"?"selected":""}>━ Sólida</option><option value="dash" ${c.dash==="dash"?"selected":""}>╍ Guiones</option><option value="dot" ${c.dash==="dot"?"selected":""}>┈ Puntos</option></select>`}
       ${v.name==="eagText"||v.name==="eagZone"?`<button data-a="txt" title="Editar texto">Aa</button>`:""}
@@ -268,7 +307,7 @@ window.EAGWidget=function(o){
   /* menú de clic derecho sobre un dibujo */
   function openCtx(id,e){closeMenu();const v=ovs.get(id);if(!v)return;selId=id;showStyleBar(id);const c=curStyle(id);
     menu=document.createElement("div");menu.className="wmenu ctx";
-    menu.innerHTML=`<div class="mt">${esc(TNAME[v.name]||v.name)}</div>
+    menu.innerHTML=`<div class="mt mti">${tsvg(v.name,15)}${esc(TNAME[v.name]||v.name)}</div>
       <div class="mrow">${COLORS.map(k=>`<button class="sw${c.color===k?" on":""}" data-c="${k}" style="background:${k}" title="${k}"></button>`).join("")}<label class="sw pick" title="Otro color">+<input type="color" value="${/^#/.test(c.color)?c.color.slice(0,7):"#d8b062"}"></label></div>
       ${v.name==="eagPosition"?"":`<div class="ml">Grosor</div><div class="mrow">${[1,2,3,4].map(n=>`<button class="wd${+c.size===n?" on":""}" data-w="${n}" title="${n}px"><i style="height:${n}px"></i></button>`).join("")}</div>
       <div class="ml">Línea</div><div class="mrow">${[["solid","Sólida"],["dash","Guiones"],["dot","Puntos"]].map(([k,t])=>`<button class="ls${c.dash===k?" on":""}" data-d="${k}" title="${t}"><i class="${k}"></i></button>`).join("")}</div>`}
