@@ -719,18 +719,35 @@ function start(){
     chip.onclick=openFeedback;const g=$(".top .grow");g&&g.after(chip)}
 
   /* ======================= TUTORIAL (primera vez) ======================= */
-  const TOUR=[
+  /* tutorial: uno para computador y otro para celular (gestos táctiles) */
+  const isTouchUI=()=>matchMedia("(hover:none)").matches||innerWidth<760;
+  const TOUR_PC=[
     ["👋","Bienvenido a EAG Charts","Gráficos en vivo de Deriv con herramientas profesionales, hechos para tu forma de operar. Te mostramos lo principal en 1 minuto.",null],
     ["📑","Tus mercados favoritos","Arriba tienes tus mercados en pestañas, con precio y % del día. Agrégalos con ☆ en la lista o tocando el nombre del mercado en el gráfico. Arrástralos para ordenarlos.",".ftw"],
-    ["⏱️","Temporalidades","El botón dorado abre todas las temporalidades; marca con ★ las que más usas para tenerlas a un toque. En computador también puedes escribir 15 y Enter.",".wtf"],
-    ["🪟","Varios gráficos y Multi-TF","Elige cuántos gráficos ver a la vez. Cada uno es independiente: su mercado, temporalidad e indicadores. Multi-TF muestra un mercado en todas tus temporalidades: desliza un mini hacia arriba para verlo en grande.",".lay"],
-    ["✏️","Herramientas de dibujo","Un clic usa la herramienta. Doble clic (o mantener presionado) abre la lista del grupo. Con ☆ las mandas a tu barra flotante de favoritas. El pincel ✏️ te deja escribir a mano.",".dbar"],
-    ["🎨","Personaliza cada dibujo","Selecciónalo y cambia color, grosor y tipo de línea. Doble clic abre su ventana de configuración y clic derecho su menú. Se recuerda tu estilo para los próximos. Si te equivocas dibujando, clic derecho cancela.",null],
+    ["⏱️","Temporalidades","El botón dorado abre todas las temporalidades; marca con ★ las que más usas para tenerlas a un clic. También puedes escribir 15 y Enter.",".wtf"],
+    ["🪟","Varios gráficos y Multi-TF","Elige cuántos gráficos ver a la vez. Cada uno es independiente: su mercado, temporalidad e indicadores. Multi-TF muestra un mercado en todas tus temporalidades: arrastra un mini hacia arriba para verlo en grande. El borde de arriba de los minis cambia su alto.",".lay"],
+    ["✏️","Herramientas de dibujo","Un clic usa la herramienta. Doble clic (o mantener presionado) abre la lista del grupo. Con ☆ las mandas a tu barra rápida flotante; la ★ de esta barra la muestra u oculta. El pincel ✏️ te deja escribir a mano.",".dbar"],
+    ["🎨","Personaliza cada dibujo","Selecciónalo: arriba sale su barrita con color, grosor, línea, alerta, candado, duplicar, ⚙ configurar y 🗑 borrar (o tecla Supr). Doble clic abre su ventana y clic derecho su menú. Se recuerda tu estilo para los próximos. Si te equivocas dibujando, clic derecho cancela.",null],
+    ["🧭","Moverte por el gráfico","Rueda del mouse: zoom. Arrastra para moverte, también hacia arriba y abajo. Los botones ‹ › ⟲ ↻ de abajo mueven, vuelven al precio actual o recargan si algo se traba; el 👁 de la esquina los oculta.",null],
     ["📏","Regla y posiciones","Shift + clic mide puntos, %, velas y tiempo. Posición larga o corta: un clic pone la entrada y salen stop y objetivo 1:2 que puedes arrastrar.",null],
-    ["🔔","Alertas al celular","Clic derecho sobre una línea o zona → Crear alerta. Cuando el precio llegue te avisamos al celular, aunque tengas la página cerrada.","#alb"],
-    ["⚙️","Hazlo tuyo","En Configuración eliges tema (Oscuro, Claro o Arte Gráfico), decimales, tamaño de letra para transmitir, marca de agua y qué barras ver. Todo se guarda en tu cuenta.","#cfgb"],
+    ["🔔","Alertas al celular","Selecciona una línea o zona y toca 🔔 en su barrita (o clic derecho → Crear alerta). Cuando el precio llegue te avisamos al celular, aunque tengas la página cerrada.","#alb"],
+    ["⚙️","Hazlo tuyo","En Configuración eliges tema (Oscuro, Claro o Arte Gráfico), decimales, tamaño de letra para transmitir, marca de agua y qué barras ver. Todo se guarda en tu cuenta. Atajos: Alt+T línea, Alt+H horizontal, Ctrl+Z deshacer.","#cfgb"],
     ["✅","¡Listo para analizar!","Puedes volver a ver este tutorial en Configuración → Ayuda y atajos. Datos de Deriv solo para análisis educativo; compara siempre con tu plataforma.",null]];
-  function showTour(i){i=i||0;let ov=$(".tour");if(!ov){ov=document.createElement("div");ov.className="tour";appw.appendChild(ov)}
+  const TOUR_M=[
+    ["👋","Bienvenido a EAG Charts","Gráficos en vivo de Deriv en tu celular. Te mostramos los gestos en 1 minuto.",null],
+    ["📑","Tus mercados","Arriba están tus favoritos en pestañas: desliza para ver más. El botón ☰ abre la lista de todos los mercados; marca ☆ para tenerlos arriba. Toca afuera de la lista para cerrarla.",".ftw"],
+    ["⏱️","Temporalidad","El botón dorado de arriba en la barra lateral abre todas las temporalidades. Marca con ★ las que más usas.",".dbar .dtf"],
+    ["🪟","Multi-TF","Abajo ves el mismo mercado en varias temporalidades: desliza de lado para ver más y toca un mini (o deslízalo hacia arriba) para verlo en grande.",".lay"],
+    ["✏️","Herramientas","Un toque usa la herramienta. Doble toque (o mantener oprimido) abre la lista del grupo; con ☆ la mandas a tu barra rápida. La ★ de abajo en esta barra muestra u oculta la barra rápida.",".dbar"],
+    ["👆","Dibuja arrastrando","Como en MT5: elige rectángulo, zona, línea o regla, pon el dedo donde empieza, arrastra y suelta. Un toque sin arrastrar la pone de tamaño normal para estirarla después. Mientras dibujas el gráfico no se mueve.",null],
+    ["🎨","Editar y borrar","Toca un dibujo (no hace falta atinarle exacto): arriba sale su barrita con 🗑 borrar, ⚙ configurar, color y grosor. Doble toque también abre su configuración. Toca un espacio vacío para soltarlo.",null],
+    ["🔒","Bloquear dibujos","Mantén oprimido un dibujo medio segundo: queda 🔒 bloqueado y ya no se selecciona al tocar, ideal cuando tienes muchos. Mantén oprimido otra vez para desbloquearlo.",null],
+    ["🧭","Mover el gráfico","Arrastra con un dedo para moverte, también hacia arriba y abajo. Pellizca para acercar. Arrastra la escala de precios para estirarla. Los botones ‹ › ⟲ ↻ mueven, vuelven al precio actual o recargan; el 👁 de la esquina los oculta.",".wnavt"],
+    ["🔔","Alertas al celular","Toca una línea o zona y luego 🔔 en su barrita. Cuando el precio llegue te llega una notificación, aunque tengas la app cerrada.","#alb"],
+    ["📲","Instálala como app","Con el botón de descarga de arriba queda en tu pantalla de inicio: pantalla completa, como una app. En iPhone: Safari → Compartir → Agregar a inicio.","#instb"],
+    ["✅","¡Listo para analizar!","Puedes volver a ver este tutorial en Configuración → Ayuda y atajos. Datos de Deriv solo para análisis educativo; compara siempre con tu plataforma.",null]];
+  let TOUR=TOUR_PC;
+  function showTour(i){i=i||0;TOUR=isTouchUI()?TOUR_M:TOUR_PC;let ov=$(".tour");if(!ov){ov=document.createElement("div");ov.className="tour";appw.appendChild(ov)}
     const [ic,t,d,sel]=TOUR[i],el=sel&&$(sel),r=el&&el.offsetParent!==null?el.getBoundingClientRect():null;
     ov.innerHTML=`${r?`<div class="tring" style="left:${r.left-6}px;top:${r.top-6}px;width:${r.width+12}px;height:${r.height+12}px"></div>`:`<div class="tdim"></div>`}
       <div class="tcard" role="dialog" aria-label="Tutorial"><div class="tic">${ic}</div><b>${t}</b><p>${d}</p>
@@ -742,11 +759,11 @@ function start(){
       else if(r.width>innerWidth*.45&&r.height>innerHeight*.3){x=r.left+r.width/2-cw/2;y=r.top+r.height/2-chh/2}
       else{const below=r.bottom+14+chh<innerHeight;y=below?r.bottom+14:Math.max(12,r.top-chh-14);x=r.left+r.width/2-cw/2}
       card.style.left=Math.max(12,Math.min(innerWidth-cw-12,x))+"px";card.style.top=Math.max(12,y)+"px"}
-    const end=()=>{ov.remove();SAVE.tourDone=1;save()};
+    const end=()=>{ov.remove();if(TOUR===TOUR_M)SAVE.tourDoneM=1;else SAVE.tourDone=2;save()};
     ov.querySelector('[data-t="skip"]').onclick=end;
     ov.querySelector('[data-t="next"]').onclick=()=>i<TOUR.length-1?showTour(i+1):end();
     const pv=ov.querySelector('[data-t="prev"]');pv&&(pv.onclick=()=>showTour(i-1))}
-  if(!SAVE.tourDone)setTimeout(()=>showTour(0),1200);
+  if(isTouchUI()?!SAVE.tourDoneM:(SAVE.tourDone||0)<2)setTimeout(()=>showTour(0),1200);
   /* sin zoom de página en celular (pellizcar es para el gráfico, no para la página) */
   ["gesturestart","gesturechange"].forEach(ev=>document.addEventListener(ev,e=>e.preventDefault(),{passive:false}));
   /* evitar selección accidental (doble clic, arrastres) y el menú del navegador, menos en los campos de texto */
