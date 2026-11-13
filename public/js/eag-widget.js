@@ -48,7 +48,7 @@ function registerAll(){
       return[{type:"rect",attrs:{x,y,width:w,height:h},styles:{style:"fill",color:hexA(col,.15)}},
         {type:"line",attrs:{coordinates:[{x:mx,y:a.y},{x:mx,y:b.y}]},styles:{color:col,size:1}},
         {type:"line",attrs:{coordinates:[{x:a.x,y:(a.y+b.y)/2},{x:b.x,y:(a.y+b.y)/2}]},styles:{color:col,size:1,style:"dashed"}},
-        {type:"text",ignoreEvent:true,attrs:{x:mx,y:(up?y:y+h)+(up?-14:14),text:`${d>=0?"+":""}${d.toFixed(pp)} pts (${(d/p[0].value*100).toFixed(2)}%) · ${ticks.toLocaleString("es")} ticks · ${Math.abs(bars)} velas · ${tt}`,align:"center",baseline:"middle"},
+        {type:"text",ignoreEvent:true,attrs:{x:mx,y:(up?y:y+h)+(up?-14:14),text:`${d>=0?"+":""}${d.toFixed(pp)} pts (${(d/p[0].value*100).toFixed(2)}%) · ${Math.abs(bars)} velas · ${tt}`,align:"center",baseline:"middle"},
           styles:{color:"#fff",size:11,backgroundColor:col,paddingLeft:6,paddingRight:6,paddingTop:3,paddingBottom:3,borderRadius:4}}]}});
   /* Texto */
   KC.registerOverlay({name:"eagText",totalStep:2,needDefaultPointFigure:false,needDefaultXAxisFigure:true,needDefaultYAxisFigure:true,
@@ -145,7 +145,7 @@ window.EAGWidget=function(o){
       <button class="wb" data-a="ind" title="Indicadores">${svg("fx")}<span>Indicadores</span></button><button class="wb" data-a="cfg" title="Ajustes del gráfico">${svg("gear")}</button><button class="wb" data-a="shot" title="Captura (descargar imagen)">${svg("cam")}</button><button class="wb" data-a="full" title="Pantalla completa">${svg("full")}</button></div>
     <div class="wbody"><div class="dbar"></div><div class="wchart"><div class="wwm">EL ARTE GRÁFICO</div></div></div>`;
   const $=s=>root.querySelector(s),chartEl=$(".wchart"),dbar=$(".dbar");
-  const chart=KC.init(chartEl,{locale:"es-ES",timezone:o.timezone});
+  const chart=KC.init(chartEl,{locale:"es-ES",timezone:o.timezone});(window.__eagCharts=window.__eagCharts||[]).push(chart);
   let sym=o.symbol,per=o.period,theme=o.theme||"dark",extra={},gen=0,subKey=null,ready=false,selId=null;
   const ind=Object.assign({main:[],sub:{},params:{}},o.indicators||{});ind.sub=ind.sub&&!Array.isArray(ind.sub)?ind.sub:{};
   const ovs=new Map(); // id -> definición guardable
