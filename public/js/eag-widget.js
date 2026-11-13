@@ -283,7 +283,7 @@ window.EAGWidget=function(o){
     if(g!==gen)return;
     const seen=new Set();list=list.filter(k=>!seen.has(k.timestamp)&&seen.add(k.timestamp)).sort((x,y)=>x.timestamp-y.timestamp);
     chart.applyNewData(list,list.length>0);autoScale();ready=true;
-    o.datafeed.subscribe(sym,per,d=>{if(g===gen)chart.updateData(d)});subKey={s:sym,p:per};
+    o.datafeed.subscribe(sym,per,d=>{if(g===gen){chart.updateData(d);cdKick(120)}});subKey={s:sym,p:per};
     restoreDrawings();
   }
   chart.setLoadDataCallback(async({type,data,callback})=>{
@@ -344,6 +344,10 @@ window.EAGWidget=function(o){
       cdl.style.left=ya.left+"px";cdl.style.width=ya.width+"px";cdl.style.top=(pt.y+10)+"px";cdl.hidden=false}catch(e){cdl.hidden=true}}
   const cdlT=setInterval(()=>{if(!root.isConnected)return clearInterval(cdlT);placeCdl()},500);
   try{chart.subscribeAction("onScroll",placeCdl);chart.subscribeAction("onZoom",placeCdl)}catch(e){}
+  /* el reloj de cierre sigue al precio cuadro a cuadro mientras mueves o estiras la escala (antes se actualizaba cada medio segundo y "saltaba") */
+  let cdUntil=0,cdLoop=false;
+  function cdKick(ms){cdUntil=Math.max(cdUntil,Date.now()+(ms||700));if(cdLoop)return;cdLoop=true;const f=()=>{placeCdl();if(Date.now()<cdUntil&&root.isConnected)requestAnimationFrame(f);else cdLoop=false};requestAnimationFrame(f)}
+  ["pointerdown","pointermove","wheel","touchmove"].forEach(ev=>chartEl.addEventListener(ev,e=>{if(ev==="pointermove"&&!e.buttons&&e.pointerType==="mouse")return;cdKick()},{passive:true,capture:true}));
 
   /* ---------- navegación rápida (abajo al centro) ---------- */
   let bs0=null;setTimeout(()=>{try{bs0=chart.getBarSpace()}catch(e){}},0);
