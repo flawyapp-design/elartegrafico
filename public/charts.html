@@ -165,6 +165,9 @@ a{color:var(--gold2)}button,select,input{font:inherit;color:inherit}
 .mh .mp{flex:1;text-align:right;font:600 11px ui-monospace,Menlo,monospace;color:var(--fg);white-space:nowrap;overflow:hidden}
 .mh .mp i{font-style:normal;margin-left:4px}
 .mini.tick{animation:mt .5s}
+.mini{transition:transform .12s}.mini.lift{transform:translateY(var(--lift,0));border-color:var(--gold)}
+.mini.lift::after{content:"↑ Suelta para ver en grande";position:absolute;left:50%;top:-26px;transform:translateX(-50%);background:var(--gold);color:#1a1405;font-size:11px;font-weight:700;padding:3px 9px;border-radius:999px;white-space:nowrap;pointer-events:none}
+.mini.flyup{animation:fu .45s ease-out}@keyframes fu{0%{transform:translateY(0)}40%{transform:translateY(-14px)}100%{transform:none}}
 @keyframes mt{0%{box-shadow:0 0 0 1px rgba(216,176,98,.45) inset}100%{box-shadow:none}}
 .mini.on.tick{animation:none}
 .gate{max-width:520px;margin:12vh auto;padding:28px;text-align:center;border:1px solid var(--line);border-radius:18px;background:var(--bg2)}

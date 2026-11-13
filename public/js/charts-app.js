@@ -295,7 +295,7 @@ function start(){
     const el=document.createElement("div");el.className="mtfrow";el.style.setProperty("--n",SAVE.tfFav.length);grid.appendChild(el);
     mtf={el,sym:sym.ticker,minis:[]};
     SAVE.tfFav.forEach((t,i)=>{const per=perOf(t),g=gran(per);
-      const box=document.createElement("div");box.className="mini";box.innerHTML=`<button class="mh" title="Ver ${tfName(per)} en el gráfico grande"><b>${t}</b><span class="mp"></span><em></em><i class="mz">⤢</i></button><span class="mc" title="Rueda o pellizco: acercar · arrastrar: mover · doble clic: ver en grande"></span>`;el.appendChild(box);
+      const box=document.createElement("div");box.className="mini";box.innerHTML=`<button class="mh" title="Ver ${tfName(per)} en el gráfico grande"><b>${t}</b><span class="mp"></span><em></em><i class="mz">⤢</i></button><span class="mc" title="Toca o desliza hacia arriba: ver en grande · rueda o pellizco: acercar · arrastra a los lados: mover"></span>`;el.appendChild(box);
       const mc=box.querySelector(".mc"),c=KC.init(mc,{locale:"es-ES",timezone:TZ,styles:MINI()});
       try{c.setPriceVolumePrecision(sym.pricePrecision||3,0);c.setScrollEnabled(true);c.setZoomEnabled(true);c.setOffsetRightDistance(6)}catch(e){}
       const m={t,box,mc,c,key:sym.ticker+":"+g,who:"mtf"+i+":"+Date.now()};mtf.minis.push(m);
@@ -305,7 +305,14 @@ function start(){
         box.classList.remove("tick");void box.offsetWidth;box.classList.add("tick")};
       m.live=live;
       hubOn(m.key,m.who,sym.ticker,g,d=>{try{c.updateData(d);live(d)}catch(e){}});
-      const big=()=>{try{panes[0].kc.setPeriod(per)}catch(e){}afterTF()};box.querySelector(".mh").onclick=big;mc.ondblclick=big});
+      const big=()=>{try{panes[0].kc.setPeriod(per)}catch(e){}afterTF();box.classList.add("flyup");setTimeout(()=>box.classList.remove("flyup"),450)};box.querySelector(".mh").onclick=big;
+      /* gesto: deslizar hacia arriba (o un toque simple) pasa esta temporalidad al gráfico grande */
+      let g0=null;
+      mc.addEventListener("pointerdown",e=>{g0={x:e.clientX,y:e.clientY,t:Date.now()}},true);
+      addEventListener("pointermove",e=>{if(!g0)return;const dy=e.clientY-g0.y,dx=e.clientX-g0.x;box.classList.toggle("lift",dy<-14&&Math.abs(dy)>Math.abs(dx));box.style.setProperty("--lift",Math.max(-40,Math.min(0,dy))+"px")});
+      addEventListener("pointerup",e=>{if(!g0)return;const dy=e.clientY-g0.y,dx=e.clientX-g0.x,quick=Date.now()-g0.t<350;g0=null;box.classList.remove("lift");box.style.removeProperty("--lift");
+        if((dy<-30&&Math.abs(dy)>Math.abs(dx)*1.2)||(quick&&Math.abs(dx)<5&&Math.abs(dy)<5))big()});
+      addEventListener("pointercancel",()=>{g0=null;box.classList.remove("lift")})});
     mtfMark();relayout()}
   function fit(m){try{const w=m.mc.clientWidth||200;m.c.resize();m.c.setBarSpace(Math.max(1.5,(w-14)/60))}catch(e){}}
   function mtfResize(){if(mtf)mtf.minis.forEach(m=>{try{m.c.resize()}catch(e){}})}
