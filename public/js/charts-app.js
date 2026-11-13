@@ -289,28 +289,28 @@ function start(){
   const DEF=["BOOM1000","CRASH1000","BOOM500","CRASH500","BOOM300N","CRASH300N"];
   SAVE.panes=Array.isArray(SAVE.panes)?SAVE.panes:[];
   const grid=$("#grid"),panes=[];let active=0;
-  const UP="#35c4a2",DN="#ec5b52",NC="#93a1c4";
+  const UP="#22ab94",DN="#f23645",NC="#9da1aa";
   /* ---------- ajustes del gráfico (tema, fondo, cuadrícula, velas…) ---------- */
   const CDEF={theme:"dark",bg:"",grid:true,up:UP,dn:DN,type:"candle_solid",last:true,hl:true,cross:true,wm:true,axis:true};
   SAVE.cfg=Object.assign({},CDEF,SAVE.cfg||{});
   const CF=()=>SAVE.cfg,light=()=>CF().theme==="light";
   const barOf=()=>{const c=CF();return{upColor:c.up,downColor:c.dn,noChangeColor:NC,upBorderColor:c.up,downBorderColor:c.dn,noChangeBorderColor:NC,upWickColor:c.up,downWickColor:c.dn,noChangeWickColor:NC}};
-  const styFor=()=>{const c=CF(),gc=light()?"rgba(15,26,51,.08)":"rgba(31,50,102,.55)";
+  const styFor=()=>{const c=CF(),gc=light()?"rgba(16,18,24,.06)":"rgba(255,255,255,.045)";
     return{grid:{show:!!c.grid,horizontal:{show:!!c.grid,color:gc},vertical:{show:!!c.grid,color:gc}},
       candle:{type:c.type,bar:barOf(),area:{lineColor:c.up},priceMark:{last:{show:!!c.last,upColor:c.up,downColor:c.dn},high:{show:!!c.hl},low:{show:!!c.hl}}},
       crosshair:{show:!!c.cross},xAxis:{show:!!c.axis},yAxis:{show:!!c.axis}}};
-  const BGS=["#060b1a","#000000","#131722","#0b1d17","#1a1033","#ffffff","#f5f1e6","#eef3fb"];
+  const BGS=["#0b0c0e","#000000","#131722","#0d1512","#15121b","#ffffff","#faf8f3","#f3f5f8"];
   function applyCfg(){const c=CF();
     document.documentElement.classList.toggle("light",light());appw.classList.toggle("h-wm",!c.wm);
-    document.documentElement.style.setProperty("--chartbg",c.bg||(light()?"#ffffff":"#060b1a"));
-    const tc=document.querySelector('meta[name="theme-color"]');tc&&tc.setAttribute("content",light()?"#ffffff":"#060b1a");
+    document.documentElement.style.setProperty("--chartbg",c.bg||(light()?"#ffffff":"#0b0c0e"));
+    const tc=document.querySelector('meta[name="theme-color"]');tc&&tc.setAttribute("content",light()?"#ffffff":"#0b0c0e");
     panes.forEach(p=>{try{if(p.kc.getTheme()!==c.theme)p.kc.setTheme(c.theme)}catch(e){}setTimeout(()=>{try{p.kc.setStyles(styFor())}catch(e){}},40)});
     if(mtf)mtf.minis.forEach(m=>{try{m.c.setStyles({candle:{bar:barOf()}})}catch(e){}})}
   function openCfg(anchor){const c=CF();
     const tg=(k,t)=>`<label class="sw"><input type="checkbox" data-k="${k}" ${c[k]?"checked":""}><i></i><span>${t}</span></label>`;
     const TYPES=[["candle_solid","Velas"],["candle_stroke","Huecas"],["ohlc","Barras"],["area","Área"]];
     pop.innerHTML=`<div class="ph">Tema</div><div class="seg">${[["dark","Oscuro"],["light","Claro"]].map(([v,t])=>`<button data-th="${v}" class="${c.theme===v?"on":""}">${t}</button>`).join("")}</div>
-      <div class="ph">Fondo del gráfico</div><div class="sws">${BGS.map(b=>`<button class="swc${(c.bg||"")===b?" on":""}" data-bg="${b}" style="background:${b}" title="${b}"></button>`).join("")}<label class="swc pick" title="Otro color"><input type="color" data-bgp value="${c.bg||(light()?"#ffffff":"#060b1a")}">+</label><button class="swc auto${c.bg?"":" on"}" data-bg="" title="Según el tema">A</button></div>
+      <div class="ph">Fondo del gráfico</div><div class="sws">${BGS.map(b=>`<button class="swc${(c.bg||"")===b?" on":""}" data-bg="${b}" style="background:${b}" title="${b}"></button>`).join("")}<label class="swc pick" title="Otro color"><input type="color" data-bgp value="${c.bg||(light()?"#ffffff":"#0b0c0e")}">+</label><button class="swc auto${c.bg?"":" on"}" data-bg="" title="Según el tema">A</button></div>
       <div class="ph">Velas</div><div class="seg">${TYPES.map(([v,t])=>`<button data-ty="${v}" class="${c.type===v?"on":""}">${t}</button>`).join("")}</div>
       <div class="cols"><label>Alcista <input type="color" data-col="up" value="${c.up}"></label><label>Bajista <input type="color" data-col="dn" value="${c.dn}"></label></div>
       <div class="ph">Mostrar</div>${tg("grid","Cuadrícula")}${tg("axis","Ejes de precio y hora")}${tg("last","Línea del último precio")}${tg("hl","Máximo y mínimo visibles")}${tg("cross","Cruz del cursor")}${tg("wm","Marca de agua")}
@@ -431,7 +431,7 @@ function start(){
   function paintList(){
     const cur=new Set();for(let j=0;j<visible();j++){const s=curSym(j);s&&cur.add(s)}
     const act=curSym(active);
-    list.querySelectorAll(".sy").forEach(r=>{const s=r.dataset.s;r.classList.toggle("on",s===act);r.style.boxShadow=cur.has(s)&&s!==act?"inset 3px 0 0 rgba(216,176,98,.5)":"";paintRow(r)})}
+    list.querySelectorAll(".sy").forEach(r=>{const s=r.dataset.s;r.classList.toggle("on",s===act);r.style.boxShadow=cur.has(s)&&s!==act?"inset 3px 0 0 var(--gold)":"";paintRow(r)})}
   function paintRow(r){const s=r.dataset.s,i=bySym[s]||{},c=chg(s),pe=r.querySelector("[data-p]"),ce=r.querySelector("[data-c]");
     pe.textContent=fmt(last[s],i);pe.className="p "+(dir[s]||"");if(c!=null){ce.textContent=(c>=0?"+":"")+c.toFixed(2)+"%";ce.className="c "+(c>=0?"up":"dn")}else ce.textContent=""}
   function renderTabs(){

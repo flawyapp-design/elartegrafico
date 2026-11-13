@@ -6,7 +6,7 @@
 "use strict";
 const KC=window.klinecharts;
 const esc=s=>String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[c]);
-const GOLD="#d8b062";
+const GOLD="#e2b55c";
 const DKEY="eag_draw_v1";
 const loadD=()=>{try{return JSON.parse(localStorage.getItem(DKEY)||"{}")||{}}catch(e){return{}}};
 const saveD=d=>{try{localStorage.setItem(DKEY,JSON.stringify(d))}catch(e){}};
@@ -24,23 +24,23 @@ function registerAll(){
       const p=overlay.points,pp=(precision&&precision.price)||3,e=coordinates[0],s=coordinates[1],t=coordinates[2]||{x:s.x,y:e.y-(s.y-e.y)*2};
       const x1=Math.min(e.x,s.x),x2=Math.max(e.x,s.x,t.x||s.x),w=Math.max(x2-x1,40);
       const ev=p[0].value,sv=p[1].value,tv=p[2]?p[2].value:ev+(ev-sv)*2,risk=Math.abs(ev-sv),rew=Math.abs(tv-ev),long=sv<ev;
-      const ex=overlay.extendData||{};const cu=ex.up||"#35c4a2",cd=ex.dn||"#ec5b52";
+      const ex=overlay.extendData||{};const cu=ex.up||"#22ab94",cd=ex.dn||"#f23645";
       const pct=v=>(v/ev*100).toFixed(2)+"%";
       const lab=(x,y,txt,bg)=>({type:"text",ignoreEvent:true,attrs:{x,y,text:txt,align:"center",baseline:"middle"},styles:{color:"#fff",size:11,backgroundColor:bg,paddingLeft:6,paddingRight:6,paddingTop:3,paddingBottom:3,borderRadius:4}});
       const cx=x1+w/2;
       return[
         {type:"rect",attrs:{x:x1,y:Math.min(e.y,t.y),width:w,height:Math.abs(t.y-e.y)},styles:{style:"fill",color:hexA(cu,.18)}},
         {type:"rect",attrs:{x:x1,y:Math.min(e.y,s.y),width:w,height:Math.abs(s.y-e.y)},styles:{style:"fill",color:hexA(cd,.18)}},
-        {type:"line",attrs:{coordinates:[{x:x1,y:e.y},{x:x1+w,y:e.y}]},styles:{color:"#93a1c4",size:1}},
+        {type:"line",attrs:{coordinates:[{x:x1,y:e.y},{x:x1+w,y:e.y}]},styles:{color:"#9da1aa",size:1}},
         lab(cx,t.y+(t.y<e.y?-10:10),`Objetivo ${fmt(tv,pp)} (${pct(rew)})`,cu),
         lab(cx,s.y+(s.y<e.y?-10:10),`Stop ${fmt(sv,pp)} (${pct(risk)})`,cd),
-        lab(cx,e.y,`${long?"Largo":"Corto"} · R:B 1:${risk?(rew/risk).toFixed(2):"—"}`,"#0e1a3d")]}});
+        lab(cx,e.y,`${long?"Largo":"Corto"} · R:B 1:${risk?(rew/risk).toFixed(2):"—"}`,"#2a2d35")]}});
   /* Medir: diferencia de precio, %, velas y tiempo */
   KC.registerOverlay({name:"eagMeasure",totalStep:3,needDefaultPointFigure:true,needDefaultXAxisFigure:true,needDefaultYAxisFigure:true,
     createPointFigures:({overlay,coordinates,precision})=>{
       if(coordinates.length<2)return[];
       const[a,b]=coordinates,p=overlay.points,pp=(precision&&precision.price)||3;
-      const d=p[1].value-p[0].value,up=d>=0,col=up?"#2f8cff":"#ec5b52",pip=Math.pow(10,-pp),ticks=Math.round(Math.abs(d)/pip);
+      const d=p[1].value-p[0].value,up=d>=0,col=up?"#2962ff":"#f23645",pip=Math.pow(10,-pp),ticks=Math.round(Math.abs(d)/pip);
       const bars=(p[1].dataIndex!=null&&p[0].dataIndex!=null)?p[1].dataIndex-p[0].dataIndex:0;
       const ms=Math.abs((p[1].timestamp||0)-(p[0].timestamp||0)),mins=Math.round(ms/6e4);
       const tt=mins>=1440?Math.floor(mins/1440)+"d "+Math.floor(mins%1440/60)+"h":mins>=60?Math.floor(mins/60)+"h "+(mins%60)+"m":mins+"m";
@@ -72,7 +72,7 @@ function registerAll(){
       return K.map((v,i)=>{if(v==null)return{};let ok=true,s=0;for(let j=i-sd+1;j<=i;j++){if(K[j]==null)ok=false;else s+=K[j]}return ok?{k:v,d:s/sd}:{k:v}})}});
   KC.registerIndicator({name:"DONCHIAN",shortName:"Donchian",series:"price",precision:2,calcParams:[20],shouldOhlc:true,figures:[{key:"up",title:"Sup: ",type:"line"},{key:"mid",title:"Med: ",type:"line"},{key:"dn",title:"Inf: ",type:"line"}],
     calc:(L,ind)=>{const n=ind.calcParams[0];return L.map((k,i)=>{if(i<n-1)return{};let hh=-Infinity,ll=Infinity;for(let j=i-n+1;j<=i;j++){hh=Math.max(hh,L[j].high);ll=Math.min(ll,L[j].low)}return{up:hh,dn:ll,mid:(hh+ll)/2}})}});
-  KC.registerIndicator({name:"SUPERTREND",shortName:"SuperTrend",series:"price",precision:2,calcParams:[10,3],shouldOhlc:true,figures:[{key:"up",title:"Alcista: ",type:"line",styles:()=>({color:"#35c4a2"})},{key:"dn",title:"Bajista: ",type:"line",styles:()=>({color:"#ec5b52"})}],
+  KC.registerIndicator({name:"SUPERTREND",shortName:"SuperTrend",series:"price",precision:2,calcParams:[10,3],shouldOhlc:true,figures:[{key:"up",title:"Alcista: ",type:"line",styles:()=>({color:"#22ab94"})},{key:"dn",title:"Bajista: ",type:"line",styles:()=>({color:"#f23645"})}],
     calc:(L,ind)=>{const[n,m]=ind.calcParams;let atr=null,fu=0,fl=0,trend=1;
       return L.map((k,i)=>{const pc=i?L[i-1].close:k.close,tr=Math.max(k.high-k.low,Math.abs(k.high-pc),Math.abs(k.low-pc));
         atr=atr==null?tr:(atr*(n-1)+tr)/n;if(i<n)return{};const hl=(k.high+k.low)/2,bu=hl+m*atr,bl=hl-m*atr;
@@ -148,14 +148,14 @@ const TI={
   fiveWaves:'<path d="M2 19 6 11l3 4 5-10 3 6 5-8"/>',
   eightWaves:'<path d="M1 19l3-6 2 3 3-8 2 4 3-9 3 10 3-4 3 6"/>',
   anyWaves:'<path d="M2 16c3-8 5 6 8-2s5 6 8-2 3 2 4 0"/>',
-  eagPosition:'<rect x="4" y="4" width="16" height="7" fill="#35c4a2" opacity=".35" stroke="none"/><rect x="4" y="11" width="16" height="7" fill="#ec5b52" opacity=".35" stroke="none"/><path d="M4 11h16"/>',
+  eagPosition:'<rect x="4" y="4" width="16" height="7" fill="#22ab94" opacity=".35" stroke="none"/><rect x="4" y="11" width="16" height="7" fill="#f23645" opacity=".35" stroke="none"/><path d="M4 11h16"/>',
   eagMeasure:'<path d="M3 17 17 3l4 4L7 21z"/><path d="m7 13 2 2M10 10l2 2M13 7l2 2"/>',
   eagText:'<path d="M5 6V4h14v2M12 4v16M9 20h6"/>',
   simpleAnnotation:'<rect x="3" y="3" width="18" height="10" rx="2"/><path d="M12 13v8"/>'+P(12,21),
   simpleTag:'<path d="M3 12h7"/><path d="M10 7h9l2 5-2 5h-9z"/>'};
 const tsvg=(k,s=18)=>`<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${TI[k]||""}</svg>`;
-const svg=(k,s=18)=>`<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${IC[k]||""}</svg>`;
-const COLORS=["#d8b062","#f3d88f","#ffffff","#93a1c4","#2f8cff","#35c4a2","#ec5b52","#ff9f1c","#b46cff","#ff5fa2","#00c2d1","#000000"];
+const svg=(k,s=18)=>`<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${IC[k]||""}</svg>`;
+const COLORS=["#e2b55c","#f3d08a","#ffffff","#9da1aa","#2962ff","#22ab94","#f23645","#ff9800","#9c27b0","#e91e63","#00bcd4","#000000"];
 const IND=[ // [nombre, nombre en español, dónde]
   ["MA","Media móvil (MA)","main"],["EMA","Media exponencial (EMA)","main"],["SMA","Media suavizada (SMA)","main"],["WMA","Media ponderada (WMA)","main"],
   ["BOLL","Bandas de Bollinger","main"],["DONCHIAN","Canales de Donchian","main"],["SUPERTREND","SuperTrend","main"],["SAR","SAR parabólico","main"],["BBI","BBI (promedio de medias)","main"],
@@ -165,14 +165,14 @@ const INDN={};IND.forEach(i=>INDN[i[0]]=i[1]);
 
 /* estilos del motor según el tema */
 function themeStyles(light){
-  const tx=light?"#4b5a7c":"#93a1c4",ln=light?"#dbe2ef":"#1f3266",cb=light?"#4b5a7c":"#2b4282";
-  const axis={axisLine:{color:ln},tickLine:{color:ln},tickText:{color:tx}};
-  const ch={line:{color:light?"#7d8aa8":"#64739a"},text:{backgroundColor:cb,borderColor:cb,color:"#fff"}};
+  const tx=light?"#5c616b":"#9da1aa",ln=light?"#e5e6e9":"#24262c",cb=light?"#15171c":"#363a45";
+  const axis={axisLine:{color:ln},tickLine:{color:ln},tickText:{color:tx,size:11}};
+  const ch={line:{color:light?"#9aa0aa":"#5d626c",style:"dashed",dashedValue:[4,4]},text:{backgroundColor:cb,borderColor:cb,color:"#fff"}};
   return{xAxis:axis,yAxis:axis,separator:{color:ln},crosshair:{horizontal:ch,vertical:ch},
-    candle:{tooltip:{text:{color:tx}},priceMark:{high:{color:tx},low:{color:tx}}},indicator:{tooltip:{text:{color:tx}}},
+    candle:{tooltip:{text:{color:tx,size:11}},priceMark:{high:{color:tx},low:{color:tx}}},indicator:{tooltip:{text:{color:tx,size:11}}},
     overlay:{line:{color:GOLD,size:1},point:{color:GOLD,borderColor:hexA(GOLD,.35),activeColor:GOLD,activeBorderColor:hexA(GOLD,.35)},
       rect:{color:hexA(GOLD,.12),borderColor:GOLD},polygon:{color:hexA(GOLD,.12),borderColor:GOLD},circle:{color:hexA(GOLD,.12),borderColor:GOLD},arc:{color:GOLD},
-      text:{color:GOLD},rectText:{color:"#1a1405",backgroundColor:GOLD,borderColor:GOLD}}};
+      text:{color:GOLD},rectText:{color:"#16120a",backgroundColor:GOLD,borderColor:GOLD}}};
 }
 const deep=(a,b)=>{for(const k in b){if(b[k]&&typeof b[k]==="object"&&!Array.isArray(b[k])){a[k]=deep(a[k]&&typeof a[k]==="object"?a[k]:{},b[k])}else a[k]=b[k]}return a};
 
@@ -221,7 +221,7 @@ window.EAGWidget=function(o){
   $(".wtf").onclick=e=>{e.stopPropagation();o.onTFClick&&o.onTFClick($(".wtf"))};
   root.querySelector('[data-a="ind"]').onclick=e=>{e.stopPropagation();openInd()};
   root.querySelector('[data-a="cfg"]').onclick=e=>{e.stopPropagation();o.onSettings&&o.onSettings(e.currentTarget)};
-  root.querySelector('[data-a="shot"]').onclick=()=>{try{const bg=getComputedStyle(root).getPropertyValue("--chartbg").trim()||(theme==="light"?"#ffffff":"#060b1a");
+  root.querySelector('[data-a="shot"]').onclick=()=>{try{const bg=getComputedStyle(root).getPropertyValue("--chartbg").trim()||(theme==="light"?"#ffffff":"#0b0c0e");
     const url=chart.getConvertPictureUrl(true,"png",bg),a=document.createElement("a");a.href=url;a.download=`EAG_${sym.ticker}_${per.text}.png`;document.body.appendChild(a);a.click();a.remove()}catch(e){}};
   root.querySelector('[data-a="full"]').onclick=()=>{const el=root.closest(".pane")||root;document.fullscreenElement?document.exitFullscreen():(el.requestFullscreen&&el.requestFullscreen())};
 
@@ -303,7 +303,7 @@ window.EAGWidget=function(o){
     const d=JSON.parse(JSON.stringify(v));d.points=d.points.map(p=>({timestamp:p.timestamp+shift,value:p.value}));const nid=makeOverlay(d,false);if(nid){ovs.get(nid).done=true;persist()}}
   function toggleLock(id){const v=ovs.get(id);if(!v)return;v.lock=!v.lock;chart.overrideOverlay({id,lock:v.lock});persist();if(!sbar.hidden)showStyleBar(id)}
   function showStyleBar(id){const v=ovs.get(id);if(!v)return;const c=curStyle(id);
-    sbar.innerHTML=`<span class="sn">${tsvg(v.name,16)}${esc(TNAME[v.name]||v.name)}</span><label class="cc" title="Color"><i style="background:${c.color}"></i><input type="color" value="${/^#/.test(c.color)?c.color.slice(0,7):"#d8b062"}"></label>
+    sbar.innerHTML=`<span class="sn">${tsvg(v.name,16)}${esc(TNAME[v.name]||v.name)}</span><label class="cc" title="Color"><i style="background:${c.color}"></i><input type="color" value="${/^#/.test(c.color)?c.color.slice(0,7):GOLD}"></label>
       ${v.name==="eagPosition"?"":`<select title="Grosor">${[1,2,3,4].map(n=>`<option value="${n}" ${+c.size===n?"selected":""}>${n}px</option>`).join("")}</select>
       <select title="Tipo de línea"><option value="solid" ${c.dash==="solid"?"selected":""}>━ Sólida</option><option value="dash" ${c.dash==="dash"?"selected":""}>╍ Guiones</option><option value="dot" ${c.dash==="dot"?"selected":""}>┈ Puntos</option></select>`}
       ${v.name==="eagText"||v.name==="eagZone"?`<button data-a="txt" title="Editar texto">Aa</button>`:""}
@@ -319,7 +319,7 @@ window.EAGWidget=function(o){
   function openCtx(id,e){closeMenu();const v=ovs.get(id);if(!v)return;selId=id;showStyleBar(id);const c=curStyle(id);
     menu=document.createElement("div");menu.className="wmenu ctx";
     menu.innerHTML=`<div class="mt mti">${tsvg(v.name,15)}${esc(TNAME[v.name]||v.name)}</div>
-      <div class="mrow">${COLORS.map(k=>`<button class="sw${c.color===k?" on":""}" data-c="${k}" style="background:${k}" title="${k}"></button>`).join("")}<label class="sw pick" title="Otro color">+<input type="color" value="${/^#/.test(c.color)?c.color.slice(0,7):"#d8b062"}"></label></div>
+      <div class="mrow">${COLORS.map(k=>`<button class="sw${c.color===k?" on":""}" data-c="${k}" style="background:${k}" title="${k}"></button>`).join("")}<label class="sw pick" title="Otro color">+<input type="color" value="${/^#/.test(c.color)?c.color.slice(0,7):GOLD}"></label></div>
       ${v.name==="eagPosition"?"":`<div class="ml">Grosor</div><div class="mrow">${[1,2,3,4].map(n=>`<button class="wd${+c.size===n?" on":""}" data-w="${n}" title="${n}px"><i style="height:${n}px"></i></button>`).join("")}</div>
       <div class="ml">Línea</div><div class="mrow">${[["solid","Sólida"],["dash","Guiones"],["dot","Puntos"]].map(([k,t])=>`<button class="ls${c.dash===k?" on":""}" data-d="${k}" title="${t}"><i class="${k}"></i></button>`).join("")}</div>`}
       ${isFill(v.name)?`<div class="ml">Relleno</div><div class="mrow">${[0,.08,.16,.3,.5].map(a=>`<button class="fa" data-f="${a}" title="${Math.round(a*100)}%"><i style="background:${hexA(c.color,a||.0001)};${a?"":"border:1px dashed var(--dim)"}"></i></button>`).join("")}</div>`:""}
