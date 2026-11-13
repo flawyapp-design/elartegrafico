@@ -436,7 +436,7 @@ function start(){
       hubOn(m.key,m.who,sym.ticker,g,d=>{try{c.updateData(d);live(d)}catch(e){}});
       const big=()=>{try{panes[0].kc.setPeriod(per)}catch(e){}afterTF();box.classList.add("flyup");setTimeout(()=>box.classList.remove("flyup"),450)};box.querySelector(".mh").onclick=big;
       /* gesto: deslizar hacia arriba (o un toque simple) pasa esta temporalidad al gráfico grande */
-      mc.addEventListener("pointerdown",e=>{mtfG={box,big,x:e.clientX,y:e.clientY,t:Date.now()}},true)});
+      box.addEventListener("pointerdown",e=>{if(e.target.closest(".mh"))return;mtfG={box,big,x:e.clientX,y:e.clientY,t:Date.now()}},true)});
     mtfMark();relayout()}
   /* gesto de la multitemporalidad: un solo juego de escuchadores para todos los mini gráficos */
   let mtfG=null;
