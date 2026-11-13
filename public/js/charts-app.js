@@ -177,6 +177,8 @@ function start(){
   /* ---------- qué se ve y qué no ---------- */
   const PARTS=[["top","Barra superior"],["pb","Barra de temporalidades y herramientas"],["bb","Barra inferior (rangos, reloj y escala)"],["db","Barra de dibujo"],["tf","Barra flotante de dibujos favoritos"],["ft","Pestañas de mercados favoritos"],["wl","Lista de mercados"]];
   SAVE.hide=SAVE.hide&&typeof SAVE.hide==="object"?SAVE.hide:{};
+  /* en celular la barra flotante de favoritos arranca oculta (se activa en Configuración → Barras) */
+  if(innerWidth<=900&&SAVE.hide.tf===undefined)SAVE.hide.tf=true;
   function applyHide(){PARTS.forEach(([k])=>appw.classList.toggle("h-"+k,!!SAVE.hide[k]));if(window.__tfavR)window.__tfavR();relayout();setTimeout(()=>{try{placeFab()}catch(e){}},60)}
   const allHidden=()=>PARTS.every(([k])=>SAVE.hide[k]);
   function openVista(anchor){

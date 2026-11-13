@@ -515,6 +515,7 @@ window.EAGWidget=function(o){
   /* leyenda de una línea como TradingView: mercado · temporalidad · O H L C y cambio */
   function legend(){const light=theme==="light",tx=light?"#5c616b":"#9da1aa",up=((extra.candle||{}).bar||{}).upColor||"#089981",dn=((extra.candle||{}).bar||{}).downColor||"#f23645",fg=light?"#15171c":"#ececee";
     return(d)=>{const c=d.current;if(!c)return[];const p=d.prev||c,col=c.close>=c.open?up:dn,pp=sym.pricePrecision||3,f=v=>(+v).toFixed(pp),ch=c.close-p.close,pc=p.close?ch/p.close*100:0;
+      if(chartEl.clientWidth<520)return[{title:{text:`${sym.shortName||sym.name||sym.ticker} · ${per.text}`,color:fg},value:{text:"",color:fg}},{title:{text:"C",color:tx},value:{text:f(c.close),color:col}},{title:{text:"",color:tx},value:{text:`${ch>=0?"+":""}${pc.toFixed(2)}%`,color:ch>=0?up:dn}}];
       return[{title:{text:`${sym.name||sym.ticker} · ${per.text}`,color:fg},value:{text:"",color:fg}},{title:{text:"O",color:tx},value:{text:f(c.open),color:col}},{title:{text:"H",color:tx},value:{text:f(c.high),color:col}},
         {title:{text:"L",color:tx},value:{text:f(c.low),color:col}},{title:{text:"C",color:tx},value:{text:f(c.close),color:col}},{title:{text:"",color:tx},value:{text:`${ch>=0?"+":""}${f(ch)} (${ch>=0?"+":""}${pc.toFixed(2)}%)`,color:ch>=0?up:dn}}]}}
   function applyStyles(){chart.setStyles(deep(deep(themeStyles(theme==="light"),extra),{yAxis:{type:axisType},candle:{tooltip:{showRule:"always",showType:"standard",custom:legend(),text:{size:12,marginLeft:10,marginTop:8,marginRight:10}}}}))}

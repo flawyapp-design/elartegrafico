@@ -169,7 +169,7 @@ html.light .mini.on .mh em{color:var(--gold)}
 /* navegación rápida del gráfico */
 .wnav{position:absolute;left:50%;bottom:44px;transform:translate(-50%,6px);z-index:4;display:flex;align-items:center;gap:6px;opacity:0;pointer-events:none;transition:opacity .18s,transform .18s}
 .wchart:hover .wnav,.wnav:focus-within{opacity:1;transform:translate(-50%,0);pointer-events:auto}
-@media (hover:none){.wnav{opacity:.85;transform:translate(-50%,0);pointer-events:auto}}
+@media (hover:none){.wnav{opacity:.7;transform:translate(-50%,0);pointer-events:auto;bottom:10px}.wnav button{width:30px;height:30px}}
 .wnav i{width:6px}
 .wnav button{display:grid;place-items:center;width:32px;height:32px;border-radius:9px;border:1px solid var(--line2);background:var(--card);color:var(--fg2);cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.25)}
 .wnav button:hover{color:var(--fg);border-color:var(--gold)}
