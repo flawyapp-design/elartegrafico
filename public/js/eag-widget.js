@@ -26,9 +26,27 @@ function boxPts(a,b){const both=a.dataIndex!=null&&b.dataIndex!=null;
   if(mid.dataIndex==null&&mid.timestamp==null){if(L.dataIndex!=null)mid.dataIndex=L.dataIndex;if(okT(L.timestamp))mid.timestamp=L.timestamp}
   const P=(x,v)=>{const o={value:v};if(x.dataIndex!=null)o.dataIndex=x.dataIndex;if(okT(x.timestamp))o.timestamp=x.timestamp;return o};
   return[P(L,T),P(R,T),P(R,B),P(L,B),P(mid,T),P(R,(T+B)/2),P(mid,B),P(L,(T+B)/2)]}
-let registered=false;
+let registered=false;let EAG_TZ="America/Bogota";
 function registerAll(){
   if(registered)return;registered=true;
+  /* líneas horizontales y verticales: su precio queda SIEMPRE marcado en la regla y su hora abajo en el eje del tiempo
+     (se envuelven las herramientas originales de klinecharts y solo se les agrega la etiqueta) */
+  try{
+    const lineCol=(ov,ds)=>((ov.styles||{}).line||{}).color||((ds||{}).line||{}).color||"#1677ff";
+    const pf=(v,pr)=>(+v).toLocaleString("en-US",{minimumFractionDigits:pr,maximumFractionDigits:pr});
+    const tf=ts=>{try{const d=new Date(ts),o={timeZone:EAG_TZ||undefined,hour12:false};const p=new Intl.DateTimeFormat("en-CA",Object.assign({month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit"},o)).formatToParts(d).reduce((a,x)=>(a[x.type]=x.value,a),{});return `${p.month}-${p.day} ${p.hour==="24"?"00":p.hour}:${p.minute}`}catch(e){return""}};
+    const yLab=({overlay,coordinates,precision,defaultStyles})=>{if(!coordinates.length||!overlay.points||!overlay.points.length)return[];const pr=(precision&&precision.price!=null)?precision.price:2,c=lineCol(overlay,defaultStyles);
+      return[{type:"text",ignoreEvent:true,attrs:{x:0,y:coordinates[0].y,text:pf(overlay.points[0].value,pr),align:"left",baseline:"middle"},styles:{color:"#fff",size:11,backgroundColor:c,paddingLeft:4,paddingRight:4,paddingTop:3,paddingBottom:3,borderRadius:2}}]};
+    const xLab=({overlay,coordinates,defaultStyles})=>{if(!coordinates.length||!overlay.points||!overlay.points.length)return[];const ts=overlay.points[0].timestamp;if(!ts)return[];const c=lineCol(overlay,defaultStyles);
+      return[{type:"text",ignoreEvent:true,attrs:{x:coordinates[0].x,y:3,text:tf(ts),align:"center",baseline:"top"},styles:{color:"#fff",size:11,backgroundColor:c,paddingLeft:5,paddingRight:5,paddingTop:3,paddingBottom:3,borderRadius:2}}]};
+    const KEYS=["totalStep","lock","visible","zLevel","mode","modeSensitivity","extendData","styles","needDefaultPointFigure","needDefaultXAxisFigure","needDefaultYAxisFigure","createPointFigures","createXAxisFigures","createYAxisFigures","performEventPressedMove","performEventMoveForDrawing"];
+    const wrap=(name,axis)=>{const C=KC.getOverlayClass&&KC.getOverlayClass(name);if(!C)return;const inst=new C();if(typeof inst.createPointFigures!=="function")return;
+      const t={name};KEYS.forEach(k=>{if(inst[k]!==undefined&&inst[k]!==null)t[k]=inst[k]});
+      if(axis==="y"){t.needDefaultYAxisFigure=false;t.createYAxisFigures=yLab}else{t.needDefaultXAxisFigure=false;t.createXAxisFigures=xLab}
+      KC.registerOverlay(t)};
+    ["horizontalStraightLine","horizontalRayLine","horizontalSegment"].forEach(n=>wrap(n,"y"));
+    ["verticalStraightLine","verticalRayLine","verticalSegment"].forEach(n=>wrap(n,"x"));
+  }catch(e){console.warn("etiquetas de líneas",e)}
   const fmt=(v,p)=>(+v).toFixed(p);
   /* Posición larga/corta: entrada, stop y objetivo con relación riesgo/beneficio */
   KC.registerOverlay({name:"eagPosition",totalStep:4,needDefaultPointFigure:true,needDefaultXAxisFigure:true,needDefaultYAxisFigure:true,
@@ -287,7 +305,7 @@ window.EAGWidget=function(o){
     <div class="wfoot"><span class="wrng">${[["1D",1],["5D",5],["1M",30],["3M",90],["6M",180],["1A",365],["Todo",0]].map(([t,d])=>`<button data-d="${d}" title="${d?"Ver "+t:"Ver todo el historial cargado"}">${t}</button>`).join("")}</span><span class="wsp"></span>
       <span class="wcd" title="Tiempo para el cierre de la vela"></span><span class="wclk" title="Hora de Colombia (UTC-5)"></span><i class="wsep"></i><button class="wax" data-ax="percentage" title="Escala en porcentaje">%</button><button class="wax" data-ax="log" title="Escala logarítmica">log</button><button class="wax" data-ax="normal" title="Escala normal (automática)">auto</button></div>`;
   const $=s=>root.querySelector(s),chartEl=$(".wchart"),dbar=$(".dbar");
-  const chart=KC.init(chartEl,{locale:"es-ES",timezone:o.timezone});(window.__eagCharts=window.__eagCharts||[]).push(chart);
+  if(o.timezone)EAG_TZ=o.timezone;const chart=KC.init(chartEl,{locale:"es-ES",timezone:o.timezone});(window.__eagCharts=window.__eagCharts||[]).push(chart);
   let sym=o.symbol,per=o.period,theme=o.theme||"dark",extra={},gen=0,subKey=null,ready=false,selId=null;let lastTouch=false;
   const ind=Object.assign({main:[],sub:{},params:{}},o.indicators||{});ind.sub=ind.sub&&!Array.isArray(ind.sub)?ind.sub:{};
   const ovs=new Map(); // id -> definición guardable
