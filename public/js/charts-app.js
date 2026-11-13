@@ -131,7 +131,7 @@ function start(){
         <div class="foot">Datos en vivo de Deriv, solo para análisis educativo. No es asesoría financiera. Compara siempre con tu plataforma antes de operar.</div>
       </aside>
     </div>
-    <button class="fab" id="fab" title="Mostrar barras · arrástralo para moverlo">${ICON.eye}</button>
+    <button class="fab" id="fab" title="Mostrar barras (Esc) · arrástralo para moverlo">${ICON.eye}<span>Mostrar barras</span></button><div class="toast" id="toast" hidden></div>
     <div class="pop" id="pop" hidden></div>
   </div>`;
 
@@ -184,14 +184,15 @@ function start(){
     pop.querySelector('[data-a="rs"]').onclick=()=>{delete SAVE.wlw;delete SAVE.mtfh;SAVE.split={c:.5,r:.5};save();applyLayoutPrefs();closePop()};
     pop.querySelector('[data-a="cfg"]').onclick=()=>openCfg(anchor);
     pop.querySelectorAll("input[data-k]").forEach(i=>i.onchange=()=>{SAVE.hide[i.dataset.k]=!i.checked;save();applyHide();openVista(anchor)});
-    pop.querySelector('[data-a="clean"]').onclick=()=>{const all=!allHidden();PARTS.forEach(([k])=>SAVE.hide[k]=all);save();applyHide();closePop()};
+    pop.querySelector('[data-a="clean"]').onclick=()=>{const all=!allHidden();PARTS.forEach(([k])=>SAVE.hide[k]=all);save();applyHide();closePop();
+      if(all)toast("Modo limpio · toca <b>Mostrar barras</b> o presiona <b>Esc</b> para volver")};
     showPop(anchor,"right")}
   $("#vb").onclick=e=>{e.stopPropagation();pop.hidden||pop.dataset.for!=="vista"?(openVista($("#vb")),pop.dataset.for="vista"):closePop()};
   $("#fteye").onclick=e=>{e.stopPropagation();pop.hidden||pop.dataset.for!=="vista"?(openVista($("#fteye")),pop.dataset.for="vista"):closePop()};
   /* ojito flotante (solo con todas las barras ocultas): en la esquina vacía del gráfico y se puede arrastrar */
   const fab=$("#fab");let fabMoved=false;
   function placeFab(){if(SAVE.fabPos){fab.style.left=clamp(SAVE.fabPos.x,4,innerWidth-40)+"px";fab.style.top=clamp(SAVE.fabPos.y,4,innerHeight-40)+"px";return}
-    const r=grid.getBoundingClientRect();fab.style.left=(r.right-38)+"px";fab.style.top=(r.bottom-34)+"px"}
+    const r=grid.getBoundingClientRect();fab.style.left=(r.right-fab.offsetWidth-10)+"px";fab.style.top=(r.top+10)+"px"}
   fab.addEventListener("pointerdown",e=>{if(e.button!==0)return;const r=fab.getBoundingClientRect(),dx=e.clientX-r.left,dy=e.clientY-r.top,st={x:e.clientX,y:e.clientY};fabMoved=false;try{fab.setPointerCapture(e.pointerId)}catch(x){}
     const mv=ev=>{if(!fabMoved&&Math.hypot(ev.clientX-st.x,ev.clientY-st.y)<5)return;fabMoved=true;SAVE.fabPos={x:Math.round(ev.clientX-dx),y:Math.round(ev.clientY-dy)};placeFab()};
     const up=()=>{fab.removeEventListener("pointermove",mv);fab.removeEventListener("pointerup",up);if(fabMoved)save()};
@@ -204,7 +205,10 @@ function start(){
     pop.style.left=x+"px";pop.style.top=y+"px"}
   function closePop(){pop.hidden=true;pop.dataset.for="";pop.classList.remove("wide");if(shownPick&&shownPick.length){shownPick=[];watch()}}
   document.addEventListener("pointerdown",e=>{if(!pop.hidden&&!pop.contains(e.target)&&!e.target.closest("#vb,#fab,#fteye,#cfgb,.tfdd,.wsym,.wtf,.dmini"))closePop()});
-  addEventListener("keydown",e=>{if(e.key==="Escape")closePop()});
+  addEventListener("keydown",e=>{if(e.key!=="Escape")return;if(!pop.hidden){closePop();return}
+    if(/input|textarea/i.test((document.activeElement||{}).tagName||""))return;
+    if(SAVE.hide.top&&SAVE.hide.ft){PARTS.forEach(([k])=>SAVE.hide[k]=false);save();applyHide()}});
+  let tt=null;function toast(h){const t=$("#toast");t.innerHTML=h;t.hidden=false;t.classList.remove("out");clearTimeout(tt);tt=setTimeout(()=>{t.classList.add("out");setTimeout(()=>t.hidden=true,400)},4200)}
 
   /* ---------- tamaños y posiciones que el usuario acomoda ---------- */
   SAVE.split=SAVE.split&&typeof SAVE.split==="object"?SAVE.split:{c:.5,r:.5};
