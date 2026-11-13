@@ -240,7 +240,7 @@ function start(){
   const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
   function applyLayoutPrefs(){
     appw.classList.toggle("wl-left",!!SAVE.wlLeft);appw.classList.toggle("db-right",!!SAVE.dbRight);
-    appw.style.setProperty("--wlw",(SAVE.wlw||300)+"px");appw.style.setProperty("--mtfh",(SAVE.mtfh||168)+"px");
+    appw.style.setProperty("--wlw",(SAVE.wlw||300)+"px");appw.style.setProperty("--mtfh",(SAVE.mtfh||168)+"px");appw.style.setProperty("--pmh",(SAVE.pmh||140)+"px");
     const c=SAVE.split.c,r=SAVE.split.r;grid.style.setProperty("--cf",c+"fr");grid.style.setProperty("--cf2",(1-c)+"fr");grid.style.setProperty("--rf",r+"fr");grid.style.setProperty("--rf2",(1-r)+"fr");
     placeSplits();relayout()}
   function dragger(el,onMove,onEnd){el.addEventListener("pointerdown",e=>{if(e.button!==0)return;e.preventDefault();el.classList.add("on");appw.classList.add("resizing");try{el.setPointerCapture(e.pointerId)}catch(x){}
@@ -308,7 +308,7 @@ function start(){
       +`<div class="pnote">Las ★ favoritas salen en la barra y en Multitemporalidad.</div>`;
     pop.querySelectorAll(".tfr").forEach(r=>r.onclick=e=>{
       const f=e.target.closest("[data-f]");
-      if(f){const t=f.dataset.f;SAVE.tfFav=SAVE.tfFav.includes(t)?SAVE.tfFav.filter(x=>x!==t):SAVE.tfFav.concat(t).sort((a,b)=>tfOrder(a)-tfOrder(b));save();decorateAll();if(lay==="mtf")buildMTF();openTF(pane,anchor);return}
+      if(f){const t=f.dataset.f;SAVE.tfFav=SAVE.tfFav.includes(t)?SAVE.tfFav.filter(x=>x!==t):SAVE.tfFav.concat(t).sort((a,b)=>tfOrder(a)-tfOrder(b));save();decorateAll();Object.values(MTFS).forEach(M=>buildMTF(M.pi));openTF(pane,anchor);return}
       try{pane.kc.setPeriod(perOf(r.dataset.t))}catch(x){}closePop();afterTF()});
     pop.dataset.for="tf";showPop(anchor,"left")}
   const decorateAll=()=>panes.forEach(p=>{try{p.kc.refreshBar()}catch(e){}});
@@ -338,7 +338,7 @@ function start(){
     document.documentElement.style.setProperty("--chartbg",c.bg||defBg());
     const tc=document.querySelector('meta[name="theme-color"]');tc&&tc.setAttribute("content",defBg());
     panes.forEach(p=>{try{if(p.kc.getTheme()!==c.theme)p.kc.setTheme(c.theme)}catch(e){}setTimeout(()=>{try{p.kc.setStyles(styFor());p.kc.setDecimals()}catch(e){}},40)});
-    if(mtf)mtf.minis.forEach(m=>{try{m.c.setStyles({candle:{bar:barOf()}})}catch(e){}})}
+    Object.values(MTFS).forEach(M=>M.minis.forEach(m=>{try{m.c.setStyles({candle:{bar:barOf()}})}catch(e){}}))}
   function openCfg(anchor){const c=CF();
     const tg=(k,t)=>`<label class="sw"><input type="checkbox" data-k="${k}" ${c[k]?"checked":""}><i></i><span>${t}</span></label>`;
     const TYPES=[["candle_solid","Velas"],["candle_stroke","Huecas"],["ohlc","Barras"],["area","Área"]];
@@ -376,7 +376,7 @@ function start(){
       onTFClick:a=>{setActive(i);pop.hidden||pop.dataset.for!=="tf"?openTF(p,a):closePop()},
       onSymbolClick:anc=>{setActive(i);const a=anc&&anc.nodeType?anc:el.querySelector(".wsym");pop.hidden||pop.dataset.for!=="sym"?openSymPicker(p,a):closePop()},
       onSettings:()=>openSettings("apariencia"),getDecimals:()=>CF().dec,getFont:()=>CF().font,
-      getToolStyle:n=>(SAVE.toolStyles||{})[n],onToolStyle:(n,st)=>{SAVE.toolStyles=Object.assign({},SAVE.toolStyles,{[n]:st});save()},onReload:()=>{if(lay==="mtf"&&i===0)buildMTF()},onToast:t=>toast(t),getAlerts:tk=>ALERTS.filter(a=>a.active&&a.symbol===tk),onCreateAlert:a=>alertDialog(a),
+      getToolStyle:n=>(SAVE.toolStyles||{})[n],onToolStyle:(n,st)=>{SAVE.toolStyles=Object.assign({},SAVE.toolStyles,{[n]:st});save()},onReload:()=>{if(MTFS[i])buildMTF(i)},onToggleMtf:()=>{SAVE.panes[i]=Object.assign({},SAVE.panes[i],{mtf:!(SAVE.panes[i]||{}).mtf});save();syncStrips()},onToast:t=>toast(t),getAlerts:tk=>ALERTS.filter(a=>a.active&&a.symbol===tk),onCreateAlert:a=>alertDialog(a),
       onIndicators:d=>{SAVE.panes[i]=Object.assign({},SAVE.panes[i],{ind:d});save()},
       onMagnet:m=>{SAVE.magnet=m;save()},axisType:sv.ax,onAxisType:t=>{SAVE.panes[i]=Object.assign({},SAVE.panes[i],{ax:t});save()},getToolFav:()=>SAVE.toolFav,onToolFav:k=>{SAVE.toolFav=SAVE.toolFav.includes(k)?SAVE.toolFav.filter(x=>x!==k):SAVE.toolFav.concat(k);save();renderToolFav()},onLastTools:t=>{SAVE.lastTools=t;save()},
       onDrawingsChange:tk=>(window.__eagSync&&window.__eagSync(),panes).forEach(q2=>{if(q2!==p&&q2.kc&&q2.kc.getSymbol().ticker===tk)q2.kc.reloadDrawings()})});
@@ -397,44 +397,48 @@ function start(){
     panes.forEach((p,j)=>p.el.style.display=j<n?"":"none");
     document.querySelectorAll(".lay button").forEach(b=>b.classList.toggle("on",b.dataset.l===k));
     if(active>=n)active=0;
-    k==="mtf"?buildMTF():destroyMTF();
+    if(k==="mtf"&&MTFS[0]&&MTFS[0].el.classList.contains("pstrip"))destroyMTF(0);syncStrips();
     setActive(active);placeSplits();relayout();
   }
   document.querySelectorAll(".lay button").forEach(b=>b.onclick=()=>setLayout(b.dataset.l));
   function setSym(s){const p=panes[active];if(!p)return;
     const targets=[active];
     targets.forEach(j=>{panes[j].kc.setSymbol(findInfo(s));SAVE.panes[j]=Object.assign({},SAVE.panes[j],{s})});save();
-    setTimeout(()=>{if(lay==="mtf"&&active===0)buildMTF();paintList();paintTabs()},60)}
+    setTimeout(()=>{if(MTFS[active])buildMTF(active);paintList();paintTabs()},60)}
 
   /* ---------- multitemporalidad ---------- */
-  let mtf=null;
+  /* multitemporalidad por gráfico: MTFS[i] = tira de mini gráficos del gráfico i (en la vista Multi-TF, la del gráfico 0 va abajo en grande) */
+  const MTFS={};let mtf=null;
   const MINI=()=>({grid:{show:false},candle:{bar:barOf(),tooltip:{showRule:"none"},priceMark:{high:{show:false},low:{show:false},last:{show:true,line:{show:true,style:"dashed",size:1},text:{show:false}}}},
     xAxis:{show:false},yAxis:{show:false},crosshair:{show:false},separator:{size:0}});
-  function destroyMTF(){if(!mtf)return;mtf.minis.forEach(m=>{hubOff(m.key,m.who);try{KC.dispose(m.mc)}catch(e){}});mtf.el.remove();mtf=null}
-  function buildMTF(){
-    destroyMTF();const sym=(()=>{try{return panes[0].kc.getSymbol()}catch(e){return findInfo(DEF[0])}})();
-    const el=document.createElement("div");el.className="mtfrow";el.style.setProperty("--n",SAVE.tfFav.length);grid.appendChild(el);
+  function destroyMTF(pi){pi=pi||0;const m0=MTFS[pi];if(!m0)return;m0.minis.forEach(m=>{hubOff(m.key,m.who);try{KC.dispose(m.mc)}catch(e){}});m0.el.remove();delete MTFS[pi];if(panes[pi])panes[pi].el.classList.remove("withmtf");if(pi===0)mtf=null}
+  function destroyAllMTF(){Object.keys(MTFS).forEach(k=>destroyMTF(+k))}
+  function buildMTF(pi){pi=pi||0;const P=panes[pi];if(!P)return;
+    destroyMTF(pi);const sym=(()=>{try{return P.kc.getSymbol()}catch(e){return findInfo(DEF[0])}})();
+    const inPane=!(lay==="mtf"&&pi===0);
+    const el=document.createElement("div");el.className="mtfrow"+(inPane?" pstrip":"");el.style.setProperty("--n",SAVE.tfFav.length);(inPane?P.el:grid).appendChild(el);if(inPane)P.el.classList.add("withmtf");
     const sp=document.createElement("span");sp.className="mtfsp";sp.title="Arrastra para cambiar el alto · doble clic: alto normal";sp.innerHTML="<i></i>";el.appendChild(sp);
-    dragger(sp,e=>{const r=grid.getBoundingClientRect();SAVE.mtfh=Math.round(clamp(r.bottom-e.clientY,110,r.height*.65));appw.style.setProperty("--mtfh",SAVE.mtfh+"px")});
+    if(inPane){dragger(sp,e=>{const r=P.el.getBoundingClientRect();SAVE.pmh=Math.round(clamp(r.bottom-e.clientY,90,r.height*.6));appw.style.setProperty("--pmh",SAVE.pmh+"px")})}
+    else dragger(sp,e=>{const r=grid.getBoundingClientRect();SAVE.mtfh=Math.round(clamp(r.bottom-e.clientY,110,r.height*.65));appw.style.setProperty("--mtfh",SAVE.mtfh+"px")});
     sp.ondblclick=()=>{delete SAVE.mtfh;save();applyLayoutPrefs()};
-    mtf={el,sym:sym.ticker,minis:[]};
+    const M={el,sym:sym.ticker,minis:[],pi};MTFS[pi]=M;if(pi===0)mtf=M;
     SAVE.tfFav.forEach((t,i)=>{const per=perOf(t),g=gran(per);
       const box=document.createElement("div");box.className="mini";box.innerHTML=`<button class="mh" title="Ver ${tfName(per)} en el gráfico grande"><b>${t}</b><span class="mp"></span><em></em><i class="mz">⤢</i></button><span class="mc" title="Toca o desliza hacia arriba: ver en grande · rueda o pellizco: acercar · arrastra a los lados: mover"></span>`;el.appendChild(box);
       const mc=box.querySelector(".mc"),c=KC.init(mc,{locale:"es-ES",timezone:TZ,styles:MINI()});
       try{c.setPriceVolumePrecision(sym.pricePrecision||3,0);c.setScrollEnabled(true);c.setZoomEnabled(true);c.setOffsetRightDistance(6)}catch(e){}
-      const m={t,box,mc,c,key:sym.ticker+":"+g,who:"mtf"+i+":"+Date.now()};mtf.minis.push(m);
+      const m={t,box,mc,c,key:sym.ticker+":"+g,who:"mtf"+pi+"-"+i+":"+Date.now()};M.minis.push(m);
       /* más pasado: 300 velas, y si arrastras a la izquierda carga más */
       let miniNoMore=false;
       try{c.setLoadDataCallback(async({type,data,callback})=>{if(type!=="forward"||!data||miniNoMore){callback([],false);return}
         try{const r2=await feed.ask({ticks_history:sym.ticker,style:"candles",granularity:g,end:Math.floor((data.timestamp-1)/1000),count:300});
           const L2=(r2.candles||[]).map(toK).filter(k=>k.timestamp<data.timestamp);if(!L2.length)miniNoMore=true;callback(L2,L2.length>0)}catch(e){callback([],false)}})}catch(e){}
-      feed.ask({ticks_history:sym.ticker,style:"candles",granularity:g,end:"latest",count:300}).then(r=>{if(!mtf||!mtf.minis.includes(m))return;const L=(r.candles||[]).map(toK);c.applyNewData(L,true);fit(m);m.live(L[L.length-1])}).catch(()=>{});
+      feed.ask({ticks_history:sym.ticker,style:"candles",granularity:g,end:"latest",count:300}).then(r=>{if(MTFS[pi]!==M)return;const L=(r.candles||[]).map(toK);c.applyNewData(L,true);fit(m);m.live(L[L.length-1])}).catch(()=>{});
       const mp=box.querySelector(".mp");
       const live=d=>{if(!d)return;const ch=(d.close-d.open)/d.open*100;mp.innerHTML=`${(+d.close).toFixed(sym.pricePrecision||3)} <i class="${ch>=0?"up":"dn"}">${ch>=0?"▲":"▼"}${Math.abs(ch).toFixed(2)}%</i>`;
 };
       m.live=live;
       hubOn(m.key,m.who,sym.ticker,g,d=>{try{c.updateData(d);live(d)}catch(e){}});
-      const big=()=>{try{panes[0].kc.setPeriod(per)}catch(e){}afterTF();box.classList.add("flyup");setTimeout(()=>box.classList.remove("flyup"),450)};box.querySelector(".mh").onclick=big;
+      const big=()=>{try{P.kc.setPeriod(per)}catch(e){}afterTF();box.classList.add("flyup");setTimeout(()=>box.classList.remove("flyup"),450)};box.querySelector(".mh").onclick=big;
       /* gesto: deslizar hacia arriba (o un toque simple) pasa esta temporalidad al gráfico grande */
       box.addEventListener("pointerdown",e=>{if(e.target.closest(".mh"))return;mtfG={box,big,x:e.clientX,y:e.clientY,t:Date.now()}},true)});
     mtfMark();relayout()}
@@ -445,13 +449,19 @@ function start(){
     if(g.box.isConnected&&((dy<-30&&Math.abs(dy)>Math.abs(dx)*1.2)||(quick&&Math.abs(dx)<5&&Math.abs(dy)<5)))g.big()});
   addEventListener("pointercancel",()=>{if(mtfG){mtfG.box.classList.remove("lift");mtfG=null}});
   function fit(m){try{const w=m.mc.clientWidth||200;m.c.resize();m.c.setBarSpace(Math.max(1.2,(w-14)/90))}catch(e){}}
-  function mtfResize(){if(mtf)mtf.minis.forEach(m=>{try{m.c.resize()}catch(e){}})}
-  function mtfMark(){if(!mtf)return;let cur="";try{cur=panes[0].kc.getPeriod().text}catch(e){}
-    mtf.minis.forEach(m=>{const on=m.t===cur;m.box.classList.toggle("on",on);m.box.querySelector("em").textContent=on?"●":""})}
+  function mtfResize(){Object.values(MTFS).forEach(M=>M.minis.forEach(m=>{try{m.c.resize()}catch(e){}}))}
+  function mtfMark(){Object.values(MTFS).forEach(M=>{let cur="";try{cur=panes[M.pi].kc.getPeriod().text}catch(e){}
+    M.minis.forEach(m=>{const on=m.t===cur;m.box.classList.toggle("on",on);m.box.querySelector("em").textContent=on?"●":""})})}
+  /* qué gráficos llevan su propia tira: en Multi-TF el 0; en 2 gráficos los que el usuario active */
+  const stripAllowed=()=>lay==="l2"||lay==="l2v";
+  function syncStrips(){Object.keys(MTFS).forEach(k=>{k=+k;const want=lay==="mtf"?k===0:(stripAllowed()&&k<visible()&&!!(SAVE.panes[k]||{}).mtf);if(!want)destroyMTF(k)});
+    if(lay==="mtf"){if(!MTFS[0]||MTFS[0].el.classList.contains("pstrip"))buildMTF(0)}
+    else if(stripAllowed())for(let k=0;k<visible();k++){if((SAVE.panes[k]||{}).mtf&&!MTFS[k])buildMTF(k)}
+    panes.forEach((p,k)=>{try{p.kc.setMtfButton&&p.kc.setMtfButton(stripAllowed()&&k<visible(),!!MTFS[k])}catch(e){}})}
 
   /* recordar mercado y temporalidad de cada gráfico; mantener la barra decorada */
   setInterval(()=>{let ch=false;panes.forEach((p,j)=>{try{const s=p.kc.getSymbol().ticker,t=p.kc.getPeriod().text,o=SAVE.panes[j]||{};if(o.s!==s||o.p!==t){SAVE.panes[j]=Object.assign({},o,{s,p:t});ch=true}}catch(e){}});
-    if(ch){decorateAll();save();paintList();paintTabs();if(mtf&&curSym(0)!==mtf.sym)buildMTF();else mtfMark()}},700);
+    if(ch){decorateAll();save();paintList();paintTabs();Object.values(MTFS).forEach(M=>{if(curSym(M.pi)!==M.sym)buildMTF(M.pi)});mtfMark()}},700);
 
   /* ---------- panel de mercados y pestañas de favoritos ---------- */
   SAVE.fav=Array.isArray(SAVE.fav)?SAVE.fav:["BOOM1000","CRASH1000","BOOM500","CRASH500"];

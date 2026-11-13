@@ -400,6 +400,11 @@ html,body{overscroll-behavior:none}.dbar{overscroll-behavior:contain;touch-actio
 @media (max-width:900px),(hover:none){.mini .mc{pointer-events:none}.mini{touch-action:pan-x}.mtfrow{touch-action:pan-x;-webkit-overflow-scrolling:touch}}
 /* con varios gráficos la barra de cada uno siempre se ve (para cambiar mercado y temporalidad), aunque esté oculta en vista de uno */
 .app.h-pb.multi .wbar{display:flex!important}.app.h-pb.multi .dmini{display:none!important}
+/* multitemporalidad dentro de cada gráfico (vista de 2) */
+.pane.withmtf>.kc{bottom:var(--pmh,140px)!important}
+.mtfrow.pstrip{position:absolute;left:0;right:0;bottom:0;height:var(--pmh,140px);padding:6px;gap:6px;background:var(--bg);border-top:1px solid var(--line);z-index:2}
+.mtfrow.pstrip .mini{padding:6px 6px 3px;border-radius:10px}.mtfrow.pstrip .mh b{font-size:12.5px}.mtfrow.pstrip .mh .mp{font-size:10px}
+.wb.wmtf.on{color:var(--gold2)!important;background:var(--gbg)!important}
 </style>
 </head>
 <body>
