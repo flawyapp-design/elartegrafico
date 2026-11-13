@@ -426,7 +426,7 @@ function start(){
   const MTFS={};let mtf=null;
   const MINI=()=>({grid:{show:false},candle:{bar:barOf(),tooltip:{showRule:"none"},priceMark:{high:{show:false},low:{show:false},last:{show:true,line:{show:true,style:"dashed",size:1},text:{show:false}}}},
     xAxis:{show:false},yAxis:{show:false},crosshair:{show:false},separator:{size:0}});
-  function destroyMTF(pi){pi=pi||0;const m0=MTFS[pi];if(!m0)return;m0.minis.forEach(m=>{hubOff(m.key,m.who);try{KC.dispose(m.mc)}catch(e){}});m0.el.remove();delete MTFS[pi];if(panes[pi])panes[pi].el.classList.remove("withmtf");if(pi===0)mtf=null}
+  function destroyMTF(pi){pi=pi||0;const m0=MTFS[pi];if(!m0)return;m0.minis.forEach(m=>{hubOff(m.key,m.who);try{KC.dispose(m.mc)}catch(e){}});m0.el.remove();m0.dots&&m0.dots.remove();delete MTFS[pi];if(panes[pi])panes[pi].el.classList.remove("withmtf");if(pi===0)mtf=null}
   function destroyAllMTF(){Object.keys(MTFS).forEach(k=>destroyMTF(+k))}
   function buildMTF(pi){pi=pi||0;const P=panes[pi];if(!P)return;
     destroyMTF(pi);const sym=(()=>{try{return P.kc.getSymbol()}catch(e){return findInfo(DEF[0])}})();
@@ -437,6 +437,14 @@ function start(){
     else dragger(sp,e=>{const r=grid.getBoundingClientRect();SAVE.mtfh=Math.round(clamp(r.bottom-e.clientY,110,r.height*.65));appw.style.setProperty("--mtfh",SAVE.mtfh+"px")});
     sp.ondblclick=()=>{delete SAVE.mtfh;save();applyLayoutPrefs()};
     const M={el,sym:sym.ticker,minis:[],pi};MTFS[pi]=M;if(pi===0)mtf=M;
+    /* celular: bolitas de página debajo (2 minis por página) */
+    if(!inPane){const dots=document.createElement("div");dots.className="mtfdots";grid.appendChild(dots);M.dots=dots;
+      const pages=()=>Math.max(1,Math.ceil(SAVE.tfFav.length/2));
+      const paint=()=>{const n=pages(),w=el.clientWidth||1,max=Math.max(1,el.scrollWidth-el.clientWidth),cur=n<2?0:Math.round(el.scrollLeft/max*(n-1));
+        dots.hidden=n<2||!mobile();dots.innerHTML=Array.from({length:n},(_,k)=>`<i class="${k===cur?"on":""}" data-pg="${k}"></i>`).join("")};
+      el.addEventListener("scroll",()=>requestAnimationFrame(paint),{passive:true});
+      dots.addEventListener("click",e=>{const d=e.target.closest("[data-pg]");if(!d)return;const n=pages(),max=el.scrollWidth-el.clientWidth;el.scrollTo({left:n<2?0:max*(+d.dataset.pg)/(n-1),behavior:"smooth"})});
+      setTimeout(paint,300);addEventListener("resize",()=>setTimeout(paint,300))}
     SAVE.tfFav.forEach((t,i)=>{const per=perOf(t),g=gran(per);
       const box=document.createElement("div");box.className="mini";box.innerHTML=`<button class="mh" title="Ver ${tfName(per)} en el gráfico grande"><b>${t}</b><span class="mp"></span><em></em><i class="mz">⤢</i></button><span class="mc" title="Toca o desliza hacia arriba: ver en grande · rueda o pellizco: acercar · arrastra a los lados: mover"></span>`;el.appendChild(box);
       const mc=box.querySelector(".mc"),c=KC.init(mc,{locale:"es-ES",timezone:TZ,styles:MINI()});
