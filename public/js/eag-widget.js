@@ -7,6 +7,7 @@
 const KC=window.klinecharts;
 const esc=s=>String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[c]);
 const GOLD="#e2b55c";
+function safeTop(){let p=document.getElementById("eagSafe");if(!p){p=document.createElement("div");p.id="eagSafe";p.style.cssText="position:fixed;top:0;left:0;width:0;height:0;visibility:hidden;pointer-events:none;padding-top:env(safe-area-inset-top)";document.body.appendChild(p)}return parseFloat(getComputedStyle(p).paddingTop)||0}
 const DKEY="eag_draw_v1";
 const loadD=()=>{try{return JSON.parse(localStorage.getItem(DKEY)||"{}")||{}}catch(e){return{}}};
 const saveD=d=>{try{localStorage.setItem(DKEY,JSON.stringify(d))}catch(e){}};
@@ -531,10 +532,10 @@ window.EAGWidget=function(o){
     document.body.appendChild(menu);
     const r=chartEl.getBoundingClientRect();let x=r.left+((e&&e.x)||40)+(panel?16:0),y=r.top+((e&&e.y)||40);
     if(panel&&(prev||panelPos)){x=(prev||panelPos).x;y=(prev||panelPos).y}
-    menu.style.left=Math.max(8,Math.min(x,innerWidth-menu.offsetWidth-8))+"px";menu.style.top=Math.max(8,Math.min(y,innerHeight-menu.offsetHeight-8))+"px";
+    menu.style.left=Math.max(8,Math.min(x,innerWidth-menu.offsetWidth-8))+"px";menu.style.top=Math.max(safeTop()+8,Math.min(y,innerHeight-menu.offsetHeight-8))+"px";
     if(panel){const h=menu.querySelector(".ph2");menu.querySelector(".px").onclick=()=>closeMenu();
       h.addEventListener("pointerdown",ev=>{if(ev.target.closest(".px"))return;ev.preventDefault();const dx=ev.clientX-menu.offsetLeft,dy=ev.clientY-menu.offsetTop;try{h.setPointerCapture(ev.pointerId)}catch(x){}
-        const mv=m=>{const nx=Math.max(0,Math.min(innerWidth-60,m.clientX-dx)),ny=Math.max(0,Math.min(innerHeight-40,m.clientY-dy));menu.style.left=nx+"px";menu.style.top=ny+"px";panelPos={x:nx,y:ny}};
+        const mv=m=>{const st=safeTop(),nx=Math.max(0,Math.min(innerWidth-60,m.clientX-dx)),ny=Math.max(st+4,Math.min(innerHeight-40,m.clientY-dy));menu.style.left=nx+"px";menu.style.top=ny+"px";panelPos={x:nx,y:ny}};
         const up=()=>{h.removeEventListener("pointermove",mv);h.removeEventListener("pointerup",up)};h.addEventListener("pointermove",mv);h.addEventListener("pointerup",up)});
       const pt=menu.querySelector(".ptxt");pt&&(pt.onkeydown=ev=>ev.stopPropagation(),pt.onchange=()=>{v.extendData=Object.assign({},v.extendData||{},{text:pt.value.trim()||(v.name==="eagText"?"Texto":"")});chart.overrideOverlay({id,extendData:v.extendData});persist()})}
     menu.querySelectorAll("[data-c]").forEach(b=>b.onclick=()=>{setStyle(id,{color:b.dataset.c,fill:null});again()});

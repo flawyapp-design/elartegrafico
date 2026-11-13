@@ -219,7 +219,7 @@ function start(){
   $("#fteye").onclick=e=>{e.stopPropagation();openSettings("barras")};
   /* ojito flotante (solo con todas las barras ocultas): en la esquina vacía del gráfico y se puede arrastrar */
   const fab=$("#fab");let fabMoved=false;
-  function placeFab(){if(SAVE.fabPos){fab.style.left=clamp(SAVE.fabPos.x,4,innerWidth-40)+"px";fab.style.top=clamp(SAVE.fabPos.y,4,innerHeight-40)+"px";return}
+  function placeFab(){const sf=safe();if(SAVE.fabPos){fab.style.left=clamp(SAVE.fabPos.x,sf.l+4,innerWidth-sf.r-40)+"px";fab.style.top=clamp(SAVE.fabPos.y,sf.t+4,innerHeight-sf.b-40)+"px";return}
     const r=grid.getBoundingClientRect();fab.style.left=(r.right-fab.offsetWidth-10)+"px";fab.style.top=(r.top+10)+"px"}
   fab.addEventListener("pointerdown",e=>{if(e.button!==0)return;const r=fab.getBoundingClientRect(),dx=e.clientX-r.left,dy=e.clientY-r.top,st={x:e.clientX,y:e.clientY};fabMoved=false;try{fab.setPointerCapture(e.pointerId)}catch(x){}
     const mv=ev=>{if(!fabMoved&&Math.hypot(ev.clientX-st.x,ev.clientY-st.y)<5)return;fabMoved=true;SAVE.fabPos={x:Math.round(ev.clientX-dx),y:Math.round(ev.clientY-dy)};placeFab()};
@@ -241,6 +241,9 @@ function start(){
   /* ---------- tamaños y posiciones que el usuario acomoda ---------- */
   SAVE.split=SAVE.split&&typeof SAVE.split==="object"?SAVE.split:{c:.5,r:.5};
   const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+  /* zonas seguras del celular (barra de estado/notch cuando está instalada como app): la barra flotante nunca queda debajo */
+  const safeProbe=document.createElement("div");safeProbe.style.cssText="position:fixed;left:0;top:0;width:0;height:0;visibility:hidden;pointer-events:none;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)";document.body.appendChild(safeProbe);
+  const safe=()=>{const c=getComputedStyle(safeProbe);return{t:parseFloat(c.paddingTop)||0,r:parseFloat(c.paddingRight)||0,b:parseFloat(c.paddingBottom)||0,l:parseFloat(c.paddingLeft)||0}};
   function applyLayoutPrefs(){
     appw.classList.toggle("wl-left",!!SAVE.wlLeft);appw.classList.toggle("db-right",!!SAVE.dbRight);
     appw.style.setProperty("--wlw",(SAVE.wlw||300)+"px");appw.style.setProperty("--mtfh",(SAVE.mtfh||168)+"px");appw.style.setProperty("--pmh",(SAVE.pmh||140)+"px");
@@ -723,9 +726,13 @@ function start(){
   /* ---------- barra flotante de dibujos favoritos (se arrastra adonde quieras) ---------- */
   SAVE.toolFav=Array.isArray(SAVE.toolFav)?SAVE.toolFav.flatMap(k=>k==="eagPosition"?["eagLong","eagShort"]:[k]):["segment","horizontalStraightLine","eagZone","fibonacciLine","eagLong","eagShort","eagMeasure"];
   const tfav=document.createElement("div");tfav.className="tfav";appw.appendChild(tfav);
-  function placeTfav(){const r=grid.getBoundingClientRect(),w=tfav.offsetWidth||200,h=tfav.offsetHeight||36;
-    let x,y;if(SAVE.tfavPos){x=SAVE.tfavPos.x;y=SAVE.tfavPos.y}else{x=r.left+r.width/2-w/2;y=r.top+(SAVE.hide.pb?36:76)}
-    tfav.style.left=clamp(x,4,innerWidth-w-4)+"px";tfav.style.top=clamp(y,4,innerHeight-h-4)+"px"}
+  /* la posición se guarda aparte para celular y para computador (si no, la del PC deja la barra fuera de la pantalla del celular) */
+  const tfKey=()=>(innerWidth<760||matchMedia("(hover:none)").matches)?"tfavPosM":"tfavPos";
+  function placeTfav(){const r=grid.getBoundingClientRect(),w=tfav.offsetWidth||200,h=tfav.offsetHeight||36,sf=safe();
+    const P=SAVE[tfKey()];let x,y;if(P){x=P.x;y=P.y}else{x=r.left+r.width/2-w/2;y=r.top+(SAVE.hide.pb?36:76)}
+    const minY=Math.max(4,sf.t+4);
+    tfav.style.left=clamp(x,sf.l+4,Math.max(sf.l+4,innerWidth-w-sf.r-4))+"px";tfav.style.top=clamp(y,minY,Math.max(minY,innerHeight-h-sf.b-4))+"px"}
+  addEventListener("resize",()=>requestAnimationFrame(placeTfav));addEventListener("orientationchange",()=>setTimeout(placeTfav,300));
   function renderToolFav(){const T=window.EAGTools;
     tfav.classList.toggle("vert",!!SAVE.tfavVert);
     tfav.innerHTML=`<span class="tg" title="Arrastra para mover · doble clic: girar">⋮⋮</span>`+SAVE.toolFav.map(k=>`<button data-t="${k}" title="${esc(T.name(k))}">${T.icon(k,18)}</button>`).join("")+
@@ -735,7 +742,7 @@ function start(){
     tfav.querySelector(".tx").onclick=()=>{SAVE.hide.tf=true;save();applyHide()};
     const g=tfav.querySelector(".tg");
     g.addEventListener("pointerdown",e=>{if(e.button!==0)return;e.preventDefault();const r=tfav.getBoundingClientRect(),dx=e.clientX-r.left,dy=e.clientY-r.top;try{g.setPointerCapture(e.pointerId)}catch(x){}tfav.classList.add("moving");
-      const mv=ev=>{SAVE.tfavPos={x:Math.round(ev.clientX-dx),y:Math.round(ev.clientY-dy)};placeTfav()};
+      const mv=ev=>{SAVE[tfKey()]={x:Math.round(ev.clientX-dx),y:Math.round(ev.clientY-dy)};placeTfav()};
       const up=()=>{g.removeEventListener("pointermove",mv);g.removeEventListener("pointerup",up);tfav.classList.remove("moving");save()};
       g.addEventListener("pointermove",mv);g.addEventListener("pointerup",up)});
     g.ondblclick=()=>{SAVE.tfavVert=!SAVE.tfavVert;save();renderToolFav()};
