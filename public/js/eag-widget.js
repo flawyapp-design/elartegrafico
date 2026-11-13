@@ -229,6 +229,8 @@ window.EAGWidget=function(o){
   /* ---------- datos ---------- */
   const msOf=p=>p.multiplier*({minute:6e4,hour:36e5,day:864e5,week:6048e5}[p.timespan]||6e4);
   let noMore=false;
+  /* escala de precios automática otra vez (si se estiró a mano, al cambiar de mercado quedaba congelada) */
+  function autoScale(){try{const ax=chart._candlePane&&chart._candlePane.getAxisComponent();if(ax){ax._autoCalcTickFlag=true;chart.adjustPaneViewport(false,true,true,true)}}catch(e){}}
   async function loadData(){
     const g=++gen;ready=false;noMore=false;
     if(subKey){o.datafeed.unsubscribe(subKey.s,subKey.p);subKey=null}
@@ -238,7 +240,7 @@ window.EAGWidget=function(o){
     let list=await o.datafeed.getHistoryKLineData(sym,per,from,to);
     if(g!==gen)return;
     const seen=new Set();list=list.filter(k=>!seen.has(k.timestamp)&&seen.add(k.timestamp)).sort((x,y)=>x.timestamp-y.timestamp);
-    chart.applyNewData(list,list.length>0);ready=true;
+    chart.applyNewData(list,list.length>0);autoScale();ready=true;
     o.datafeed.subscribe(sym,per,d=>{if(g===gen)chart.updateData(d)});subKey={s:sym,p:per};
     restoreDrawings();
   }
@@ -280,7 +282,7 @@ window.EAGWidget=function(o){
     try{chart.setBarSpace(Math.max(1,Math.min(40,w/bars)));chart.scrollToRealTime(250)}catch(e){}
     root.querySelectorAll(".wrng button").forEach(x=>x.classList.toggle("on",x===b));setTimeout(()=>b.classList.remove("on"),1500)});
   const paintAx=()=>root.querySelectorAll(".wax").forEach(x=>x.classList.toggle("on",x.dataset.ax===axisType));
-  root.querySelectorAll(".wax").forEach(b=>b.onclick=()=>{axisType=axisType===b.dataset.ax&&b.dataset.ax!=="normal"?"normal":b.dataset.ax;applyStyles();paintAx();o.onAxisType&&o.onAxisType(axisType)});
+  root.querySelectorAll(".wax").forEach(b=>b.onclick=()=>{if(b.dataset.ax==="normal")autoScale();axisType=axisType===b.dataset.ax&&b.dataset.ax!=="normal"?"normal":b.dataset.ax;applyStyles();paintAx();o.onAxisType&&o.onAxisType(axisType)});
   paintAx();
   const two=n=>String(n).padStart(2,"0"),cdEl=$(".wcd"),clkEl=$(".wclk");
   const tick=()=>{if(!root.isConnected)return clearInterval(clkT);const now=Date.now(),bog=new Date(now-5*36e5);
@@ -304,7 +306,7 @@ window.EAGWidget=function(o){
   let bs0=null;setTimeout(()=>{try{bs0=chart.getBarSpace()}catch(e){}},0);
   root.querySelectorAll(".wnav button").forEach(b=>b.onclick=e=>{e.stopPropagation();const n=b.dataset.n,w=chartEl.clientWidth;
     try{if(n==="left")chart.scrollByDistance(w*.35,250);else if(n==="right")chart.scrollByDistance(-w*.35,250);
-      else if(n==="reset"){if(bs0)chart.setBarSpace(bs0);chart.scrollToRealTime(300)}
+      else if(n==="reset"){if(bs0)chart.setBarSpace(bs0);chart.scrollToRealTime(300);autoScale()}
       else if(n==="reload"){b.classList.add("spin");setTimeout(()=>b.classList.remove("spin"),900);if(bs0)chart.setBarSpace(bs0);loadData()}}catch(x){}});
 
   /* ---------- barra de dibujo ---------- */
