@@ -365,14 +365,15 @@ window.EAGWidget=function(o){
     dbar.querySelectorAll(".dt[data-k]").forEach(b=>b.onclick=()=>{stopBrush();b.dataset.k==="cross"?cancelDraw():startTool(b.dataset.k)});
     dbar.querySelector('[data-b]').onclick=()=>brushOn?stopBrush():startBrush();
     /* doble clic sobre un grupo: abre la lista completa */
-    dbar.querySelectorAll(".dg>.dt").forEach(b=>b.ondblclick=e=>{e.preventDefault();cancelDraw();const g=TOOLS.find(x=>x.g===b.parentNode.dataset.g);openToolMenu(g,b.parentNode)});
+    /* doble clic o doble toque (también en celular) */
+    dbar.querySelectorAll(".dg>.dt").forEach(b=>{let lt=0;b.addEventListener("click",e=>{const n=Date.now();if(n-lt<380){e.stopImmediatePropagation();e.preventDefault();lt=0;cancelDraw();const g=TOOLS.find(x=>x.g===b.parentNode.dataset.g);openToolMenu(g,b.parentNode)}else lt=n},true)});
     dbar.querySelectorAll(".dg .more").forEach(b=>b.onclick=e=>{e.stopPropagation();const g=TOOLS.find(x=>x.g===b.parentNode.dataset.g);openToolMenu(g,b.parentNode)});
     /* mantener presionado o deslizar sobre el botón abre la lista; soltar sobre una herramienta la elige */
     dbar.querySelectorAll(".dg>.dt").forEach(b=>{
       let st=null,tm=null,opened=false;
       const open=()=>{if(opened)return;opened=true;clearTimeout(tm);const g=TOOLS.find(x=>x.g===b.parentNode.dataset.g);openToolMenu(g,b.parentNode);b.classList.add("hold")};
       b.addEventListener("pointerdown",e=>{if(e.button!==0)return;st={x:e.clientX,y:e.clientY};opened=false;tm=setTimeout(open,320);try{b.setPointerCapture(e.pointerId)}catch(x){}});
-      b.addEventListener("pointermove",e=>{if(!st)return;if(Math.hypot(e.clientX-st.x,e.clientY-st.y)>8)open();
+      b.addEventListener("pointermove",e=>{if(!st)return;if(e.pointerType!=="touch"&&Math.hypot(e.clientX-st.x,e.clientY-st.y)>8)open();
         if(opened&&menu){menu.querySelectorAll("button").forEach(x=>x.classList.remove("hov"));const t=document.elementFromPoint(e.clientX,e.clientY),it=t&&t.closest(".wmenu button");it&&it.classList.add("hov")}});
       b.addEventListener("pointerup",e=>{clearTimeout(tm);b.classList.remove("hold");if(!st)return;st=null;
         if(opened){const t=document.elementFromPoint(e.clientX,e.clientY),it=t&&t.closest(".wmenu button");if(it)it.click();b.dataset.skip="1";setTimeout(()=>delete b.dataset.skip,50)}});
