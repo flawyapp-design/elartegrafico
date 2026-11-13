@@ -173,7 +173,11 @@ html.light .mini.on .mh em{color:var(--gold)}
 /* navegación rápida del gráfico */
 .wnav{position:absolute;left:50%;bottom:44px;transform:translate(-50%,6px);z-index:4;display:flex;align-items:center;gap:6px;opacity:0;pointer-events:none;transition:opacity .18s,transform .18s}
 .wchart:hover .wnav,.wnav:focus-within{opacity:1;transform:translate(-50%,0);pointer-events:auto}
-@media (hover:none){.wnav{opacity:.7;transform:translate(-50%,0);pointer-events:auto;bottom:10px}.wnav button{width:30px;height:30px}}
+@media (hover:none){.wnav{opacity:.8;transform:translate(-50%,0);pointer-events:auto;bottom:40px}.wnav button{width:30px;height:30px}}
+/* ojito en la esquina del gráfico: muestra u oculta los botones de mover/recargar */
+.wnavt{position:absolute;left:8px;bottom:40px;z-index:4;display:grid;place-items:center;width:28px;height:28px;border-radius:50%;border:1px solid var(--line2);background:var(--card);color:var(--dim);cursor:pointer;opacity:.75;box-shadow:0 3px 10px rgba(0,0,0,.2);transition:opacity .15s,color .15s,border-color .15s}
+.wnavt:hover{opacity:1;color:var(--gold);border-color:var(--gold)}
+.wchart.nonav .wnav{display:none!important}.wchart.nonav .wnavt{color:var(--gold);border-color:var(--gold);opacity:.9}
 .wnav i{width:6px}
 .wnav button{display:grid;place-items:center;width:32px;height:32px;border-radius:9px;border:1px solid var(--line2);background:var(--card);color:var(--fg2);cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.25)}
 .wnav button:hover{color:var(--fg);border-color:var(--gold)}
@@ -415,6 +419,10 @@ html.light .trialchip{color:var(--gold)}
   .mh .mp{font-size:10px}
 }
 @media (max-width:900px){input,select,textarea{font-size:16px!important}}
+/* pantalla completa de verdad (app instalada): la app ocupa todo el alto, sin franja vacía abajo;
+   abajo deja solo un poquito para la rayita de inicio del iPhone / botones de Android */
+html,body{height:100%;margin:0}
+.app{position:fixed;inset:0;height:auto;padding-bottom:max(4px,calc(env(safe-area-inset-bottom) - 18px))}
 html,body{overscroll-behavior:none}.dbar{overscroll-behavior:contain;touch-action:pan-y}
 /* celular: la tira de multitemporalidad se desliza de lado; deslizar un mini hacia arriba lo pasa al grande */
 @media (max-width:900px),(hover:none){.mini .mc{pointer-events:none}.mini{touch-action:pan-x}.mtfrow{touch-action:pan-x;-webkit-overflow-scrolling:touch}}
