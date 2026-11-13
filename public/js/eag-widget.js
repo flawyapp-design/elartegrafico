@@ -123,6 +123,9 @@ function registerAll(){
     if([0,3,7].includes(i))Lp=X;if([1,2,5].includes(i))Rp=X;if([0,1,4].includes(i))T=pp.value;if([2,3,6].includes(i))B=pp.value;
     const np=boxPts(Object.assign({},Lp,{value:T}),Object.assign({},Rp,{value:B}));
     np.forEach((p,k)=>{if(p.timestamp!=null)points[k].timestamp=p.timestamp;else delete points[k].timestamp;if(p.dataIndex!=null)points[k].dataIndex=p.dataIndex;points[k].value=p.value})};
+  const axY=(y,v,c,precision)=>{const pr=(precision&&precision.price!=null)?precision.price:2;return{type:"text",ignoreEvent:true,attrs:{x:0,y,text:(+v).toLocaleString("en-US",{minimumFractionDigits:pr,maximumFractionDigits:pr}),align:"left",baseline:"middle"},styles:{color:"#fff",size:11,backgroundColor:c,paddingLeft:4,paddingRight:4,paddingTop:3,paddingBottom:3,borderRadius:2}}};
+  const two2=n=>String(n).padStart(2,"0"),fmtT=t=>{const d=new Date(t);return `${two2(d.getDate())}/${two2(d.getMonth()+1)} ${two2(d.getHours())}:${two2(d.getMinutes())}`};
+  const axX=(x,t,c)=>({type:"text",ignoreEvent:true,attrs:{x,y:3,text:fmtT(t),align:"center",baseline:"top"},styles:{color:"#fff",size:11,backgroundColor:c,paddingLeft:5,paddingRight:5,paddingTop:3,paddingBottom:3,borderRadius:2}});
   /* en la regla de precios: el precio de entrada (verde) y del SL (rojo) siempre marcados */
   const boxAxis=kind=>({overlay,coordinates,bounding,precision})=>{if(coordinates.length<4||!overlay.points||overlay.points.length<4)return[];const ex=overlay.extendData||{};
     const up=ex.up||"#089981",dn=ex.dn||"#f23645",pr=(precision&&precision.price!=null)?precision.price:2;
@@ -130,8 +133,20 @@ function registerAll(){
     const tv=overlay.points[0].value,bv=overlay.points[3].value,ty=coordinates[0].y,by=coordinates[3].y;
     const lab=(y,v,c)=>({type:"text",ignoreEvent:true,attrs:{x:0,y,text:f(v),align:"left",baseline:"middle"},styles:{color:"#fff",size:11,backgroundColor:c,paddingLeft:4,paddingRight:4,paddingTop:3,paddingBottom:3,borderRadius:2}});
     return kind==="buy"?[lab(ty,tv,up),lab(by,bv,dn)]:[lab(ty,tv,dn),lab(by,bv,up)]};
-  [["eagZone","zoneR"],["eagRect","rect"],["eagBuyZone","buy"],["eagSellZone","sell"]].forEach(([n,k])=>KC.registerOverlay(Object.assign({name:n,totalStep:3,needDefaultPointFigure:true,needDefaultXAxisFigure:false,needDefaultYAxisFigure:!(k==="buy"||k==="sell"),
-    createPointFigures:boxFig(k),performEventPressedMove:boxMove},(k==="buy"||k==="sell")?{createYAxisFigures:boxAxis(k)}:{})));
+  /* zona y rectángulo: precio de arriba y de abajo siempre marcados en la regla */
+  const zoneAxis=({overlay,coordinates,precision})=>{if(coordinates.length<4||!overlay.points||overlay.points.length<4)return[];const c=(overlay.extendData||{}).color||GOLD;
+    return[axY(coordinates[0].y,overlay.points[0].value,c,precision),axY(coordinates[3].y,overlay.points[3].value,c,precision)]};
+  [["eagZone","zoneR"],["eagRect","rect"],["eagBuyZone","buy"],["eagSellZone","sell"]].forEach(([n,k])=>KC.registerOverlay(Object.assign({name:n,totalStep:3,needDefaultPointFigure:true,needDefaultXAxisFigure:false,needDefaultYAxisFigure:false,
+    createPointFigures:boxFig(k),performEventPressedMove:boxMove},(k==="buy"||k==="sell")?{createYAxisFigures:boxAxis(k)}:{createYAxisFigures:zoneAxis})));
+  /* líneas horizontales y verticales: su precio (en la regla) o su hora (abajo) siempre marcados, no solo al seleccionarlas */
+  try{const lc=o=>((o.styles||{}).line||{}).color||GOLD;
+    const H=["horizontalStraightLine","horizontalRayLine","horizontalSegment","priceLine"],V=["verticalStraightLine","verticalRayLine","verticalSegment"];
+    H.concat(V).forEach(n=>{const C=KC.getOverlayClass&&KC.getOverlayClass(n);if(!C)return;const t=new C();const isV=V.includes(n);
+      const tpl={name:n,totalStep:t.totalStep,lock:false,needDefaultPointFigure:t.needDefaultPointFigure,needDefaultXAxisFigure:!isV&&t.needDefaultXAxisFigure,needDefaultYAxisFigure:isV&&t.needDefaultYAxisFigure,
+        styles:t.styles||undefined,createPointFigures:t.createPointFigures,performEventPressedMove:t.performEventPressedMove,performEventMoveForDrawing:t.performEventMoveForDrawing,createXAxisFigures:t.createXAxisFigures,createYAxisFigures:t.createYAxisFigures};
+      if(isV)tpl.createXAxisFigures=({overlay,coordinates})=>{const p=(overlay.points||[])[0],c=coordinates[0];return p&&c&&okT(p.timestamp)?[axX(c.x,p.timestamp,lc(overlay))]:[]};
+      else tpl.createYAxisFigures=({overlay,coordinates,precision})=>{const p=(overlay.points||[])[0],c=coordinates[0];return p&&c?[axY(c.y,p.value,lc(overlay),precision)]:[]};
+      Object.keys(tpl).forEach(k=>tpl[k]===undefined&&delete tpl[k]);KC.registerOverlay(tpl)})}catch(e){console.warn("ejes",e)}
   /* Línea horizontal con precio (como TradingView) */
   /* indicadores extra */
   const sma=(a,n,i)=>{if(i<n-1)return null;let s=0;for(let k=i-n+1;k<=i;k++)s+=a[k];return s/n};
