@@ -122,7 +122,7 @@ function start(){
       <button class="btn ic" id="wlb" title="Lista de mercados">${ICON.list}<span class="t">Mercados</span></button>
     </header>
     <div class="main" id="main">
-      <div class="center"><div class="grid" id="grid"></div><nav class="ftabs" id="ftabs" aria-label="Mercados favoritos"></nav></div>
+      <div class="center"><nav class="ftabs" id="ftabs" aria-label="Mercados favoritos"></nav><div class="grid" id="grid"></div></div>
       <aside class="wl" id="wl">
         <div class="wlh"><h3>Mercados</h3><button class="x" id="wlx" title="Ocultar lista">×</button></div>
         <input id="q" type="search" placeholder="Buscar: Boom, Crash, EUR/USD…" autocomplete="off">
@@ -295,9 +295,9 @@ function start(){
     const el=document.createElement("div");el.className="mtfrow";el.style.setProperty("--n",SAVE.tfFav.length);grid.appendChild(el);
     mtf={el,sym:sym.ticker,minis:[]};
     SAVE.tfFav.forEach((t,i)=>{const per=perOf(t),g=gran(per);
-      const box=document.createElement("button");box.className="mini";box.title="Ver "+tfName(per)+" en grande";box.innerHTML=`<span class="mh"><b>${t}</b><span class="mp"></span><em></em></span><span class="mc"></span>`;el.appendChild(box);
+      const box=document.createElement("div");box.className="mini";box.innerHTML=`<button class="mh" title="Ver ${tfName(per)} en el gráfico grande"><b>${t}</b><span class="mp"></span><em></em><i class="mz">⤢</i></button><span class="mc" title="Rueda o pellizco: acercar · arrastrar: mover · doble clic: ver en grande"></span>`;el.appendChild(box);
       const mc=box.querySelector(".mc"),c=KC.init(mc,{locale:"es-ES",timezone:TZ,styles:MINI()});
-      try{c.setPriceVolumePrecision(sym.pricePrecision||3,0);c.setScrollEnabled(false);c.setZoomEnabled(false);c.setOffsetRightDistance(6)}catch(e){}
+      try{c.setPriceVolumePrecision(sym.pricePrecision||3,0);c.setScrollEnabled(true);c.setZoomEnabled(true);c.setOffsetRightDistance(6)}catch(e){}
       const m={t,box,mc,c,key:sym.ticker+":"+g,who:"mtf"+i+":"+Date.now()};mtf.minis.push(m);
       feed.ask({ticks_history:sym.ticker,style:"candles",granularity:g,end:"latest",count:60}).then(r=>{if(!mtf||!mtf.minis.includes(m))return;const L=(r.candles||[]).map(toK);c.applyNewData(L);fit(m);m.live(L[L.length-1])}).catch(()=>{});
       const mp=box.querySelector(".mp");
@@ -305,10 +305,10 @@ function start(){
         box.classList.remove("tick");void box.offsetWidth;box.classList.add("tick")};
       m.live=live;
       hubOn(m.key,m.who,sym.ticker,g,d=>{try{c.updateData(d);live(d)}catch(e){}});
-      box.onclick=()=>{try{panes[0].kc.setPeriod(per)}catch(e){}afterTF()}});
+      const big=()=>{try{panes[0].kc.setPeriod(per)}catch(e){}afterTF()};box.querySelector(".mh").onclick=big;mc.ondblclick=big});
     mtfMark();relayout()}
   function fit(m){try{const w=m.mc.clientWidth||200;m.c.resize();m.c.setBarSpace(Math.max(1.5,(w-14)/60))}catch(e){}}
-  function mtfResize(){if(mtf)mtf.minis.forEach(fit)}
+  function mtfResize(){if(mtf)mtf.minis.forEach(m=>{try{m.c.resize()}catch(e){}})}
   function mtfMark(){if(!mtf)return;let cur="";try{cur=panes[0].kc.getPeriod().text}catch(e){}
     mtf.minis.forEach(m=>{const on=m.t===cur;m.box.classList.toggle("on",on);m.box.querySelector("em").textContent=on?"Seleccionada":""})}
 
