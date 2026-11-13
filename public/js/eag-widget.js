@@ -109,6 +109,9 @@ function registerAll(){
       F.push({type:"line",ignoreEvent:true,attrs:{coordinates:[{x:0,y:y1},{x:bounding.width,y:y1}]},styles:{color:top,size:lw}});
       F.push({type:"line",ignoreEvent:true,attrs:{coordinates:[{x:0,y:y2},{x:bounding.width,y:y2}]},styles:{color:bot,size:lw}});
       F.push({type:"text",ignoreEvent:true,attrs:{x:x1+6,y:y1+6,text:ex.text||(kind==="buy"?"Compra":"Venta"),baseline:"top"},styles:{color:"#fff",size:11,backgroundColor:kind==="buy"?top:top,paddingLeft:6,paddingRight:6,paddingTop:2,paddingBottom:2,borderRadius:4}});
+      /* etiquetas en cada línea: verde = Entrada, roja = SL (a la derecha, junto a la regla de precios) */
+      const tag=(y,txt,c,above)=>F.push({type:"text",ignoreEvent:true,attrs:{x:bounding.width-6,y:above?y-4:y+4,text:txt,align:"right",baseline:above?"bottom":"top"},styles:{color:"#fff",size:10.5,weight:"bold",backgroundColor:c,paddingLeft:5,paddingRight:5,paddingTop:2,paddingBottom:2,borderRadius:3}});
+      tag(y1,kind==="buy"?"Entrada":"SL",top,true);tag(y2,kind==="buy"?"SL":"Entrada",bot,false);
       return F}
     const col=ex.color||GOLD;
     F.push({type:"rect",attrs:{x:x1,y:y1,width:x2-x1,height:h},styles:{style:"stroke_fill",color:ex.fill||hexA(col,.16),borderColor:col,borderSize:ex.size||1}});
@@ -120,8 +123,15 @@ function registerAll(){
     if([0,3,7].includes(i))Lp=X;if([1,2,5].includes(i))Rp=X;if([0,1,4].includes(i))T=pp.value;if([2,3,6].includes(i))B=pp.value;
     const np=boxPts(Object.assign({},Lp,{value:T}),Object.assign({},Rp,{value:B}));
     np.forEach((p,k)=>{if(p.timestamp!=null)points[k].timestamp=p.timestamp;else delete points[k].timestamp;if(p.dataIndex!=null)points[k].dataIndex=p.dataIndex;points[k].value=p.value})};
-  [["eagZone","zoneR"],["eagRect","rect"],["eagBuyZone","buy"],["eagSellZone","sell"]].forEach(([n,k])=>KC.registerOverlay({name:n,totalStep:3,needDefaultPointFigure:true,needDefaultXAxisFigure:false,needDefaultYAxisFigure:true,
-    createPointFigures:boxFig(k),performEventPressedMove:boxMove}));
+  /* en la regla de precios: el precio de entrada (verde) y del SL (rojo) siempre marcados */
+  const boxAxis=kind=>({overlay,coordinates,bounding,precision})=>{if(coordinates.length<4||!overlay.points||overlay.points.length<4)return[];const ex=overlay.extendData||{};
+    const up=ex.up||"#089981",dn=ex.dn||"#f23645",pr=(precision&&precision.price!=null)?precision.price:2;
+    const f=v=>(+v).toLocaleString("en-US",{minimumFractionDigits:pr,maximumFractionDigits:pr});
+    const tv=overlay.points[0].value,bv=overlay.points[3].value,ty=coordinates[0].y,by=coordinates[3].y;
+    const lab=(y,v,c)=>({type:"text",ignoreEvent:true,attrs:{x:0,y,text:f(v),align:"left",baseline:"middle"},styles:{color:"#fff",size:11,backgroundColor:c,paddingLeft:4,paddingRight:4,paddingTop:3,paddingBottom:3,borderRadius:2}});
+    return kind==="buy"?[lab(ty,tv,up),lab(by,bv,dn)]:[lab(ty,tv,dn),lab(by,bv,up)]};
+  [["eagZone","zoneR"],["eagRect","rect"],["eagBuyZone","buy"],["eagSellZone","sell"]].forEach(([n,k])=>KC.registerOverlay(Object.assign({name:n,totalStep:3,needDefaultPointFigure:true,needDefaultXAxisFigure:false,needDefaultYAxisFigure:!(k==="buy"||k==="sell"),
+    createPointFigures:boxFig(k),performEventPressedMove:boxMove},(k==="buy"||k==="sell")?{createYAxisFigures:boxAxis(k)}:{})));
   /* Línea horizontal con precio (como TradingView) */
   /* indicadores extra */
   const sma=(a,n,i)=>{if(i<n-1)return null;let s=0;for(let k=i-n+1;k<=i;k++)s+=a[k];return s/n};
