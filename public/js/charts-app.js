@@ -117,6 +117,7 @@ function start(){
       <span class="st" id="st"><i></i><span>Conectando…</span></span>
       <span class="grow"></span>
       <span class="who">${esc(prof.username||"")}</span>
+      <button class="btn ic" id="cfgb" title="Ajustes del gráfico: tema, fondo, cuadrícula, velas"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg><span class="t">Ajustes</span></button>
       <button class="btn ic" id="vb" title="Mostrar u ocultar barras">${ICON.eye}<span class="t">Vista</span></button>
       <button class="btn ic" id="wlb" title="Lista de mercados">${ICON.list}<span class="t">Mercados</span></button>
     </header>
@@ -175,7 +176,8 @@ function start(){
   const allHidden=()=>PARTS.every(([k])=>SAVE.hide[k]);
   function openVista(anchor){
     pop.innerHTML=`<div class="ph">Vista</div>${PARTS.map(([k,t])=>`<label class="sw"><input type="checkbox" data-k="${k}" ${SAVE.hide[k]?"":"checked"}><i></i><span>${t}</span></label>`).join("")}
-      <div class="pbtns"><button class="btn sm" data-a="clean">${allHidden()?"Mostrar todo":"Modo limpio"}</button></div>`;
+      <div class="pbtns"><button class="btn sm" data-a="clean">${allHidden()?"Mostrar todo":"Modo limpio"}</button> <button class="btn sm" data-a="cfg">Ajustes del gráfico</button></div>`;
+    pop.querySelector('[data-a="cfg"]').onclick=()=>openCfg(anchor);
     pop.querySelectorAll("input").forEach(i=>i.onchange=()=>{SAVE.hide[i.dataset.k]=!i.checked;save();applyHide();openVista(anchor)});
     pop.querySelector('[data-a="clean"]').onclick=()=>{const all=!allHidden();PARTS.forEach(([k])=>SAVE.hide[k]=all);save();applyHide();closePop()};
     showPop(anchor,"right")}
@@ -185,7 +187,7 @@ function start(){
     let x=align==="right"?r.right-w:r.left;x=Math.max(8,Math.min(x,innerWidth-w-8));let y=r.bottom+6;if(y+h>innerHeight-8)y=Math.max(8,r.top-h-6);
     pop.style.left=x+"px";pop.style.top=y+"px"}
   function closePop(){pop.hidden=true;pop.dataset.for=""}
-  document.addEventListener("pointerdown",e=>{if(!pop.hidden&&!pop.contains(e.target)&&!e.target.closest("#vb,#fab,.tfdd"))closePop()});
+  document.addEventListener("pointerdown",e=>{if(!pop.hidden&&!pop.contains(e.target)&&!e.target.closest("#vb,#fab,#cfgb,.tfdd"))closePop()});
   addEventListener("keydown",e=>{if(e.key==="Escape")closePop()});
 
   /* ---------- temporalidades: lista desplegable + favoritas ---------- */
@@ -219,16 +221,48 @@ function start(){
   SAVE.panes=Array.isArray(SAVE.panes)?SAVE.panes:[];
   const grid=$("#grid"),panes=[];let active=0;
   const UP="#35c4a2",DN="#ec5b52",NC="#93a1c4";
-  const BAR={upColor:UP,downColor:DN,noChangeColor:NC,upBorderColor:UP,downBorderColor:DN,noChangeBorderColor:NC,upWickColor:UP,downWickColor:DN,noChangeWickColor:NC};
-  const STY={grid:{horizontal:{color:"rgba(31,50,102,.55)"},vertical:{color:"rgba(31,50,102,.55)"}},candle:{bar:BAR,priceMark:{last:{upColor:UP,downColor:DN}}}};
+  /* ---------- ajustes del gráfico (tema, fondo, cuadrícula, velas…) ---------- */
+  const CDEF={theme:"dark",bg:"",grid:true,up:UP,dn:DN,type:"candle_solid",last:true,hl:true,cross:true,wm:true,axis:true};
+  SAVE.cfg=Object.assign({},CDEF,SAVE.cfg||{});
+  const CF=()=>SAVE.cfg,light=()=>CF().theme==="light";
+  const barOf=()=>{const c=CF();return{upColor:c.up,downColor:c.dn,noChangeColor:NC,upBorderColor:c.up,downBorderColor:c.dn,noChangeBorderColor:NC,upWickColor:c.up,downWickColor:c.dn,noChangeWickColor:NC}};
+  const styFor=()=>{const c=CF(),gc=light()?"rgba(15,26,51,.08)":"rgba(31,50,102,.55)";
+    return{grid:{show:!!c.grid,horizontal:{show:!!c.grid,color:gc},vertical:{show:!!c.grid,color:gc}},
+      candle:{type:c.type,bar:barOf(),area:{lineColor:c.up},priceMark:{last:{show:!!c.last,upColor:c.up,downColor:c.dn},high:{show:!!c.hl},low:{show:!!c.hl}}},
+      crosshair:{show:!!c.cross},xAxis:{show:!!c.axis},yAxis:{show:!!c.axis}}};
+  const BGS=["#060b1a","#000000","#131722","#0b1d17","#1a1033","#ffffff","#f5f1e6","#eef3fb"];
+  function applyCfg(){const c=CF();
+    appw.classList.toggle("light",light());appw.classList.toggle("h-wm",!c.wm);
+    appw.style.setProperty("--chartbg",c.bg||(light()?"#ffffff":"#060b1a"));
+    panes.forEach(p=>{try{if(p.kc.getTheme()!==c.theme)p.kc.setTheme(c.theme)}catch(e){}setTimeout(()=>{try{p.kc.setStyles(styFor())}catch(e){}},40)});
+    if(mtf)mtf.minis.forEach(m=>{try{m.c.setStyles({candle:{bar:barOf()}})}catch(e){}})}
+  function openCfg(anchor){const c=CF();
+    const tg=(k,t)=>`<label class="sw"><input type="checkbox" data-k="${k}" ${c[k]?"checked":""}><i></i><span>${t}</span></label>`;
+    const TYPES=[["candle_solid","Velas"],["candle_stroke","Huecas"],["ohlc","Barras"],["area","Área"]];
+    pop.innerHTML=`<div class="ph">Tema</div><div class="seg">${[["dark","Oscuro"],["light","Claro"]].map(([v,t])=>`<button data-th="${v}" class="${c.theme===v?"on":""}">${t}</button>`).join("")}</div>
+      <div class="ph">Fondo del gráfico</div><div class="sws">${BGS.map(b=>`<button class="swc${(c.bg||"")===b?" on":""}" data-bg="${b}" style="background:${b}" title="${b}"></button>`).join("")}<label class="swc pick" title="Otro color"><input type="color" data-bgp value="${c.bg||(light()?"#ffffff":"#060b1a")}">+</label><button class="swc auto${c.bg?"":" on"}" data-bg="" title="Según el tema">A</button></div>
+      <div class="ph">Velas</div><div class="seg">${TYPES.map(([v,t])=>`<button data-ty="${v}" class="${c.type===v?"on":""}">${t}</button>`).join("")}</div>
+      <div class="cols"><label>Alcista <input type="color" data-col="up" value="${c.up}"></label><label>Bajista <input type="color" data-col="dn" value="${c.dn}"></label></div>
+      <div class="ph">Mostrar</div>${tg("grid","Cuadrícula")}${tg("axis","Ejes de precio y hora")}${tg("last","Línea del último precio")}${tg("hl","Máximo y mínimo visibles")}${tg("cross","Cruz del cursor")}${tg("wm","Marca de agua")}
+      <div class="pbtns"><button class="btn sm" data-a="reset">Restaurar valores</button></div>
+      <div class="pnote">Indicadores, zona horaria, escala logarítmica y más ajustes: íconos de la barra del gráfico.</div>`;
+    const set=(k,v)=>{SAVE.cfg[k]=v;save();applyCfg();openCfg(anchor)};
+    pop.querySelectorAll("[data-th]").forEach(b=>b.onclick=()=>{SAVE.cfg.bg="";set("theme",b.dataset.th)});
+    pop.querySelectorAll("[data-bg]").forEach(b=>b.onclick=()=>set("bg",b.dataset.bg));
+    pop.querySelector("[data-bgp]").onchange=e=>set("bg",e.target.value);
+    pop.querySelectorAll("[data-ty]").forEach(b=>b.onclick=()=>set("type",b.dataset.ty));
+    pop.querySelectorAll("[data-col]").forEach(i=>i.onchange=()=>set(i.dataset.col,i.value));
+    pop.querySelectorAll(".sw input").forEach(i=>i.onchange=()=>set(i.dataset.k,i.checked));
+    pop.querySelector('[data-a="reset"]').onclick=()=>{SAVE.cfg=Object.assign({},CDEF);save();applyCfg();openCfg(anchor)};
+    pop.dataset.for="cfg";showPop(anchor,"right")}
   function makePane(i){
     const el=document.createElement("div");el.className="pane";el.innerHTML='<div class="kc"></div>';grid.appendChild(el);
     const sv=SAVE.panes[i]||{},sym=sv.s||DEF[i%DEF.length],per=perOf(sv.p||(i===0?"5m":"1m"));
     const kc=new KP.KLineChartPro({container:el.firstChild,symbol:findInfo(sym),period:per,periods:PERIODS,datafeed:Datafeed(),
-      theme:"dark",locale:"es-ES",timezone:TZ,drawingBarVisible:!mobile()&&i===0,mainIndicators:[],subIndicators:[],
+      theme:CF().theme,locale:"es-ES",timezone:TZ,drawingBarVisible:!mobile()&&i===0,mainIndicators:[],subIndicators:[],
       watermark:'<span style="font:700 18px/1 sans-serif;letter-spacing:.2em;white-space:nowrap;color:rgba(216,176,98,.07)">EL ARTE GRÁFICO</span>'});
     const p={el,kc};
-    setTimeout(()=>{try{kc.setStyles(STY)}catch(e){}decorate(p)},0);
+    setTimeout(()=>{try{kc.setStyles(styFor())}catch(e){}decorate(p)},0);
     el.addEventListener("pointerdown",()=>{if(active!==i)setActive(i)},true);
     return p;
   }
@@ -253,8 +287,8 @@ function start(){
 
   /* ---------- multitemporalidad ---------- */
   let mtf=null;
-  const MINI={grid:{show:false},candle:{bar:BAR,tooltip:{showRule:"none"},priceMark:{high:{show:false},low:{show:false},last:{line:{show:false},text:{show:false}}}},
-    xAxis:{show:false},yAxis:{show:false},crosshair:{show:false},separator:{size:0}};
+  const MINI=()=>({grid:{show:false},candle:{bar:barOf(),tooltip:{showRule:"none"},priceMark:{high:{show:false},low:{show:false},last:{line:{show:false},text:{show:false}}}},
+    xAxis:{show:false},yAxis:{show:false},crosshair:{show:false},separator:{size:0}});
   function destroyMTF(){if(!mtf)return;mtf.minis.forEach(m=>{hubOff(m.key,m.who);try{KC.dispose(m.mc)}catch(e){}});mtf.el.remove();mtf=null}
   function buildMTF(){
     destroyMTF();const sym=(()=>{try{return panes[0].kc.getSymbol()}catch(e){return findInfo(DEF[0])}})();
@@ -262,7 +296,7 @@ function start(){
     mtf={el,sym:sym.ticker,minis:[]};
     SAVE.tfFav.forEach((t,i)=>{const per=perOf(t),g=gran(per);
       const box=document.createElement("button");box.className="mini";box.title="Ver "+tfName(per)+" en grande";box.innerHTML=`<span class="mh"><b>${t}</b><em></em></span><span class="mc"></span>`;el.appendChild(box);
-      const mc=box.querySelector(".mc"),c=KC.init(mc,{locale:"es-ES",timezone:TZ,styles:MINI});
+      const mc=box.querySelector(".mc"),c=KC.init(mc,{locale:"es-ES",timezone:TZ,styles:MINI()});
       try{c.setPriceVolumePrecision(sym.pricePrecision||3,0);c.setScrollEnabled(false);c.setZoomEnabled(false);c.setOffsetRightDistance(6)}catch(e){}
       const m={t,box,mc,c,key:sym.ticker+":"+g,who:"mtf"+i+":"+Date.now()};mtf.minis.push(m);
       feed.ask({ticks_history:sym.ticker,style:"candles",granularity:g,end:"latest",count:60}).then(r=>{if(!mtf||!mtf.minis.includes(m))return;c.applyNewData((r.candles||[]).map(toK));fit(m)}).catch(()=>{});
@@ -330,7 +364,8 @@ function start(){
       if(dayOpen[s]==null)feed.ask({ticks_history:s,style:"candles",granularity:86400,end:"latest",count:1}).then(m=>{const c=(m.candles||[])[0];if(c){dayOpen[s]=+c.open;if(last[s]==null)last[s]=+c.close;onPrice(s)}}).catch(()=>{});
     })},250)}
 
-  applyHide();setLayout(lay);setTab(tab);renderTabs();
+  $("#cfgb").onclick=e=>{e.stopPropagation();pop.hidden||pop.dataset.for!=="cfg"?openCfg($("#cfgb")):closePop()};
+  applyHide();applyCfg();setLayout(lay);setTab(tab);renderTabs();
   ready.then(()=>{setTab(tab);renderTabs();panes.forEach(p=>{try{const t=p.kc.getSymbol().ticker;if(bySym[t]&&info(bySym[t]).pricePrecision!==p.kc.getSymbol().pricePrecision)p.kc.setSymbol(info(bySym[t]))}catch(e){}})});
   addEventListener("resize",()=>{if(mobile()&&!["l1","l2v","mtf"].includes(lay))setLayout("l1")});
 }
