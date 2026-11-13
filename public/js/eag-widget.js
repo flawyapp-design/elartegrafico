@@ -326,14 +326,19 @@ window.EAGWidget=function(o){
     if(id){ovs.set(id,{name:def.name,styles:def.styles||null,extendData:def.extendData||null,lock:!!def.lock,points:def.points||null});if(!drawing)ovs.get(id).done=true}
     return id}
   /* stop y objetivo automáticos (1:2) según el rango reciente del gráfico */
+  /* tiempo de un punto aunque esté antes de la primera vela o después de la última */
+  function tsOf(p){if(p.timestamp)return p.timestamp;const L=chart.getDataList(),ms=msOf(per);if(!L.length)return Date.now();
+    const i=p.dataIndex!=null?p.dataIndex:L.length-1;if(i<0)return L[0].timestamp+i*ms;if(i>L.length-1)return L[L.length-1].timestamp+(i-(L.length-1))*ms;return L[i].timestamp}
+  /* stop y objetivo automáticos (1:2) proporcionales a lo que se ve en pantalla */
   function autoPos(ov){const L=chart.getDataList();if(!L.length)return;const p0=ov.points[0];
-    let i=p0.dataIndex!=null?p0.dataIndex:L.length-1;i=Math.max(0,Math.min(L.length-1,i));
-    const seg=L.slice(Math.max(0,i-60),i+1);let hi=-Infinity,lo=Infinity;seg.forEach(k=>{hi=Math.max(hi,k.high);lo=Math.min(lo,k.low)});
-    const d=Math.max((hi-lo)*.25,Math.abs(p0.value)*.0005),long=ov.name==="eagLong";
-    const bar=L.length>1?L[1].timestamp-L[0].timestamp:6e4,ts=(p0.timestamp||L[i].timestamp)+bar*24;
-    const pts=[{timestamp:p0.timestamp,value:p0.value},{timestamp:ts,value:long?p0.value-d:p0.value+d},{timestamp:ts,value:long?p0.value+2*d:p0.value-2*d}];
+    let vr={from:Math.max(0,L.length-80),to:L.length};try{const r=chart.getVisibleRange();if(r&&r.to>r.from)vr=r}catch(e){}
+    const seg=L.slice(Math.max(0,vr.from),Math.min(L.length,vr.to));let hi=-Infinity,lo=Infinity;seg.forEach(k=>{hi=Math.max(hi,k.high);lo=Math.min(lo,k.low)});
+    if(!isFinite(hi)){hi=p0.value*1.002;lo=p0.value*.998}
+    const d=Math.max((hi-lo)*.1,Math.abs(p0.value)*.0003),long=ov.name==="eagLong";
+    const bars=Math.max(8,Math.round((vr.to-vr.from)*.16)),t0=tsOf(p0),ts=t0+bars*msOf(per);
+    const pts=[{timestamp:t0,value:p0.value},{timestamp:ts,value:long?p0.value-d:p0.value+d},{timestamp:ts,value:long?p0.value+2*d:p0.value-2*d}];
     chart.overrideOverlay({id:ov.id,points:pts})}
-  function capture(ov){const v=ovs.get(ov.id);if(!v)return;v.points=(ov.points||[]).map(p=>({timestamp:p.timestamp,value:p.value}));v.done=true;v.lock=!!ov.lock;persist()}
+  function capture(ov){const v=ovs.get(ov.id);if(!v)return;v.points=(ov.points||[]).map(p=>({timestamp:tsOf(p),value:p.value}));v.done=true;v.lock=!!ov.lock;persist()}
   /* guardado por mercado (todas las temporalidades), como en TradingView */
   function persist(){if(!sym)return;const all=loadD();const arr=[];ovs.forEach(v=>{if(v.done&&v.points&&v.points.length)arr.push({name:v.name,points:v.points,styles:v.styles,extendData:v.extendData,lock:v.lock})});
     if(arr.length)all[sym.ticker]=arr;else delete all[sym.ticker];saveD(all);o.onDrawingsChange&&o.onDrawingsChange(sym.ticker)}
