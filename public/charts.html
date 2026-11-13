@@ -450,13 +450,12 @@ html,body{overscroll-behavior:none}.dbar{overscroll-behavior:contain;touch-actio
 .dbar.more-b{-webkit-mask-image:linear-gradient(to bottom,#000 calc(100% - 34px),transparent);mask-image:linear-gradient(to bottom,#000 calc(100% - 34px),transparent)}
 .dbar.more-t{-webkit-mask-image:linear-gradient(to top,#000 calc(100% - 34px),transparent);mask-image:linear-gradient(to top,#000 calc(100% - 34px),transparent)}
 .dbar.more-t.more-b{-webkit-mask-image:linear-gradient(to bottom,transparent,#000 34px,#000 calc(100% - 34px),transparent);mask-image:linear-gradient(to bottom,transparent,#000 34px,#000 calc(100% - 34px),transparent)}
-@media (max-width:900px){
-  .dbar{padding-bottom:16px!important}
-  /* la agarradera de la multitemporalidad va dentro de su franja: ya no se monta sobre la barra de dibujo */
-  .grid.mtf>.mtfrow{border-top:1px solid var(--line);padding-top:14px}
-  .grid.mtf>.mtfrow>.mtfsp{top:0!important;height:14px!important;position:absolute}
-  .grid.mtf>.mtfrow>.mtfsp i{top:5px}
-}
+.dbar{padding-bottom:16px!important}
+/* la agarradera de la multitemporalidad va dentro de su franja (PC y celular): ya no se monta sobre la barra de dibujo */
+.grid.mtf>.mtfrow{border-top:1px solid var(--line);padding-top:14px}
+.mtfrow>.mtfsp{top:0!important;height:14px!important;position:absolute}
+.mtfrow>.mtfsp i{top:5px}
+.mtfrow.pstrip{padding-top:14px}
 /* celular: la tira de multitemporalidad se desliza de lado; deslizar un mini hacia arriba lo pasa al grande */
 @media (max-width:900px),(hover:none){.mini .mc{pointer-events:none}.mini{touch-action:pan-x}.mtfrow{touch-action:pan-x;-webkit-overflow-scrolling:touch}}
 /* con varios gráficos la barra de cada uno siempre se ve (para cambiar mercado y temporalidad), aunque esté oculta en vista de uno */
