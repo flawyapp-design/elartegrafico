@@ -97,7 +97,7 @@ async function chartAlerts(keys: any) {
       const name = a.symbol_name || a.symbol;
       const what = a.kind === "zona" ? `entró a tu zona ${zlo} – ${zhi}` : `tocó tu nivel ${p1}`;
       await db(`chart_alerts?id=eq.${a.id}`, { method: "PATCH", body: JSON.stringify({ active: false, triggered_at: nowIso, triggered_price: last, last_check: nowIso }) });
-      sent += (await sendAll(keys, "todos", { title: `🔔 ${name} ${what}`, body: `${a.note ? a.note + " · " : ""}Precio ahora: ${last}. Toca para ver el gráfico.`, url: "https://elartegrafico.com/charts.html", tag: `alerta-${a.id}` }, a.user_id)).sent;
+      sent += (await sendAll(keys, "todos", { title: `🔔 ${name} ${what}`, body: `${a.note ? a.note + " · " : ""}Precio ahora: ${last}. Toca para ver el gráfico.`, url: "https://charts.elartegrafico.com", tag: `alerta-${a.id}` }, a.user_id)).sent;
     } else pending.push(a.id);
   }
   // marcar como revisadas las que no se activaron
