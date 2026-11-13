@@ -1,7 +1,7 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
-  "buildCommand": "npx --yes javascript-obfuscator@4.1.1 public/js/charts-app.js --output public/js/charts-app.js --compact true --string-array true --string-array-encoding base64 --string-array-threshold 0.8 --identifier-names-generator hexadecimal --rename-globals false --self-defending false --control-flow-flattening false --dead-code-injection false --domain-lock '.elartegrafico.com' --domain-lock-redirect-url 'https://elartegrafico.com' && npx --yes javascript-obfuscator@4.1.1 public/js/eag-widget.js --output public/js/eag-widget.js --compact true --string-array true --string-array-encoding base64 --string-array-threshold 0.8 --identifier-names-generator hexadecimal --rename-globals false --self-defending false --control-flow-flattening false --dead-code-injection false --domain-lock '.elartegrafico.com' --domain-lock-redirect-url 'https://elartegrafico.com'",
+  "buildCommand": "node scripts/protect.js",
   "outputDirectory": "public",
   "headers": [
     {

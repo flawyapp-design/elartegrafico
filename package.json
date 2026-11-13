@@ -1,0 +1,8 @@
+{
+  "name": "elartegrafico",
+  "private": true,
+  "description": "Sitio estático de El Arte Gráfico (public/). Este archivo solo instala la herramienta que protege el código al publicar.",
+  "devDependencies": {
+    "javascript-obfuscator": "4.1.1"
+  }
+}
