@@ -34,6 +34,7 @@ A.ROUTES.admin=sub=>{
         <label for="acN">Mensaje del contador (opcional)<input id="acN" maxlength="120" value="${esc((S.site||{}).launchNote||"")}" placeholder="Ej.: precio de lanzamiento las primeras 48 h"></label>
         <div class="row"><button class="btn sm gold" type="submit">Guardar</button>${(S.site||{}).academyOpenAt?'<button class="btn sm ghost" type="button" id="acX">Quitar fecha</button>':""}</div>
         <small class="dim">Sale un contador en el inicio. A esa hora se abre sola, empieza la prueba gratis y se avisa a todos con una notificación.</small></form>`:""}
+      <a class="adm-charts" href="https://elartegrafico.com/charts.html" target="_blank" rel="noopener"><span class="ac-i">📈</span><span><b>EAG Charts</b><small>Gráficos en vivo · ábrelo y agrégalo a tu pantalla de inicio</small></span><i>↗</i></a>
       <button type="button" class="adm-mbtn" id="admMb" aria-expanded="false">${ico(TICO[tab]||"news",20)}<span><small>Sección</small><b>${cur[1]}</b></span><i>▾</i></button>
       <nav class="adm-nav" aria-label="Secciones de administración">${GROUPS.map(([g,ks])=>`<div class="adm-g"><span class="adm-gt">${g}</span>${ks.map(k=>{const t=TABS.find(x=>x[0]===k);return `<button type="button" class="${tab===k?"on":""}" data-t="${k}"${tab===k?' aria-current="page"':""}>${ico(TICO[k]||"news",18)}<span>${t[1]}</span><i class="adm-b" data-badge="${k}"></i></button>`}).join("")}</div>`).join("")}</nav>
     </aside>

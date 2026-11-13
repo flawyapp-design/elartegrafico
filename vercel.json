@@ -5,6 +5,15 @@
   "outputDirectory": "public",
   "headers": [
     {
+      "source": "/charts.webmanifest",
+      "headers": [
+        {
+          "key": "Content-Type",
+          "value": "application/manifest+json"
+        }
+      ]
+    },
+    {
       "source": "/assets/(.*)",
       "headers": [
         {

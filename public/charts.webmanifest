@@ -1,0 +1,79 @@
+{
+  "name": "EAG Charts",
+  "short_name": "EAG Charts",
+  "description": "Gráficos en vivo de El Arte Gráfico: Boom y Crash, sintéticos, forex y más.",
+  "lang": "es",
+  "start_url": "/charts.html?app=1",
+  "scope": "/charts.html",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0b0c0e",
+  "theme_color": "#0b0c0e",
+  "icons": [
+    {
+      "src": "/assets/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/assets/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/assets/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Reto del día",
+      "short_name": "Retos",
+      "url": "/?app=1#retos",
+      "icons": [
+        {
+          "src": "/assets/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "Ranking",
+      "short_name": "Ranking",
+      "url": "/?app=1#ranking",
+      "icons": [
+        {
+          "src": "/assets/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "Mis puntos",
+      "short_name": "Puntos",
+      "url": "/?app=1#puntos",
+      "icons": [
+        {
+          "src": "/assets/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "Comunidad",
+      "short_name": "Comunidad",
+      "url": "/?app=1#comunidad",
+      "icons": [
+        {
+          "src": "/assets/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    }
+  ],
+  "id": "/charts.html"
+}

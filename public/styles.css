@@ -1650,3 +1650,8 @@ body.pf-open{overflow:hidden}
 .rt-card.express .rt-pts{color:#7ff0c2}
 @media (max-width:980px){.pts-card.wallet{grid-template-columns:1fr}}
 @media (max-width:520px){.pts-bal{grid-template-columns:1fr}}
+
+/* acceso a EAG Charts desde el admin */
+.adm-charts{display:flex;align-items:center;gap:10px;margin:10px 0;padding:11px 12px;border-radius:12px;text-decoration:none;color:var(--fg,#e9edf7);background:linear-gradient(135deg,rgba(216,176,98,.16),rgba(216,176,98,.04));border:1px solid rgba(216,176,98,.45);transition:border-color .15s,transform .15s}
+.adm-charts:hover{border-color:#d8b062;transform:translateY(-1px)}
+.adm-charts .ac-i{font-size:22px}.adm-charts span{display:grid;gap:1px;min-width:0}.adm-charts b{font-size:14px;color:#f3d88f}.adm-charts small{font-size:11.5px;opacity:.75;line-height:1.3}.adm-charts i{margin-left:auto;font-style:normal;color:#d8b062;font-weight:700}
