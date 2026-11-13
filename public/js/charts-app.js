@@ -398,7 +398,7 @@ function start(){
   function fit(m){try{const w=m.mc.clientWidth||200;m.c.resize();m.c.setBarSpace(Math.max(1.5,(w-14)/60))}catch(e){}}
   function mtfResize(){if(mtf)mtf.minis.forEach(m=>{try{m.c.resize()}catch(e){}})}
   function mtfMark(){if(!mtf)return;let cur="";try{cur=panes[0].kc.getPeriod().text}catch(e){}
-    mtf.minis.forEach(m=>{const on=m.t===cur;m.box.classList.toggle("on",on);m.box.querySelector("em").textContent=on?"Seleccionada":""})}
+    mtf.minis.forEach(m=>{const on=m.t===cur;m.box.classList.toggle("on",on);m.box.querySelector("em").textContent=on?"●":""})}
 
   /* recordar mercado y temporalidad de cada gráfico; mantener la barra decorada */
   setInterval(()=>{let ch=false;panes.forEach((p,j)=>{try{const s=p.kc.getSymbol().ticker,t=p.kc.getPeriod().text,o=SAVE.panes[j]||{};if(o.s!==s||o.p!==t){SAVE.panes[j]=Object.assign({},o,{s,p:t});ch=true}}catch(e){}});
