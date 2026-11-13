@@ -1674,3 +1674,9 @@ body.pf-open{overflow:hidden}
 /* se siente como app: sin zoom por doble toque ni pellizco (los campos de texto usan 16px para que iPhone no acerque) */
 html,body{touch-action:manipulation;-webkit-text-size-adjust:100%}
 @media (max-width:860px){input,select,textarea{font-size:16px!important}}
+/* en computador con menú lateral: EAG Charts va en su propia fila, centrado y sin salirse del recuadro */
+@media (min-width:1100px){
+  nav.main .mnav-sw{grid-template-columns:1fr 1fr!important}
+  nav.main .mnav-sw .sw-charts{grid-column:1/-1;justify-content:center;gap:8px;border:1px solid rgba(216,176,98,.45);background:linear-gradient(135deg,rgba(216,176,98,.14),rgba(216,176,98,.03))}
+  nav.main .mnav-sw .sw-charts em{margin-left:0}
+}

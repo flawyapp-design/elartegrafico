@@ -637,6 +637,7 @@ window.EAGWidget=function(o){
     refreshBar:paintBar,
     setMtfButton(show,on){const b=root.querySelector('[data-a="mtf"]');b.hidden=!show;b.classList.toggle("on",!!on)},
     setDrawingBar(v){dbar.style.display=v?"":"none"},
-    reloadDrawings(){if(ready)restoreDrawings()}}
+    reloadDrawings(){if(ready)restoreDrawings()},
+    reloadData(){loadData()}}
 };
 })();

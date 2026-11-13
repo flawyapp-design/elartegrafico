@@ -42,7 +42,7 @@ const perOf=t=>PERIODS.find(p=>p.text===t)||PERIODS[0];
 const APPID=CFG.DERIV_APP_ID||1089;
 const ENDPOINTS=["wss://api.derivws.com/trading/v1/options/ws/public",`wss://ws.derivws.com/websockets/v3?app_id=${APPID}&l=ES`];
 function Feed(onStatus){
-  let ws=null,ep=0,opened=false,backoff=1000,rid=1,ping=null;
+  let ws=null,ep=0,opened=false,backoff=1000,rid=1,ping=null,paused=false,rt=null;
   const pend=new Map(),subs=new Map(),byRid=new Map(),queue=[];
   const st=s=>{try{onStatus(s)}catch(e){}};
   function connect(){
@@ -59,19 +59,22 @@ function Feed(onStatus){
       if(m.error){s.err&&s.err(m.error);return}
       const sid=(m.subscription&&m.subscription.id)||(m.ohlc&&m.ohlc.id)||(m.tick&&m.tick.id);if(sid)s.id=sid;
       s.on(m)};
-    ws.onclose=()=>{clearInterval(ping);
+    ws.onclose=()=>{clearInterval(ping);if(paused)return;
       if(!opened)ep=(ep+1)%ENDPOINTS.length;st("off");retry()};
     ws.onerror=()=>{};
   }
-  function retry(){setTimeout(connect,backoff);backoff=Math.min(backoff*2,15000)}
+  function retry(){clearTimeout(rt);if(paused)return;rt=setTimeout(connect,backoff);backoff=Math.min(backoff*2,15000)}
   function raw(o){const t=JSON.stringify(o);if(ws&&ws.readyState===1)ws.send(t)}
   function ask(o,ms=25000){const id=rid++;return new Promise((res,rej)=>{const t=JSON.stringify(Object.assign({},o,{req_id:id}));pend.set(id,{res,rej,t});if(ws&&ws.readyState===1)ws.send(t);
     setTimeout(()=>{if(pend.has(id)){pend.delete(id);rej(new Error("Tiempo de espera agotado"))}},ms)})}
   function sendSub(s){if(s.rid)byRid.delete(s.rid);s.rid=rid++;s.id=null;byRid.set(s.rid,s);raw(Object.assign({},s.req,{req_id:s.rid,subscribe:1}))}
   function sub(key,req,on,err){unsub(key);const s={key,req,on,err};subs.set(key,s);sendSub(s)}
   function unsub(key){const s=subs.get(key);if(!s)return;subs.delete(key);byRid.delete(s.rid);if(s.id)raw({forget:s.id})}
+  /* app en segundo plano: se cierra la conexión (cero datos) y al volver se reabre con todo lo suscrito */
+  function pause(){if(paused)return;paused=true;clearTimeout(rt);clearInterval(ping);st("pause");try{ws&&ws.close()}catch(e){}ws=null}
+  function resume(){if(!paused)return;paused=false;backoff=1000;connect()}
   connect();
-  return{ask,sub,unsub,has:k=>subs.has(k)};
+  return{ask,sub,unsub,has:k=>subs.has(k),pause,resume,paused:()=>paused};
 }
 
 /* ===================== Mercados ===================== */
@@ -159,7 +162,7 @@ function start(){
   </div>`;
 
   const appw=$("#appw"),stEl=$("#st"),main=$("#main"),list=$("#list"),q=$("#q"),ftabs=$("#ftabs"),pop=$("#pop");
-  const feed=Feed(s=>{stEl.className="st "+(s==="live"?"live":s==="off"?"err":"");stEl.lastChild.textContent=s==="live"?"En vivo":s==="off"?"Reconectando…":"Conectando…"});
+  const feed=Feed(s=>{stEl.className="st "+(s==="live"?"live":s==="off"?"err":"");stEl.lastChild.textContent=s==="live"?"En vivo":s==="off"?"Reconectando…":s==="pause"?"En pausa":"Conectando…"});
   const relayout=()=>requestAnimationFrame(()=>{window.dispatchEvent(new Event("resize"));mtfResize()});
 
   /* ---------- mercados ---------- */
@@ -518,7 +521,7 @@ function start(){
   function onPrice(s){const r=rowOf(s);r&&paintRow(r);if(SAVE.fav.includes(s))paintTabs();
     if(!pop.hidden&&pop.dataset.for==="sym"){const pr=pop.querySelector(`.spr[data-s="${CSS.escape(s)}"]`);if(pr){const x=bySym[s]||{},c=chg(s);pr.querySelector(".p").textContent=fmt(last[s],x);const ce=pr.querySelector(".c");ce.className="c "+(c==null?"":c>=0?"up":"dn");ce.textContent=c==null?"":(c>=0?"+":"")+c.toFixed(2)+"%"}}}
   function watch(){clearTimeout(wt);wt=setTimeout(()=>{
-    const want=new Set(SAVE.fav.concat(shown.slice(0,40),shownPick||[]));
+    const want=new Set(SAVE.fav.concat(shown.slice(0,20),shownPick||[]));
     watching.forEach(s=>{if(!want.has(s)){feed.unsub("tick:"+s);watching.delete(s)}});
     want.forEach(s=>{if(watching.has(s))return;watching.add(s);
       feed.sub("tick:"+s,{ticks:s},m=>{if(m.tick){const prev=last[s];last[s]=+m.tick.quote;if(prev!=null)dir[s]=last[s]>prev?"up":last[s]<prev?"dn":dir[s];onPrice(s)}},()=>{});
@@ -546,9 +549,23 @@ function start(){
   /* ---------- todo guardado en la cuenta (dibujos y diseño), para verlo en cualquier dispositivo ---------- */
   let syncT=null;
   window.__eagSync=()=>{clearTimeout(syncT);syncT=setTimeout(pushSync,2500)};
+  let lastPush=null;
   function pushSync(){if(!API.saveChartState)return;let draw={};try{draw=JSON.parse(localStorage.getItem("eag_draw_v1")||"{}")}catch(e){}
-    API.saveChartState({prefs:SAVE,draw,v:1}).then(()=>{try{localStorage.setItem("eag_sync_ts",String(Date.now()))}catch(e){}}).catch(()=>{})}
+    const body={prefs:SAVE,draw,v:1},js=JSON.stringify(body);
+    if(js===lastPush)return; /* nada cambió desde el último guardado: no se envía */
+    lastPush=js;
+    API.saveChartState(body).catch(()=>{lastPush=null}).then(()=>{try{localStorage.setItem("eag_sync_ts",String(Date.now()))}catch(e){}}).catch(()=>{})}
   document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="hidden"&&syncT){clearTimeout(syncT);pushSync()}});
+  /* pestaña/app oculta más de 15 s: se pausan los precios en vivo; al volver se reconecta y se recargan los gráficos */
+  let hideT=null;
+  document.addEventListener("visibilitychange",()=>{
+    if(document.visibilityState==="hidden"){clearTimeout(hideT);hideT=setTimeout(()=>feed.pause(),15000);return}
+    clearTimeout(hideT);
+    if(!feed.paused())return;
+    feed.resume();
+    setTimeout(()=>{try{panes.forEach(p=>p&&p.kc&&p.kc.reloadData&&p.kc.reloadData())}catch(e){}
+      try{Object.keys(MTFS).forEach(k=>buildMTF(+k))}catch(e){}
+      try{loadAlerts()}catch(e){}},300)});
 
   $("#cfgb").onclick=e=>{e.stopPropagation();openSettings()};
   $("#alb").onclick=e=>{e.stopPropagation();openSettings("alertas")};
@@ -656,7 +673,7 @@ function start(){
         ALERTS.unshift(r||{});paintAlerts();ov.remove();toast("🔔 Alerta creada. Te avisaremos al celular cuando el precio llegue.")}
       catch(err){e.target.disabled=false;toast(esc(/Máximo/.test(err.message)?err.message:"No se pudo crear la alerta. Intenta de nuevo."))}};
     setTimeout(()=>ov.querySelector("[data-p1]").focus(),30)}
-  loadAlerts();setInterval(loadAlerts,60000);
+  loadAlerts();setInterval(()=>{if(!document.hidden)loadAlerts()},60000);
   /* chip de la prueba y opinión */
   function openFeedback(){let ov=document.createElement("div");ov.className="smodal";appw.appendChild(ov);ov.onclick=e=>{if(e.target===ov)ov.remove()};
     ov.innerHTML=`<div class="abox"><div class="ah">💬 Tu opinión sobre EAG Charts</div><p class="shelp">Califica y cuéntanos qué mejorarías. Lo leemos todo.</p>${fbForm()}</div>`;
