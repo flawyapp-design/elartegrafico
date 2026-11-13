@@ -122,7 +122,7 @@ function start(){
       <button class="btn ic" id="wlb" title="Lista de mercados">${ICON.list}<span class="t">Mercados</span></button>
     </header>
     <div class="main" id="main">
-      <div class="center"><div class="ftw"><button class="fta" data-d="-1" title="Anteriores">‹</button><nav class="ftabs" id="ftabs" aria-label="Mercados favoritos"></nav><button class="fta" data-d="1" title="Siguientes">›</button></div><div class="grid" id="grid"></div></div>
+      <div class="center"><div class="ftw"><button class="fta" data-d="-1" title="Anteriores">‹</button><nav class="ftabs" id="ftabs" aria-label="Mercados favoritos"></nav><button class="fta" data-d="1" title="Siguientes">›</button><button class="fteye" id="fteye" title="Mostrar barras">${ICON.eye}</button></div><div class="grid" id="grid"></div></div>
       <aside class="wl" id="wl"><span class="wlsp" title="Arrastra para cambiar el ancho"></span>
         <div class="wlh"><h3>Mercados</h3><button class="x" id="wlx" title="Ocultar lista">×</button></div>
         <input id="q" type="search" placeholder="Buscar: Boom, Crash, EUR/USD…" autocomplete="off">
@@ -131,7 +131,7 @@ function start(){
         <div class="foot">Datos en vivo de Deriv, solo para análisis educativo. No es asesoría financiera. Compara siempre con tu plataforma antes de operar.</div>
       </aside>
     </div>
-    <button class="fab" id="fab" title="Mostrar barras">${ICON.eye}</button>
+    <button class="fab" id="fab" title="Mostrar barras · arrástralo para moverlo">${ICON.eye}</button>
     <div class="pop" id="pop" hidden></div>
   </div>`;
 
@@ -172,7 +172,7 @@ function start(){
   /* ---------- qué se ve y qué no ---------- */
   const PARTS=[["top","Barra superior"],["pb","Barra de temporalidades y herramientas"],["db","Barra de dibujo"],["ft","Pestañas de mercados favoritos"],["wl","Lista de mercados"]];
   SAVE.hide=SAVE.hide&&typeof SAVE.hide==="object"?SAVE.hide:{};
-  function applyHide(){PARTS.forEach(([k])=>appw.classList.toggle("h-"+k,!!SAVE.hide[k]));relayout()}
+  function applyHide(){PARTS.forEach(([k])=>appw.classList.toggle("h-"+k,!!SAVE.hide[k]));relayout();setTimeout(()=>{try{placeFab()}catch(e){}},60)}
   const allHidden=()=>PARTS.every(([k])=>SAVE.hide[k]);
   function openVista(anchor){
     pop.innerHTML=`<div class="ph">Vista</div>${PARTS.map(([k,t])=>`<label class="sw"><input type="checkbox" data-k="${k}" ${SAVE.hide[k]?"":"checked"}><i></i><span>${t}</span></label>`).join("")}
@@ -187,12 +187,23 @@ function start(){
     pop.querySelector('[data-a="clean"]').onclick=()=>{const all=!allHidden();PARTS.forEach(([k])=>SAVE.hide[k]=all);save();applyHide();closePop()};
     showPop(anchor,"right")}
   $("#vb").onclick=e=>{e.stopPropagation();pop.hidden||pop.dataset.for!=="vista"?(openVista($("#vb")),pop.dataset.for="vista"):closePop()};
-  $("#fab").onclick=e=>{e.stopPropagation();openVista($("#fab"));pop.dataset.for="vista"};
+  $("#fteye").onclick=e=>{e.stopPropagation();pop.hidden||pop.dataset.for!=="vista"?(openVista($("#fteye")),pop.dataset.for="vista"):closePop()};
+  /* ojito flotante (solo con todas las barras ocultas): en la esquina vacía del gráfico y se puede arrastrar */
+  const fab=$("#fab");let fabMoved=false;
+  function placeFab(){if(SAVE.fabPos){fab.style.left=clamp(SAVE.fabPos.x,4,innerWidth-40)+"px";fab.style.top=clamp(SAVE.fabPos.y,4,innerHeight-40)+"px";return}
+    const r=grid.getBoundingClientRect();fab.style.left=(r.right-38)+"px";fab.style.top=(r.bottom-34)+"px"}
+  fab.addEventListener("pointerdown",e=>{if(e.button!==0)return;const r=fab.getBoundingClientRect(),dx=e.clientX-r.left,dy=e.clientY-r.top,st={x:e.clientX,y:e.clientY};fabMoved=false;try{fab.setPointerCapture(e.pointerId)}catch(x){}
+    const mv=ev=>{if(!fabMoved&&Math.hypot(ev.clientX-st.x,ev.clientY-st.y)<5)return;fabMoved=true;SAVE.fabPos={x:Math.round(ev.clientX-dx),y:Math.round(ev.clientY-dy)};placeFab()};
+    const up=()=>{fab.removeEventListener("pointermove",mv);fab.removeEventListener("pointerup",up);if(fabMoved)save()};
+    fab.addEventListener("pointermove",mv);fab.addEventListener("pointerup",up)});
+  fab.ondblclick=()=>{delete SAVE.fabPos;save();placeFab()};
+  addEventListener("resize",()=>placeFab());
+  fab.onclick=e=>{e.stopPropagation();if(fabMoved){fabMoved=false;return}openVista(fab);pop.dataset.for="vista"};
   function showPop(anchor,align){pop.hidden=false;const r=anchor.getBoundingClientRect(),w=pop.offsetWidth,h=pop.offsetHeight;
     let x=align==="right"?r.right-w:r.left;x=Math.max(8,Math.min(x,innerWidth-w-8));let y=r.bottom+6;if(y+h>innerHeight-8)y=Math.max(8,r.top-h-6);
     pop.style.left=x+"px";pop.style.top=y+"px"}
   function closePop(){pop.hidden=true;pop.dataset.for="";pop.classList.remove("wide");if(shownPick&&shownPick.length){shownPick=[];watch()}}
-  document.addEventListener("pointerdown",e=>{if(!pop.hidden&&!pop.contains(e.target)&&!e.target.closest("#vb,#fab,#cfgb,.tfdd,.wsym,.wtf"))closePop()});
+  document.addEventListener("pointerdown",e=>{if(!pop.hidden&&!pop.contains(e.target)&&!e.target.closest("#vb,#fab,#fteye,#cfgb,.tfdd,.wsym,.wtf"))closePop()});
   addEventListener("keydown",e=>{if(e.key==="Escape")closePop()});
 
   /* ---------- tamaños y posiciones que el usuario acomoda ---------- */
