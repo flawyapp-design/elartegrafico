@@ -573,10 +573,10 @@ function start(){
     lastPush=js;
     API.saveChartState(body).catch(()=>{lastPush=null}).then(()=>{try{localStorage.setItem("eag_sync_ts",String(Date.now()))}catch(e){}}).catch(()=>{})}
   document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="hidden"&&syncT){clearTimeout(syncT);pushSync()}});
-  /* pestaña/app oculta más de 15 s: se pausan los precios en vivo; al volver se reconecta y se recargan los gráficos */
+  /* pestaña/app oculta más de 1 minuto: se pausan los precios en vivo; al volver se reconecta y se recargan los gráficos */
   let hideT=null;
   document.addEventListener("visibilitychange",()=>{
-    if(document.visibilityState==="hidden"){clearTimeout(hideT);hideT=setTimeout(()=>feed.pause(),15000);return}
+    if(document.visibilityState==="hidden"){clearTimeout(hideT);hideT=setTimeout(()=>feed.pause(),60000);return}
     clearTimeout(hideT);
     if(!feed.paused())return;
     feed.resume();
