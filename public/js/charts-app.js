@@ -48,7 +48,7 @@ function Feed(onStatus){
   function connect(){
     st("conn");opened=false;
     try{ws=new WebSocket(ENDPOINTS[ep])}catch(e){return retry()}
-    ws.onopen=()=>{opened=true;backoff=1000;st("live");
+    ws.onopen=()=>{opened=true;window.EAG_EP=ENDPOINTS[ep];backoff=1000;st("live");
       while(queue.length)ws.send(queue.shift());
       subs.forEach(s=>sendSub(s));
       clearInterval(ping);ping=setInterval(()=>{if(ws&&ws.readyState===1)ws.send('{"ping":1}')},25000)};
@@ -122,7 +122,7 @@ function start(){
       </aside>
     </div></div>`;
 
-  const stEl=$("#st");
+  const stEl=$("#st"),main=$("#main"),list=$("#list"),q=$("#q");
   const feed=Feed(s=>{stEl.className="st "+(s==="live"?"live":s==="off"?"err":"");stEl.lastChild.textContent=s==="live"?"En vivo":s==="off"?"Reconectando…":"Conectando…"});
 
   /* ---------- lista de mercados ---------- */
@@ -192,7 +192,6 @@ function start(){
   setLayout(lay);
 
   /* ---------- panel de mercados ---------- */
-  const main=$("#main"),list=$("#list"),q=$("#q");
   SAVE.fav=Array.isArray(SAVE.fav)?SAVE.fav:["BOOM1000","CRASH1000","BOOM500","CRASH500"];
   let tab=SAVE.tab||"bc",shown=[];const last={},dayOpen={};
   $("#wlb").onclick=()=>{if(mobile())main.classList.toggle("wlopen");else{main.classList.toggle("nowl");SAVE.nowl=main.classList.contains("nowl");save();requestAnimationFrame(()=>window.dispatchEvent(new Event("resize")))}};
