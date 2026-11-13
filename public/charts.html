@@ -304,6 +304,7 @@ html[data-wm=brand] .wm-s{display:none}.wm-b{display:block!important}html[data-w
   .wstyle button{min-width:36px;min-height:34px}
   .wstyle select{font-size:13px;padding:5px 4px}
   .wstyle [data-a="del"]{order:-1;color:#f23645;background:rgba(242,54,69,.12)}
+  .wstyle [data-a="cfg"]{order:-1;color:var(--gold)}
 }
 .wstyle [data-a="del"]:hover{color:#f23645}
 .wstyle .sn{font-size:11.5px;color:var(--mut);padding:0 6px;white-space:nowrap}
@@ -422,7 +423,7 @@ html.light .trialchip{color:var(--gold)}
 @media (max-width:900px){input,select,textarea{font-size:16px!important}}
 /* pantalla completa de verdad (app instalada): la app ocupa todo el alto, sin franja vacía abajo;
    abajo deja solo un poquito para la rayita de inicio del iPhone / botones de Android */
-html,body{height:100%;margin:0}
+html,body{height:100%;margin:0;background:var(--bg)}
 .app{position:fixed;inset:0;height:auto;padding-bottom:max(4px,calc(env(safe-area-inset-bottom) - 18px))}
 html,body{overscroll-behavior:none}.dbar{overscroll-behavior:contain;touch-action:pan-y}
 /* celular: la tira de multitemporalidad se desliza de lado; deslizar un mini hacia arriba lo pasa al grande */

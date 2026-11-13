@@ -510,13 +510,13 @@ window.EAGWidget=function(o){
       ${/^eag(Position|Long|Short)$/.test(v.name)?"":`<select title="Grosor">${[1,2,3,4].map(n=>`<option value="${n}" ${+c.size===n?"selected":""}>${n}px</option>`).join("")}</select>
       <select title="Tipo de línea"><option value="solid" ${c.dash==="solid"?"selected":""}>━ Sólida</option><option value="dash" ${c.dash==="dash"?"selected":""}>╍ Guiones</option><option value="dot" ${c.dash==="dot"?"selected":""}>┈ Puntos</option></select>`}
       ${v.name==="eagText"||v.name==="eagZone"?`<button data-a="txt" title="Editar texto">Aa</button>`:""}
-      ${alertable(v)?`<button data-a="alert" title="Crear alerta en este nivel">🔔</button>`:""}<button data-a="lock" title="${v.lock?"Desbloquear":"Bloquear"}">${svg(v.lock?"lock":"unlock",16)}</button><button data-a="dup" title="Duplicar">${svg("copy",16)}</button><button data-a="del" title="Eliminar (Supr)">${svg("trash",16)}</button>`;
+      ${alertable(v)?`<button data-a="alert" title="Crear alerta en este nivel">🔔</button>`:""}<button data-a="lock" title="${v.lock?"Desbloquear":"Bloquear"}">${svg(v.lock?"lock":"unlock",16)}</button><button data-a="dup" title="Duplicar">${svg("copy",16)}</button><button data-a="del" title="Eliminar (Supr)">${svg("trash",16)}</button><button data-a="cfg" title="Configurar este dibujo">${svg("gear",16)}</button>`;
     sbar.hidden=false;
     sbar.querySelector("input[type=color]").oninput=e=>{sbar.querySelector(".cc i").style.background=e.target.value};
     sbar.querySelector("input[type=color]").onchange=e=>setStyle(id,{color:e.target.value,fill:null});
     const sels=sbar.querySelectorAll("select");if(sels[0])sels[0].onchange=e=>setStyle(id,{size:+e.target.value});if(sels[1])sels[1].onchange=e=>setStyle(id,{dash:e.target.value});
     const tb=sbar.querySelector('[data-a="txt"]');tb&&(tb.onclick=()=>editText(id));
-    sbar.querySelector('[data-a="lock"]').onclick=()=>toggleLock(id);const ab=sbar.querySelector('[data-a="alert"]');ab&&(ab.onclick=()=>alertFrom(id));sbar.querySelector('[data-a="dup"]').onclick=()=>dupOv(id);sbar.querySelector('[data-a="del"]').onclick=()=>removeOv(id)}
+    sbar.querySelector('[data-a="lock"]').onclick=()=>toggleLock(id);const ab=sbar.querySelector('[data-a="alert"]');ab&&(ab.onclick=()=>alertFrom(id));sbar.querySelector('[data-a="dup"]').onclick=()=>dupOv(id);sbar.querySelector('[data-a="del"]').onclick=()=>removeOv(id);const cfb=sbar.querySelector('[data-a="cfg"]');if(cfb)cfb.onclick=()=>{const r=chartEl.getBoundingClientRect(),b=cfb.getBoundingClientRect();openCtx(id,{x:b.left-r.left-120,y:b.bottom-r.top+8},true)}}
   function hideStyleBar(){sbar.hidden=true}
   /* menú de clic derecho sobre un dibujo */
   let panelPos=null;
@@ -584,6 +584,39 @@ window.EAGWidget=function(o){
     v.ax._autoCalcTickFlag=false;v.ax._range=Object.assign({},r0,{from,to,range:to-from,realFrom:from,realTo:to,realRange:to-from});try{chart.adjustPaneViewport(false,true,true,true)}catch(x){}});
   ["pointerup","pointercancel"].forEach(t=>addEventListener(t,()=>{vpan=null}));
   /* Shift + clic: regla rápida, como en TradingView */
+  /* ---------- celular: tocar un dibujo es fácil (margen amplio) y doble toque abre su configuración ---------- */
+  function ovDist(id,x,y){const v=ovs.get(id);if(!v)return 1e9;let ov;try{ov=chart.getOverlayById(id)}catch(e){}const pts=(ov&&ov.points)||v.points||[];if(!pts.length)return 1e9;
+    let P;try{P=pts.map(p=>chart.convertToPixel({timestamp:p.timestamp!=null?p.timestamp:tsOf(p),value:p.value},{paneId:"candle_pane"}))}catch(e){return 1e9}
+    P=P.filter(p=>p&&isFinite(p.x)&&isFinite(p.y));if(!P.length)return 1e9;const n=v.name,W=chartEl.clientWidth;
+    const seg=(a,b,inf)=>{const dx=b.x-a.x,dy=b.y-a.y,L=dx*dx+dy*dy;if(!L)return Math.hypot(x-a.x,y-a.y);let t=((x-a.x)*dx+(y-a.y)*dy)/L;if(!inf)t=Math.max(0,Math.min(1,t));return Math.hypot(x-(a.x+t*dx),y-(a.y+t*dy))};
+    if(/^(horizontalStraightLine|priceLine|eagAlert)$/.test(n))return Math.abs(y-P[0].y);
+    if(/^horizontal(RayLine|Segment)$/.test(n))return x>=Math.min(P[0].x,(P[1]||P[0]).x)-12?Math.abs(y-P[0].y):1e9;
+    if(/^vertical/.test(n))return Math.abs(x-P[0].x);
+    if(n==="straightLine"&&P[1])return seg(P[0],P[1],true);
+    if(BOX.test(n)||/^(rect|eagLong|eagShort|eagMeasure|eagPosition|circle|triangle|parallelogram|fibonacciLine|eagText)$/.test(n)||/^fib|^gann|^abcd|^xabcd/.test(n)){
+      const xs=P.map(p=>p.x),ys=P.map(p=>p.y);let x0=Math.min(...xs),x1=/^(eagZone|eagBuyZone|eagSellZone|fibonacciLine)$/.test(n)?W:Math.max(...xs);if(n==="eagText"){x1=x0+90}
+      let y0=Math.min(...ys),y1=Math.max(...ys);if(n==="eagText"){y0-=14;y1+=6}
+      if(n==="circle"&&P[1]){const r=Math.hypot(P[1].x-P[0].x,P[1].y-P[0].y);return Math.max(0,Math.hypot(x-P[0].x,y-P[0].y)-r)}
+      const dx=Math.max(x0-x,0,x-x1),dy=Math.max(y0-y,0,y-y1);return Math.hypot(dx,dy)}
+    let d=1e9;for(let i=0;i<P.length;i++){d=Math.min(d,Math.hypot(x-P[i].x,y-P[i].y));if(i&&n!=="eagBrush")d=Math.min(d,seg(P[i-1],P[i],false))}
+    if(n==="eagBrush")for(let i=1;i<P.length;i++)d=Math.min(d,seg(P[i-1],P[i],false));
+    if(n==="rayLine"&&P[1])d=Math.min(d,(()=>{const dx=P[1].x-P[0].x,dy=P[1].y-P[0].y,L=dx*dx+dy*dy;if(!L)return 1e9;const t=((x-P[0].x)*dx+(y-P[0].y)*dy)/L;return t<0?1e9:Math.hypot(x-(P[0].x+t*dx),y-(P[0].y+t*dy))})());
+    return d}
+  function nearOv(x,y,tol){let best=null,bd=tol;ovs.forEach((v,id)=>{if(hidden)return;const d=ovDist(id,x,y);if(d<=bd){bd=d;best=id}});return best}
+  {let tdn=null,lastTap=null,manual=null;
+    chartEl.addEventListener("pointerdown",e=>{if(e.pointerType==="mouse")return;tdn={x:e.clientX,y:e.clientY,t:Date.now(),sel:selId}},true);
+    chartEl.addEventListener("pointerup",e=>{if(e.pointerType==="mouse"||!tdn)return;const d=tdn;tdn=null;
+      if(Date.now()-d.t>350||Math.hypot(e.clientX-d.x,e.clientY-d.y)>10||drawingId||brushOn)return;
+      if(e.target.closest(".wnav,.wnavt,.wstyle,.wcdl,.wmenu"))return;
+      const r=chartEl.getBoundingClientRect(),x=e.clientX-r.left,y=e.clientY-r.top;
+      setTimeout(()=>{let id=selId;const near=nearOv(x,y,24);
+        if(!near&&id&&id===manual&&ovDist(id,x,y)>24){selId=null;manual=null;hideStyleBar();syncPan();lastTap=null;return}
+        if(!id&&near){id=near;selId=near;manual=near;showStyleBar(near);syncPan()}
+        else if(id&&near&&near!==id&&ovDist(id,x,y)>24){id=near;selId=near;manual=near;showStyleBar(near);syncPan()}
+        const now=Date.now();
+        if(id&&lastTap&&lastTap.id===id&&now-lastTap.t<450&&Math.hypot(x-lastTap.x,y-lastTap.y)<40){lastTap=null;openCtx(id,{x,y},true);return}
+        lastTap=id?{id,t:now,x,y}:null},70)});
+  }
   chartEl.addEventListener("pointerdown",e=>{if(e.shiftKey&&!drawingId&&e.button===0)startTool("eagMeasure")},true);
 
   /* ---------- indicadores ---------- */
