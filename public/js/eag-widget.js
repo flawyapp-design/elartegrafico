@@ -178,6 +178,7 @@ function themeStyles(light){
 const deep=(a,b)=>{for(const k in b){if(b[k]&&typeof b[k]==="object"&&!Array.isArray(b[k])){a[k]=deep(a[k]&&typeof a[k]==="object"?a[k]:{},b[k])}else a[k]=b[k]}return a};
 
 /* ===================== Widget ===================== */
+window.EAGTools={icon:(k,s)=>tsvg(k,s),name:k=>TNAME[k]||k};
 window.EAGWidget=function(o){
   registerAll();
   const root=o.container;root.classList.add("eagw");
@@ -260,8 +261,10 @@ window.EAGWidget=function(o){
       chart.removeOverlay();ovs.clear();persist();hideStyleBar();paintDbar()};
   }
   function openToolMenu(g,anchor){closeMenu();menu=document.createElement("div");menu.className="wmenu";
-    menu.innerHTML=`<div class="mt">${esc(g.t)}</div>`+g.items.map(([k,t])=>`<button data-k="${k}" class="${(lastTool[g.g]||g.items[0][0])===k?"on":""}">${tsvg(k,20)}<span>${esc(t)}</span></button>`).join("");
+    const favs=(o.getToolFav&&o.getToolFav())||[];
+    menu.innerHTML=`<div class="mt">${esc(g.t)}</div>`+g.items.map(([k,t])=>`<button data-k="${k}" class="${(lastTool[g.g]||g.items[0][0])===k?"on":""}">${tsvg(k,20)}<span>${esc(t)}</span><i class="tst${favs.includes(k)?" on":""}" data-fav="${k}" title="${favs.includes(k)?"Quitar de la barra de favoritos":"Agregar a la barra de favoritos"}">${favs.includes(k)?"★":"☆"}</i></button>`).join("");
     document.body.appendChild(menu);const r=anchor.getBoundingClientRect();menu.style.left=(r.right+6)+"px";menu.style.top=Math.min(r.top,innerHeight-menu.offsetHeight-8)+"px";
+    menu.querySelectorAll("[data-fav]").forEach(f=>f.addEventListener("click",e=>{e.stopPropagation();o.onToolFav&&o.onToolFav(f.dataset.fav);const on=((o.getToolFav&&o.getToolFav())||[]).includes(f.dataset.fav);f.classList.toggle("on",on);f.textContent=on?"★":"☆"},true));
     menu.querySelectorAll("button").forEach(b=>b.onclick=()=>{lastTool[g.g]=b.dataset.k;o.onLastTools&&o.onLastTools(lastTool);closeMenu();paintDbar();startTool(b.dataset.k)})}
   let drawingId=null;
   function cancelDraw(){if(drawingId){try{chart.removeOverlay(drawingId)}catch(e){}ovs.delete(drawingId);drawingId=null}dbar.querySelectorAll(".dt").forEach(b=>b.classList.remove("act"))}
@@ -391,7 +394,7 @@ window.EAGWidget=function(o){
   ind.main.forEach(n=>addInd(n,"main",true));const subs=Object.keys(ind.sub);ind.sub={};subs.forEach(n=>addInd(n,"sub",true));
   loadData();
 
-  return{chart,el:root,
+  return{chart,el:root,startTool:n=>startTool(n),
     getSymbol:()=>sym,setSymbol(s){if(!s||(sym&&s.ticker===sym.ticker&&s.pricePrecision===sym.pricePrecision))return;sym=s;loadData()},
     getPeriod:()=>per,setPeriod(p){if(!p||p.text===per.text)return;per=p;loadData()},
     getTheme:()=>theme,setTheme(t){theme=t;applyStyles()},
