@@ -75,6 +75,9 @@ function SupabaseAPI(url,key){
     async chartAlerts(){if(!sess||!sess.user)return[];return sel("chart_alerts",`&user_id=eq.${sess.user.id}&order=created_at.desc`)},
     async saveChartAlert(a){if(!sess||!sess.user)throw new Error("Inicia sesión");return ups("chart_alerts",Object.assign({},a,{user_id:sess.user.id}))},
     async deleteChartAlert(id){return del("chart_alerts",id)},
+    async chartTrial(){const r=await rpc("chart_trial");return Array.isArray(r)?r[0]:r},
+    async chartFeedback(rating,text){return rpc("chart_feedback",{p_rating:rating,p_text:text})},
+    async adminChartFeedback(){return rpc("admin_chart_feedback")},
     async usernameAvailable(u){return !!(await rpc("username_available",{u}))},
     async signUp({username,email,password,captcha}){
       const typo={"gmai.com":"gmail.com","gmial.com":"gmail.com","gmail.co":"gmail.com","gamil.com":"gmail.com","hotmial.com":"hotmail.com","hotmai.com":"hotmail.com","outlok.com":"outlook.com","yaho.com":"yahoo.com"};const dom=(email.split("@")[1]||"").toLowerCase();
@@ -239,6 +242,9 @@ function LocalAPI(){
     async chartAlerts(){return(db.calerts||[]).filter(x=>x.user_id===uid)},
     async saveChartAlert(a){db.calerts=db.calerts||[];const r=Object.assign({id:a.id||uuid(),created_at:now(),active:true},a,{user_id:uid});db.calerts=db.calerts.filter(x=>x.id!==r.id).concat(r);save();return r},
     async deleteChartAlert(id){db.calerts=(db.calerts||[]).filter(x=>x.id!==id);save()},
+    async chartTrial(){db.ctrial=db.ctrial||{};let t=db.ctrial[uid];if(!t){t=db.ctrial[uid]={started_at:now()};save()}return{started_at:t.started_at,ends_at:new Date(new Date(t.started_at).getTime()+3*864e5).toISOString(),has_feedback:!!t.feedback_at}},
+    async chartFeedback(rating,text){db.ctrial=db.ctrial||{};const t=db.ctrial[uid]=db.ctrial[uid]||{started_at:now()};Object.assign(t,{rating,feedback:text,feedback_at:now()});save()},
+    async adminChartFeedback(){return Object.entries(db.ctrial||{}).map(([u,t])=>{const p=db.profiles.find(x=>x.id===u)||{};return Object.assign({username:p.username,country:p.country,premium:false},t)})},
     async usernameAvailable(u){return !db.profiles.some(p=>p.username.toLowerCase()===u.toLowerCase())},
     async signUp({username,email,password}){
       if(db.users.some(u=>u.email.toLowerCase()===email.toLowerCase()))throw new Error("Ese correo ya tiene una cuenta.");

@@ -92,7 +92,7 @@
           "value": "charts.elartegrafico.com"
         }
       ],
-      "destination": "/charts.html",
+      "destination": "/charts",
       "permanent": false
     },
     {
@@ -103,8 +103,9 @@
           "value": "charts.elartegrafico.com"
         }
       ],
-      "destination": "/charts.html",
+      "destination": "/charts",
       "permanent": false
     }
-  ]
+  ],
+  "cleanUrls": true
 }

@@ -4,14 +4,14 @@
 "use strict";
 const A=window.AGAPP;const {$,$$,esc,API,S,toast,busy,fmtT,fmtDate,fmtDT,TZ,MARKETS,MNAME,h1Bars,m5Bars,idxAt,avgRange,toC,Chart,app}=A;
 let tab="resumen";
-const GROUPS=[["General",["resumen","chat"]],["Academia",["cursos","contenido","ejercicios","banners","noticias","archivos"]],["Retos y puntos",["top","retos","afiliados","canjes","rpuntos"]],["Alumnos",["alumnos","pagos","resenas","opiniones","notif"]],["Sitio",["sitio","legal"]]];
-const TICO={top:"star",chat:"chat",cursos:"acad",retos:"bolt",afiliados:"users",canjes:"card",rpuntos:"gear",resumen:"chart",sitio:"site",banners:"image",contenido:"layers",ejercicios:"acad",noticias:"news",opiniones:"star",resenas:"msg",pagos:"card",alumnos:"users",archivos:"folder",notif:"bell",legal:"scale"};
+const GROUPS=[["General",["resumen","chat"]],["Academia",["cursos","contenido","ejercicios","banners","noticias","archivos"]],["Retos y puntos",["top","retos","afiliados","canjes","rpuntos"]],["Alumnos",["alumnos","pagos","resenas","opiniones","chartsop","notif"]],["Sitio",["sitio","legal"]]];
+const TICO={top:"star",chat:"chat",cursos:"acad",retos:"bolt",afiliados:"users",canjes:"card",rpuntos:"gear",resumen:"chart",sitio:"site",banners:"image",contenido:"layers",ejercicios:"acad",noticias:"news",opiniones:"star",chartsop:"chart",resenas:"msg",pagos:"card",alumnos:"users",archivos:"folder",notif:"bell",legal:"scale"};
 const TDESC={chat:"Conversaciones privadas con cada alumno. Se borran solas a los días que definas, o al instante con Finalizar.",cursos:"Cursos que se venden sueltos (de por vida) y cómo se ven los planes Cobre, Plata y Oro.",retos:"Crea el reto del día: cuestionario, ¿sube o baja? o marcar la zona. Los primeros en acertar ganan puntos.",afiliados:"Verifica quién abrió su cuenta de Deriv con tu enlace de socio: ganan los puntos completos.",
   top:"Los 10 primeros del ranking. Suma o quita puntos o saldo en dólares a cualquier alumno.",canjes:"Retiros de saldo de los retos express y canjes de puntos: paga y márcalos.",rpuntos:"Activa los retos, define cuánto vale cada punto y el mínimo para canjear.",resumen:"Cómo va la academia: alumnos, visitas y actividad.",sitio:"Textos, portada, precios, enlaces y datos de contacto de la web.",banners:"Imágenes y mensajes del carrusel de la portada y del ingreso.",
   contenido:"Módulos, lecciones, videos y el orden del temario.",ejercicios:"Gráficas, cálculos y preguntas de cada lección y de la práctica.",noticias:"Publicaciones de la comunidad y avisos.",
-  opiniones:"Opiniones públicas de los alumnos: aprueba u oculta.",resenas:"Lo que dicen los alumnos al terminar cada módulo (privado).",pagos:"Pagos de Binance por confirmar y el historial.",
+  opiniones:"Opiniones públicas de los alumnos: aprueba u oculta.",chartsop:"Quién está probando EAG Charts (3 días gratis) y qué recomiendan mejorar.",resenas:"Lo que dicen los alumnos al terminar cada módulo (privado).",pagos:"Pagos de Binance por confirmar y el historial.",
   alumnos:"Cuentas, premium, puntos y avance de cada alumno.",archivos:"Imágenes y archivos subidos.",notif:"Envía avisos al celular de los alumnos.",legal:"Términos, privacidad y avisos legales."};
-const TABS=[["chat","Mensajes"],["cursos","Cursos y planes"],["top","Top, puntos y saldo"],["retos","Retos diarios"],["afiliados","Afiliados Deriv"],["canjes","Canjes"],["rpuntos","Ajustes de puntos"],["resumen","Estadísticas"],["sitio","Sitio y textos"],["banners","Banners"],["contenido","Módulos y lecciones"],["ejercicios","Ejercicios"],["noticias","Noticias"],["opiniones","Opiniones"],["resenas","Reseñas de módulos"],["pagos","Pagos"],["alumnos","Alumnos"],["archivos","Archivos"],["notif","Notificaciones"],["legal","Legal"]];
+const TABS=[["chat","Mensajes"],["cursos","Cursos y planes"],["top","Top, puntos y saldo"],["retos","Retos diarios"],["afiliados","Afiliados Deriv"],["canjes","Canjes"],["rpuntos","Ajustes de puntos"],["resumen","Estadísticas"],["sitio","Sitio y textos"],["banners","Banners"],["contenido","Módulos y lecciones"],["ejercicios","Ejercicios"],["noticias","Noticias"],["opiniones","Opiniones"],["chartsop","EAG Charts: prueba y opiniones"],["resenas","Reseñas de módulos"],["pagos","Pagos"],["alumnos","Alumnos"],["archivos","Archivos"],["notif","Notificaciones"],["legal","Legal"]];
 A.ROUTES.admin=sub=>{
   if(!A.admin()){app.innerHTML=`<div class="empty">Esta sección es solo para administradores.<a class="btn sm" href="#inicio">Volver</a></div>`;return}
   let chatU=null;if(sub&&/^chat-/.test(sub)){tab="chat";chatU=sub.slice(5)}else if(sub&&TABS.some(t=>t[0]===sub))tab=sub;
@@ -50,7 +50,7 @@ A.ROUTES.admin=sub=>{
     acL.onsubmit=e=>{e.preventDefault();const v=fromLoc($("#acAt").value);if(!v){toast("Elige la fecha y la hora");return}if(new Date(v)<=new Date()){toast("Elige una fecha futura");return}sv(v)};
     const x=$("#acX");if(x)x.onclick=()=>sv(null)}
   if(tab==="chat")return chat(chatU);
-  ({cursos,resumen,sitio,banners,contenido,ejercicios,noticias,opiniones,resenas,pagos,alumnos,archivos,notif,legal,retos,afiliados,canjes,rpuntos,top})[tab]();
+  ({cursos,resumen,sitio,banners,contenido,ejercicios,noticias,opiniones,chartsop,resenas,pagos,alumnos,archivos,notif,legal,retos,afiliados,canjes,rpuntos,top})[tab]();
   const badge=(k,n)=>{const b=document.querySelector(`[data-badge="${k}"]`);if(b&&n){b.textContent=n;b.classList.add("on")}};
   if(API.dmBadge)API.dmBadge().then(b=>badge("chat",b&&b.unread)).catch(()=>{});
   if(API.adminAffiliates)API.adminAffiliates().then(l=>badge("afiliados",(l||[]).filter(x=>x.status==="pendiente").length)).catch(()=>{});
@@ -434,6 +434,22 @@ async function noticias(){
   $("#np").onclick=()=>edit({});$$("[data-p]").forEach(b=>b.onclick=()=>edit(list.find(p=>p.id===b.dataset.p)));
 }
 
+/* ---------- EAG Charts: prueba y opiniones ---------- */
+async function chartsop(){
+  let list=[];try{list=await API.adminChartFeedback()||[]}catch(e){H().innerHTML=`<div class="panel"><p class="muted">Corre <b>charts_prueba.sql</b> en Supabase para activar la prueba de EAG Charts.</p></div>`;return}
+  const fb=list.filter(r=>r.feedback_at),avg=fb.length?(fb.reduce((a,r)=>a+(+r.rating||0),0)/fb.length):0,now=Date.now(),act=list.filter(r=>new Date(r.started_at).getTime()+3*864e5>now).length;
+  let f="todas";
+  const draw=()=>{const L=list.filter(r=>f==="todas"||(f==="con"?r.feedback_at:!r.feedback_at));
+    $("#cfL").innerHTML=L.length?L.map(r=>`<div class="item" style="align-items:flex-start"><span class="txt"><b>${esc(r.username||"alumno")}${r.country?" · "+esc(r.country):""}${r.premium?' <span class="tag pub">Con plan</span>':""}${r.feedback_at?` · <span class="stars">${"★".repeat(+r.rating||0)}${"☆".repeat(5-(+r.rating||0))}</span>`:""}</b>
+      <span>${r.feedback_at?esc(r.feedback||"(sin comentario)"):'<span class="dim">Aún no deja recomendaciones</span>'}</span>
+      <span class="dim">Empezó ${fmtDT(r.started_at)}${r.feedback_at?" · opinó "+fmtDT(r.feedback_at):""}</span></span></div>`).join(""):`<p class="muted">Nada por aquí todavía.</p>`};
+  H().innerHTML=`<div class="panel"><h3>EAG Charts</h3><p class="muted">Todos los registrados tienen 3 días gratis desde la primera vez que abren EAG Charts. Al terminar se les pide que califiquen y dejen recomendaciones.</p>
+    <div class="row" style="flex-wrap:wrap;gap:10px;margin:10px 0"><span class="tag">${list.length} lo han probado</span><span class="tag">${act} en prueba ahora</span><span class="tag">${fb.length} opiniones</span><span class="tag">Promedio ${avg?avg.toFixed(1)+" ★":"—"}</span>
+    <a class="btn sm gold" href="https://charts.elartegrafico.com" target="_blank" rel="noopener">Abrir EAG Charts ↗</a></div>
+    <div class="row" style="gap:6px;margin-bottom:10px">${[["todas","Todos"],["con","Con opinión"],["sin","Sin opinión"]].map(([k,t])=>`<button class="btn sm${k===f?" gold":""}" data-cf="${k}">${t}</button>`).join("")}</div>
+    <div class="list" id="cfL"></div></div>`;
+  $$("[data-cf]").forEach(b=>b.onclick=()=>{f=b.dataset.cf;$$("[data-cf]").forEach(x=>x.classList.toggle("gold",x===b));draw()});draw();
+}
 /* ---------- opiniones ---------- */
 async function opiniones(){
   let list=[];try{list=await API.adminReviews()}catch(e){}

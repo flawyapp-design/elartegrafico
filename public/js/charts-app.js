@@ -90,7 +90,12 @@ const gate=(h1,p,btns)=>{app.innerHTML=`<div class="gate"><img src="assets/logo_
 (async function(){
   try{await API.init()}catch(e){}
   if(!API.user())return gate("EAG Charts","Gráficos en vivo de Boom y Crash, sintéticos, forex y más, con herramientas de análisis. Ingresa con tu cuenta de El Arte Gráfico.",`<a class="btn gold" href="${MAIN}#entrar">Ingresar</a><a class="btn" href="${MAIN}#registro">Crear cuenta</a>`);
-  if(!(API.isPremium()||API.isAdmin()))return gate("Exclusivo para miembros","EAG Charts está incluido en los planes de El Arte Gráfico. Activa tu plan y vuelve a esta página.",`<a class="btn gold" href="${MAIN}#premium">Ver planes</a><a class="btn" href="${ACAD}">Ir a la academia</a>`);
+  /* prueba gratis de 3 días para todos los registrados (empieza la primera vez que abren EAG Charts) */
+  if(!(API.isPremium()||API.isAdmin())){
+    let t=null;try{t=API.chartTrial?await API.chartTrial():null}catch(e){t=null}
+    if(!t||!t.ends_at)return gate("Exclusivo para miembros","EAG Charts está incluido en los planes de El Arte Gráfico. Activa tu plan y vuelve a esta página.",`<a class="btn gold" href="${MAIN}#premium">Ver planes</a><a class="btn" href="${ACAD}">Ir a la academia</a>`);
+    if(new Date(t.ends_at).getTime()<=Date.now())return trialEnded(t);
+    window.__trial=t}
   /* traer lo guardado en la cuenta si es más nuevo que lo de este navegador */
   try{if(API.chartState){const r=await API.chartState();const lt=+(localStorage.getItem("eag_sync_ts")||0);
     if(r&&r.data&&new Date(r.updated_at).getTime()>lt+1000){const d=r.data;if(d.prefs){Object.keys(SAVE).forEach(k=>delete SAVE[k]);Object.assign(SAVE,d.prefs);localStorage.setItem(LS,JSON.stringify(SAVE))}
@@ -98,6 +103,20 @@ const gate=(h1,p,btns)=>{app.innerHTML=`<div class="gate"><img src="assets/logo_
   if(!window.klinecharts||!window.EAGWidget)return gate("No se pudo cargar","Revisa tu conexión y recarga la página.",`<button class="btn gold" onclick="location.reload()">Recargar</button>`);
   start();
 })();
+
+/* ---------- fin de la prueba: pedir calificación y recomendaciones ---------- */
+function fbForm(done){return`<div class="fbf"><div class="fbstars" role="radiogroup" aria-label="Calificación">${[1,2,3,4,5].map(n=>`<button type="button" data-st="${n}" aria-label="${n} estrellas">★</button>`).join("")}</div>
+  <textarea maxlength="2000" placeholder="¿Qué te gustó? ¿Qué mejorarías? ¿Qué herramienta te faltó? Todo nos sirve."></textarea>
+  <button class="btn gold" data-send>Enviar recomendaciones</button><p class="fbmsg"></p></div>`}
+function wireFb(root,after){let r=0;const st=[...root.querySelectorAll("[data-st]")];const paint=()=>st.forEach(b=>b.classList.toggle("on",+b.dataset.st<=r));
+  st.forEach(b=>b.onclick=()=>{r=+b.dataset.st;paint()});
+  root.querySelector("[data-send]").onclick=async e=>{const msg=root.querySelector(".fbmsg");if(!r){msg.textContent="Elige de 1 a 5 estrellas.";return}e.target.disabled=true;
+    try{await API.chartFeedback(r,root.querySelector("textarea").value.trim());after&&after()}catch(err){e.target.disabled=false;msg.textContent="No se pudo enviar. Intenta de nuevo."}}}
+function trialEnded(t){
+  const plans=`<a class="btn gold" href="${MAIN}#premium">Ver planes</a><a class="btn" href="${ACAD}">Ir a la academia</a>`;
+  if(t.has_feedback)return gate("Tu prueba de EAG Charts terminó","¡Gracias por tus recomendaciones! Con ellas estamos mejorando la plataforma. Para seguir usándola, activa tu plan.",plans);
+  app.innerHTML=`<div class="gate fbgate"><img src="assets/logo_circle.webp" alt=""><h1>Terminó tu prueba de 3 días</h1><p>Antes de seguir, ayúdanos a mejorar: ¿cómo te pareció EAG Charts?</p>${fbForm()}<div class="row">${plans}</div></div>`;
+  wireFb(app,()=>gate("¡Gracias!","Tus recomendaciones nos llegan directo. Estamos mejorando EAG Charts con lo que nos dicen. Para seguir usándolo, activa tu plan.",plans))}
 
 function start(){
   const KP=window.klinechartspro,KC=window.klinecharts;
@@ -121,7 +140,6 @@ function start(){
       <span class="st" id="st"><i></i><span>Conectando…</span></span>
       <span class="grow"></span>
       <span class="who">${esc(prof.username||"")}</span>
-      <button class="btn ic" id="linkb" title="Vincular gráficos: la cruz y el mercado se mueven en todos a la vez"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg><span class="t">Vincular</span></button>
       <button class="btn ic" id="alb" title="Alertas de precio"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/></svg><span class="t">Alertas</span><em class="badge" id="alc" hidden></em></button>
       <button class="btn ic" id="cfgb" title="Configuración: apariencia, barras, marca de agua, alertas y atajos"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg><span class="t">Configuración</span></button>
       <button class="btn ic" id="wlb" title="Lista de mercados">${ICON.list}<span class="t">Mercados</span></button>
@@ -212,7 +230,7 @@ function start(){
     pop.style.left=x+"px";pop.style.top=y+"px"}
   function closePop(){pop.hidden=true;pop.dataset.for="";pop.classList.remove("wide");if(shownPick&&shownPick.length){shownPick=[];watch()}}
   document.addEventListener("pointerdown",e=>{if(!pop.hidden&&!pop.contains(e.target)&&!e.target.closest("#vb,#fab,#fteye,#cfgb,.tfdd,.wsym,.wtf,.dmini"))closePop()});
-  addEventListener("keydown",e=>{if(e.key!=="Escape")return;if(!pop.hidden){closePop();return}
+  addEventListener("keydown",e=>{if(e.key!=="Escape")return;panes.forEach(p=>{try{p.kc.stopBrush()}catch(x){}});if(!pop.hidden){closePop();return}
     if(/input|textarea/i.test((document.activeElement||{}).tagName||""))return;
     if(SAVE.hide.top&&SAVE.hide.ft){PARTS.forEach(([k])=>SAVE.hide[k]=false);save();applyHide()}});
   let tt=null;function toast(h){const t=$("#toast");t.innerHTML=h;t.hidden=false;t.classList.remove("out");clearTimeout(tt);tt=setTimeout(()=>{t.classList.add("out");setTimeout(()=>t.hidden=true,400)},4200)}
@@ -302,30 +320,30 @@ function start(){
   const grid=$("#grid"),panes=[];let active=0;
   const UP="#089981",DN="#f23645",NC="#9da1aa";
   /* ---------- ajustes del gráfico (tema, fondo, cuadrícula, velas…) ---------- */
-  const CDEF={theme:"dark",bg:"",grid:true,wmMode:"both",wmOp:10,wmSize:100,wmColor:"auto",up:UP,dn:DN,type:"candle_solid",last:true,hl:true,cross:true,wm:true,axis:true};
+  const CDEF={theme:"dark",bg:"",grid:true,dec:"auto",font:11,wmMode:"both",wmOp:10,wmSize:100,wmColor:"auto",up:UP,dn:DN,type:"candle_solid",last:true,hl:true,cross:true,wm:true,axis:true};
   SAVE.cfg=Object.assign({},CDEF,SAVE.cfg||{});
   /* velas: pasar a los colores nuevos si tenía los de antes por defecto */
   if(["#35c4a2","#22ab94","#0ecb81"].includes(SAVE.cfg.up))SAVE.cfg.up=UP;if(["#ec5b52","#f6465d"].includes(SAVE.cfg.dn))SAVE.cfg.dn=DN;
-  const CF=()=>SAVE.cfg,light=()=>CF().theme==="light";
+  const CF=()=>SAVE.cfg,light=()=>CF().theme==="light",eagT=()=>CF().theme==="eag",defBg=()=>light()?"#ffffff":eagT()?"#060b1a":"#0b0c0e";
   const barOf=()=>{const c=CF();return{upColor:c.up,downColor:c.dn,noChangeColor:NC,upBorderColor:c.up,downBorderColor:c.dn,noChangeBorderColor:NC,upWickColor:c.up,downWickColor:c.dn,noChangeWickColor:NC}};
-  const styFor=()=>{const c=CF(),gc=light()?"rgba(16,18,24,.06)":"rgba(255,255,255,.045)";
+  const styFor=()=>{const c=CF(),gc=light()?"rgba(16,18,24,.06)":eagT()?"rgba(43,66,130,.35)":"rgba(255,255,255,.045)";
     return{grid:{show:!!c.grid,horizontal:{show:!!c.grid,color:gc},vertical:{show:!!c.grid,color:gc}},
       candle:{type:c.type,bar:barOf(),area:{lineColor:c.up},priceMark:{last:{show:!!c.last,upColor:c.up,downColor:c.dn},high:{show:!!c.hl},low:{show:!!c.hl}}},
       crosshair:{show:!!c.cross},xAxis:{show:!!c.axis},yAxis:{show:!!c.axis}}};
-  const BGS=["#0b0c0e","#000000","#131722","#0d1512","#15121b","#ffffff","#faf8f3","#f3f5f8"];
+  const BGS=["#060b1a","#0b0c0e","#000000","#131722","#0d1512","#15121b","#ffffff","#faf8f3","#f3f5f8"];
   function applyCfg(){const c=CF();
-    document.documentElement.classList.toggle("light",light());appw.classList.toggle("h-wm",!c.wm);
+    document.documentElement.classList.toggle("light",light());document.documentElement.classList.toggle("eag",eagT());appw.classList.toggle("h-wm",!c.wm);
     const de=document.documentElement;de.dataset.wm=c.wmMode;de.style.setProperty("--wmo",(+c.wmOp||0)/100);de.style.setProperty("--wms",(+c.wmSize||100)/100);
     de.style.setProperty("--wmc",c.wmColor==="auto"?(light()?"#15171c":"#ffffff"):c.wmColor);
-    document.documentElement.style.setProperty("--chartbg",c.bg||(light()?"#ffffff":"#0b0c0e"));
-    const tc=document.querySelector('meta[name="theme-color"]');tc&&tc.setAttribute("content",light()?"#ffffff":"#0b0c0e");
-    panes.forEach(p=>{try{if(p.kc.getTheme()!==c.theme)p.kc.setTheme(c.theme)}catch(e){}setTimeout(()=>{try{p.kc.setStyles(styFor())}catch(e){}},40)});
+    document.documentElement.style.setProperty("--chartbg",c.bg||defBg());
+    const tc=document.querySelector('meta[name="theme-color"]');tc&&tc.setAttribute("content",defBg());
+    panes.forEach(p=>{try{if(p.kc.getTheme()!==c.theme)p.kc.setTheme(c.theme)}catch(e){}setTimeout(()=>{try{p.kc.setStyles(styFor());p.kc.setDecimals()}catch(e){}},40)});
     if(mtf)mtf.minis.forEach(m=>{try{m.c.setStyles({candle:{bar:barOf()}})}catch(e){}})}
   function openCfg(anchor){const c=CF();
     const tg=(k,t)=>`<label class="sw"><input type="checkbox" data-k="${k}" ${c[k]?"checked":""}><i></i><span>${t}</span></label>`;
     const TYPES=[["candle_solid","Velas"],["candle_stroke","Huecas"],["ohlc","Barras"],["area","Área"]];
     pop.innerHTML=`<div class="ph">Tema</div><div class="seg">${[["dark","Oscuro"],["light","Claro"]].map(([v,t])=>`<button data-th="${v}" class="${c.theme===v?"on":""}">${t}</button>`).join("")}</div>
-      <div class="ph">Fondo del gráfico</div><div class="sws">${BGS.map(b=>`<button class="swc${(c.bg||"")===b?" on":""}" data-bg="${b}" style="background:${b}" title="${b}"></button>`).join("")}<label class="swc pick" title="Otro color"><input type="color" data-bgp value="${c.bg||(light()?"#ffffff":"#0b0c0e")}">+</label><button class="swc auto${c.bg?"":" on"}" data-bg="" title="Según el tema">A</button></div>
+      <div class="ph">Fondo del gráfico</div><div class="sws">${BGS.map(b=>`<button class="swc${(c.bg||"")===b?" on":""}" data-bg="${b}" style="background:${b}" title="${b}"></button>`).join("")}<label class="swc pick" title="Otro color"><input type="color" data-bgp value="${c.bg||defBg()}">+</label><button class="swc auto${c.bg?"":" on"}" data-bg="" title="Según el tema">A</button></div>
       <div class="ph">Velas</div><div class="seg">${TYPES.map(([v,t])=>`<button data-ty="${v}" class="${c.type===v?"on":""}">${t}</button>`).join("")}</div>
       <div class="cols"><label>Alcista <input type="color" data-col="up" value="${c.up}"></label><label>Bajista <input type="color" data-col="dn" value="${c.dn}"></label></div>
       <div class="ph">Mostrar</div>${tg("grid","Cuadrícula")}${tg("axis","Ejes de precio y hora")}${tg("last","Línea del último precio")}${tg("hl","Máximo y mínimo visibles")}${tg("cross","Cruz del cursor")}${tg("wm","Marca de agua")}
@@ -357,7 +375,8 @@ function start(){
       onPickTF:t=>{kc.setPeriod(perOf(t));afterTF()},
       onTFClick:a=>{setActive(i);pop.hidden||pop.dataset.for!=="tf"?openTF(p,a):closePop()},
       onSymbolClick:anc=>{setActive(i);const a=anc&&anc.nodeType?anc:el.querySelector(".wsym");pop.hidden||pop.dataset.for!=="sym"?openSymPicker(p,a):closePop()},
-      onSettings:()=>openSettings("apariencia"),onToast:t=>toast(t),getAlerts:tk=>ALERTS.filter(a=>a.active&&a.symbol===tk),onCreateAlert:a=>alertDialog(a),
+      onSettings:()=>openSettings("apariencia"),getDecimals:()=>CF().dec,getFont:()=>CF().font,
+      getToolStyle:n=>(SAVE.toolStyles||{})[n],onToolStyle:(n,st)=>{SAVE.toolStyles=Object.assign({},SAVE.toolStyles,{[n]:st});save()},onReload:()=>{if(lay==="mtf"&&i===0)buildMTF()},onToast:t=>toast(t),getAlerts:tk=>ALERTS.filter(a=>a.active&&a.symbol===tk),onCreateAlert:a=>alertDialog(a),
       onIndicators:d=>{SAVE.panes[i]=Object.assign({},SAVE.panes[i],{ind:d});save()},
       onMagnet:m=>{SAVE.magnet=m;save()},axisType:sv.ax,onAxisType:t=>{SAVE.panes[i]=Object.assign({},SAVE.panes[i],{ax:t});save()},getToolFav:()=>SAVE.toolFav,onToolFav:k=>{SAVE.toolFav=SAVE.toolFav.includes(k)?SAVE.toolFav.filter(x=>x!==k):SAVE.toolFav.concat(k);save();renderToolFav()},onLastTools:t=>{SAVE.lastTools=t;save()},
       onDrawingsChange:tk=>(window.__eagSync&&window.__eagSync(),panes).forEach(q2=>{if(q2!==p&&q2.kc&&q2.kc.getSymbol().ticker===tk)q2.kc.reloadDrawings()})});
@@ -383,7 +402,7 @@ function start(){
   }
   document.querySelectorAll(".lay button").forEach(b=>b.onclick=()=>setLayout(b.dataset.l));
   function setSym(s){const p=panes[active];if(!p)return;
-    const targets=SAVE.link&&lay!=="mtf"?panes.slice(0,visible()).map((q,j)=>j):[active];
+    const targets=[active];
     targets.forEach(j=>{panes[j].kc.setSymbol(findInfo(s));SAVE.panes[j]=Object.assign({},SAVE.panes[j],{s})});save();
     setTimeout(()=>{if(lay==="mtf"&&active===0)buildMTF();paintList();paintTabs()},60)}
 
@@ -395,7 +414,7 @@ function start(){
   function buildMTF(){
     destroyMTF();const sym=(()=>{try{return panes[0].kc.getSymbol()}catch(e){return findInfo(DEF[0])}})();
     const el=document.createElement("div");el.className="mtfrow";el.style.setProperty("--n",SAVE.tfFav.length);grid.appendChild(el);
-    const sp=document.createElement("span");sp.className="mtfsp";sp.title="Arrastra para cambiar el alto · doble clic: alto normal";el.appendChild(sp);
+    const sp=document.createElement("span");sp.className="mtfsp";sp.title="Arrastra para cambiar el alto · doble clic: alto normal";sp.innerHTML="<i></i>";el.appendChild(sp);
     dragger(sp,e=>{const r=grid.getBoundingClientRect();SAVE.mtfh=Math.round(clamp(r.bottom-e.clientY,110,r.height*.65));appw.style.setProperty("--mtfh",SAVE.mtfh+"px")});
     sp.ondblclick=()=>{delete SAVE.mtfh;save();applyLayoutPrefs()};
     mtf={el,sym:sym.ticker,minis:[]};
@@ -404,7 +423,12 @@ function start(){
       const mc=box.querySelector(".mc"),c=KC.init(mc,{locale:"es-ES",timezone:TZ,styles:MINI()});
       try{c.setPriceVolumePrecision(sym.pricePrecision||3,0);c.setScrollEnabled(true);c.setZoomEnabled(true);c.setOffsetRightDistance(6)}catch(e){}
       const m={t,box,mc,c,key:sym.ticker+":"+g,who:"mtf"+i+":"+Date.now()};mtf.minis.push(m);
-      feed.ask({ticks_history:sym.ticker,style:"candles",granularity:g,end:"latest",count:60}).then(r=>{if(!mtf||!mtf.minis.includes(m))return;const L=(r.candles||[]).map(toK);c.applyNewData(L);fit(m);m.live(L[L.length-1])}).catch(()=>{});
+      /* más pasado: 300 velas, y si arrastras a la izquierda carga más */
+      let miniNoMore=false;
+      try{c.setLoadDataCallback(async({type,data,callback})=>{if(type!=="forward"||!data||miniNoMore){callback([],false);return}
+        try{const r2=await feed.ask({ticks_history:sym.ticker,style:"candles",granularity:g,end:Math.floor((data.timestamp-1)/1000),count:300});
+          const L2=(r2.candles||[]).map(toK).filter(k=>k.timestamp<data.timestamp);if(!L2.length)miniNoMore=true;callback(L2,L2.length>0)}catch(e){callback([],false)}})}catch(e){}
+      feed.ask({ticks_history:sym.ticker,style:"candles",granularity:g,end:"latest",count:300}).then(r=>{if(!mtf||!mtf.minis.includes(m))return;const L=(r.candles||[]).map(toK);c.applyNewData(L,true);fit(m);m.live(L[L.length-1])}).catch(()=>{});
       const mp=box.querySelector(".mp");
       const live=d=>{if(!d)return;const ch=(d.close-d.open)/d.open*100;mp.innerHTML=`${(+d.close).toFixed(sym.pricePrecision||3)} <i class="${ch>=0?"up":"dn"}">${ch>=0?"▲":"▼"}${Math.abs(ch).toFixed(2)}%</i>`;
 };
@@ -420,7 +444,7 @@ function start(){
   addEventListener("pointerup",e=>{const g=mtfG;if(!g)return;mtfG=null;const dy=e.clientY-g.y,dx=e.clientX-g.x,quick=Date.now()-g.t<350;g.box.classList.remove("lift");g.box.style.removeProperty("--lift");
     if(g.box.isConnected&&((dy<-30&&Math.abs(dy)>Math.abs(dx)*1.2)||(quick&&Math.abs(dx)<5&&Math.abs(dy)<5)))g.big()});
   addEventListener("pointercancel",()=>{if(mtfG){mtfG.box.classList.remove("lift");mtfG=null}});
-  function fit(m){try{const w=m.mc.clientWidth||200;m.c.resize();m.c.setBarSpace(Math.max(1.5,(w-14)/60))}catch(e){}}
+  function fit(m){try{const w=m.mc.clientWidth||200;m.c.resize();m.c.setBarSpace(Math.max(1.2,(w-14)/90))}catch(e){}}
   function mtfResize(){if(mtf)mtf.minis.forEach(m=>{try{m.c.resize()}catch(e){}})}
   function mtfMark(){if(!mtf)return;let cur="";try{cur=panes[0].kc.getPeriod().text}catch(e){}
     mtf.minis.forEach(m=>{const on=m.t===cur;m.box.classList.toggle("on",on);m.box.querySelector("em").textContent=on?"●":""})}
@@ -492,18 +516,10 @@ function start(){
     })},250)}
 
   /* ---------- gráficos vinculados: cruz sincronizada por fecha y mercado común ---------- */
-  const paintLink=()=>{$("#linkb").classList.toggle("on",!!SAVE.link)};paintLink();
-  $("#linkb").onclick=()=>{SAVE.link=!SAVE.link;save();paintLink();toast(SAVE.link?"Gráficos vinculados: la cruz y el mercado se mueven en todos":"Gráficos independientes")};
-  let syncing=false;const hooked=new WeakSet();
-  function hookCross(){panes.forEach(p=>{const c=p.kc&&p.kc.chart;if(!c||hooked.has(c))return;hooked.add(c);
-    try{c.subscribeAction("onCrosshairChange",d=>{if(syncing||!SAVE.link||!d)return;const kd=d.kLineData;syncing=true;
-      try{panes.slice(0,visible()).forEach(q=>{const c2=q.kc.chart;if(c2===c)return;
-        if(kd&&d.x!=null){const px=c2.convertToPixel({timestamp:kd.timestamp},{paneId:"candle_pane"});if(px&&px.x!=null)c2.executeAction("onCrosshairChange",{x:px.x,y:undefined,paneId:"candle_pane"})}
-        else c2.executeAction("onCrosshairChange",{x:undefined,y:undefined})})}catch(e){}syncing=false})}catch(e){}})}
-  setInterval(hookCross,1500);
+  const paintLink=()=>{};delete SAVE.link;
 
   /* ---------- atajos de teclado (como TradingView) ---------- */
-  const KEYS={KeyT:"segment",KeyH:"horizontalStraightLine",KeyJ:"horizontalRayLine",KeyV:"verticalStraightLine",KeyF:"fibonacciLine",KeyR:"rect",KeyZ:"eagZone",KeyL:"eagLong",KeyS:"eagShort",KeyM:"eagMeasure",KeyX:"eagText",KeyC:"parallelStraightLine"};
+  const KEYS={KeyB:"__brush",KeyT:"segment",KeyH:"horizontalStraightLine",KeyJ:"horizontalRayLine",KeyV:"verticalStraightLine",KeyF:"fibonacciLine",KeyR:"rect",KeyZ:"eagZone",KeyL:"eagLong",KeyS:"eagShort",KeyM:"eagMeasure",KeyX:"eagText",KeyC:"parallelStraightLine"};
   const tfBox=document.createElement("div");tfBox.className="tfbox";tfBox.hidden=true;appw.appendChild(tfBox);let tfBuf="",tfT=null;
   function tfParse(b){const m=b.trim().toLowerCase().match(/^(\d+)\s*([mhd])?$/);if(!m)return null;let n=+m[1],u=m[2]||"m";
     if(u==="m"&&n>=60&&n%60===0){n/=60;u="h"}if(u==="h"&&n===24){n=1;u="d"}const t=u==="m"?n+"m":u==="h"?n+"H":n+"D";return PERIODS.find(p=>p.text===t)||null}
@@ -511,7 +527,7 @@ function start(){
   addEventListener("keydown",e=>{const t=e.target;if(t&&t.closest&&t.closest("input,textarea,select,[contenteditable]"))return;const p=panes[active];if(!p||!p.kc)return;
     const mod=e.ctrlKey||e.metaKey;
     if(mod&&!e.altKey&&(e.code==="KeyZ"||e.code==="KeyY")){e.preventDefault();const ok=(e.code==="KeyY"||e.shiftKey)?p.kc.redo():p.kc.undo();if(!ok)toast(e.code==="KeyY"||e.shiftKey?"Nada para rehacer":"Nada para deshacer");return}
-    if(e.altKey&&!mod&&KEYS[e.code]){e.preventDefault();p.kc.startTool(KEYS[e.code]);return}
+    if(e.altKey&&!mod&&KEYS[e.code]){e.preventDefault();KEYS[e.code]==="__brush"?p.kc.startBrush():p.kc.startTool(KEYS[e.code]);return}
     if(mod||e.altKey)return;
     if(!tfBox.hidden&&e.key==="Enter"){const per=tfParse(tfBuf);tfBox.hidden=true;tfBuf="";if(per){p.kc.setPeriod(per);afterTF()}else toast("Esa temporalidad no está disponible");return}
     if(!tfBox.hidden&&e.key==="Backspace"){tfBuf=tfBuf.slice(0,-1);tfBuf?tfShow():(tfBox.hidden=true);return}
@@ -534,9 +550,8 @@ function start(){
     ["grafico","Gráfico","Cuadrícula, ejes y precio",SI('<path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/>')],
     ["marca","Marca de agua","Mercado y logo de fondo",SI('<path d="M4 7h16M4 12h10M4 17h7"/>')],
     ["barras","Barras y paneles","Qué se ve y dónde",SI('<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M9 9v11"/>')],
-    ["vincular","Gráficos vinculados","Mover varios a la vez",SI('<path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/>')],
     ["alertas","Alertas de precio","Aviso al celular",SI('<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/>')],
-    ["atajos","Atajos de teclado","Trabaja más rápido",SI('<rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10"/>')]];
+    ["atajos","Ayuda y atajos","Tutorial y teclado",SI('<rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10"/>')]];
   const PDESC={top:"Logo, distribución de gráficos, estado de conexión y botones principales.",pb:"Mercado, temporalidades favoritas, indicadores, captura y pantalla completa de cada gráfico.",
     bb:"Rangos rápidos (1D, 5D, 1M…), reloj, cuenta regresiva y escala % / log.",db:"Herramientas de dibujo a la izquierda de cada gráfico.",tf:"Tus herramientas de dibujo favoritas en una barra que puedes mover.",
     ft:"Tus mercados favoritos como pestañas, con precio y % del día.",wl:"Todos los mercados por categoría, con buscador y precios en vivo."};
@@ -545,11 +560,16 @@ function start(){
   const tog=(attr,on)=>`<label class="sw2"><input type="checkbox" ${attr} ${on?"checked":""}><i></i></label>`;
   function settingsBody(cat){const c=CF();
     if(cat==="apariencia")return`<h3>Apariencia</h3>
-      <div class="sgrp"><div class="slabel">Tema</div><div class="thm">${[["dark","Oscuro","#0b0c0e","#131418"],["light","Claro","#ffffff","#f3f4f6"]].map(([v,t,a,b])=>`<button class="thc${c.theme===v?" on":""}" data-th="${v}"><span class="thp" style="background:${a}"><i style="background:${b}"></i><em style="background:${c.up}"></em><em style="background:${c.dn};height:40%"></em><em style="background:${c.up};height:55%"></em></span><b>${t}</b></button>`).join("")}</div></div>
-      <div class="sgrp"><div class="slabel">Fondo del gráfico</div><p class="shelp">"A" usa el fondo del tema. Puedes elegir cualquier color con +.</p><div class="sws">${BGS.map(b=>`<button class="swc${(c.bg||"")===b?" on":""}" data-bg="${b}" style="background:${b}" title="${b}"></button>`).join("")}<label class="swc pick" title="Otro color"><input type="color" data-bgp value="${c.bg||(light()?"#ffffff":"#0b0c0e")}">+</label><button class="swc auto${c.bg?"":" on"}" data-bg="" title="Según el tema">A</button></div></div>
+      <div class="sgrp"><div class="slabel">Tema</div><div class="thm">${[["dark","Oscuro","#0b0c0e","#131418"],["light","Claro","#ffffff","#f3f4f6"],["eag","Arte Gráfico","#060b1a","#0a1330"]].map(([v,t,a,b])=>`<button class="thc${c.theme===v?" on":""}" data-th="${v}"><span class="thp" style="background:${a}"><i style="background:${b}"></i><em style="background:${c.up}"></em><em style="background:${c.dn};height:40%"></em><em style="background:${c.up};height:55%"></em></span><b>${t}</b></button>`).join("")}</div></div>
+      <div class="sgrp"><div class="slabel">Fondo del gráfico</div><p class="shelp">"A" usa el fondo del tema. Puedes elegir cualquier color con +.</p><div class="sws">${BGS.map(b=>`<button class="swc${(c.bg||"")===b?" on":""}" data-bg="${b}" style="background:${b}" title="${b}"></button>`).join("")}<label class="swc pick" title="Otro color"><input type="color" data-bgp value="${c.bg||defBg()}">+</label><button class="swc auto${c.bg?"":" on"}" data-bg="" title="Según el tema">A</button></div></div>
       <div class="sgrp"><div class="slabel">Velas</div><div class="seg">${[["candle_solid","Velas"],["candle_stroke","Huecas"],["ohlc","Barras"],["area","Área"]].map(([v,t])=>`<button data-ty="${v}" class="${c.type===v?"on":""}">${t}</button>`).join("")}</div>
         ${row("Color alcista","Velas que cierran por encima de su apertura.",`<input type="color" data-col="up" value="${c.up}">`)}${row("Color bajista","Velas que cierran por debajo de su apertura.",`<input type="color" data-col="dn" value="${c.dn}">`)}</div>`;
-    if(cat==="grafico")return`<h3>Gráfico</h3>`+[["grid","Cuadrícula","Líneas de fondo para ubicar precios y horas."],["axis","Ejes de precio y hora","La escala de precios a la derecha y las horas abajo."],["last","Línea del último precio","Línea punteada y etiqueta con el precio actual."],["hl","Máximo y mínimo visibles","Marca el precio más alto y más bajo de lo que estás viendo."],["cross","Cruz del cursor","Líneas que siguen al mouse con precio y hora exactos."]].map(([k,t,d])=>row(t,d,tog(`data-k="${k}"`,c[k]))).join("");
+    if(cat==="grafico")return`<h3>Gráfico</h3>
+      <div class="slabel">Decimales del precio</div><p class="shelp">Cuántos decimales se ven en el precio, la escala y la leyenda. "Auto" usa los del mercado.</p>
+      <div class="seg">${[["auto","Auto"],["0","0"],["1","1"],["2","2"],["3","3"],["4","4"]].map(([v,t])=>`<button data-dec="${v}" class="${String(c.dec)===v?"on":""}">${t}</button>`).join("")}</div>
+      <div class="slabel">Tamaño de letra del gráfico</div><p class="shelp">Escala de precios, horas, leyenda y etiquetas. Usa "Grande" o "Muy grande" para transmitir en vivo.</p>
+      <div class="seg">${[[11,"Normal"],[13,"Mediana"],[15,"Grande"],[18,"Muy grande"]].map(([v,t])=>`<button data-fz="${v}" class="${+c.font===v?"on":""}">${t}</button>`).join("")}</div>
+      <div class="slabel">Mostrar</div>`+[["grid","Cuadrícula","Líneas de fondo para ubicar precios y horas."],["axis","Ejes de precio y hora","La escala de precios a la derecha y las horas abajo."],["last","Línea del último precio","Línea punteada y etiqueta con el precio actual."],["hl","Máximo y mínimo visibles","Marca el precio más alto y más bajo de lo que estás viendo."],["cross","Cruz del cursor","Líneas que siguen al mouse con precio y hora exactos."]].map(([k,t,d])=>row(t,d,tog(`data-k="${k}"`,c[k]))).join("");
     if(cat==="marca")return`<h3>Marca de agua</h3><p class="shelp">Ideal para tus lives: se ve el mercado, la temporalidad y tu marca de fondo.</p>
       ${row("Mostrar marca de agua","",tog('data-k="wm"',c.wm))}
       <div class="sgrp${c.wm?"":" off"}"><div class="slabel">Qué mostrar</div><div class="seg">${[["both","Marca y mercado"],["sym","Solo mercado"],["brand","Solo marca"]].map(([v,t])=>`<button data-wm="${v}" class="${c.wmMode===v?"on":""}">${t}</button>`).join("")}</div>
@@ -561,8 +581,6 @@ function start(){
       <div class="slabel">Posición</div>${row("Lista de mercados a la izquierda","",tog('data-o="wlLeft"',SAVE.wlLeft))}${row("Barra de dibujo a la derecha","",tog('data-o="dbRight"',SAVE.dbRight))}
       <p class="shelp">Arrastra los bordes para cambiar tamaños (lista, multitemporalidad y división entre gráficos) y arrastra pestañas y favoritos para ordenarlos.</p>
       <div class="sbtns"><button class="btn sm" data-a="clean">${allHidden()?"Mostrar todo":"Modo limpio (solo gráfico)"}</button><button class="btn sm" data-a="rs">Restablecer tamaños</button></div>`;
-    if(cat==="vincular")return`<h3>Gráficos vinculados</h3><p class="shelp">Cuando tienes 2, 3, 4 o 6 gráficos abiertos.</p>
-      ${row("Vincular gráficos","La cruz del cursor se mueve en todos a la misma fecha y al elegir un mercado cambia en todos (cada uno conserva su temporalidad).",tog('data-link=""',SAVE.link))}`;
     if(cat==="alertas"){const act=ALERTS.filter(a=>a.active),old=ALERTS.filter(a=>!a.active).slice(0,10),pp=a=>(bySym[a.symbol]?prec(bySym[a.symbol].pip):3);
       const li=a=>`<div class="arow${a.active?"":" done"}"><span class="adot"></span><div><b>${esc(a.symbol_name||a.symbol)}</b><p>${a.kind==="zona"?`Zona ${(+a.price2).toFixed(pp(a))} – ${(+a.price).toFixed(pp(a))}`:`Nivel ${(+a.price).toFixed(pp(a))}`}${a.note?" · "+esc(a.note):""}${a.active?"":` · se activó ${a.triggered_at?new Date(a.triggered_at).toLocaleString("es-CO",{timeZone:"America/Bogota",day:"numeric",month:"short",hour:"numeric",minute:"2-digit"}):""}`}</p></div>${a.active?"":`<button class="btn sm" data-re="${a.id}">Reactivar</button>`}<button class="x" data-del="${a.id}" title="Borrar">×</button></div>`;
       return`<h3>Alertas de precio</h3><p class="shelp">Dibuja una línea horizontal, una zona o un rectángulo, haz <b>clic derecho → 🔔 Crear alerta</b> (o toca 🔔 en la barra del dibujo). Cuando el precio llegue te avisamos al celular, aunque tengas la página cerrada.</p>
@@ -571,7 +589,7 @@ function start(){
         ${old.length?`<div class="slabel">Ya avisadas</div>${old.map(li).join("")}`:""}
         <p class="shelp">Las notificaciones llegan a los dispositivos donde las activaste en la academia (en iPhone, con la app agregada a la pantalla de inicio). Se revisan cada minuto.</p>`}
     if(cat==="atajos"){const K=(k,t)=>`<div class="krow"><span>${t}</span><kbd>${k}</kbd></div>`;const mac=/Mac|iP/.test(navigator.platform),A=mac?"⌥":"Alt",C=mac?"⌘":"Ctrl";
-      return`<h3>Atajos de teclado</h3><div class="slabel">Dibujo</div>${K(A+" + T","Línea de tendencia")}${K(A+" + H","Línea horizontal")}${K(A+" + J","Rayo horizontal")}${K(A+" + V","Línea vertical")}${K(A+" + F","Retroceso de Fibonacci")}${K(A+" + C","Canal paralelo")}${K(A+" + Z","Zona")}${K(A+" + R","Rectángulo")}${K(A+" + L","Posición larga (compra)")}${K(A+" + S","Posición corta (venta)")}${K(A+" + M","Regla (o Shift + clic)")}${K(A+" + X","Texto")}
+      return`<h3>Ayuda y atajos</h3><div class="sbtns"><button class="btn sm gold" data-a="tour">▶ Ver el tutorial otra vez</button><button class="btn sm" data-a="fb">💬 Dar mi opinión</button></div><div class="slabel">Dibujo</div>${K(A+" + B","Pincel (dibujo libre)")}${K(A+" + T","Línea de tendencia")}${K(A+" + H","Línea horizontal")}${K(A+" + J","Rayo horizontal")}${K(A+" + V","Línea vertical")}${K(A+" + F","Retroceso de Fibonacci")}${K(A+" + C","Canal paralelo")}${K(A+" + Z","Zona")}${K(A+" + R","Rectángulo")}${K(A+" + L","Posición larga (compra)")}${K(A+" + S","Posición corta (venta)")}${K(A+" + M","Regla (o Shift + clic)")}${K(A+" + X","Texto")}
         <div class="slabel">Edición</div>${K(C+" + Z","Deshacer")}${K(C+" + Shift + Z","Rehacer")}${K("Supr","Borrar el dibujo seleccionado")}${K("Esc","Cancelar dibujo / salir de modo limpio")}
         <div class="slabel">Temporalidad</div>${K("15 ↵","Escribe el número y Enter: 15 minutos")}${K("1h ↵ · 4h ↵","Horas")}${K("1d ↵","Diario")}`}
     return""}
@@ -591,13 +609,16 @@ function start(){
     ov.querySelectorAll("[data-col]").forEach(i=>i.onchange=()=>set(i.dataset.col,i.value));
     ov.querySelectorAll("input[data-k]").forEach(i=>i.onchange=()=>set(i.dataset.k,i.checked));
     ov.querySelectorAll("[data-wm]").forEach(b=>b.onclick=()=>set("wmMode",b.dataset.wm));
+    ov.querySelectorAll("[data-dec]").forEach(b=>b.onclick=()=>set("dec",b.dataset.dec==="auto"?"auto":+b.dataset.dec));
+    ov.querySelectorAll("[data-fz]").forEach(b=>b.onclick=()=>set("font",+b.dataset.fz));
     ov.querySelectorAll("[data-wc]").forEach(b=>b.onclick=()=>set("wmColor",b.dataset.wc));
     ov.querySelectorAll("[data-r]").forEach(i=>{i.oninput=()=>{SAVE.cfg[i.dataset.r]=+i.value;i.nextElementSibling.textContent=i.value+"%";applyCfg()};i.onchange=()=>save()});
     ov.querySelectorAll("input[data-h]").forEach(i=>i.onchange=()=>{SAVE.hide[i.dataset.h]=!i.checked;save();applyHide();re()});
     ov.querySelectorAll("input[data-o]").forEach(i=>i.onchange=()=>{SAVE[i.dataset.o]=i.checked;save();applyLayoutPrefs();re()});
-    const lk=ov.querySelector("input[data-link]");lk&&(lk.onchange=()=>{SAVE.link=lk.checked;save();paintLink()});
     const cl=ov.querySelector('[data-a="clean"]');cl&&(cl.onclick=()=>{const all=!allHidden();PARTS.forEach(([k])=>SAVE.hide[k]=all);save();applyHide();ov.remove();if(all)toast("Modo limpio · toca <b>Mostrar barras</b> o presiona <b>Esc</b> para volver")});
     const rs=ov.querySelector('[data-a="rs"]');rs&&(rs.onclick=()=>{delete SAVE.wlw;delete SAVE.mtfh;SAVE.split={c:.5,r:.5};save();applyLayoutPrefs();toast("Tamaños restablecidos")});
+    const tb=ov.querySelector('[data-a="tour"]');tb&&(tb.onclick=()=>{ov.remove();showTour(0)});
+    const fbb=ov.querySelector('[data-a="fb"]');fbb&&(fbb.onclick=()=>{ov.remove();window.__openFb()});
     const na=ov.querySelector('[data-a="newal"]');na&&(na.onclick=()=>{const t=curSym(active),i=bySym[t]||{},v=last[t];ov.remove();alertDialog({symbol:t,symbol_name:i.display_name||t,kind:"nivel",price:v!=null?+(+v).toFixed(prec(i.pip)):null,price2:null})});
     ov.querySelectorAll("[data-del]").forEach(b=>b.onclick=async()=>{try{await API.deleteChartAlert(b.dataset.del)}catch(e){}ALERTS=ALERTS.filter(a=>a.id!==b.dataset.del);paintAlerts();re()});
     ov.querySelectorAll("[data-re]").forEach(b=>b.onclick=async()=>{const a=ALERTS.find(x=>x.id===b.dataset.re);if(!a)return;try{const r=await API.saveChartAlert({id:a.id,symbol:a.symbol,symbol_name:a.symbol_name,kind:a.kind,price:a.price,price2:a.price2,note:a.note,active:true});Object.assign(a,r||{},{active:true})}catch(e){toast(esc(e.message||"No se pudo reactivar"))}paintAlerts();re()})}
@@ -626,6 +647,43 @@ function start(){
       catch(err){e.target.disabled=false;toast(esc(/Máximo/.test(err.message)?err.message:"No se pudo crear la alerta. Intenta de nuevo."))}};
     setTimeout(()=>ov.querySelector("[data-p1]").focus(),30)}
   loadAlerts();setInterval(loadAlerts,60000);
+  /* chip de la prueba y opinión */
+  function openFeedback(){let ov=document.createElement("div");ov.className="smodal";appw.appendChild(ov);ov.onclick=e=>{if(e.target===ov)ov.remove()};
+    ov.innerHTML=`<div class="abox"><div class="ah">💬 Tu opinión sobre EAG Charts</div><p class="shelp">Califica y cuéntanos qué mejorarías. Lo leemos todo.</p>${fbForm()}</div>`;
+    wireFb(ov,()=>{ov.remove();toast("¡Gracias! Recibimos tus recomendaciones.")})}
+  window.__openFb=openFeedback;
+  if(window.__trial){const t=window.__trial,chip=document.createElement("button");chip.className="trialchip";chip.title="Tu prueba gratis · toca para dejar tu opinión";
+    const paint=()=>{const ms=new Date(t.ends_at).getTime()-Date.now();if(ms<=0){location.reload();return}const d=Math.floor(ms/864e5),h=Math.floor(ms%864e5/36e5),m=Math.floor(ms%36e5/6e4);
+      chip.innerHTML=`<i>Prueba gratis</i><b>${d?d+"d "+h+"h":h?h+"h "+m+"m":m+"m"}</b>`};paint();setInterval(paint,60000);
+    chip.onclick=openFeedback;const g=$(".top .grow");g&&g.after(chip)}
+
+  /* ======================= TUTORIAL (primera vez) ======================= */
+  const TOUR=[
+    ["👋","Bienvenido a EAG Charts","Gráficos en vivo de Deriv con herramientas profesionales, hechos para tu forma de operar. Te mostramos lo principal en 1 minuto.",null],
+    ["📑","Tus mercados favoritos","Arriba tienes tus mercados en pestañas, con precio y % del día. Agrégalos con ☆ en la lista o tocando el nombre del mercado en el gráfico. Arrástralos para ordenarlos.",".ftw"],
+    ["⏱️","Temporalidades","El botón dorado abre todas las temporalidades; marca con ★ las que más usas para tenerlas a un toque. En computador también puedes escribir 15 y Enter.",".wtf"],
+    ["🪟","Varios gráficos y Multi-TF","Elige cuántos gráficos ver a la vez. Cada uno es independiente: su mercado, temporalidad e indicadores. Multi-TF muestra un mercado en todas tus temporalidades: desliza un mini hacia arriba para verlo en grande.",".lay"],
+    ["✏️","Herramientas de dibujo","Un clic usa la herramienta. Doble clic (o mantener presionado) abre la lista del grupo. Con ☆ las mandas a tu barra flotante de favoritas. El pincel ✏️ te deja escribir a mano.",".dbar"],
+    ["🎨","Personaliza cada dibujo","Selecciónalo y cambia color, grosor y tipo de línea. Doble clic abre su ventana de configuración y clic derecho su menú. Se recuerda tu estilo para los próximos. Si te equivocas dibujando, clic derecho cancela.",null],
+    ["📏","Regla y posiciones","Shift + clic mide puntos, %, velas y tiempo. Posición larga o corta: un clic pone la entrada y salen stop y objetivo 1:2 que puedes arrastrar.",null],
+    ["🔔","Alertas al celular","Clic derecho sobre una línea o zona → Crear alerta. Cuando el precio llegue te avisamos al celular, aunque tengas la página cerrada.","#alb"],
+    ["⚙️","Hazlo tuyo","En Configuración eliges tema (Oscuro, Claro o Arte Gráfico), decimales, tamaño de letra para transmitir, marca de agua y qué barras ver. Todo se guarda en tu cuenta.","#cfgb"],
+    ["✅","¡Listo para analizar!","Puedes volver a ver este tutorial en Configuración → Ayuda y atajos. Datos de Deriv solo para análisis educativo; compara siempre con tu plataforma.",null]];
+  function showTour(i){i=i||0;let ov=$(".tour");if(!ov){ov=document.createElement("div");ov.className="tour";appw.appendChild(ov)}
+    const [ic,t,d,sel]=TOUR[i],el=sel&&$(sel),r=el&&el.offsetParent!==null?el.getBoundingClientRect():null;
+    ov.innerHTML=`${r?`<div class="tring" style="left:${r.left-6}px;top:${r.top-6}px;width:${r.width+12}px;height:${r.height+12}px"></div>`:`<div class="tdim"></div>`}
+      <div class="tcard" role="dialog" aria-label="Tutorial"><div class="tic">${ic}</div><b>${t}</b><p>${d}</p>
+        <div class="tdots">${TOUR.map((x,j)=>`<i class="${j===i?"on":""}"></i>`).join("")}</div>
+        <div class="tbtns"><button class="btn sm" data-t="skip">${i<TOUR.length-1?"Saltar":"Cerrar"}</button><span class="grow"></span>${i?`<button class="btn sm" data-t="prev">Atrás</button>`:""}<button class="btn sm gold" data-t="next">${i<TOUR.length-1?"Siguiente":"Empezar"}</button></div></div>`;
+    const card=ov.querySelector(".tcard");
+    if(r){const below=r.bottom+14+card.offsetHeight<innerHeight;card.style.top=(below?r.bottom+14:Math.max(12,r.top-card.offsetHeight-14))+"px";card.style.left=Math.max(12,Math.min(innerWidth-card.offsetWidth-12,r.left+r.width/2-card.offsetWidth/2))+"px";card.classList.add("anch")}
+    const end=()=>{ov.remove();SAVE.tourDone=1;save()};
+    ov.querySelector('[data-t="skip"]').onclick=end;
+    ov.querySelector('[data-t="next"]').onclick=()=>i<TOUR.length-1?showTour(i+1):end();
+    const pv=ov.querySelector('[data-t="prev"]');pv&&(pv.onclick=()=>showTour(i-1))}
+  if(!SAVE.tourDone)setTimeout(()=>showTour(0),1200);
+  /* sin zoom de página en celular (pellizcar es para el gráfico, no para la página) */
+  ["gesturestart","gesturechange"].forEach(ev=>document.addEventListener(ev,e=>e.preventDefault(),{passive:false}));
   /* evitar selección accidental (doble clic, arrastres) y el menú del navegador, menos en los campos de texto */
   const editable=t=>t&&t.closest&&t.closest("input,textarea,[contenteditable]");
   document.addEventListener("selectstart",e=>{if(!editable(e.target))e.preventDefault()});

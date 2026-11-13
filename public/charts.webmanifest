@@ -3,7 +3,7 @@
   "short_name": "EAG Charts",
   "description": "Gráficos en vivo de El Arte Gráfico: Boom y Crash, sintéticos, forex y más.",
   "lang": "es",
-  "start_url": "/charts.html?app=1",
+  "start_url": "/charts?app=1",
   "scope": "/",
   "display": "standalone",
   "orientation": "any",
@@ -75,5 +75,5 @@
       ]
     }
   ],
-  "id": "/charts.html"
+  "id": "/charts"
 }

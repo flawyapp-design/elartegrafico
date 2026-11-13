@@ -60,6 +60,10 @@ function registerAll(){
     createPointFigures:({overlay,coordinates,bounding})=>{const c=coordinates[0];if(!c)return[];const ex=overlay.extendData||{};const col="#ff9800";
       return[{type:"line",ignoreEvent:true,attrs:{coordinates:[{x:0,y:c.y},{x:bounding.width,y:c.y}]},styles:{color:col,size:1,style:"dashed",dashedValue:[6,4]}},
         {type:"text",ignoreEvent:true,attrs:{x:8,y:c.y-9,text:`🔔 ${ex.label||"Alerta"}`,baseline:"middle"},styles:{color:"#16120a",size:11,backgroundColor:col,paddingLeft:6,paddingRight:6,paddingTop:2,paddingBottom:2,borderRadius:4}}]}});
+  /* Pincel: trazo libre a mano alzada */
+  KC.registerOverlay({name:"eagBrush",totalStep:2,needDefaultPointFigure:false,needDefaultXAxisFigure:false,needDefaultYAxisFigure:false,
+    createPointFigures:({overlay,coordinates})=>{if(coordinates.length<2)return[];const ex=overlay.extendData||{};
+      return[{type:"line",attrs:{coordinates},styles:{color:ex.color||GOLD,size:ex.size||2,smooth:true}}]}});
   /* Medir: diferencia de precio, %, velas y tiempo */
   KC.registerOverlay({name:"eagMeasure",totalStep:3,needDefaultPointFigure:true,needDefaultXAxisFigure:true,needDefaultYAxisFigure:true,
     createPointFigures:({overlay,coordinates,precision})=>{
@@ -116,7 +120,7 @@ const TOOLS=[
   {g:"pat",t:"Patrones y ondas",items:[["xabcd","Patrón XABCD"],["abcd","Patrón ABCD"],["threeWaves","Tres ondas"],["fiveWaves","Cinco ondas (Elliott)"],["eightWaves","Ocho ondas"],["anyWaves","Ondas libres"]]},
   {g:"pos",t:"Posición y medición",items:[["eagLong","Posición larga (compra)"],["eagShort","Posición corta (venta)"],["eagMeasure","Regla: medir puntos, %, velas y tiempo"]]},
   {g:"txt",t:"Texto y notas",items:[["eagText","Texto"],["simpleAnnotation","Nota con flecha"],["simpleTag","Etiqueta de precio"]]}];
-const TNAME={eagPosition:"Posición (antigua)"};TOOLS.forEach(g=>g.items.forEach(([k,t])=>TNAME[k]=t));
+const TNAME={eagPosition:"Posición (antigua)",eagBrush:"Pincel (dibujo libre)"};TOOLS.forEach(g=>g.items.forEach(([k,t])=>TNAME[k]=t));
 const IC={
   lines:'<path d="M4 20 20 4"/><circle cx="4" cy="20" r="1.6"/><circle cx="20" cy="4" r="1.6"/>',
   chan:'<path d="M3 15 15 3M9 21 21 9"/>',
@@ -183,6 +187,7 @@ const TI={
   eagPosition:'<rect x="4" y="4" width="16" height="7" fill="#089981" opacity=".35" stroke="none"/><rect x="4" y="11" width="16" height="7" fill="#f23645" opacity=".35" stroke="none"/><path d="M4 11h16"/>',
   eagMeasure:'<path d="M3 17 17 3l4 4L7 21z"/><path d="m7 13 2 2M10 10l2 2M13 7l2 2"/>',
   eagText:'<path d="M5 6V4h14v2M12 4v16M9 20h6"/>',
+  eagBrush:'<path d="M3 21c3 0 5-1.5 5-4a2.5 2.5 0 0 0-5 0"/><path d="M8 17 20 5a2.1 2.1 0 0 0-3-3L5 14"/>',
   simpleAnnotation:'<rect x="3" y="3" width="18" height="10" rx="2"/><path d="M12 13v8"/>'+P(12,21),
   simpleTag:'<path d="M3 12h7"/><path d="M10 7h9l2 5-2 5h-9z"/>'};
 const tsvg=(k,s=18)=>`<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${TI[k]||""}</svg>`;
@@ -196,13 +201,13 @@ const IND=[ // [nombre, nombre en español, dónde]
 const INDN={};IND.forEach(i=>INDN[i[0]]=i[1]);
 
 /* estilos del motor según el tema */
-function themeStyles(light){
-  const tx=light?"#5c616b":"#9da1aa",ln=light?"#e5e6e9":"#24262c",cb=light?"#15171c":"#363a45";
+function themeStyles(light,eag){
+  const tx=light?"#5c616b":eag?"#93a1c4":"#9da1aa",ln=light?"#e5e6e9":eag?"#1f3266":"#24262c",cb=light?"#15171c":eag?"#2b4282":"#363a45";
   const axis={axisLine:{color:ln},tickLine:{color:ln},tickText:{color:tx,size:11}};
   const ch={line:{color:light?"#9aa0aa":"#5d626c",style:"dashed",dashedValue:[4,4]},text:{backgroundColor:cb,borderColor:cb,color:"#fff"}};
   return{xAxis:axis,yAxis:axis,separator:{color:ln},crosshair:{horizontal:ch,vertical:ch},
     candle:{tooltip:{text:{color:tx,size:11}},priceMark:{high:{color:tx},low:{color:tx}}},indicator:{tooltip:{text:{color:tx,size:11}}},
-    overlay:{line:{color:GOLD,size:1},point:{color:GOLD,borderColor:hexA(GOLD,.35),activeColor:GOLD,activeBorderColor:hexA(GOLD,.35)},
+    overlay:{line:{color:GOLD,size:1},point:{color:light?"#ffffff":"#0b0c0e",borderColor:GOLD,borderSize:1.5,radius:4,activeColor:GOLD,activeBorderColor:hexA(GOLD,.25),activeBorderSize:5,activeRadius:4},
       rect:{color:hexA(GOLD,.12),borderColor:GOLD},polygon:{color:hexA(GOLD,.12),borderColor:GOLD},circle:{color:hexA(GOLD,.12),borderColor:GOLD},arc:{color:GOLD},
       text:{color:GOLD},rectText:{color:"#16120a",backgroundColor:GOLD,borderColor:GOLD}}};
 }
@@ -234,7 +239,7 @@ window.EAGWidget=function(o){
   async function loadData(){
     const g=++gen;ready=false;noMore=false;
     if(subKey){o.datafeed.unsubscribe(subKey.s,subKey.p);subKey=null}
-    bulk=true;try{chart.clearData()}catch(e){}bulk=false;try{chart.setPriceVolumePrecision(sym.pricePrecision||3,0)}catch(e){}
+    bulk=true;try{chart.clearData()}catch(e){}bulk=false;applyDec();
     paintBar();
     const to=Date.now(),from=to-msOf(per)*500;
     let list=await o.datafeed.getHistoryKLineData(sym,per,from,to);
@@ -307,7 +312,7 @@ window.EAGWidget=function(o){
   root.querySelectorAll(".wnav button").forEach(b=>b.onclick=e=>{e.stopPropagation();const n=b.dataset.n,w=chartEl.clientWidth;
     try{if(n==="left")chart.scrollByDistance(w*.35,250);else if(n==="right")chart.scrollByDistance(-w*.35,250);
       else if(n==="reset"){if(bs0)chart.setBarSpace(bs0);chart.scrollToRealTime(300);autoScale()}
-      else if(n==="reload"){b.classList.add("spin");setTimeout(()=>b.classList.remove("spin"),900);if(bs0)chart.setBarSpace(bs0);loadData()}}catch(x){}});
+      else if(n==="reload"){b.classList.add("spin");setTimeout(()=>b.classList.remove("spin"),900);if(bs0)chart.setBarSpace(bs0);loadData();o.onReload&&o.onReload()}}catch(x){}});
 
   /* ---------- barra de dibujo ---------- */
   const lastTool=Object.assign({},o.lastTools||{});
@@ -319,16 +324,19 @@ window.EAGWidget=function(o){
   ["pointerdown","mousedown","touchstart"].forEach(ev=>document.addEventListener(ev,outside,{capture:true,passive:true}));
   addEventListener("blur",()=>{if(menu&&!menu.classList.contains("panel"))closeMenu()});
   function paintDbar(){
-    dbar.innerHTML=`<div class="dmini"><button class="dt dtf" title="Temporalidad (todas)"><b>${esc(per.text)}</b></button><button class="dt" data-mi="sym" title="Cambiar mercado">${svg("list",17)}</button><button class="dt" data-mi="ind" title="Indicadores">${svg("fx",17)}</button><i class="dsep"></i></div><button class="dt" data-k="cross" title="Cursor (cancelar dibujo)">${svg("cross")}</button><button class="dt" data-k="eagMeasure" title="Regla: medir puntos (también Shift + clic)">${tsvg("eagMeasure")}</button><i class="dsep"></i>`+
-      TOOLS.map(g=>{const cur=lastTool[g.g]||g.items[0][0];return`<div class="dg" data-g="${g.g}"><button class="dt" data-k="${cur}" title="${esc(TNAME[cur])}">${tsvg(cur)}</button><button class="more" title="${esc(g.t)}">${svg("caret",9)}</button></div>`}).join("")+
-      `<i class="dsep"></i><button class="dt tg${magnet!=="normal"?" on":""}" data-x="magnet" title="${magnet==="strong_magnet"?"Imán fuerte":magnet==="weak_magnet"?"Imán débil":"Imán apagado"}">${svg("magnet")}<em>${magnet==="strong_magnet"?"F":magnet==="weak_magnet"?"D":""}</em></button>
-      <button class="dt tg${locked?" on":""}" data-x="lock" title="${locked?"Desbloquear dibujos":"Bloquear todos los dibujos"}">${svg(locked?"lock":"unlock")}</button>
-      <button class="dt tg${hidden?" on":""}" data-x="hide" title="${hidden?"Mostrar dibujos":"Ocultar todos los dibujos"}">${svg(hidden?"eyeoff":"eye")}</button>
-      <button class="dt" data-x="clear" title="Borrar todos los dibujos de este mercado">${svg("trash")}</button>`;
+    dbar.innerHTML=`<div class="dmini"><button class="dt dtf" title="Temporalidad (todas)"><b>${esc(per.text)}</b></button><button class="dt" data-mi="sym" title="Cambiar mercado">${svg("list",17)}</button><button class="dt" data-mi="ind" title="Indicadores">${svg("fx",17)}</button><i class="dsep"></i></div><button class="dt" data-k="cross" title="Cursor (cancelar dibujo)">${svg("cross",21)}</button><button class="dt" data-k="eagMeasure" title="Regla: medir puntos (también Shift + clic)">${tsvg("eagMeasure",22)}</button><button class="dt${brushOn?" act":""}" data-b="1" title="Pincel: dibuja o escribe a mano sobre el gráfico">${tsvg("eagBrush",22)}</button><i class="dsep"></i>`+
+      TOOLS.map(g=>{const cur=lastTool[g.g]||g.items[0][0];return`<div class="dg" data-g="${g.g}"><button class="dt" data-k="${cur}" title="${esc(TNAME[cur])} · doble clic: ver todas">${tsvg(cur,22)}</button><button class="more" title="${esc(g.t)}">${svg("caret",9)}</button></div>`}).join("")+
+      `<i class="dsep"></i><button class="dt tg${magnet!=="normal"?" on":""}" data-x="magnet" title="${magnet==="strong_magnet"?"Imán fuerte":magnet==="weak_magnet"?"Imán débil":"Imán apagado"}">${svg("magnet",21)}<em>${magnet==="strong_magnet"?"F":magnet==="weak_magnet"?"D":""}</em></button>
+      <button class="dt tg${locked?" on":""}" data-x="lock" title="${locked?"Desbloquear dibujos":"Bloquear todos los dibujos"}">${svg(locked?"lock":"unlock",21)}</button>
+      <button class="dt tg${hidden?" on":""}" data-x="hide" title="${hidden?"Mostrar dibujos":"Ocultar todos los dibujos"}">${svg(hidden?"eyeoff":"eye",21)}</button>
+      <button class="dt" data-x="clear" title="Borrar todos los dibujos de este mercado">${svg("trash",21)}</button>`;
     dbar.querySelector(".dtf").onclick=e=>{e.stopPropagation();o.onTFClick&&o.onTFClick(e.currentTarget)};
     dbar.querySelector('[data-mi="sym"]').onclick=e=>{e.stopPropagation();o.onSymbolClick&&o.onSymbolClick(e.currentTarget)};
     dbar.querySelector('[data-mi="ind"]').onclick=e=>{e.stopPropagation();openInd()};
-    dbar.querySelectorAll(".dt[data-k]").forEach(b=>b.onclick=()=>b.dataset.k==="cross"?cancelDraw():startTool(b.dataset.k));
+    dbar.querySelectorAll(".dt[data-k]").forEach(b=>b.onclick=()=>{stopBrush();b.dataset.k==="cross"?cancelDraw():startTool(b.dataset.k)});
+    dbar.querySelector('[data-b]').onclick=()=>brushOn?stopBrush():startBrush();
+    /* doble clic sobre un grupo: abre la lista completa */
+    dbar.querySelectorAll(".dg>.dt").forEach(b=>b.ondblclick=e=>{e.preventDefault();cancelDraw();const g=TOOLS.find(x=>x.g===b.parentNode.dataset.g);openToolMenu(g,b.parentNode)});
     dbar.querySelectorAll(".dg .more").forEach(b=>b.onclick=e=>{e.stopPropagation();const g=TOOLS.find(x=>x.g===b.parentNode.dataset.g);openToolMenu(g,b.parentNode)});
     /* mantener presionado o deslizar sobre el botón abre la lista; soltar sobre una herramienta la elige */
     dbar.querySelectorAll(".dg>.dt").forEach(b=>{
@@ -354,10 +362,29 @@ window.EAGWidget=function(o){
     menu.querySelectorAll("[data-fav]").forEach(f=>f.addEventListener("click",e=>{e.stopPropagation();o.onToolFav&&o.onToolFav(f.dataset.fav);const on=((o.getToolFav&&o.getToolFav())||[]).includes(f.dataset.fav);f.classList.toggle("on",on);f.textContent=on?"★":"☆"},true));
     menu.querySelectorAll("button").forEach(b=>b.onclick=()=>{lastTool[g.g]=b.dataset.k;o.onLastTools&&o.onLastTools(lastTool);closeMenu();paintDbar();startTool(b.dataset.k)})}
   let drawingId=null;
+  /* ---------- pincel ---------- */
+  let brushOn=false,brushEl=null;
+  function startBrush(){cancelDraw();if(brushOn)return;brushOn=true;
+    brushEl=document.createElement("canvas");brushEl.className="wbrush";chartEl.appendChild(brushEl);
+    const fit=()=>{const r=chartEl.getBoundingClientRect(),d=devicePixelRatio||1;brushEl.width=r.width*d;brushEl.height=r.height*d;brushEl.style.width=r.width+"px";brushEl.style.height=r.height+"px"};fit();
+    const cx=brushEl.getContext("2d");let pts=null;
+    const pos=e=>{const r=brushEl.getBoundingClientRect();return{x:e.clientX-r.left,y:e.clientY-r.top}};
+    brushEl.onpointerdown=e=>{if(e.button===2){stopBrush();return}e.preventDefault();try{brushEl.setPointerCapture(e.pointerId)}catch(x){}pts=[pos(e)];const d=devicePixelRatio||1;
+      const bs=((o.getToolStyle&&o.getToolStyle("eagBrush"))||{}).ex||{};cx.setTransform(d,0,0,d,0,0);cx.strokeStyle=bs.color||GOLD;cx.lineWidth=bs.size||2;cx.lineCap="round";cx.lineJoin="round";cx.beginPath();cx.moveTo(pts[0].x,pts[0].y)};
+    brushEl.onpointermove=e=>{if(!pts)return;const p=pos(e),l=pts[pts.length-1];if(Math.hypot(p.x-l.x,p.y-l.y)<2.5)return;pts.push(p);cx.lineTo(p.x,p.y);cx.stroke()};
+    brushEl.onpointerup=()=>{if(!pts)return;const P=pts;pts=null;cx.clearRect(0,0,brushEl.width,brushEl.height);if(P.length<2)return;
+      let step=Math.ceil(P.length/300);const sel=P.filter((p,i)=>i%step===0||i===P.length-1);
+      let conv=[];try{conv=chart.convertFromPixel(sel,{paneId:"candle_pane"})}catch(x){}
+      const points=(conv||[]).map(c=>({timestamp:tsOf(c),value:c.value})).filter(p=>isFinite(p.value)&&p.timestamp);
+      if(points.length<2)return;const bs2=((o.getToolStyle&&o.getToolStyle("eagBrush"))||{}).ex||{};const id=makeOverlay({name:"eagBrush",points,extendData:{color:bs2.color||GOLD,size:bs2.size||2}},false);if(id){const v=ovs.get(id);v.done=true;v.points=points;persist()}};
+    brushEl.oncontextmenu=e=>{e.preventDefault();stopBrush()};
+    dbar.querySelector("[data-b]")&&dbar.querySelector("[data-b]").classList.add("act");o.onToast&&o.onToast("✏️ Pincel activo: dibuja o escribe sobre el gráfico. Esc o clic derecho para salir.")}
+  function stopBrush(){if(!brushOn)return;brushOn=false;if(brushEl){brushEl.remove();brushEl=null}const b=dbar.querySelector("[data-b]");b&&b.classList.remove("act")}
   function cancelDraw(){if(drawingId){try{chart.removeOverlay(drawingId)}catch(e){}ovs.delete(drawingId);drawingId=null}dbar.querySelectorAll(".dt").forEach(b=>b.classList.remove("act"))}
   function startTool(name){cancelDraw();
-    const ex=name==="eagText"?{text:"Texto"}:undefined;
-    const id=makeOverlay({name,extendData:ex},true);if(!id)return;drawingId=id;
+    const ts=(o.getToolStyle&&o.getToolStyle(name))||{};
+    const ex=Object.assign(name==="eagText"?{text:"Texto"}:{},ts.ex||{});
+    const id=makeOverlay({name,extendData:Object.keys(ex).length?ex:undefined,styles:ts.styles||undefined},true);if(!id)return;drawingId=id;
     dbar.querySelectorAll(".dt[data-k]").forEach(b=>b.classList.toggle("act",b.dataset.k===name))}
   function makeOverlay(def,drawing){
     const id=chart.createOverlay({name:def.name,points:def.points,styles:def.styles,extendData:def.extendData,lock:!!def.lock,visible:!hidden,mode:magnet,
@@ -369,7 +396,7 @@ window.EAGWidget=function(o){
       onDeselected:e=>{if(selId===e.overlay.id){selId=null;hideStyleBar()}return false},
       onRemoved:e=>{if(bulk)return false;ovs.delete(e.overlay.id);if(selId===e.overlay.id){selId=null;hideStyleBar()}persist();return false},
       onDoubleClick:e=>{if(e.overlay.id!==drawingId)openCtx(e.overlay.id,e,true);return false},
-      onRightClick:e=>{if(e.overlay.id===drawingId){cancelDraw();return true}openCtx(e.overlay.id,e);return true}});
+      onRightClick:e=>{try{if(e.overlay.id===drawingId){cancelDraw();return true}openCtx(e.overlay.id,e)}catch(x){}return true}});
     if(id){ovs.set(id,{name:def.name,styles:def.styles||null,extendData:def.extendData||null,lock:!!def.lock,points:def.points||null});if(!drawing)ovs.get(id).done=true}
     return id}
   /* stop y objetivo automáticos (1:2) según el rango reciente del gráfico */
@@ -405,22 +432,24 @@ window.EAGWidget=function(o){
   function renderAlerts(){alertIds.forEach(id=>{try{chart.removeOverlay(id)}catch(e){}});alertIds=[];if(!ready||!o.getAlerts)return;
     const L=chart.getDataList(),last=L[L.length-1];if(!last)return;const pp=sym.pricePrecision||3;
     (o.getAlerts(sym.ticker)||[]).forEach(a=>{const vals=a.kind==="zona"&&a.price2!=null?[+a.price,+a.price2]:[+a.price];
-      vals.forEach((v,k)=>{const id=chart.createOverlay({name:"eagAlert",lock:true,points:[{timestamp:last.timestamp,value:v}],extendData:{label:(a.kind==="zona"?(k?"Zona (abajo) ":"Zona (arriba) "):"Alerta ")+v.toFixed(pp)+(a.note?" · "+a.note:"")}});if(id)alertIds.push(id)})})}
+      vals.forEach((v,k)=>{const id=chart.createOverlay({name:"eagAlert",lock:true,onRightClick:()=>true,points:[{timestamp:last.timestamp,value:v}],extendData:{label:(a.kind==="zona"?(k?"Zona (abajo) ":"Zona (arriba) "):"Alerta ")+v.toFixed(pp)+(a.note?" · "+a.note:"")}});if(id)alertIds.push(id)})})}
 
   /* ---------- personalizar un dibujo: barra flotante + clic derecho ---------- */
   const sbar=document.createElement("div");sbar.className="wstyle";sbar.hidden=true;chartEl.appendChild(sbar);
   const isFill=n=>/^(rect|circle|triangle|parallelogram|eagZone|fibonacciCircle|gannBox)$/.test(n);
-  const curStyle=id=>{const v=ovs.get(id)||{},s=v.styles||{},isTxt=v.name==="eagText"||v.name==="eagZone";
-    return{color:isTxt?((v.extendData||{}).color||GOLD):((s.line&&s.line.color)||(s.polygon&&s.polygon.borderColor)||GOLD),size:(s.line&&s.line.size)||(s.polygon&&s.polygon.borderSize)||1,
+  const curStyle=id=>{const v=ovs.get(id)||{},s=v.styles||{},isTxt=v.name==="eagText"||v.name==="eagZone"||v.name==="eagBrush";
+    return{color:isTxt?((v.extendData||{}).color||GOLD):((s.line&&s.line.color)||(s.polygon&&s.polygon.borderColor)||GOLD),size:v.name==="eagBrush"?((v.extendData||{}).size||2):((s.line&&s.line.size)||(s.polygon&&s.polygon.borderSize)||1),
       dash:(s.line&&s.line.style)==="dashed"?((s.line.dashedValue||[4,4])[0]<=2?"dot":"dash"):"solid",fill:s.polygon?s.polygon.color:null}};
   function setStyle(id,ch){const v=ovs.get(id);if(!v)return;const c=Object.assign(curStyle(id),ch);
-    if(v.name==="eagText"||v.name==="eagZone"||/^eag(Position|Long|Short)$/.test(v.name)){v.extendData=Object.assign({},v.extendData||{},/^eag(Position|Long|Short)$/.test(v.name)?{}:{color:c.color});if(ch.size&&v.name==="eagText")v.extendData.size=10+ch.size*2;chart.overrideOverlay({id,extendData:v.extendData})}
+    if(v.name==="eagText"||v.name==="eagZone"||v.name==="eagBrush"||/^eag(Position|Long|Short)$/.test(v.name)){v.extendData=Object.assign({},v.extendData||{},/^eag(Position|Long|Short)$/.test(v.name)?{}:{color:c.color});if(ch.size&&v.name==="eagText")v.extendData.size=10+ch.size*2;if(ch.size&&v.name==="eagBrush")v.extendData.size=ch.size;chart.overrideOverlay({id,extendData:v.extendData})}
     else{const st={line:{color:c.color,size:c.size,style:c.dash==="solid"?"solid":"dashed",dashedValue:c.dash==="dot"?[1,3]:[5,4]},
         polygon:{borderColor:c.color,borderSize:c.size,borderStyle:c.dash==="solid"?"solid":"dashed",color:c.fill!=null?c.fill:hexA(c.color,.14)},
         rect:{borderColor:c.color,borderSize:c.size,color:c.fill!=null?c.fill:hexA(c.color,.14)},circle:{borderColor:c.color,borderSize:c.size,color:c.fill!=null?c.fill:hexA(c.color,.14)},
         arc:{color:c.color,size:c.size},text:{color:c.color},rectText:{backgroundColor:c.color,borderColor:c.color}};
       v.styles=st;chart.overrideOverlay({id,styles:st})}
-    persist();if(!sbar.hidden)showStyleBar(id)}
+    persist();if(!sbar.hidden)showStyleBar(id);
+    /* recordar el estilo para los próximos dibujos de esta herramienta */
+    if(o.onToolStyle){const ex={};const e2=v.extendData||{};["color","size","up","dn"].forEach(k=>{if(e2[k]!=null)ex[k]=e2[k]});o.onToolStyle(v.name,{styles:v.styles||null,ex})}}
   const alertable=v=>/^(horizontalStraightLine|horizontalRayLine|horizontalSegment|priceLine|eagZone|rect|segment|rayLine|straightLine)$/.test(v.name)&&v.points&&v.points.length;
   function alertFrom(id){const v=ovs.get(id);if(!v||!o.onCreateAlert)return;const ps=v.points.map(p=>p.value),pp=sym.pricePrecision||3,r=x=>+(+x).toFixed(pp);
     const zone=/^(eagZone|rect)$/.test(v.name)&&ps.length>1;
@@ -486,8 +515,18 @@ window.EAGWidget=function(o){
     const done=ok=>{if(!box.isConnected)return;if(ok){v.extendData=Object.assign({},v.extendData||{},{text:inp.value.trim()||(v.name==="eagText"?"Texto":"")});chart.overrideOverlay({id,extendData:v.extendData});persist()}box.remove()};
     inp.onkeydown=e=>{e.stopPropagation();if(e.key==="Enter")done(true);if(e.key==="Escape")done(false)};inp.onblur=()=>done(true)}
   root.tabIndex=-1;
-  root.addEventListener("keydown",e=>{if((e.key==="Delete"||e.key==="Backspace")&&selId&&!/input|select|textarea/i.test(e.target.tagName)){removeOv(selId);selId=null}if(e.key==="Escape"){cancelDraw();closeMenu()}});
+  root.addEventListener("keydown",e=>{if((e.key==="Delete"||e.key==="Backspace")&&selId&&!/input|select|textarea/i.test(e.target.tagName)){removeOv(selId);selId=null}if(e.key==="Escape"){cancelDraw();closeMenu();stopBrush()}});
   chartEl.addEventListener("contextmenu",e=>{e.preventDefault();if(drawingId){cancelDraw();o.onToast&&o.onToast("Herramienta cancelada")}});
+  /* escala de precios con el dedo: arrastra arriba/abajo sobre los números de la derecha para estirar o encoger */
+  let yDrag=null;
+  chartEl.addEventListener("touchstart",e=>{if(e.touches.length!==1)return;let ya;try{ya=chart.getSize("candle_pane","yAxis")}catch(x){return}if(!ya)return;
+    const r=chartEl.getBoundingClientRect(),x=e.touches[0].clientX-r.left,y=e.touches[0].clientY-r.top;
+    if(x<ya.left||x>ya.left+ya.width||y>ya.height)return;const ax=chart._candlePane&&chart._candlePane.getAxisComponent();if(!ax||!ax._range)return;
+    yDrag={y0:e.touches[0].clientY,ax,r0:Object.assign({},ax._range)};e.preventDefault();e.stopPropagation()},{capture:true,passive:false});
+  chartEl.addEventListener("touchmove",e=>{if(!yDrag)return;e.preventDefault();e.stopPropagation();const dy=e.touches[0].clientY-yDrag.y0,k=Math.max(.2,Math.min(5,Math.exp(dy/180)));
+    const r0=yDrag.r0,mid=(r0.from+r0.to)/2,half=(r0.to-r0.from)/2*k,from=mid-half,to=mid+half;
+    yDrag.ax._autoCalcTickFlag=false;yDrag.ax._range=Object.assign({},r0,{from,to,range:to-from,realFrom:from,realTo:to,realRange:to-from});try{chart.adjustPaneViewport(false,true,true,true)}catch(x){}},{capture:true,passive:false});
+  chartEl.addEventListener("touchend",()=>{yDrag=null},{capture:true});
   /* Shift + clic: regla rápida, como en TradingView */
   chartEl.addEventListener("pointerdown",e=>{if(e.shiftKey&&!drawingId&&e.button===0)startTool("eagMeasure")},true);
 
@@ -521,11 +560,19 @@ window.EAGWidget=function(o){
   /* ---------- tema y estilos ---------- */
   /* leyenda de una línea como TradingView: mercado · temporalidad · O H L C y cambio */
   function legend(){const light=theme==="light",tx=light?"#5c616b":"#9da1aa",up=((extra.candle||{}).bar||{}).upColor||"#089981",dn=((extra.candle||{}).bar||{}).downColor||"#f23645",fg=light?"#15171c":"#ececee";
-    return(d)=>{const c=d.current;if(!c)return[];const p=d.prev||c,col=c.close>=c.open?up:dn,pp=sym.pricePrecision||3,f=v=>(+v).toFixed(pp),ch=c.close-p.close,pc=p.close?ch/p.close*100:0;
+    return(d)=>{const c=d.current;if(!c)return[];const p=d.prev||c,col=c.close>=c.open?up:dn,pp=dec(),f=v=>(+v).toFixed(pp),ch=c.close-p.close,pc=p.close?ch/p.close*100:0;
       if(chartEl.clientWidth<520)return[{title:{text:`${sym.shortName||sym.name||sym.ticker} · ${per.text}`,color:fg},value:{text:"",color:fg}},{title:{text:"C",color:tx},value:{text:f(c.close),color:col}},{title:{text:"",color:tx},value:{text:`${ch>=0?"+":""}${pc.toFixed(2)}%`,color:ch>=0?up:dn}}];
       return[{title:{text:`${sym.name||sym.ticker} · ${per.text}`,color:fg},value:{text:"",color:fg}},{title:{text:"O",color:tx},value:{text:f(c.open),color:col}},{title:{text:"H",color:tx},value:{text:f(c.high),color:col}},
         {title:{text:"L",color:tx},value:{text:f(c.low),color:col}},{title:{text:"C",color:tx},value:{text:f(c.close),color:col}},{title:{text:"",color:tx},value:{text:`${ch>=0?"+":""}${f(ch)} (${ch>=0?"+":""}${pc.toFixed(2)}%)`,color:ch>=0?up:dn}}]}}
-  function applyStyles(){chart.setStyles(deep(deep(themeStyles(theme==="light"),extra),{yAxis:{type:axisType},candle:{tooltip:{showRule:"always",showType:"standard",custom:legend(),text:{size:12,marginLeft:10,marginTop:8,marginRight:10}}}}))}
+  /* tamaño de letra del gráfico (pensado para transmitir) */
+  const fz=()=>+(o.getFont&&o.getFont())||11;
+  function applyStyles(){const f=fz(),t={size:f};chart.setStyles(deep(deep(themeStyles(theme==="light",theme==="eag"),extra),{yAxis:{type:axisType,tickText:t},xAxis:{tickText:t},
+    crosshair:{horizontal:{text:t},vertical:{text:t}},indicator:{tooltip:{text:{size:f}}},overlay:{text:{size:f+1},rectText:{size:f}},
+    candle:{priceMark:{last:{text:{size:f}},high:{textSize:Math.max(10,f-1)},low:{textSize:Math.max(10,f-1)}},tooltip:{showRule:"always",showType:"standard",custom:legend(),text:{size:f+1,marginLeft:10,marginTop:8,marginRight:10}}}}));
+    cdl.style.fontSize=(f-0.5)+"px"}
+  /* decimales del precio: automático o los que elija el usuario */
+  const dec=()=>{const d=o.getDecimals&&o.getDecimals();return d==null||d==="auto"?(sym.pricePrecision||3):+d};
+  function applyDec(){try{chart.setPriceVolumePrecision(dec(),0)}catch(e){}}
   new ResizeObserver(()=>chart.resize()).observe(chartEl);
 
   /* inicio */
@@ -533,11 +580,11 @@ window.EAGWidget=function(o){
   ind.main.forEach(n=>addInd(n,"main",true));const subs=Object.keys(ind.sub);ind.sub={};subs.forEach(n=>addInd(n,"sub",true));
   loadData();
 
-  return{chart,el:root,startTool:n=>startTool(n),undo,redo,renderAlerts,cancelDraw:()=>cancelDraw(),
+  return{chart,el:root,startTool:n=>{stopBrush();startTool(n)},stopBrush:()=>stopBrush(),startBrush:()=>startBrush(),undo,redo,renderAlerts,cancelDraw:()=>cancelDraw(),
     getSymbol:()=>sym,setSymbol(s){if(!s||(sym&&s.ticker===sym.ticker&&s.pricePrecision===sym.pricePrecision))return;sym=s;loadData()},
     getPeriod:()=>per,setPeriod(p){if(!p||p.text===per.text)return;per=p;loadData()},
     getTheme:()=>theme,setTheme(t){theme=t;applyStyles()},
-    setStyles(s){extra=s||{};applyStyles()},
+    setStyles(s){extra=s||{};applyStyles()},setDecimals(){applyDec();applyStyles()},
     refreshBar:paintBar,
     setDrawingBar(v){dbar.style.display=v?"":"none"},
     reloadDrawings(){if(ready)restoreDrawings()}}

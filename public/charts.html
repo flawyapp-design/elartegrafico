@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>EAG Charts · Gráficos en vivo</title>
 <meta name="description" content="Plataforma de gráficos en vivo de El Arte Gráfico: Boom y Crash, sintéticos, forex y más, con herramientas de análisis. Exclusivo para miembros.">
 <meta name="theme-color" content="#0b0c0e">
@@ -341,6 +341,52 @@ html[data-wm=sym] .wm-b,html[data-wm=brand] .wm-s{display:none}html[data-wm=bran
   .main.wlopen .wl{transform:none}.lay .dk,.who{display:none}
   .grid.mtf{grid-template-rows:minmax(0,1fr) 250px}.mtfrow{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media (max-width:520px){.brand b,.st span{display:none}.top{gap:8px;padding:0 8px}}
+
+/* ===== ronda 4: barra de dibujo grande, pincel, tema Arte Gráfico, celular ===== */
+html,body{touch-action:manipulation;-webkit-text-size-adjust:100%}
+.wchart{touch-action:none}
+.dbar{width:56px!important;gap:3px!important;padding:8px 0!important}
+.dt{width:44px!important;height:42px!important;border-radius:10px!important}
+.dt svg{width:22px;height:22px}
+.dg .more{right:-2px!important;bottom:3px!important;width:12px!important;height:14px!important;opacity:.55}
+.dsep{width:30px!important;margin:5px 0!important}
+.wbrush{position:absolute;inset:0;z-index:6;cursor:crosshair;touch-action:none}
+.thm{grid-template-columns:repeat(3,minmax(0,1fr))!important}
+html.eag{--bg:#060b1a;--bg2:#0a1330;--card:#0e1a3d;--card2:#13224d;--line:#1f3266;--line2:#2b4282;--fg:#e9edf7;--fg2:#c4cde4;--mut:#93a1c4;--dim:#64739a;--gold:#d8b062;--gold2:#f3d88f;--gbg:rgba(216,176,98,.14);--shadow:0 18px 50px rgba(0,0,0,.55)}
+html.eag body,html.eag .app{background:var(--bg)}
+/* agarradera visible para cambiar el alto de la multitemporalidad (como MT5) */
+.mtfsp{top:-7px!important;height:14px!important}
+.mtfsp i{position:absolute;left:50%;top:5px;width:46px;height:4px;margin-left:-23px;border-radius:4px;background:var(--line2);transition:background .15s}
+.mtfsp:hover i,.mtfsp.on i{background:var(--gold)}.mtfsp{touch-action:none}
+.mtfsp::after{display:none}
+@media (max-width:900px){
+  .dbar{width:48px!important;gap:2px!important}.dt{width:40px!important;height:38px!important}.dt svg{width:20px;height:20px}
+  .wb span{display:none}.wbar{gap:0}.wbar button{padding:4px 6px}
+  .wfoot .wrng button:nth-child(n+5){display:none}.wclk{display:none}
+  .top{height:50px}.btn.ic{width:38px;height:36px}
+  .mtfsp{display:block!important}
+  .wmenu{max-width:calc(100vw - 16px)}
+}
+/* tutorial */
+.tour{position:fixed;inset:0;z-index:95}
+.tdim{position:absolute;inset:0;background:rgba(0,0,0,.55)}
+.tring{position:absolute;border-radius:12px;box-shadow:0 0 0 2px var(--gold),0 0 0 9999px rgba(0,0,0,.55);transition:all .25s;pointer-events:none}
+.tcard{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(380px,calc(100vw - 24px));background:var(--card);border:1px solid var(--line2);border-radius:18px;padding:20px 20px 16px;box-shadow:var(--shadow);color:var(--fg);animation:fadeIn .2s}
+.tcard.anch{transform:none}
+.tcard .tic{font-size:30px;line-height:1;margin-bottom:10px}.tcard b{display:block;font-size:17px;margin-bottom:6px}.tcard p{margin:0;font-size:13.5px;line-height:1.55;color:var(--fg2)}
+.tdots{display:flex;gap:5px;margin:14px 0 12px}.tdots i{width:7px;height:7px;border-radius:50%;background:var(--line2)}.tdots i.on{background:var(--gold);width:18px;border-radius:4px}
+.tbtns{display:flex;align-items:center;gap:8px}.tbtns .gold{background:var(--gold);color:#16120a;border-color:var(--gold)}
+/* prueba y opiniones */
+.trialchip{display:inline-flex;align-items:center;gap:7px;height:30px;padding:0 11px;border-radius:999px;border:1px solid var(--gold);background:var(--gbg);color:var(--gold2);cursor:pointer;font-size:12px;white-space:nowrap}
+.trialchip i{font-style:normal;opacity:.85}.trialchip b{font-variant-numeric:tabular-nums}
+html.light .trialchip{color:var(--gold)}
+@media (max-width:520px){.trialchip i{display:none}}
+.fbf{display:grid;gap:12px;margin:16px 0 6px;text-align:left}
+.fbstars{display:flex;justify-content:center;gap:6px}.fbstars button{border:0;background:none;font-size:34px;line-height:1;color:var(--line2);cursor:pointer;transition:transform .1s}.fbstars button.on{color:var(--gold)}.fbstars button:hover{transform:scale(1.12)}
+.fbf textarea{min-height:110px;resize:vertical;background:var(--bg);border:1px solid var(--line2);border-radius:10px;padding:10px 12px;color:var(--fg);font:inherit;-webkit-user-select:text;user-select:text}
+.fbf textarea:focus{outline:none;border-color:var(--gold);box-shadow:0 0 0 3px var(--gbg)}
+.fbf .btn.gold{justify-content:center;height:40px}.fbmsg{margin:0;font-size:12.5px;color:var(--bad);min-height:1em}
+.fbgate{max-width:560px}
 </style>
 </head>
 <body>
