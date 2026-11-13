@@ -220,14 +220,16 @@ window.EAGWidget=function(o){
 
   /* ---------- datos ---------- */
   const msOf=p=>p.multiplier*({minute:6e4,hour:36e5,day:864e5,week:6048e5}[p.timespan]||6e4);
+  let noMore=false;
   async function loadData(){
-    const g=++gen;ready=false;
+    const g=++gen;ready=false;noMore=false;
     if(subKey){o.datafeed.unsubscribe(subKey.s,subKey.p);subKey=null}
     chart.clearData();try{chart.setPriceVolumePrecision(sym.pricePrecision||3,0)}catch(e){}
     paintBar();
     const to=Date.now(),from=to-msOf(per)*500;
-    const list=await o.datafeed.getHistoryKLineData(sym,per,from,to);
+    let list=await o.datafeed.getHistoryKLineData(sym,per,from,to);
     if(g!==gen)return;
+    const seen=new Set();list=list.filter(k=>!seen.has(k.timestamp)&&seen.add(k.timestamp)).sort((x,y)=>x.timestamp-y.timestamp);
     chart.applyNewData(list,list.length>0);ready=true;
     o.datafeed.subscribe(sym,per,d=>{if(g===gen)chart.updateData(d)});subKey={s:sym,p:per};
     restoreDrawings();
@@ -235,8 +237,13 @@ window.EAGWidget=function(o){
   chart.setLoadDataCallback(async({type,data,callback})=>{
     if(type!=="forward"||!data){callback([],false);return}
     const g=gen,to=data.timestamp-1,from=to-msOf(per)*500;
-    const list=await o.datafeed.getHistoryKLineData(sym,per,from,to);
-    if(g!==gen)return;callback(list,list.length>0)});
+    if(noMore){callback([],false);return}
+    const raw=await o.datafeed.getHistoryKLineData(sym,per,from,to);
+    if(g!==gen)return;
+    /* solo velas más antiguas que la primera que ya está en el gráfico; si Deriv ya no tiene más, se deja de pedir */
+    const first=data.timestamp,seen=new Set(),list=raw.filter(k=>k.timestamp<first&&!seen.has(k.timestamp)&&seen.add(k.timestamp)).sort((x,y)=>x.timestamp-y.timestamp);
+    if(!list.length)noMore=true;
+    callback(list,list.length>0)});
 
   /* ---------- barra superior ---------- */
   function paintBar(){
