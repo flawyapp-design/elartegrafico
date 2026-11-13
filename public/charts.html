@@ -10,7 +10,12 @@
 <link rel="icon" href="assets/favicon-48.png">
 <style>
 :root{--bg:#060b1a;--bg2:#0a1330;--card:#0e1a3d;--card2:#13224d;--line:#1f3266;--line2:#2b4282;--fg:#e9edf7;--mut:#93a1c4;--dim:#64739a;--gold:#d8b062;--gold2:#f3d88f;--ok:#35c4a2;--bad:#ec5b52}
-*{box-sizing:border-box}html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);font:14px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;overflow:hidden}
+*{box-sizing:border-box}
+/* sin selección de texto: se siente como una app, no como una página */
+.app,.app *,.pop,.pop *,.wmenu,.wmenu *,.wmodal,.wmodal *{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+.app input,.app textarea,.pop input,.wmenu input,.wmodal input,.wtxt input{-webkit-user-select:text;user-select:text}
+html,body{-webkit-tap-highlight-color:transparent;overscroll-behavior:none}
+img,svg{-webkit-user-drag:none;user-drag:none}html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);font:14px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;overflow:hidden}
 a{color:var(--gold2)}button,select,input{font:inherit;color:inherit}
 .app{display:grid;grid-template-rows:auto minmax(0,1fr);height:100vh;height:100dvh}
 .top{display:flex;align-items:center;gap:10px;height:48px;padding:0 12px;border-bottom:1px solid var(--line);background:var(--bg2);min-width:0}

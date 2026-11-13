@@ -456,6 +456,11 @@ function start(){
     })},250)}
 
   $("#cfgb").onclick=e=>{e.stopPropagation();pop.hidden||pop.dataset.for!=="cfg"?openCfg($("#cfgb")):closePop()};
+  /* evitar selección accidental (doble clic, arrastres) y el menú del navegador, menos en los campos de texto */
+  const editable=t=>t&&t.closest&&t.closest("input,textarea,[contenteditable]");
+  document.addEventListener("selectstart",e=>{if(!editable(e.target))e.preventDefault()});
+  document.addEventListener("dragstart",e=>{if(!editable(e.target))e.preventDefault()});
+  document.addEventListener("contextmenu",e=>{if(!editable(e.target))e.preventDefault()});
   applyHide();applyCfg();applyLayoutPrefs();setLayout(lay);setTab(tab);renderTabs();
   ready.then(()=>{setTab(tab);renderTabs();panes.forEach(p=>{try{const t=p.kc.getSymbol().ticker;if(bySym[t]&&info(bySym[t]).pricePrecision!==p.kc.getSymbol().pricePrecision)p.kc.setSymbol(info(bySym[t]))}catch(e){}})});
   addEventListener("resize",()=>{if(mobile()&&!["l1","l2v","mtf"].includes(lay))setLayout("l1")});
