@@ -199,7 +199,7 @@ function start(){
     fab.addEventListener("pointermove",mv);fab.addEventListener("pointerup",up)});
   fab.ondblclick=()=>{delete SAVE.fabPos;save();placeFab()};
   addEventListener("resize",()=>placeFab());
-  fab.onclick=e=>{e.stopPropagation();if(fabMoved){fabMoved=false;return}openVista(fab);pop.dataset.for="vista"};
+  fab.onclick=e=>{e.stopPropagation();if(fabMoved){fabMoved=false;return}PARTS.forEach(([k])=>SAVE.hide[k]=false);save();applyHide()};
   function showPop(anchor,align){pop.hidden=false;const r=anchor.getBoundingClientRect(),w=pop.offsetWidth,h=pop.offsetHeight;
     let x=align==="right"?r.right-w:r.left;x=Math.max(8,Math.min(x,innerWidth-w-8));let y=r.bottom+6;if(y+h>innerHeight-8)y=Math.max(8,r.top-h-6);
     pop.style.left=x+"px";pop.style.top=y+"px"}
