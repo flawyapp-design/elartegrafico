@@ -617,7 +617,7 @@ async function memberHome(){
   const dias=prem&&p.premium_until?Math.ceil((new Date(p.premium_until)-Date.now())/864e5):null;
   const cta=cerr?`<span class="pill">La academia abre muy pronto</span>`
     :prem?(nx?`<a class="btn gold btn-ic" href="${toAcad("leccion-"+nx.id)}">${ico("play",18)}<span>Continuar: ${esc(nx.title)}</span></a>`:`<a class="btn gold" href="${toAcad("practica")}">Ir a práctica</a>`)
-    :`<a class="btn gold" href="${toAcad("prueba")}">Probar gráficas gratis (${demo} de 5)</a><a class="btn ghost" href="#premium">Hazte premium</a>`;
+    :`<a class="btn gold btn-ic" href="https://charts.elartegrafico.com" target="_blank" rel="noopener">${ico("chart",18)}<span>Probar EAG Charts gratis (3 días)</span></a><a class="btn ghost" href="${toAcad("prueba")}">Práctica con gráficas (${demo} de 5)</a><a class="btn ghost" href="#premium">Hazte premium</a>`;
   const tiles=[
     ["acad","Academia",cerr?"Abre muy pronto":prem?`${pas} de ${total} lecciones`:"Temario y prueba gratis",toAcad("inicio")],
     ["chart","Práctica",prem?"Gráficas reales ilimitadas":`${demo} gráficas de prueba`,toAcad(prem?"practica":"prueba")],
@@ -1488,7 +1488,11 @@ async function appSettings(host){if(!host)return;const ps=await pushState();cons
 async function boot(){
   {const h=location.hostname,ok=h==="elartegrafico.com"||/\.elartegrafico\.com$/.test(h)||h==="localhost"||h==="127.0.0.1"||h===""||(/\.vercel\.app$/.test(h)&&/elartegrafico|flawyapp/.test(h));
    if(!ok){document.body.innerHTML=`<div style="min-height:100vh;display:grid;place-items:center;padding:24px;text-align:center;font-family:system-ui;background:#060b1a;color:#fff"><div><h1 style="font-size:24px">Copia no autorizada</h1><p style="color:#a9b4d2">Esta página es una copia de El Arte Gráfico. La original está en <a style="color:#f3d88f" href="https://elartegrafico.com">elartegrafico.com</a>.</p></div></div>`;return}}
-  if("serviceWorker" in navigator&&location.protocol!=="file:")navigator.serviceWorker.register("/sw.js").then(r=>{PWA.reg=r}).catch(()=>{});
+  if("serviceWorker" in navigator&&location.protocol!=="file:"){navigator.serviceWorker.register("/sw.js",{updateViaCache:"none"}).then(r=>{PWA.reg=r;try{r.update()}catch(e){}}).catch(()=>{});
+    /* app instalada: al volver a abrirla busca la versión nueva y, si llegó, recarga sola (una vez) para que nadie se quede con la vieja */
+    const hadCtl=!!navigator.serviceWorker.controller;let reloaded=false;
+    navigator.serviceWorker.addEventListener("controllerchange",()=>{if(!hadCtl||reloaded)return;const a=document.activeElement;if(a&&/INPUT|TEXTAREA|SELECT/.test(a.tagName))return;reloaded=true;location.reload()});
+    document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible"&&PWA.reg)try{PWA.reg.update()}catch(e){}})}
   if(API.mode==="local")$("#localbar").innerHTML=`<div class="localbar"><div class="wrap"><b>Modo de prueba</b><span>Los datos se guardan solo en este navegador. Administrador de prueba: admin@elartegrafico.com · admin1234</span><button id="rstLocal">Reiniciar datos de prueba</button></div></div>`;
   const r=$("#rstLocal");if(r)r.onclick=()=>API.resetLocal();
   const pSite=API.site().catch(()=>({}));                     // los ajustes del sitio no dependen de la sesión

@@ -1,5 +1,5 @@
 /* El Arte Gráfico — service worker: app instalable, caché y notificaciones */
-const V = "ag-v3";
+const V = "ag-v4";
 const SHELL = ["/", "/index.html", "/styles.css", "/config.js", "/js/chart.js", "/js/api.js", "/js/legal.js", "/js/app.js", "/js/player.js",
   "/assets/logo_mark.webp", "/assets/logo_circle.webp", "/assets/icon-192.png"];
 self.addEventListener("install", e => { e.waitUntil(caches.open(V).then(c => c.addAll(SHELL)).catch(() => {})); self.skipWaiting(); });
