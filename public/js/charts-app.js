@@ -676,7 +676,11 @@ function start(){
         <div class="tdots">${TOUR.map((x,j)=>`<i class="${j===i?"on":""}"></i>`).join("")}</div>
         <div class="tbtns"><button class="btn sm" data-t="skip">${i<TOUR.length-1?"Saltar":"Cerrar"}</button><span class="grow"></span>${i?`<button class="btn sm" data-t="prev">Atrás</button>`:""}<button class="btn sm gold" data-t="next">${i<TOUR.length-1?"Siguiente":"Empezar"}</button></div></div>`;
     const card=ov.querySelector(".tcard");
-    if(r){const below=r.bottom+14+card.offsetHeight<innerHeight;card.style.top=(below?r.bottom+14:Math.max(12,r.top-card.offsetHeight-14))+"px";card.style.left=Math.max(12,Math.min(innerWidth-card.offsetWidth-12,r.left+r.width/2-card.offsetWidth/2))+"px";card.classList.add("anch")}
+    if(r){card.classList.add("anch");const cw=card.offsetWidth,chh=card.offsetHeight;let x,y;
+      if(r.height>innerHeight*.45&&r.right+cw+28<innerWidth){x=r.right+16;y=Math.min(innerHeight-chh-12,r.top+30)}
+      else if(r.width>innerWidth*.45&&r.height>innerHeight*.3){x=r.left+r.width/2-cw/2;y=r.top+r.height/2-chh/2}
+      else{const below=r.bottom+14+chh<innerHeight;y=below?r.bottom+14:Math.max(12,r.top-chh-14);x=r.left+r.width/2-cw/2}
+      card.style.left=Math.max(12,Math.min(innerWidth-cw-12,x))+"px";card.style.top=Math.max(12,y)+"px"}
     const end=()=>{ov.remove();SAVE.tourDone=1;save()};
     ov.querySelector('[data-t="skip"]').onclick=end;
     ov.querySelector('[data-t="next"]').onclick=()=>i<TOUR.length-1?showTour(i+1):end();
