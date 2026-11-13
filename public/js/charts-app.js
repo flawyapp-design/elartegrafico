@@ -491,7 +491,7 @@ function start(){
   SAVE.toolFav=Array.isArray(SAVE.toolFav)?SAVE.toolFav.flatMap(k=>k==="eagPosition"?["eagLong","eagShort"]:[k]):["segment","horizontalStraightLine","eagZone","fibonacciLine","eagLong","eagShort","eagMeasure"];
   const tfav=document.createElement("div");tfav.className="tfav";appw.appendChild(tfav);
   function placeTfav(){const r=grid.getBoundingClientRect(),w=tfav.offsetWidth||200,h=tfav.offsetHeight||36;
-    let x,y;if(SAVE.tfavPos){x=SAVE.tfavPos.x;y=SAVE.tfavPos.y}else{x=r.left+r.width/2-w/2;y=r.top+48}
+    let x,y;if(SAVE.tfavPos){x=SAVE.tfavPos.x;y=SAVE.tfavPos.y}else{x=r.left+r.width/2-w/2;y=r.top+(SAVE.hide.pb?36:76)}
     tfav.style.left=clamp(x,4,innerWidth-w-4)+"px";tfav.style.top=clamp(y,4,innerHeight-h-4)+"px"}
   function renderToolFav(){const T=window.EAGTools;
     tfav.classList.toggle("vert",!!SAVE.tfavVert);
