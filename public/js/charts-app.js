@@ -10,7 +10,7 @@ const MAIN=PROD?"https://elartegrafico.com/":"index.html",ACAD=PROD?"https://aca
 const TZ="America/Bogota";
 const LS="eag_charts_v1";
 const load=()=>{try{return JSON.parse(localStorage.getItem(LS)||"{}")||{}}catch(e){return{}}};
-const SAVE=load();const save=()=>{try{localStorage.setItem(LS,JSON.stringify(SAVE))}catch(e){}};
+const SAVE=load();const save=()=>{try{localStorage.setItem(LS,JSON.stringify(SAVE))}catch(e){}window.__eagSync&&window.__eagSync()};
 
 /* ===================== Idioma ===================== */
 const ES={
@@ -91,6 +91,10 @@ const gate=(h1,p,btns)=>{app.innerHTML=`<div class="gate"><img src="assets/logo_
   try{await API.init()}catch(e){}
   if(!API.user())return gate("EAG Charts","Gráficos en vivo de Boom y Crash, sintéticos, forex y más, con herramientas de análisis. Ingresa con tu cuenta de El Arte Gráfico.",`<a class="btn gold" href="${MAIN}#entrar">Ingresar</a><a class="btn" href="${MAIN}#registro">Crear cuenta</a>`);
   if(!(API.isPremium()||API.isAdmin()))return gate("Exclusivo para miembros","EAG Charts está incluido en los planes de El Arte Gráfico. Activa tu plan y vuelve a esta página.",`<a class="btn gold" href="${MAIN}#premium">Ver planes</a><a class="btn" href="${ACAD}">Ir a la academia</a>`);
+  /* traer lo guardado en la cuenta si es más nuevo que lo de este navegador */
+  try{if(API.chartState){const r=await API.chartState();const lt=+(localStorage.getItem("eag_sync_ts")||0);
+    if(r&&r.data&&new Date(r.updated_at).getTime()>lt+1000){const d=r.data;if(d.prefs){Object.keys(SAVE).forEach(k=>delete SAVE[k]);Object.assign(SAVE,d.prefs);localStorage.setItem(LS,JSON.stringify(SAVE))}
+      if(d.draw)localStorage.setItem("eag_draw_v1",JSON.stringify(d.draw));localStorage.setItem("eag_sync_ts",String(new Date(r.updated_at).getTime()))}}}catch(e){}
   if(!window.klinecharts||!window.EAGWidget)return gate("No se pudo cargar","Revisa tu conexión y recarga la página.",`<button class="btn gold" onclick="location.reload()">Recargar</button>`);
   start();
 })();
@@ -117,8 +121,9 @@ function start(){
       <span class="st" id="st"><i></i><span>Conectando…</span></span>
       <span class="grow"></span>
       <span class="who">${esc(prof.username||"")}</span>
-      <button class="btn ic" id="cfgb" title="Ajustes del gráfico: tema, fondo, cuadrícula, velas"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg><span class="t">Ajustes</span></button>
-      <button class="btn ic" id="vb" title="Mostrar u ocultar barras">${ICON.eye}<span class="t">Vista</span></button>
+      <button class="btn ic" id="linkb" title="Vincular gráficos: la cruz y el mercado se mueven en todos a la vez"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg><span class="t">Vincular</span></button>
+      <button class="btn ic" id="alb" title="Alertas de precio"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/></svg><span class="t">Alertas</span><em class="badge" id="alc" hidden></em></button>
+      <button class="btn ic" id="cfgb" title="Configuración: apariencia, barras, marca de agua, alertas y atajos"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg><span class="t">Configuración</span></button>
       <button class="btn ic" id="wlb" title="Lista de mercados">${ICON.list}<span class="t">Mercados</span></button>
     </header>
     <div class="main" id="main">
@@ -187,8 +192,8 @@ function start(){
     pop.querySelector('[data-a="clean"]').onclick=()=>{const all=!allHidden();PARTS.forEach(([k])=>SAVE.hide[k]=all);save();applyHide();closePop();
       if(all)toast("Modo limpio · toca <b>Mostrar barras</b> o presiona <b>Esc</b> para volver")};
     showPop(anchor,"right")}
-  $("#vb").onclick=e=>{e.stopPropagation();pop.hidden||pop.dataset.for!=="vista"?(openVista($("#vb")),pop.dataset.for="vista"):closePop()};
-  $("#fteye").onclick=e=>{e.stopPropagation();pop.hidden||pop.dataset.for!=="vista"?(openVista($("#fteye")),pop.dataset.for="vista"):closePop()};
+
+  $("#fteye").onclick=e=>{e.stopPropagation();openSettings("barras")};
   /* ojito flotante (solo con todas las barras ocultas): en la esquina vacía del gráfico y se puede arrastrar */
   const fab=$("#fab");let fabMoved=false;
   function placeFab(){if(SAVE.fabPos){fab.style.left=clamp(SAVE.fabPos.x,4,innerWidth-40)+"px";fab.style.top=clamp(SAVE.fabPos.y,4,innerHeight-40)+"px";return}
@@ -350,10 +355,10 @@ function start(){
       onPickTF:t=>{kc.setPeriod(perOf(t));afterTF()},
       onTFClick:a=>{setActive(i);pop.hidden||pop.dataset.for!=="tf"?openTF(p,a):closePop()},
       onSymbolClick:anc=>{setActive(i);const a=anc&&anc.nodeType?anc:el.querySelector(".wsym");pop.hidden||pop.dataset.for!=="sym"?openSymPicker(p,a):closePop()},
-      onSettings:a=>{pop.hidden||pop.dataset.for!=="cfg"?openCfg(a):closePop()},
+      onSettings:()=>openSettings("apariencia"),onToast:t=>toast(t),getAlerts:tk=>ALERTS.filter(a=>a.active&&a.symbol===tk),onCreateAlert:a=>alertDialog(a),
       onIndicators:d=>{SAVE.panes[i]=Object.assign({},SAVE.panes[i],{ind:d});save()},
       onMagnet:m=>{SAVE.magnet=m;save()},axisType:sv.ax,onAxisType:t=>{SAVE.panes[i]=Object.assign({},SAVE.panes[i],{ax:t});save()},getToolFav:()=>SAVE.toolFav,onToolFav:k=>{SAVE.toolFav=SAVE.toolFav.includes(k)?SAVE.toolFav.filter(x=>x!==k):SAVE.toolFav.concat(k);save();renderToolFav()},onLastTools:t=>{SAVE.lastTools=t;save()},
-      onDrawingsChange:tk=>panes.forEach(q2=>{if(q2!==p&&q2.kc&&q2.kc.getSymbol().ticker===tk)q2.kc.reloadDrawings()})});
+      onDrawingsChange:tk=>(window.__eagSync&&window.__eagSync(),panes).forEach(q2=>{if(q2!==p&&q2.kc&&q2.kc.getSymbol().ticker===tk)q2.kc.reloadDrawings()})});
     p.kc=kc;
     setTimeout(()=>{try{kc.setStyles(styFor())}catch(e){}},0);
     el.addEventListener("pointerdown",()=>{if(active!==i)setActive(i)},true);
@@ -375,7 +380,9 @@ function start(){
     setActive(active);placeSplits();relayout();
   }
   document.querySelectorAll(".lay button").forEach(b=>b.onclick=()=>setLayout(b.dataset.l));
-  function setSym(s){const p=panes[active];if(!p)return;p.kc.setSymbol(findInfo(s));SAVE.panes[active]=Object.assign({},SAVE.panes[active],{s});save();
+  function setSym(s){const p=panes[active];if(!p)return;
+    const targets=SAVE.link&&lay!=="mtf"?panes.slice(0,visible()).map((q,j)=>j):[active];
+    targets.forEach(j=>{panes[j].kc.setSymbol(findInfo(s));SAVE.panes[j]=Object.assign({},SAVE.panes[j],{s})});save();
     setTimeout(()=>{if(lay==="mtf"&&active===0)buildMTF();paintList();paintTabs()},60)}
 
   /* ---------- multitemporalidad ---------- */
@@ -403,13 +410,14 @@ function start(){
       hubOn(m.key,m.who,sym.ticker,g,d=>{try{c.updateData(d);live(d)}catch(e){}});
       const big=()=>{try{panes[0].kc.setPeriod(per)}catch(e){}afterTF();box.classList.add("flyup");setTimeout(()=>box.classList.remove("flyup"),450)};box.querySelector(".mh").onclick=big;
       /* gesto: deslizar hacia arriba (o un toque simple) pasa esta temporalidad al gráfico grande */
-      let g0=null;
-      mc.addEventListener("pointerdown",e=>{g0={x:e.clientX,y:e.clientY,t:Date.now()}},true);
-      addEventListener("pointermove",e=>{if(!g0)return;const dy=e.clientY-g0.y,dx=e.clientX-g0.x;box.classList.toggle("lift",dy<-14&&Math.abs(dy)>Math.abs(dx));box.style.setProperty("--lift",Math.max(-40,Math.min(0,dy))+"px")});
-      addEventListener("pointerup",e=>{if(!g0)return;const dy=e.clientY-g0.y,dx=e.clientX-g0.x,quick=Date.now()-g0.t<350;g0=null;box.classList.remove("lift");box.style.removeProperty("--lift");
-        if((dy<-30&&Math.abs(dy)>Math.abs(dx)*1.2)||(quick&&Math.abs(dx)<5&&Math.abs(dy)<5))big()});
-      addEventListener("pointercancel",()=>{g0=null;box.classList.remove("lift")})});
+      mc.addEventListener("pointerdown",e=>{mtfG={box,big,x:e.clientX,y:e.clientY,t:Date.now()}},true)});
     mtfMark();relayout()}
+  /* gesto de la multitemporalidad: un solo juego de escuchadores para todos los mini gráficos */
+  let mtfG=null;
+  addEventListener("pointermove",e=>{const g=mtfG;if(!g)return;const dy=e.clientY-g.y,dx=e.clientX-g.x;g.box.classList.toggle("lift",dy<-14&&Math.abs(dy)>Math.abs(dx));g.box.style.setProperty("--lift",Math.max(-40,Math.min(0,dy))+"px")});
+  addEventListener("pointerup",e=>{const g=mtfG;if(!g)return;mtfG=null;const dy=e.clientY-g.y,dx=e.clientX-g.x,quick=Date.now()-g.t<350;g.box.classList.remove("lift");g.box.style.removeProperty("--lift");
+    if(g.box.isConnected&&((dy<-30&&Math.abs(dy)>Math.abs(dx)*1.2)||(quick&&Math.abs(dx)<5&&Math.abs(dy)<5)))g.big()});
+  addEventListener("pointercancel",()=>{if(mtfG){mtfG.box.classList.remove("lift");mtfG=null}});
   function fit(m){try{const w=m.mc.clientWidth||200;m.c.resize();m.c.setBarSpace(Math.max(1.5,(w-14)/60))}catch(e){}}
   function mtfResize(){if(mtf)mtf.minis.forEach(m=>{try{m.c.resize()}catch(e){}})}
   function mtfMark(){if(!mtf)return;let cur="";try{cur=panes[0].kc.getPeriod().text}catch(e){}
@@ -481,7 +489,141 @@ function start(){
       if(dayOpen[s]==null)feed.ask({ticks_history:s,style:"candles",granularity:86400,end:"latest",count:1}).then(m=>{const c=(m.candles||[])[0];if(c){dayOpen[s]=+c.open;if(last[s]==null)last[s]=+c.close;onPrice(s)}}).catch(()=>{});
     })},250)}
 
-  $("#cfgb").onclick=e=>{e.stopPropagation();pop.hidden||pop.dataset.for!=="cfg"?openCfg($("#cfgb")):closePop()};
+  /* ---------- gráficos vinculados: cruz sincronizada por fecha y mercado común ---------- */
+  const paintLink=()=>{$("#linkb").classList.toggle("on",!!SAVE.link)};paintLink();
+  $("#linkb").onclick=()=>{SAVE.link=!SAVE.link;save();paintLink();toast(SAVE.link?"Gráficos vinculados: la cruz y el mercado se mueven en todos":"Gráficos independientes")};
+  let syncing=false;const hooked=new WeakSet();
+  function hookCross(){panes.forEach(p=>{const c=p.kc&&p.kc.chart;if(!c||hooked.has(c))return;hooked.add(c);
+    try{c.subscribeAction("onCrosshairChange",d=>{if(syncing||!SAVE.link||!d)return;const kd=d.kLineData;syncing=true;
+      try{panes.slice(0,visible()).forEach(q=>{const c2=q.kc.chart;if(c2===c)return;
+        if(kd&&d.x!=null){const px=c2.convertToPixel({timestamp:kd.timestamp},{paneId:"candle_pane"});if(px&&px.x!=null)c2.executeAction("onCrosshairChange",{x:px.x,y:undefined,paneId:"candle_pane"})}
+        else c2.executeAction("onCrosshairChange",{x:undefined,y:undefined})})}catch(e){}syncing=false})}catch(e){}})}
+  setInterval(hookCross,1500);
+
+  /* ---------- atajos de teclado (como TradingView) ---------- */
+  const KEYS={KeyT:"segment",KeyH:"horizontalStraightLine",KeyJ:"horizontalRayLine",KeyV:"verticalStraightLine",KeyF:"fibonacciLine",KeyR:"rect",KeyZ:"eagZone",KeyL:"eagLong",KeyS:"eagShort",KeyM:"eagMeasure",KeyX:"eagText",KeyC:"parallelStraightLine"};
+  const tfBox=document.createElement("div");tfBox.className="tfbox";tfBox.hidden=true;appw.appendChild(tfBox);let tfBuf="",tfT=null;
+  function tfParse(b){const m=b.trim().toLowerCase().match(/^(\d+)\s*([mhd])?$/);if(!m)return null;let n=+m[1],u=m[2]||"m";
+    if(u==="m"&&n>=60&&n%60===0){n/=60;u="h"}if(u==="h"&&n===24){n=1;u="d"}const t=u==="m"?n+"m":u==="h"?n+"H":n+"D";return PERIODS.find(p=>p.text===t)||null}
+  function tfShow(){tfBox.innerHTML=`<span>Temporalidad</span><b>${esc(tfBuf)}</b><em>${tfParse(tfBuf)?"Enter para aplicar":"1–30 (min), 1h, 2h, 4h, 8h, 1d"}</em>`;tfBox.hidden=false;clearTimeout(tfT);tfT=setTimeout(()=>{tfBox.hidden=true;tfBuf=""},4000)}
+  addEventListener("keydown",e=>{const t=e.target;if(t&&t.closest&&t.closest("input,textarea,select,[contenteditable]"))return;const p=panes[active];if(!p||!p.kc)return;
+    const mod=e.ctrlKey||e.metaKey;
+    if(mod&&!e.altKey&&(e.code==="KeyZ"||e.code==="KeyY")){e.preventDefault();const ok=(e.code==="KeyY"||e.shiftKey)?p.kc.redo():p.kc.undo();if(!ok)toast(e.code==="KeyY"||e.shiftKey?"Nada para rehacer":"Nada para deshacer");return}
+    if(e.altKey&&!mod&&KEYS[e.code]){e.preventDefault();p.kc.startTool(KEYS[e.code]);return}
+    if(mod||e.altKey)return;
+    if(!tfBox.hidden&&e.key==="Enter"){const per=tfParse(tfBuf);tfBox.hidden=true;tfBuf="";if(per){p.kc.setPeriod(per);afterTF()}else toast("Esa temporalidad no está disponible");return}
+    if(!tfBox.hidden&&e.key==="Backspace"){tfBuf=tfBuf.slice(0,-1);tfBuf?tfShow():(tfBox.hidden=true);return}
+    if(/^[0-9]$/.test(e.key)||(!tfBox.hidden&&/^[mhdMHD]$/.test(e.key))){tfBuf+=e.key;tfShow()}});
+
+  /* ---------- todo guardado en la cuenta (dibujos y diseño), para verlo en cualquier dispositivo ---------- */
+  let syncT=null;
+  window.__eagSync=()=>{clearTimeout(syncT);syncT=setTimeout(pushSync,2500)};
+  function pushSync(){if(!API.saveChartState)return;let draw={};try{draw=JSON.parse(localStorage.getItem("eag_draw_v1")||"{}")}catch(e){}
+    API.saveChartState({prefs:SAVE,draw,v:1}).then(()=>{try{localStorage.setItem("eag_sync_ts",String(Date.now()))}catch(e){}}).catch(()=>{})}
+  document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="hidden"&&syncT){clearTimeout(syncT);pushSync()}});
+
+  $("#cfgb").onclick=e=>{e.stopPropagation();openSettings()};
+  $("#alb").onclick=e=>{e.stopPropagation();openSettings("alertas")};
+
+  /* ======================= CONFIGURACIÓN (un solo menú por categorías) ======================= */
+  const SI=(d)=>`<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
+  const CATS=[
+    ["apariencia","Apariencia","Tema, fondo y velas",SI('<circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 0 0 18z" fill="currentColor"/>')],
+    ["grafico","Gráfico","Cuadrícula, ejes y precio",SI('<path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/>')],
+    ["marca","Marca de agua","Mercado y logo de fondo",SI('<path d="M4 7h16M4 12h10M4 17h7"/>')],
+    ["barras","Barras y paneles","Qué se ve y dónde",SI('<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M9 9v11"/>')],
+    ["vincular","Gráficos vinculados","Mover varios a la vez",SI('<path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/>')],
+    ["alertas","Alertas de precio","Aviso al celular",SI('<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/>')],
+    ["atajos","Atajos de teclado","Trabaja más rápido",SI('<rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10"/>')]];
+  const PDESC={top:"Logo, distribución de gráficos, estado de conexión y botones principales.",pb:"Mercado, temporalidades favoritas, indicadores, captura y pantalla completa de cada gráfico.",
+    bb:"Rangos rápidos (1D, 5D, 1M…), reloj, cuenta regresiva y escala % / log.",db:"Herramientas de dibujo a la izquierda de cada gráfico.",tf:"Tus herramientas de dibujo favoritas en una barra que puedes mover.",
+    ft:"Tus mercados favoritos como pestañas, con precio y % del día.",wl:"Todos los mercados por categoría, con buscador y precios en vivo."};
+  let setCat="apariencia";
+  const row=(t,d,ctl)=>`<div class="srow"><div><b>${t}</b>${d?`<p>${d}</p>`:""}</div><div class="sctl">${ctl}</div></div>`;
+  const tog=(attr,on)=>`<label class="sw2"><input type="checkbox" ${attr} ${on?"checked":""}><i></i></label>`;
+  function settingsBody(cat){const c=CF();
+    if(cat==="apariencia")return`<h3>Apariencia</h3>
+      <div class="sgrp"><div class="slabel">Tema</div><div class="thm">${[["dark","Oscuro","#0b0c0e","#131418"],["light","Claro","#ffffff","#f3f4f6"]].map(([v,t,a,b])=>`<button class="thc${c.theme===v?" on":""}" data-th="${v}"><span class="thp" style="background:${a}"><i style="background:${b}"></i><em style="background:${c.up}"></em><em style="background:${c.dn};height:40%"></em><em style="background:${c.up};height:55%"></em></span><b>${t}</b></button>`).join("")}</div></div>
+      <div class="sgrp"><div class="slabel">Fondo del gráfico</div><p class="shelp">"A" usa el fondo del tema. Puedes elegir cualquier color con +.</p><div class="sws">${BGS.map(b=>`<button class="swc${(c.bg||"")===b?" on":""}" data-bg="${b}" style="background:${b}" title="${b}"></button>`).join("")}<label class="swc pick" title="Otro color"><input type="color" data-bgp value="${c.bg||(light()?"#ffffff":"#0b0c0e")}">+</label><button class="swc auto${c.bg?"":" on"}" data-bg="" title="Según el tema">A</button></div></div>
+      <div class="sgrp"><div class="slabel">Velas</div><div class="seg">${[["candle_solid","Velas"],["candle_stroke","Huecas"],["ohlc","Barras"],["area","Área"]].map(([v,t])=>`<button data-ty="${v}" class="${c.type===v?"on":""}">${t}</button>`).join("")}</div>
+        ${row("Color alcista","Velas que cierran por encima de su apertura.",`<input type="color" data-col="up" value="${c.up}">`)}${row("Color bajista","Velas que cierran por debajo de su apertura.",`<input type="color" data-col="dn" value="${c.dn}">`)}</div>`;
+    if(cat==="grafico")return`<h3>Gráfico</h3>`+[["grid","Cuadrícula","Líneas de fondo para ubicar precios y horas."],["axis","Ejes de precio y hora","La escala de precios a la derecha y las horas abajo."],["last","Línea del último precio","Línea punteada y etiqueta con el precio actual."],["hl","Máximo y mínimo visibles","Marca el precio más alto y más bajo de lo que estás viendo."],["cross","Cruz del cursor","Líneas que siguen al mouse con precio y hora exactos."]].map(([k,t,d])=>row(t,d,tog(`data-k="${k}"`,c[k]))).join("");
+    if(cat==="marca")return`<h3>Marca de agua</h3><p class="shelp">Ideal para tus lives: se ve el mercado, la temporalidad y tu marca de fondo.</p>
+      ${row("Mostrar marca de agua","",tog('data-k="wm"',c.wm))}
+      <div class="sgrp${c.wm?"":" off"}"><div class="slabel">Qué mostrar</div><div class="seg">${[["both","Marca y mercado"],["sym","Solo mercado"],["brand","Solo marca"]].map(([v,t])=>`<button data-wm="${v}" class="${c.wmMode===v?"on":""}">${t}</button>`).join("")}</div>
+      <label class="rg"><span>Visibilidad</span><input type="range" min="2" max="60" step="1" data-r="wmOp" value="${c.wmOp}"><em>${c.wmOp}%</em></label>
+      <label class="rg"><span>Tamaño</span><input type="range" min="50" max="200" step="5" data-r="wmSize" value="${c.wmSize}"><em>${c.wmSize}%</em></label>
+      <div class="slabel">Color</div><div class="sws">${[["auto","Automático"],["#e2b55c","Dorado"],["#ffffff","Blanco"],["#000000","Negro"],["#2962ff","Azul"]].map(([v,t])=>`<button class="swc${c.wmColor===v?" on":""}" data-wc="${v}" title="${t}" style="background:${v==="auto"?"linear-gradient(135deg,#fff 50%,#15171c 50%)":v}"></button>`).join("")}</div></div>`;
+    if(cat==="barras")return`<h3>Barras y paneles</h3><p class="shelp">Activa solo lo que usas. Todo se guarda en tu cuenta.</p>
+      ${PARTS.map(([k,t])=>row(t,PDESC[k]||"",tog(`data-h="${k}"`,!SAVE.hide[k]))).join("")}
+      <div class="slabel">Posición</div>${row("Lista de mercados a la izquierda","",tog('data-o="wlLeft"',SAVE.wlLeft))}${row("Barra de dibujo a la derecha","",tog('data-o="dbRight"',SAVE.dbRight))}
+      <p class="shelp">Arrastra los bordes para cambiar tamaños (lista, multitemporalidad y división entre gráficos) y arrastra pestañas y favoritos para ordenarlos.</p>
+      <div class="sbtns"><button class="btn sm" data-a="clean">${allHidden()?"Mostrar todo":"Modo limpio (solo gráfico)"}</button><button class="btn sm" data-a="rs">Restablecer tamaños</button></div>`;
+    if(cat==="vincular")return`<h3>Gráficos vinculados</h3><p class="shelp">Cuando tienes 2, 3, 4 o 6 gráficos abiertos.</p>
+      ${row("Vincular gráficos","La cruz del cursor se mueve en todos a la misma fecha y al elegir un mercado cambia en todos (cada uno conserva su temporalidad).",tog('data-link=""',SAVE.link))}`;
+    if(cat==="alertas"){const act=ALERTS.filter(a=>a.active),old=ALERTS.filter(a=>!a.active).slice(0,10),pp=a=>(bySym[a.symbol]?prec(bySym[a.symbol].pip):3);
+      const li=a=>`<div class="arow${a.active?"":" done"}"><span class="adot"></span><div><b>${esc(a.symbol_name||a.symbol)}</b><p>${a.kind==="zona"?`Zona ${(+a.price2).toFixed(pp(a))} – ${(+a.price).toFixed(pp(a))}`:`Nivel ${(+a.price).toFixed(pp(a))}`}${a.note?" · "+esc(a.note):""}${a.active?"":` · se activó ${a.triggered_at?new Date(a.triggered_at).toLocaleString("es-CO",{timeZone:"America/Bogota",day:"numeric",month:"short",hour:"numeric",minute:"2-digit"}):""}`}</p></div>${a.active?"":`<button class="btn sm" data-re="${a.id}">Reactivar</button>`}<button class="x" data-del="${a.id}" title="Borrar">×</button></div>`;
+      return`<h3>Alertas de precio</h3><p class="shelp">Dibuja una línea horizontal, una zona o un rectángulo, haz <b>clic derecho → 🔔 Crear alerta</b> (o toca 🔔 en la barra del dibujo). Cuando el precio llegue te avisamos al celular, aunque tengas la página cerrada.</p>
+        <div class="sbtns"><button class="btn sm gold" data-a="newal">+ Alerta al precio actual</button></div>
+        <div class="slabel">Activas (${act.length}/30)</div>${act.length?act.map(li).join(""):`<p class="shelp">No tienes alertas activas.</p>`}
+        ${old.length?`<div class="slabel">Ya avisadas</div>${old.map(li).join("")}`:""}
+        <p class="shelp">Las notificaciones llegan a los dispositivos donde las activaste en la academia (en iPhone, con la app agregada a la pantalla de inicio). Se revisan cada minuto.</p>`}
+    if(cat==="atajos"){const K=(k,t)=>`<div class="krow"><span>${t}</span><kbd>${k}</kbd></div>`;const mac=/Mac|iP/.test(navigator.platform),A=mac?"⌥":"Alt",C=mac?"⌘":"Ctrl";
+      return`<h3>Atajos de teclado</h3><div class="slabel">Dibujo</div>${K(A+" + T","Línea de tendencia")}${K(A+" + H","Línea horizontal")}${K(A+" + J","Rayo horizontal")}${K(A+" + V","Línea vertical")}${K(A+" + F","Retroceso de Fibonacci")}${K(A+" + C","Canal paralelo")}${K(A+" + Z","Zona")}${K(A+" + R","Rectángulo")}${K(A+" + L","Posición larga (compra)")}${K(A+" + S","Posición corta (venta)")}${K(A+" + M","Regla (o Shift + clic)")}${K(A+" + X","Texto")}
+        <div class="slabel">Edición</div>${K(C+" + Z","Deshacer")}${K(C+" + Shift + Z","Rehacer")}${K("Supr","Borrar el dibujo seleccionado")}${K("Esc","Cancelar dibujo / salir de modo limpio")}
+        <div class="slabel">Temporalidad</div>${K("15 ↵","Escribe el número y Enter: 15 minutos")}${K("1h ↵ · 4h ↵","Horas")}${K("1d ↵","Diario")}`}
+    return""}
+  function openSettings(cat){if(cat)setCat=cat;closePop();let ov=$(".smodal");if(!ov){ov=document.createElement("div");ov.className="smodal";appw.appendChild(ov);ov.onclick=e=>{if(e.target===ov)ov.remove()}}
+    ov.innerHTML=`<div class="sbox" role="dialog" aria-label="Configuración"><aside class="snav"><div class="stitle">Configuración</div>${CATS.map(([k,t,d,ic])=>`<button data-cat="${k}" class="${k===setCat?"on":""}">${ic}<span><b>${t}</b><small>${d}</small></span>${k==="alertas"&&ALERTS.some(a=>a.active)?`<em class="badge">${ALERTS.filter(a=>a.active).length}</em>`:""}</button>`).join("")}</aside>
+      <section class="sbody">${settingsBody(setCat)}</section><button class="sclose" title="Cerrar (Esc)">×</button>
+      <footer class="sfoot"><button class="btn sm" data-a="restore">Restaurar apariencia</button><span class="grow"></span><button class="btn sm gold" data-a="ok">Listo</button></footer></div>`;
+    const re=()=>openSettings();
+    ov.querySelectorAll("[data-cat]").forEach(b=>b.onclick=()=>openSettings(b.dataset.cat));
+    ov.querySelector(".sclose").onclick=ov.querySelector('[data-a="ok"]').onclick=()=>ov.remove();
+    ov.querySelector('[data-a="restore"]').onclick=()=>{SAVE.cfg=Object.assign({},CDEF);save();applyCfg();re()};
+    const set=(k,v)=>{SAVE.cfg[k]=v;save();applyCfg();re()};
+    ov.querySelectorAll("[data-th]").forEach(b=>b.onclick=()=>{SAVE.cfg.bg="";set("theme",b.dataset.th)});
+    ov.querySelectorAll("[data-bg]").forEach(b=>b.onclick=()=>set("bg",b.dataset.bg));
+    const bp=ov.querySelector("[data-bgp]");bp&&(bp.onchange=e=>set("bg",e.target.value));
+    ov.querySelectorAll("[data-ty]").forEach(b=>b.onclick=()=>set("type",b.dataset.ty));
+    ov.querySelectorAll("[data-col]").forEach(i=>i.onchange=()=>set(i.dataset.col,i.value));
+    ov.querySelectorAll("input[data-k]").forEach(i=>i.onchange=()=>set(i.dataset.k,i.checked));
+    ov.querySelectorAll("[data-wm]").forEach(b=>b.onclick=()=>set("wmMode",b.dataset.wm));
+    ov.querySelectorAll("[data-wc]").forEach(b=>b.onclick=()=>set("wmColor",b.dataset.wc));
+    ov.querySelectorAll("[data-r]").forEach(i=>{i.oninput=()=>{SAVE.cfg[i.dataset.r]=+i.value;i.nextElementSibling.textContent=i.value+"%";applyCfg()};i.onchange=()=>save()});
+    ov.querySelectorAll("input[data-h]").forEach(i=>i.onchange=()=>{SAVE.hide[i.dataset.h]=!i.checked;save();applyHide();re()});
+    ov.querySelectorAll("input[data-o]").forEach(i=>i.onchange=()=>{SAVE[i.dataset.o]=i.checked;save();applyLayoutPrefs();re()});
+    const lk=ov.querySelector("input[data-link]");lk&&(lk.onchange=()=>{SAVE.link=lk.checked;save();paintLink()});
+    const cl=ov.querySelector('[data-a="clean"]');cl&&(cl.onclick=()=>{const all=!allHidden();PARTS.forEach(([k])=>SAVE.hide[k]=all);save();applyHide();ov.remove();if(all)toast("Modo limpio · toca <b>Mostrar barras</b> o presiona <b>Esc</b> para volver")});
+    const rs=ov.querySelector('[data-a="rs"]');rs&&(rs.onclick=()=>{delete SAVE.wlw;delete SAVE.mtfh;SAVE.split={c:.5,r:.5};save();applyLayoutPrefs();toast("Tamaños restablecidos")});
+    const na=ov.querySelector('[data-a="newal"]');na&&(na.onclick=()=>{const t=curSym(active),i=bySym[t]||{},v=last[t];ov.remove();alertDialog({symbol:t,symbol_name:i.display_name||t,kind:"nivel",price:v!=null?+(+v).toFixed(prec(i.pip)):null,price2:null})});
+    ov.querySelectorAll("[data-del]").forEach(b=>b.onclick=async()=>{try{await API.deleteChartAlert(b.dataset.del)}catch(e){}ALERTS=ALERTS.filter(a=>a.id!==b.dataset.del);paintAlerts();re()});
+    ov.querySelectorAll("[data-re]").forEach(b=>b.onclick=async()=>{const a=ALERTS.find(x=>x.id===b.dataset.re);if(!a)return;try{const r=await API.saveChartAlert({id:a.id,symbol:a.symbol,symbol_name:a.symbol_name,kind:a.kind,price:a.price,price2:a.price2,note:a.note,active:true});Object.assign(a,r||{},{active:true})}catch(e){toast(esc(e.message||"No se pudo reactivar"))}paintAlerts();re()})}
+  addEventListener("keydown",e=>{if(e.key==="Escape"){const m=$(".smodal");if(m){m.remove();e.stopImmediatePropagation();return}const pn=document.querySelector(".wmenu.panel");if(pn){pn.remove();e.stopImmediatePropagation()}}},true);
+
+  /* ======================= ALERTAS ======================= */
+  let ALERTS=[];
+  function paintAlerts(){const n=ALERTS.filter(a=>a.active).length,b=$("#alc");b.hidden=!n;b.textContent=n;panes.forEach(p=>{try{p.kc.renderAlerts()}catch(e){}})}
+  async function loadAlerts(){try{ALERTS=(await API.chartAlerts())||[]}catch(e){ALERTS=[]}paintAlerts()}
+  function alertDialog(a){let ov=document.createElement("div");ov.className="smodal";appw.appendChild(ov);ov.onclick=e=>{if(e.target===ov)ov.remove()};
+    const pp=bySym[a.symbol]?prec(bySym[a.symbol].pip):3;
+    ov.innerHTML=`<div class="abox" role="dialog"><div class="ah">🔔 Nueva alerta</div><p class="shelp">${esc(a.symbol_name||a.symbol)}</p>
+      <div class="seg"><button data-k="nivel" class="${a.kind!=="zona"?"on":""}">Cuando toque un nivel</button><button data-k="zona" class="${a.kind==="zona"?"on":""}">Cuando entre a una zona</button></div>
+      <label class="af"><span class="lv">${a.kind==="zona"?"Precio de arriba":"Precio"}</span><input type="number" step="any" data-p1 value="${a.price!=null?a.price:""}"></label>
+      <label class="af z"${a.kind==="zona"?"":" hidden"}><span>Precio de abajo</span><input type="number" step="any" data-p2 value="${a.price2!=null?a.price2:""}"></label>
+      <label class="af"><span>Nota (opcional)</span><input type="text" maxlength="120" data-n placeholder="Ej: zona de compra, esperar spike…"></label>
+      <p class="shelp">Te llegará una notificación al celular cuando el precio llegue. Se revisa cada minuto.</p>
+      <div class="sbtns"><button class="btn sm" data-a="x">Cancelar</button><button class="btn sm gold" data-a="ok">Crear alerta</button></div></div>`;
+    let kind=a.kind==="zona"?"zona":"nivel";
+    ov.querySelectorAll(".seg button").forEach(b=>b.onclick=()=>{kind=b.dataset.k;ov.querySelectorAll(".seg button").forEach(x=>x.classList.toggle("on",x===b));ov.querySelector(".af.z").hidden=kind!=="zona";ov.querySelector(".lv").textContent=kind==="zona"?"Precio de arriba":"Precio"});
+    ov.querySelector('[data-a="x"]').onclick=()=>ov.remove();
+    ov.querySelector('[data-a="ok"]').onclick=async e=>{const p1=parseFloat(ov.querySelector("[data-p1]").value),p2=parseFloat(ov.querySelector("[data-p2]").value);
+      if(!isFinite(p1)||(kind==="zona"&&!isFinite(p2)))return toast("Escribe el precio");e.target.disabled=true;
+      try{const r=await API.saveChartAlert({symbol:a.symbol,symbol_name:a.symbol_name||a.symbol,kind,price:kind==="zona"?Math.max(p1,p2):p1,price2:kind==="zona"?Math.min(p1,p2):null,note:ov.querySelector("[data-n]").value.trim(),active:true});
+        ALERTS.unshift(r||{});paintAlerts();ov.remove();toast("🔔 Alerta creada. Te avisaremos al celular cuando el precio llegue.")}
+      catch(err){e.target.disabled=false;toast(esc(/Máximo/.test(err.message)?err.message:"No se pudo crear la alerta. Intenta de nuevo."))}};
+    setTimeout(()=>ov.querySelector("[data-p1]").focus(),30)}
+  loadAlerts();setInterval(loadAlerts,60000);
   /* evitar selección accidental (doble clic, arrastres) y el menú del navegador, menos en los campos de texto */
   const editable=t=>t&&t.closest&&t.closest("input,textarea,[contenteditable]");
   document.addEventListener("selectstart",e=>{if(!editable(e.target))e.preventDefault()});

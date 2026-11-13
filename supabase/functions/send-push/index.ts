@@ -57,6 +57,57 @@ async function sendAll(keys: any, aud: string, msg: Record<string, unknown>, onl
   return { sent, failed, removed: gone.length };
 }
 
+// EAG Charts: velas de 1 minuto recientes de varios mercados (API pública de Deriv)
+function derivRecent(symbols: string[]): Promise<Record<string, { epoch: number; high: number; low: number; close: number }[]>> {
+  return new Promise((resolve) => {
+    const out: Record<string, any[]> = {};
+    let left = symbols.length, done = false;
+    const finish = () => { if (done) return; done = true; try { ws.close(); } catch (_) { /* nada */ } resolve(out); };
+    const ws = new WebSocket("wss://api.derivws.com/trading/v1/options/ws/public");
+    const timer = setTimeout(finish, 9000);
+    ws.onopen = () => symbols.forEach((s, i) => ws.send(JSON.stringify({ ticks_history: s, style: "candles", granularity: 60, end: "latest", count: 4, req_id: i + 1 })));
+    ws.onmessage = (e) => {
+      try {
+        const m = JSON.parse(String(e.data)); const i = (m.req_id || (m.echo_req && m.echo_req.req_id)) - 1;
+        if (i >= 0 && symbols[i]) out[symbols[i]] = (m.candles || []).map((c: any) => ({ epoch: +c.epoch, high: +c.high, low: +c.low, close: +c.close }));
+      } catch (_) { /* nada */ }
+      if (--left <= 0) { clearTimeout(timer); finish(); }
+    };
+    ws.onerror = () => { clearTimeout(timer); finish(); };
+  });
+}
+
+// EAG Charts: revisa las alertas activas y avisa al celular de cada alumno
+async function chartAlerts(keys: any) {
+  const al = await (await db("chart_alerts?active=eq.true&select=id,user_id,symbol,symbol_name,kind,price,price2,note,last_check&limit=2000")).json();
+  if (!Array.isArray(al) || !al.length) return 0;
+  const syms = [...new Set(al.map((a: any) => a.symbol))].slice(0, 60) as string[];
+  const data = await derivRecent(syms);
+  let sent = 0;
+  const nowIso = new Date().toISOString();
+  const pending: string[] = [];
+  for (const a of al) {
+    const cs = (data[a.symbol] || []).filter((c) => (c.epoch + 60) * 1000 > new Date(a.last_check).getTime());
+    if (!cs.length) { continue; }
+    const lo = Math.min(...cs.map((c) => c.low)), hi = Math.max(...cs.map((c) => c.high));
+    const p1 = Number(a.price), p2 = a.kind === "zona" && a.price2 != null ? Number(a.price2) : p1;
+    const zlo = Math.min(p1, p2), zhi = Math.max(p1, p2);
+    if (hi >= zlo && lo <= zhi) {
+      const last = cs[cs.length - 1].close;
+      const name = a.symbol_name || a.symbol;
+      const what = a.kind === "zona" ? `entró a tu zona ${zlo} – ${zhi}` : `tocó tu nivel ${p1}`;
+      await db(`chart_alerts?id=eq.${a.id}`, { method: "PATCH", body: JSON.stringify({ active: false, triggered_at: nowIso, triggered_price: last, last_check: nowIso }) });
+      sent += (await sendAll(keys, "todos", { title: `🔔 ${name} ${what}`, body: `${a.note ? a.note + " · " : ""}Precio ahora: ${last}. Toca para ver el gráfico.`, url: "https://elartegrafico.com/charts.html", tag: `alerta-${a.id}` }, a.user_id)).sent;
+    } else pending.push(a.id);
+  }
+  // marcar como revisadas las que no se activaron
+  for (let i = 0; i < pending.length; i += 150) {
+    const ids = pending.slice(i, i + 150).join(",");
+    await db(`chart_alerts?id=in.(${ids})`, { method: "PATCH", body: JSON.stringify({ last_check: nowIso }) });
+  }
+  return sent;
+}
+
 const hora = (t: string) => new Date(t).toLocaleTimeString("es-CO", { timeZone: "America/Bogota", hour: "numeric", minute: "2-digit" });
 
 Deno.serve(async (req) => {
@@ -99,6 +150,8 @@ Deno.serve(async (req) => {
         sent += (await sendAll(keys, "todos", { title: `💬 ${d.username}${d.n > 1 ? ` (${d.n} mensajes)` : ""}`, body: String(d.body).slice(0, 140),
           url: `https://elartegrafico.com/#admin-chat-${d.user_id}`, tag: `dm-${d.user_id}` }, "admins")).sent;
       }
+      // EAG Charts: alertas de precio
+      try { sent += await chartAlerts(keys); } catch (_) { /* la tabla de alertas aún no existe */ }
       return json({ items: Array.isArray(items) ? items.length : 0, sent });
     }
 

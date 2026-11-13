@@ -69,6 +69,12 @@ function SupabaseAPI(url,key){
     profile(){return prof},
     async loadProfile(){if(!sess||!sess.user){prof=null;return null}const r=await sel("profiles",`&id=eq.${sess.user.id}`);prof=r&&r[0]||null;if(prof)prof.email=sess.user.email;return prof},
     isPremium(){return isPrem(prof)},isAdmin(){return !!prof&&prof.role==="admin"&&!prof.banned},
+    /* EAG Charts: dibujos y diseño guardados en la cuenta */
+    async chartState(){if(!sess||!sess.user)return null;const r=await sel("chart_state",`&user_id=eq.${sess.user.id}`);return r&&r[0]||null},
+    async saveChartState(data){if(!sess||!sess.user)return null;return ups("chart_state",{user_id:sess.user.id,data,updated_at:new Date().toISOString()})},
+    async chartAlerts(){if(!sess||!sess.user)return[];return sel("chart_alerts",`&user_id=eq.${sess.user.id}&order=created_at.desc`)},
+    async saveChartAlert(a){if(!sess||!sess.user)throw new Error("Inicia sesión");return ups("chart_alerts",Object.assign({},a,{user_id:sess.user.id}))},
+    async deleteChartAlert(id){return del("chart_alerts",id)},
     async usernameAvailable(u){return !!(await rpc("username_available",{u}))},
     async signUp({username,email,password,captcha}){
       const typo={"gmai.com":"gmail.com","gmial.com":"gmail.com","gmail.co":"gmail.com","gamil.com":"gmail.com","hotmial.com":"hotmail.com","hotmai.com":"hotmail.com","outlok.com":"outlook.com","yaho.com":"yahoo.com"};const dom=(email.split("@")[1]||"").toLowerCase();
@@ -229,6 +235,10 @@ function LocalAPI(){
     profile(){const p=me();if(p){const u=db.users.find(x=>x.id===uid);p.email=u&&u.email}return p},
     async loadProfile(){return this.profile()},
     isPremium(){return isPrem(me())},isAdmin(){return adm()},
+    async chartState(){return null},async saveChartState(){return null},
+    async chartAlerts(){return(db.calerts||[]).filter(x=>x.user_id===uid)},
+    async saveChartAlert(a){db.calerts=db.calerts||[];const r=Object.assign({id:a.id||uuid(),created_at:now(),active:true},a,{user_id:uid});db.calerts=db.calerts.filter(x=>x.id!==r.id).concat(r);save();return r},
+    async deleteChartAlert(id){db.calerts=(db.calerts||[]).filter(x=>x.id!==id);save()},
     async usernameAvailable(u){return !db.profiles.some(p=>p.username.toLowerCase()===u.toLowerCase())},
     async signUp({username,email,password}){
       if(db.users.some(u=>u.email.toLowerCase()===email.toLowerCase()))throw new Error("Ese correo ya tiene una cuenta.");
