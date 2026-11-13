@@ -531,8 +531,11 @@ function start(){
     paintTabs();watch();ftArrows()}
   const ftw=$(".ftw");
   function ftArrows(){const over=ftabs.scrollWidth>ftabs.clientWidth+2;ftw.classList.toggle("over",over);
-    ftw.querySelector('[data-d="-1"]').disabled=ftabs.scrollLeft<=2;ftw.querySelector('[data-d="1"]').disabled=ftabs.scrollLeft+ftabs.clientWidth>=ftabs.scrollWidth-2}
-  ftw.querySelectorAll(".fta").forEach(b=>b.onclick=()=>ftabs.scrollBy({left:+b.dataset.d*Math.max(160,ftabs.clientWidth*.7),behavior:"smooth"}));
+    ftw.querySelector('[data-d="-1"]').disabled=ftabs.scrollLeft<=2;ftw.querySelector('[data-d="1"]').disabled=ftabs.scrollLeft+ftabs.clientWidth>=ftabs.scrollWidth-2;
+    /* cuántos mercados quedan escondidos a cada lado (número en las flechas) */
+    const R=ftabs.getBoundingClientRect();let L=0,Rt=0;ftabs.querySelectorAll(".ft[data-s]").forEach(t=>{const r=t.getBoundingClientRect();if(r.right<=R.left+r.width*.5)L++;else if(r.left>=R.right-r.width*.5)Rt++});
+    ftw.querySelector('[data-d="-1"]').innerHTML=`‹${L?`<em>${L}</em>`:""}`;ftw.querySelector('[data-d="1"]').innerHTML=`›${Rt?`<em>${Rt}</em>`:""}`}
+  ftw.querySelectorAll(".fta").forEach(b=>b.onclick=()=>ftabs.scrollBy({left:+b.dataset.d*(mobile()?ftabs.clientWidth:Math.max(160,ftabs.clientWidth*.7)),behavior:"smooth"}));
   ftabs.addEventListener("scroll",ftArrows,{passive:true});addEventListener("resize",ftArrows);
   ftabs.addEventListener("wheel",e=>{if(Math.abs(e.deltaY)>Math.abs(e.deltaX)){ftabs.scrollLeft+=e.deltaY;e.preventDefault()}},{passive:false});
   sortable(ftabs,".ft[data-s]","x",ord=>{SAVE.fav=ord;save();renderList();renderTabs()});

@@ -60,6 +60,19 @@ a{color:var(--gold2)}button,select,input{font:inherit;color:inherit}
 .ftw{display:flex;align-items:stretch;height:38px;background:var(--bg);border-bottom:1px solid var(--line);min-width:0}
 .fta{display:none;flex:none;width:26px;border:0;background:var(--bg2);color:var(--mut);font-size:18px;cursor:pointer}.fta:hover:not(:disabled){color:var(--gold2)}.fta:disabled{opacity:.3;cursor:default}
 .ftw.over .fta{display:block}
+.fta{position:relative}.fta em{position:absolute;top:3px;right:1px;min-width:14px;height:14px;padding:0 3px;border-radius:7px;background:var(--gold);color:#16120a;font:800 9.5px/14px Inter,system-ui,sans-serif;font-style:normal;text-align:center}
+/* celular: pestañas de mercados de 2 en 2 (nombre arriba, precio y % abajo), encajan al deslizar y las flechas dicen cuántos hay escondidos */
+@media (max-width:900px){
+  .ftw{height:48px}.fta{width:30px}.ftw.over .fta{display:block}
+  .ftabs{scroll-snap-type:x mandatory;overscroll-behavior-x:contain}
+  .ftabs .ft[data-s]{flex:0 0 50%;min-width:0;display:grid;grid-template-columns:8px minmax(0,1fr) auto auto;grid-template-rows:auto auto;column-gap:6px;row-gap:1px;align-content:center;padding:3px 6px 3px 10px;scroll-snap-align:start;box-sizing:border-box}
+  .ftabs .ft[data-s] .dot{grid-column:1;grid-row:1}
+  .ftabs .ft[data-s] b{grid-column:2/4;grid-row:1;overflow:hidden;text-overflow:ellipsis;font-size:13px}
+  .ftabs .ft[data-s] .x{grid-column:4;grid-row:1/3;align-self:center;opacity:.6;font-size:17px;padding:4px}
+  .ftabs .ft[data-s] .p{grid-column:2;grid-row:2;font-size:11.5px;overflow:hidden;text-overflow:ellipsis}
+  .ftabs .ft[data-s] .c{grid-column:3;grid-row:2;font-size:10.5px}
+  .ftabs .ft.add{flex:0 0 auto;scroll-snap-align:end}
+}
 .fteye{display:none;flex:none;width:40px;border:0;border-left:1px solid var(--line);background:var(--bg2);color:var(--mut);cursor:pointer;place-items:center}.fteye:hover{color:var(--gold2)}.app.h-top .fteye{display:grid}.ftw .fta[data-d="-1"]{border-right:1px solid var(--line)}.ftw .fta[data-d="1"]{border-left:1px solid var(--line)}
 .ftabs{flex:1;display:flex;align-items:stretch;gap:0;min-width:0;overflow-x:auto;scrollbar-width:none}
 .ftabs::-webkit-scrollbar{display:none}
