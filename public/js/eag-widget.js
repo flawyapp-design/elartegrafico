@@ -590,6 +590,28 @@ window.EAGWidget=function(o){
     v.ax._autoCalcTickFlag=false;v.ax._range=Object.assign({},r0,{from,to,range:to-from,realFrom:from,realTo:to,realRange:to-from});try{chart.adjustPaneViewport(false,true,true,true)}catch(x){}});
   ["pointerup","pointercancel"].forEach(t=>addEventListener(t,()=>{vpan=null}));
   /* Shift + clic: regla rápida, como en TradingView */
+  /* ---------- celular: dibujar arrastrando, como MT5 (pones el dedo, arrastras y queda del tamaño que quieres) ---------- */
+  {let dd=null;
+    const ptAt=(x,y)=>{let p=null;try{p=chart.convertFromPixel([{x,y}],{paneId:"candle_pane"})[0]}catch(e){}if(!p||!isFinite(p.value))return null;return{timestamp:tsOf(p),dataIndex:p.dataIndex,value:p.value}};
+    const rel=t=>{const r=chartEl.getBoundingClientRect();return{x:t.clientX-r.left,y:t.clientY-r.top}};
+    const setPts=(id,name,a,b)=>{try{chart.overrideOverlay({id,points:BOX.test(name)?boxPts(a,b):[a,b]})}catch(e){}};
+    chartEl.addEventListener("touchstart",e=>{if(dd||!drawingId||brushOn||e.touches.length!==1)return;let ov;try{ov=chart.getOverlayById(drawingId)}catch(x){}
+      if(!ov||ov.totalStep!==3||(ov.points||[]).length>1)return;const v=ovs.get(drawingId);if(!v)return;
+      const t=rel(e.touches[0]),p0=ptAt(t.x,t.y);if(!p0)return;
+      e.stopPropagation();e.preventDefault();
+      const name=v.name,styles=v.styles,extendData=v.extendData;bulk=true;try{chart.removeOverlay(drawingId)}catch(x){}bulk=false;ovs.delete(drawingId);drawingId=null;
+      const id=makeOverlay({name,styles:styles||undefined,extendData:extendData||undefined,points:[p0,p0]},false);if(!id){syncPan();return}
+      dd={id,name,p0,x0:t.x,y0:t.y,moved:false};setPts(id,name,p0,p0);syncPan()},{capture:true,passive:false});
+    chartEl.addEventListener("touchmove",e=>{if(!dd)return;e.stopPropagation();e.preventDefault();const t=rel(e.touches[0]);
+      if(Math.hypot(t.x-dd.x0,t.y-dd.y0)>6)dd.moved=true;const p1=ptAt(t.x,t.y);if(p1)setPts(dd.id,dd.name,dd.p0,p1)},{capture:true,passive:false});
+    const end=e=>{if(!dd)return;e.stopPropagation();e.preventDefault();const d=dd;dd=null;
+      if(!d.moved){/* toque sin arrastrar: se pone de un tamaño normal para estirarlo después */
+        const W=chartEl.clientWidth,dx=Math.min(110,W*.28),dy=/^(segment|rayLine|straightLine|fibonacciLine)$/.test(d.name)?-50:60;
+        const p1=ptAt(d.x0+dx,d.y0+dy);if(p1)setPts(d.id,d.name,d.p0,p1)}
+      dbar.querySelectorAll(".dt").forEach(b=>b.classList.remove("act"));
+      try{capture(chart.getOverlayById(d.id))}catch(x){}syncPan()};
+    chartEl.addEventListener("touchend",end,{capture:true,passive:false});chartEl.addEventListener("touchcancel",end,{capture:true,passive:false});
+  }
   /* ---------- celular: tocar un dibujo es fácil (margen amplio) y doble toque abre su configuración ---------- */
   function ovDist(id,x,y){const v=ovs.get(id);if(!v)return 1e9;let ov;try{ov=chart.getOverlayById(id)}catch(e){}const pts=(ov&&ov.points)||v.points||[];if(!pts.length)return 1e9;
     let P;try{P=pts.map(p=>chart.convertToPixel({timestamp:p.timestamp!=null?p.timestamp:tsOf(p),value:p.value},{paneId:"candle_pane"}))}catch(e){return 1e9}
