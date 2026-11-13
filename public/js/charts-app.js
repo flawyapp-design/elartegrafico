@@ -468,7 +468,9 @@ function start(){
   function mtfMark(){Object.values(MTFS).forEach(M=>{let cur="";try{cur=panes[M.pi].kc.getPeriod().text}catch(e){}
     M.minis.forEach(m=>{const on=m.t===cur;m.box.classList.toggle("on",on);m.box.querySelector("em").textContent=on?"●":""})})}
   /* qué gráficos llevan su propia tira: en Multi-TF el 0; en 2 gráficos los que el usuario active */
-  const stripAllowed=()=>lay==="l2"||lay==="l2v";
+  /* Multi-TF dentro de cada gráfico: solo con 2 gráficos y solo en pantallas grandes (en celular no cabe y se ve feo) */
+  const stripAllowed=()=>(lay==="l2"||lay==="l2v")&&!mobile();
+  {let rsT=null,wasM=mobile();addEventListener("resize",()=>{clearTimeout(rsT);rsT=setTimeout(()=>{const m=mobile();if(m!==wasM){wasM=m;try{syncStrips()}catch(e){}}},250)})}
   function syncStrips(){Object.keys(MTFS).forEach(k=>{k=+k;const want=lay==="mtf"?k===0:(stripAllowed()&&k<visible()&&!!(SAVE.panes[k]||{}).mtf);if(!want)destroyMTF(k)});
     if(lay==="mtf"){if(!MTFS[0]||MTFS[0].el.classList.contains("pstrip"))buildMTF(0)}
     else if(stripAllowed())for(let k=0;k<visible();k++){if((SAVE.panes[k]||{}).mtf&&!MTFS[k])buildMTF(k)}
