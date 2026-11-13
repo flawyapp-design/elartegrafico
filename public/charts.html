@@ -416,9 +416,10 @@ html.light .trialchip{color:var(--gold)}
 .fbgate{max-width:560px}
 @media (max-width:900px){
   .grid.mtf{grid-template-rows:minmax(0,1fr) var(--mtfh,180px)!important}
-  .mtfrow{display:flex!important;gap:8px;overflow-x:auto;scroll-snap-type:x proximity;scrollbar-width:none}
+  /* celular: siempre 2 mini gráficos completos; al deslizar encaja de nuevo en 2 (nunca uno cortado a la mitad) */
+  .mtfrow{display:flex!important;gap:8px;overflow-x:auto;scroll-snap-type:x mandatory;scroll-padding-inline:8px;scrollbar-width:none;overscroll-behavior-x:contain}
   .mtfrow::-webkit-scrollbar{display:none}
-  .mini{flex:0 0 46%;scroll-snap-align:start}
+  .mini{flex:0 0 calc((100% - 8px)/2);min-width:0;scroll-snap-align:start}
   .mh .mp{font-size:10px}
 }
 @media (max-width:900px){input,select,textarea{font-size:16px!important}}
