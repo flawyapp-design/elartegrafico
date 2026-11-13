@@ -8,6 +8,14 @@ const $=(s,r=document)=>r.querySelector(s),esc=s=>String(s==null?"":s).replace(/
 const PROD=/(^|\.)elartegrafico\.com$/.test(location.hostname);
 const MAIN=PROD?"https://elartegrafico.com/":"index.html",ACAD=PROD?"https://academia.elartegrafico.com/":"index.html";
 const TZ="America/Bogota";
+/* instalar como app independiente */
+const INST={evt:null};
+const standalone=()=>matchMedia("(display-mode: standalone)").matches||navigator.standalone===true;
+const isIOS=()=>/iphone|ipad|ipod/i.test(navigator.userAgent)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1);
+const inApp=()=>/FBAN|FBAV|Instagram|TikTok|musical_ly|Bytedance|Telegram|WhatsApp|Line\//i.test(navigator.userAgent);
+addEventListener("beforeinstallprompt",e=>{e.preventDefault();INST.evt=e;document.querySelectorAll("[data-inst]").forEach(b=>b.hidden=standalone())});
+addEventListener("appinstalled",()=>{INST.evt=null;document.querySelectorAll("[data-inst]").forEach(b=>b.hidden=true)});
+if("serviceWorker" in navigator&&location.protocol!=="file:")navigator.serviceWorker.register("/sw.js",{updateViaCache:"none"}).catch(()=>{});
 const LS="eag_charts_v1";
 const load=()=>{try{return JSON.parse(localStorage.getItem(LS)||"{}")||{}}catch(e){return{}}};
 const SAVE=load();const save=()=>{try{localStorage.setItem(LS,JSON.stringify(SAVE))}catch(e){}window.__eagSync&&window.__eagSync()};
@@ -143,6 +151,7 @@ function start(){
       <span class="st" id="st"><i></i><span>Conectando…</span></span>
       <span class="grow"></span>
       <span class="who">${esc(prof.username||"")}</span>
+      <button class="btn ic inst" id="instb" data-inst title="Instalar EAG Charts como app" hidden><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg><span class="t">Instalar app</span></button>
       <button class="btn ic" id="alb" title="Alertas de precio"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/></svg><span class="t">Alertas</span><em class="badge" id="alc" hidden></em></button>
       <button class="btn ic" id="cfgb" title="Configuración: apariencia, barras, marca de agua, alertas y atajos"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg><span class="t">Configuración</span></button>
       <button class="btn ic" id="wlb" title="Lista de mercados">${ICON.list}<span class="t">Mercados</span></button>
@@ -572,6 +581,23 @@ function start(){
 
   $("#cfgb").onclick=e=>{e.stopPropagation();openSettings()};
   $("#alb").onclick=e=>{e.stopPropagation();openSettings("alertas")};
+  /* botón Instalar app: visible si no está instalada y el navegador lo permite (o en iPhone, con instrucciones) */
+  const ib=$("#instb");
+  function installHelp(){const ov=document.createElement("div");ov.className="wmodal";const ios=isIOS(),ia=inApp();
+    ov.innerHTML=`<div class="wmbox inst-box"><div class="mh"><b>Instalar EAG Charts</b><button class="x" data-a="close">×</button></div>
+      <p class="inst-p">Queda como una app independiente: pantalla completa, con su ícono y sin barras del navegador.</p>
+      ${ia?`<ol class="inst-s"><li>Estás dentro de otra app (TikTok, Instagram, WhatsApp…). Toca <b>⋯</b> y elige <b>Abrir en el navegador</b>${ios?" (Safari)":" (Chrome)"}.</li><li>Ahí vuelve a tocar <b>Instalar app</b>.</li></ol>`
+      :ios?`<ol class="inst-s"><li>Abre esta página en <b>Safari</b>.</li><li>Toca el botón <b>Compartir</b> <span class="inst-i">⎋</span> (el cuadrito con la flecha hacia arriba).</li><li>Baja y toca <b>Agregar a inicio</b>.</li><li>Toca <b>Agregar</b>. Listo: ábrela desde el ícono <b>EAG Charts</b>.</li></ol>`
+      :`<ol class="inst-s"><li>Toca el menú <b>⋮</b> del navegador (arriba a la derecha).</li><li>Elige <b>Instalar aplicación</b> o <b>Agregar a pantalla principal</b>.</li><li>Confirma. Ábrela desde el ícono <b>EAG Charts</b>.</li></ol>`}
+      <div class="inst-f"><button class="btn gold" data-a="close">Entendido</button></div></div>`;
+    ov.onclick=e=>{if(e.target===ov||e.target.closest('[data-a="close"]'))ov.remove()};document.body.appendChild(ov)}
+  async function doInstall(){if(INST.evt){const ev=INST.evt;INST.evt=null;ev.prompt();try{const r=await ev.userChoice;if(r&&r.outcome==="accepted"){ib.hidden=true;toast("¡Listo! Abre EAG Charts desde su ícono")}}catch(e){}return}installHelp()}
+  const showInst=()=>{ib.hidden=standalone()||!(INST.evt||isIOS()||matchMedia("(hover:none)").matches)};showInst();
+  ib.onclick=e=>{e.stopPropagation();doInstall()};
+  /* aviso una sola vez en celular: instalarla como app */
+  if(!standalone()&&matchMedia("(hover:none)").matches&&!SAVE.instAsked)setTimeout(()=>{if(standalone()||SAVE.instAsked)return;SAVE.instAsked=1;save();
+    const bn=document.createElement("div");bn.className="inst-bn";bn.innerHTML=`<img src="assets/icon-192.png" alt=""><span><b>Instala EAG Charts</b><small>Pantalla completa, como una app</small></span><button class="btn sm gold">Instalar</button><button class="x" title="Cerrar">×</button>`;
+    bn.querySelector(".gold").onclick=()=>{bn.remove();doInstall()};bn.querySelector(".x").onclick=()=>bn.remove();document.body.appendChild(bn);setTimeout(()=>bn.remove(),20000)},25000);
 
   /* ======================= CONFIGURACIÓN (un solo menú por categorías) ======================= */
   const SI=(d)=>`<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;

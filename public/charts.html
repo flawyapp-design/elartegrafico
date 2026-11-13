@@ -384,7 +384,14 @@ html.eag body,html.eag .app{background:var(--bg)}
 .tcard.anch{transform:none}
 .tcard .tic{font-size:30px;line-height:1;margin-bottom:10px}.tcard b{display:block;font-size:17px;margin-bottom:6px}.tcard p{margin:0;font-size:13.5px;line-height:1.55;color:var(--fg2)}
 .tdots{display:flex;gap:5px;margin:14px 0 12px}.tdots i{width:7px;height:7px;border-radius:50%;background:var(--line2)}.tdots i.on{background:var(--gold);width:18px;border-radius:4px}
-.tbtns{display:flex;align-items:center;gap:8px}.tbtns .gold{background:var(--gold);color:#16120a;border-color:var(--gold)}
+.tbtns{display:flex;align-items:center;gap:8px}
+#instb{border-color:var(--gold);color:var(--gold)}#instb[hidden]{display:none}
+.inst-box{max-width:420px}.inst-p{color:var(--mut);font-size:13.5px;margin:0 4px 10px;line-height:1.45}
+.inst-s{margin:0 0 6px;padding-left:22px;display:grid;gap:9px;font-size:14px;line-height:1.45}.inst-s b{color:var(--fg)}.inst-i{display:inline-grid;place-items:center;width:20px;height:20px;border:1px solid var(--line2);border-radius:5px;font-size:12px}
+.inst-f{display:flex;justify-content:flex-end;padding-top:10px}
+.inst-bn{position:fixed;left:50%;bottom:calc(14px + env(safe-area-inset-bottom));transform:translateX(-50%);z-index:80;display:flex;align-items:center;gap:10px;width:min(440px,calc(100% - 20px));padding:10px 10px 10px 12px;background:var(--card);border:1px solid var(--gold);border-radius:14px;box-shadow:var(--shadow);animation:instIn .3s ease}
+.inst-bn img{width:38px;height:38px;border-radius:9px}.inst-bn span{flex:1;display:grid;line-height:1.25}.inst-bn b{font-size:14px}.inst-bn small{font-size:12px;color:var(--mut)}.inst-bn .x{font-size:20px}
+@keyframes instIn{from{opacity:0;transform:translate(-50%,12px)}}.tbtns .gold{background:var(--gold);color:#16120a;border-color:var(--gold)}
 /* prueba y opiniones */
 .trialchip{display:inline-flex;align-items:center;gap:7px;height:30px;padding:0 11px;border-radius:999px;border:1px solid var(--gold);background:var(--gbg);color:var(--gold2);cursor:pointer;font-size:12px;white-space:nowrap}
 .trialchip i{font-style:normal;opacity:.85}.trialchip b{font-variant-numeric:tabular-nums}

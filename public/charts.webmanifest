@@ -29,51 +29,5 @@
       "purpose": "maskable"
     }
   ],
-  "shortcuts": [
-    {
-      "name": "Reto del día",
-      "short_name": "Retos",
-      "url": "/?app=1#retos",
-      "icons": [
-        {
-          "src": "/assets/icon-192.png",
-          "sizes": "192x192"
-        }
-      ]
-    },
-    {
-      "name": "Ranking",
-      "short_name": "Ranking",
-      "url": "/?app=1#ranking",
-      "icons": [
-        {
-          "src": "/assets/icon-192.png",
-          "sizes": "192x192"
-        }
-      ]
-    },
-    {
-      "name": "Mis puntos",
-      "short_name": "Puntos",
-      "url": "/?app=1#puntos",
-      "icons": [
-        {
-          "src": "/assets/icon-192.png",
-          "sizes": "192x192"
-        }
-      ]
-    },
-    {
-      "name": "Comunidad",
-      "short_name": "Comunidad",
-      "url": "/?app=1#comunidad",
-      "icons": [
-        {
-          "src": "/assets/icon-192.png",
-          "sizes": "192x192"
-        }
-      ]
-    }
-  ],
   "id": "/charts"
 }
