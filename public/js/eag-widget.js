@@ -310,7 +310,7 @@ window.EAGWidget=function(o){
   /* ---------- barra de dibujo ---------- */
   const lastTool=Object.assign({},o.lastTools||{});
   let menu=null;const closeMenu=()=>{if(menu){menu.remove();menu=null}};
-  document.addEventListener("pointerdown",e=>{if(menu&&!menu.classList.contains("panel")&&!menu.contains(e.target)&&!e.target.closest(".dg .more"))closeMenu()});
+  document.addEventListener("pointerdown",e=>{if(menu&&!menu.contains(e.target)&&!e.target.closest(".dg .more"))closeMenu()},true);
   function paintDbar(){
     dbar.innerHTML=`<div class="dmini"><button class="dt dtf" title="Temporalidad (todas)"><b>${esc(per.text)}</b></button><button class="dt" data-mi="sym" title="Cambiar mercado">${svg("list",17)}</button><button class="dt" data-mi="ind" title="Indicadores">${svg("fx",17)}</button><i class="dsep"></i></div><button class="dt" data-k="cross" title="Cursor (cancelar dibujo)">${svg("cross")}</button><button class="dt" data-k="eagMeasure" title="Regla: medir puntos (también Shift + clic)">${tsvg("eagMeasure")}</button><i class="dsep"></i>`+
       TOOLS.map(g=>{const cur=lastTool[g.g]||g.items[0][0];return`<div class="dg" data-g="${g.g}"><button class="dt" data-k="${cur}" title="${esc(TNAME[cur])}">${tsvg(cur)}</button><button class="more" title="${esc(g.t)}">${svg("caret",9)}</button></div>`}).join("")+
