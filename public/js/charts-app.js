@@ -482,8 +482,13 @@ function start(){
   SAVE.fav=Array.isArray(SAVE.fav)?SAVE.fav:["BOOM1000","CRASH1000","BOOM500","CRASH500"];
   let tab=SAVE.tab||"bc",shown=[];const last={},dayOpen={},dir={};
   const toggleFav=s=>{SAVE.fav=SAVE.fav.includes(s)?SAVE.fav.filter(x=>x!==s):SAVE.fav.concat(s);save();renderList();renderTabs()};
-  $("#wlb").onclick=()=>{if(mobile())main.classList.toggle("wlopen");else{SAVE.hide.wl=!SAVE.hide.wl;save();applyHide()}};
-  $("#wlx").onclick=()=>{if(mobile())main.classList.remove("wlopen");else{SAVE.hide.wl=true;save();applyHide()}};
+  /* lista de mercados en celular: fondo oscuro detrás; tocar afuera o Esc la cierra */
+  const wlbk=document.createElement("div");wlbk.className="wlbk";appw.appendChild(wlbk);
+  function setWl(on){main.classList.toggle("wlopen",!!on);wlbk.classList.toggle("on",!!on);if(!on){const a=document.activeElement;a&&a.blur&&a.closest&&a.closest(".wl")&&a.blur()}}
+  wlbk.addEventListener("pointerdown",e=>{e.preventDefault();e.stopPropagation();setWl(false)});
+  document.addEventListener("keydown",e=>{if(e.key==="Escape"&&main.classList.contains("wlopen"))setWl(false)});
+  $("#wlb").onclick=()=>{if(mobile())setWl(!main.classList.contains("wlopen"));else{SAVE.hide.wl=!SAVE.hide.wl;save();applyHide()}};
+  $("#wlx").onclick=()=>{if(mobile())setWl(false);else{SAVE.hide.wl=true;save();applyHide()}};
   function setTab(t){tab=t;SAVE.tab=t;save();document.querySelectorAll("#tabs button").forEach(b=>b.classList.toggle("on",b.dataset.t===t));renderList()}
   document.querySelectorAll("#tabs button").forEach(b=>b.onclick=()=>{q.value="";setTab(b.dataset.t)});
   q.oninput=()=>renderList();
@@ -499,7 +504,7 @@ function start(){
       :`<p style="color:var(--dim);padding:8px">${tab==="fav"?"Toca ☆ en cualquier mercado para agregarlo aquí.":"No hay mercados con ese nombre."}</p>`;
     list.querySelectorAll(".sy").forEach(r=>{r.onclick=e=>{const s=r.dataset.s;
       if(e.target.classList.contains("fv"))return toggleFav(s);
-      setSym(s);if(mobile())main.classList.remove("wlopen")}});
+      setSym(s);if(mobile())setWl(false)}});
     paintList();watch();
   }
   function paintList(){
@@ -512,7 +517,7 @@ function start(){
     ftabs.innerHTML=SAVE.fav.map(s=>`<div class="ft" data-s="${esc(s)}" role="button" tabindex="0" title="${esc((bySym[s]||{}).display_name||s)}"><span class="dot"></span><b>${esc(short(s))}</b><span class="p" data-p></span><span class="c" data-c></span><button class="x" title="Quitar de favoritos">×</button></div>`).join("")
       +`<button class="ft add" id="ftadd" title="Agregar mercado a favoritos">${ICON.plus}<span>${SAVE.fav.length?"":"Agrega tus mercados favoritos"}</span></button>`;
     ftabs.querySelectorAll(".ft[data-s]").forEach(t=>t.onclick=e=>{const s=t.dataset.s;if(e.target.closest(".x"))return toggleFav(s);setSym(s)});
-    $("#ftadd").onclick=()=>{q.value="";if(mobile())main.classList.add("wlopen");else if(SAVE.hide.wl){SAVE.hide.wl=false;save();applyHide()}setTab(tab==="fav"?"bc":tab);q.focus()};
+    $("#ftadd").onclick=()=>{q.value="";if(mobile())setWl(true);else if(SAVE.hide.wl){SAVE.hide.wl=false;save();applyHide()}setTab(tab==="fav"?"bc":tab);q.focus()};
     paintTabs();watch();ftArrows()}
   const ftw=$(".ftw");
   function ftArrows(){const over=ftabs.scrollWidth>ftabs.clientWidth+2;ftw.classList.toggle("over",over);

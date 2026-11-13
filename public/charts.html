@@ -244,6 +244,7 @@ kbd{font:600 11.5px Inter,system-ui,sans-serif;background:var(--bg2);border:1px 
   .stitle{display:none}.snav{padding-right:52px!important}.sclose{top:9px;right:8px;background:var(--bg2)!important}.snav button{flex:none;width:auto;padding:8px 10px}.snav small{display:none}.sbody{padding:16px}}
 .wmenu .sw[data-c="#ffffff"]{box-shadow:inset 0 0 0 1px rgba(0,0,0,.18)}
 /* acomodar: bordes que se arrastran y elementos que se ordenan */
+.wlbk{display:none}@media (max-width:900px){.wlbk{display:block}}
 .wlsp{position:absolute;top:0;bottom:0;left:-4px;width:8px;cursor:col-resize;z-index:6}.app.wl-left .wlsp{left:auto;right:-4px}
 .wlsp::after,.gsp::after,.mtfsp::after{content:"";position:absolute;background:var(--gold);opacity:0;transition:opacity .15s}
 .wlsp::after{top:0;bottom:0;left:3px;width:2px}.wlsp:hover::after,.wlsp.on::after{opacity:.8}
@@ -347,6 +348,9 @@ html[data-wm=sym] .wm-b,html[data-wm=brand] .wm-s{display:none}html[data-wm=bran
 .btn.gold{background:var(--gold);color:#16120a;border-color:var(--gold)}
 @media (max-width:1180px){.lay .mtfb .t,#vb .t,#wlb .t,#cfgb .t,#linkb .t,#alb .t{display:none}}
 @media (max-width:900px){.wlsp,.gsp,.mtfsp{display:none}.app.wl-left .wl{order:0}.main,.app.h-wl .main{grid-template-columns:1fr}.wl,.app.h-wl .wl{display:grid;position:fixed;right:0;top:0;bottom:0;width:min(86vw,320px);z-index:30;transform:translateX(100%);transition:transform .2s;box-shadow:-20px 0 40px rgba(0,0,0,.5)}
+  .wl,.app.h-wl .wl{z-index:46;padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom)}
+  .wlbk{position:fixed;inset:0;z-index:45;background:rgba(0,0,0,.45);opacity:0;pointer-events:none;transition:opacity .2s}.wlbk.on{opacity:1;pointer-events:auto}
+  .wlh .x,#wlx{min-width:40px;min-height:40px;font-size:22px}
   .main.wlopen .wl{transform:none}.lay .dk,.who{display:none}
   .grid.mtf{grid-template-rows:minmax(0,1fr) 250px}.mtfrow{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media (max-width:520px){.brand b,.st span{display:none}.top{gap:8px;padding:0 8px}}
