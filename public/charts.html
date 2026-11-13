@@ -166,6 +166,15 @@ html.light .mini.on .mh em{color:var(--gold)}
 .tfav .tx{width:22px;color:var(--dim);font-size:15px}
 .wmenu .tst{margin-left:auto;font-style:normal;color:var(--dim);font-size:15px;padding:0 2px 0 10px}.wmenu .tst:hover{color:var(--gold2)}.wmenu .tst.on{color:var(--gold)}
 .app.h-tf .tfav{display:none!important}
+/* navegación rápida del gráfico */
+.wnav{position:absolute;left:50%;bottom:44px;transform:translate(-50%,6px);z-index:4;display:flex;align-items:center;gap:6px;opacity:0;pointer-events:none;transition:opacity .18s,transform .18s}
+.wchart:hover .wnav,.wnav:focus-within{opacity:1;transform:translate(-50%,0);pointer-events:auto}
+@media (hover:none){.wnav{opacity:.85;transform:translate(-50%,0);pointer-events:auto}}
+.wnav i{width:6px}
+.wnav button{display:grid;place-items:center;width:32px;height:32px;border-radius:9px;border:1px solid var(--line2);background:var(--card);color:var(--fg2);cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.25)}
+.wnav button:hover{color:var(--fg);border-color:var(--gold)}
+.wnav button[data-n=reload]{color:var(--gold2)}html.light .wnav button[data-n=reload]{color:var(--gold)}
+.wnav button.spin svg{animation:spin .8s linear}@keyframes spin{to{transform:rotate(360deg)}}
 /* acomodar: bordes que se arrastran y elementos que se ordenan */
 .wlsp{position:absolute;top:0;bottom:0;left:-4px;width:8px;cursor:col-resize;z-index:6}.app.wl-left .wlsp{left:auto;right:-4px}
 .wlsp::after,.gsp::after,.mtfsp::after{content:"";position:absolute;background:var(--gold);opacity:0;transition:opacity .15s}

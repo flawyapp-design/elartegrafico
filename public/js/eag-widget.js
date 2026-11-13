@@ -134,6 +134,9 @@ const IC={
   full:'<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>',
   caret:'<path d="m6 9 6 6 6-6"/>',
   list:'<path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>',
+  chevl:'<path d="m15 6-6 6 6 6"/>',chevr:'<path d="m9 6 6 6-6 6"/>',
+  reset:'<path d="M4 12a8 8 0 1 0 2.4-5.7"/><path d="M4 4v4h4"/>',
+  reload:'<path d="M20 12a8 8 0 1 1-2.4-5.7"/><path d="M20 4v4h-4"/><circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none"/>',
   copy:'<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M4 16V4h12"/>',
   front:'<rect x="9" y="9" width="11" height="11" rx="1"/><path d="M15 9V4H4v11h5"/>'};
 
@@ -206,7 +209,8 @@ window.EAGWidget=function(o){
   const root=o.container;root.classList.add("eagw");
   root.innerHTML=`<div class="wbar"><button class="wsym" title="Cambiar mercado"><b></b>${svg("caret",12)}</button><button class="wtf" title="Todas las temporalidades"><b></b>${svg("caret",11)}</button><span class="wfav"></span><span class="wsp"></span>
       <button class="wb" data-a="ind" title="Indicadores">${svg("fx")}<span>Indicadores</span></button><button class="wb" data-a="cfg" title="Ajustes del gráfico">${svg("gear")}</button><button class="wb" data-a="shot" title="Captura (descargar imagen)">${svg("cam")}</button><button class="wb" data-a="full" title="Pantalla completa">${svg("full")}</button></div>
-    <div class="wbody"><div class="dbar"></div><div class="wchart"><div class="wwm"><div class="wm-s"></div><div class="wm-b">EL ARTE GRÁFICO</div></div></div></div>`;
+    <div class="wbody"><div class="dbar"></div><div class="wchart"><div class="wwm"><div class="wm-s"></div><div class="wm-b">EL ARTE GRÁFICO</div></div>
+      <div class="wnav"><button data-n="left" title="Mover a la izquierda">${svg("chevl",16)}</button><button data-n="right" title="Mover a la derecha">${svg("chevr",16)}</button><i></i><button data-n="reset" title="Volver al precio actual (zoom normal)">${svg("reset",16)}</button><button data-n="reload" title="Recargar el gráfico (si se traba)">${svg("reload",16)}</button></div></div></div>`;
   const $=s=>root.querySelector(s),chartEl=$(".wchart"),dbar=$(".dbar");
   const chart=KC.init(chartEl,{locale:"es-ES",timezone:o.timezone});(window.__eagCharts=window.__eagCharts||[]).push(chart);
   let sym=o.symbol,per=o.period,theme=o.theme||"dark",extra={},gen=0,subKey=null,ready=false,selId=null;
@@ -248,6 +252,13 @@ window.EAGWidget=function(o){
   root.querySelector('[data-a="shot"]').onclick=()=>{try{const bg=getComputedStyle(root).getPropertyValue("--chartbg").trim()||(theme==="light"?"#ffffff":"#0b0c0e");
     const url=chart.getConvertPictureUrl(true,"png",bg),a=document.createElement("a");a.href=url;a.download=`EAG_${sym.ticker}_${per.text}.png`;document.body.appendChild(a);a.click();a.remove()}catch(e){}};
   root.querySelector('[data-a="full"]').onclick=()=>{const el=root.closest(".pane")||root;document.fullscreenElement?document.exitFullscreen():(el.requestFullscreen&&el.requestFullscreen())};
+
+  /* ---------- navegación rápida (abajo al centro) ---------- */
+  let bs0=null;setTimeout(()=>{try{bs0=chart.getBarSpace()}catch(e){}},0);
+  root.querySelectorAll(".wnav button").forEach(b=>b.onclick=e=>{e.stopPropagation();const n=b.dataset.n,w=chartEl.clientWidth;
+    try{if(n==="left")chart.scrollByDistance(w*.35,250);else if(n==="right")chart.scrollByDistance(-w*.35,250);
+      else if(n==="reset"){if(bs0)chart.setBarSpace(bs0);chart.scrollToRealTime(300)}
+      else if(n==="reload"){b.classList.add("spin");setTimeout(()=>b.classList.remove("spin"),900);if(bs0)chart.setBarSpace(bs0);loadData()}}catch(x){}});
 
   /* ---------- barra de dibujo ---------- */
   const lastTool=Object.assign({},o.lastTools||{});
