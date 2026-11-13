@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>EAG Charts · Gráficos en vivo</title>
+<meta name="description" content="Plataforma de gráficos en vivo de El Arte Gráfico: Boom y Crash, sintéticos, forex y más, con herramientas de análisis. Exclusivo para miembros.">
+<meta name="theme-color" content="#060b1a">
+<meta name="robots" content="noindex">
+<link rel="icon" href="assets/favicon-48.png">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@klinecharts/pro@0.1.1/dist/klinecharts-pro.css">
+<style>
+:root{--bg:#060b1a;--bg2:#0a1330;--card:#0e1a3d;--line:#1f3266;--line2:#2b4282;--fg:#e9edf7;--mut:#93a1c4;--dim:#64739a;--gold:#d8b062;--gold2:#f3d88f;--ok:#35c4a2;--bad:#ec5b52}
+*{box-sizing:border-box}html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);font:14px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;overflow:hidden}
+a{color:var(--gold2)}button,select,input{font:inherit;color:inherit}
+.app{display:grid;grid-template-rows:48px 1fr;height:100vh;height:100dvh}
+.top{display:flex;align-items:center;gap:10px;padding:0 12px;border-bottom:1px solid var(--line);background:var(--bg2);min-width:0}
+.brand{display:flex;align-items:center;gap:8px;text-decoration:none;color:var(--fg);flex:none}.brand img{width:28px;height:28px;border-radius:50%}
+.brand b{font-size:15px;letter-spacing:.02em;white-space:nowrap}.brand span{color:var(--gold)}
+.lay{display:flex;gap:2px;background:var(--card);border:1px solid var(--line);border-radius:9px;padding:2px}
+.lay button{background:none;border:0;border-radius:7px;padding:4px 8px;cursor:pointer;color:var(--mut);display:grid;place-items:center}
+.lay button.on{background:var(--gold);color:#1a1405}.lay svg{display:block}
+.btn{display:inline-flex;align-items:center;gap:6px;background:var(--card);border:1px solid var(--line2);border-radius:9px;padding:6px 10px;cursor:pointer;font-weight:600;text-decoration:none;color:var(--fg);white-space:nowrap}
+.btn:hover{border-color:var(--gold)}.btn.on{border-color:var(--gold);color:var(--gold2);background:rgba(216,176,98,.12)}
+.st{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--mut);white-space:nowrap}.st i{width:8px;height:8px;border-radius:50%;background:var(--dim)}
+.st.live i{background:var(--ok);box-shadow:0 0 0 3px rgba(53,196,162,.2)}.st.err i{background:var(--bad)}
+.grow{flex:1}.who{font-size:12px;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:140px}
+.main{display:grid;grid-template-columns:1fr 290px;min-height:0}
+.main.nowl{grid-template-columns:1fr 0}
+.grid{display:grid;gap:2px;background:var(--line);min-height:0;min-width:0}
+.grid.l1{grid-template:1fr/1fr}.grid.l2{grid-template:1fr/1fr 1fr}.grid.l2v{grid-template:1fr 1fr/1fr}.grid.l3{grid-template:1fr 1fr/1fr 1fr}.grid.l3>.pane:first-child{grid-row:1/3}
+.grid.l4{grid-template:1fr 1fr/1fr 1fr}.grid.l6{grid-template:1fr 1fr/1fr 1fr 1fr}
+.pane{position:relative;background:var(--bg);min-width:0;min-height:0;outline:2px solid transparent;outline-offset:-2px}
+.pane.act{outline-color:rgba(216,176,98,.55)}
+.pane .kc{position:absolute;inset:0}
+.wl{border-left:1px solid var(--line);background:var(--bg2);display:grid;grid-template-rows:auto auto 1fr auto;min-height:0;overflow:hidden}
+.wl h3{margin:0;padding:10px 12px 6px;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--gold)}
+.wl input{margin:0 10px 8px;background:var(--card);border:1px solid var(--line2);border-radius:8px;padding:7px 9px}
+.tabs{display:flex;gap:4px;flex-wrap:wrap;padding:0 10px 8px}
+.tabs button{background:var(--card);border:1px solid var(--line);border-radius:999px;padding:3px 9px;font-size:12px;cursor:pointer;color:var(--mut)}
+.tabs button.on{border-color:var(--gold);color:var(--gold2)}
+.list{overflow:auto;padding:0 6px 8px}
+.sy{display:grid;grid-template-columns:1fr auto;gap:2px 8px;padding:7px 8px;border-radius:8px;cursor:pointer;border:1px solid transparent}
+.sy:hover{background:var(--card)}.sy.on{border-color:rgba(216,176,98,.5);background:rgba(216,176,98,.08)}
+.sy b{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.sy .p{font:600 13px ui-monospace,Menlo,monospace;text-align:right}
+.sy small{font-size:11px;color:var(--dim)}.sy .c{font:11px ui-monospace,Menlo,monospace;text-align:right}
+.fv{color:var(--dim);margin-right:2px;cursor:pointer}.fv.on{color:var(--gold)}.fv:hover{color:var(--gold2)}
+.up{color:var(--ok)}.dn{color:var(--bad)}
+.foot{font-size:10.5px;color:var(--dim);padding:8px 12px;border-top:1px solid var(--line)}
+.gate{max-width:520px;margin:12vh auto;padding:28px;text-align:center;border:1px solid var(--line);border-radius:18px;background:var(--bg2)}
+.gate img{width:72px;height:72px;border-radius:50%}.gate h1{margin:14px 0 8px;font-size:26px}.gate p{color:var(--mut)}
+.gate .row{display:flex;gap:8px;justify-content:center;margin-top:16px}
+.btn.gold{background:var(--gold);color:#1a1405;border-color:var(--gold)}
+/* el tema oscuro de KLineChart Pro con los colores de la marca */
+.klinecharts-pro[data-theme=dark]{--klinecharts-pro-primary-color:#d8b062;--klinecharts-pro-hover-background-color:rgba(216,176,98,.12);--klinecharts-pro-background-color:#060b1a;--klinecharts-pro-popover-background-color:#0e1a3d;--klinecharts-pro-text-color:#e9edf7;--klinecharts-pro-text-second-color:#93a1c4;--klinecharts-pro-border-color:#1f3266;--klinecharts-pro-selected-color:rgba(216,176,98,.15)}
+@media (max-width:900px){.main{grid-template-columns:1fr}.wl{position:fixed;right:0;top:48px;bottom:0;width:min(86vw,320px);z-index:20;transform:translateX(100%);transition:transform .2s;box-shadow:-20px 0 40px rgba(0,0,0,.5)}
+  .main.wlopen .wl{transform:none}.lay .dk,.who{display:none}}
+</style>
+</head>
+<body>
+<div id="app"><div class="gate"><img src="assets/logo_circle.webp" alt=""><h1>EAG Charts</h1><p>Cargando…</p></div></div>
+<script src="config.js"></script>
+<script src="js/api.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/klinecharts@9.8.12/dist/klinecharts.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@klinecharts/pro@0.1.1/dist/klinecharts-pro.umd.js"></script>
+<script src="js/charts-app.js"></script>
+</body>
+</html>
