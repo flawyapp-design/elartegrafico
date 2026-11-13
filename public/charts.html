@@ -297,6 +297,7 @@ html[data-wm=brand] .wm-s{display:none}.wm-b{display:block!important}html[data-w
 /* barra flotante del dibujo seleccionado */
 .wstyle{position:absolute;top:8px;left:50%;transform:translateX(-50%);z-index:5;display:flex;align-items:center;gap:4px;padding:4px 6px;background:var(--card);border:1px solid var(--line2);border-radius:10px;box-shadow:var(--shadow);max-width:calc(100% - 16px);overflow-x:auto}
 .wstyle[hidden]{display:none}
+.wlock{position:absolute;z-index:7;transform:translateX(-50%);background:var(--card);color:var(--fg);border:1px solid var(--gold);border-radius:999px;padding:5px 12px;font:700 12.5px Inter,system-ui,sans-serif;box-shadow:var(--shadow);pointer-events:none;white-space:nowrap;animation:instIn .2s ease}
 /* celular: la barra del dibujo no se sale de la pantalla y el botón de borrar siempre se ve (en rojo, primero) */
 @media (max-width:640px),(hover:none){
   .wstyle{flex-wrap:wrap;justify-content:center;overflow:visible;max-width:calc(100% - 12px);gap:3px;padding:4px}

@@ -263,7 +263,7 @@ window.EAGWidget=function(o){
       <span class="wcd" title="Tiempo para el cierre de la vela"></span><span class="wclk" title="Hora de Colombia (UTC-5)"></span><i class="wsep"></i><button class="wax" data-ax="percentage" title="Escala en porcentaje">%</button><button class="wax" data-ax="log" title="Escala logarítmica">log</button><button class="wax" data-ax="normal" title="Escala normal (automática)">auto</button></div>`;
   const $=s=>root.querySelector(s),chartEl=$(".wchart"),dbar=$(".dbar");
   const chart=KC.init(chartEl,{locale:"es-ES",timezone:o.timezone});(window.__eagCharts=window.__eagCharts||[]).push(chart);
-  let sym=o.symbol,per=o.period,theme=o.theme||"dark",extra={},gen=0,subKey=null,ready=false,selId=null;
+  let sym=o.symbol,per=o.period,theme=o.theme||"dark",extra={},gen=0,subKey=null,ready=false,selId=null;let lastTouch=false;
   const ind=Object.assign({main:[],sub:{},params:{}},o.indicators||{});ind.sub=ind.sub&&!Array.isArray(ind.sub)?ind.sub:{};
   const ovs=new Map(); // id -> definición guardable
   let magnet=o.magnet||"normal",locked=false,hidden=false;
@@ -443,7 +443,7 @@ window.EAGWidget=function(o){
         capture(chart.getOverlayById(e.overlay.id)||e.overlay);if(e.overlay.name==="eagText")setTimeout(()=>editText(e.overlay.id),30);return false},
       onPressedMoveStart:()=>{movingOv=true;return false},
       onPressedMoveEnd:e=>{movingOv=false;capture(e.overlay);return false},
-      onSelected:e=>{selId=e.overlay.id;showStyleBar(e.overlay.id);syncPan();return false},
+      onSelected:e=>{const lv=ovs.get(e.overlay.id);if(lastTouch&&lv&&lv.lock)return false;selId=e.overlay.id;showStyleBar(e.overlay.id);syncPan();return false},
       onDeselected:e=>{if(selId===e.overlay.id){selId=null;hideStyleBar()}syncPan();return false},
       onRemoved:e=>{if(bulk)return false;ovs.delete(e.overlay.id);if(selId===e.overlay.id){selId=null;hideStyleBar()}persist();return false},
       onDoubleClick:e=>{if(e.overlay.id!==drawingId)openCtx(e.overlay.id,e,true);return false},
@@ -630,14 +630,23 @@ window.EAGWidget=function(o){
     if(n==="eagBrush")for(let i=1;i<P.length;i++)d=Math.min(d,seg(P[i-1],P[i],false));
     if(n==="rayLine"&&P[1])d=Math.min(d,(()=>{const dx=P[1].x-P[0].x,dy=P[1].y-P[0].y,L=dx*dx+dy*dy;if(!L)return 1e9;const t=((x-P[0].x)*dx+(y-P[0].y)*dy)/L;return t<0?1e9:Math.hypot(x-(P[0].x+t*dx),y-(P[0].y+t*dy))})());
     return d}
-  function nearOv(x,y,tol){let best=null,bd=tol;ovs.forEach((v,id)=>{if(hidden)return;const d=ovDist(id,x,y);if(d<=bd){bd=d;best=id}});return best}
+  function nearOv(x,y,tol,skipLocked){let best=null,bd=tol;ovs.forEach((v,id)=>{if(hidden||(skipLocked&&v.lock))return;const d=ovDist(id,x,y);if(d<=bd){bd=d;best=id}});return best}
+  function lockTip(x,y,on){const t=document.createElement("div");t.className="wlock";t.textContent=on?"🔒 Bloqueado":"🔓 Desbloqueado";t.style.left=x+"px";t.style.top=(y-46)+"px";chartEl.appendChild(t);setTimeout(()=>t.remove(),1300)}
   {let tdn=null,lastTap=null,manual=null;
-    chartEl.addEventListener("pointerdown",e=>{if(e.pointerType==="mouse")return;tdn={x:e.clientX,y:e.clientY,t:Date.now(),sel:selId}},true);
+    let lp=null;
+    chartEl.addEventListener("pointerdown",e=>{lastTouch=e.pointerType!=="mouse";if(e.pointerType==="mouse")return;tdn={x:e.clientX,y:e.clientY,t:Date.now(),sel:selId};
+      /* mantener oprimido un dibujo = bloquear / desbloquear (como MT5) */
+      clearTimeout(lp);const d0=tdn;lp=setTimeout(()=>{if(tdn!==d0||drawingId||brushOn)return;const r=chartEl.getBoundingClientRect(),x=d0.x-r.left,y=d0.y-r.top,id=nearOv(x,y,24);if(!id)return;
+        tdn=null;toggleLock(id);const v=ovs.get(id);try{navigator.vibrate&&navigator.vibrate(18)}catch(x){}
+        if(v&&v.lock&&selId===id){selId=null;manual=null;hideStyleBar();syncPan()}
+        lockTip(x,y,v&&v.lock);o.onToast&&o.onToast(v&&v.lock?"🔒 Dibujo bloqueado: ya no se selecciona al tocar. Mantén oprimido para desbloquear.":"🔓 Dibujo desbloqueado")},560)},true);
+    chartEl.addEventListener("pointermove",e=>{if(tdn&&Math.hypot(e.clientX-tdn.x,e.clientY-tdn.y)>10)clearTimeout(lp)},true);
+    chartEl.addEventListener("pointerup",()=>clearTimeout(lp),true);chartEl.addEventListener("pointercancel",()=>{clearTimeout(lp);tdn=null},true);
     chartEl.addEventListener("pointerup",e=>{if(e.pointerType==="mouse"||!tdn)return;const d=tdn;tdn=null;
       if(Date.now()-d.t>350||Math.hypot(e.clientX-d.x,e.clientY-d.y)>10||drawingId||brushOn)return;
       if(e.target.closest(".wnav,.wnavt,.wstyle,.wcdl,.wmenu"))return;
       const r=chartEl.getBoundingClientRect(),x=e.clientX-r.left,y=e.clientY-r.top;
-      setTimeout(()=>{let id=selId;const near=nearOv(x,y,24);
+      setTimeout(()=>{let id=selId;const near=nearOv(x,y,24,true);
         if(!near&&id&&id===manual&&ovDist(id,x,y)>24){selId=null;manual=null;hideStyleBar();syncPan();lastTap=null;return}
         if(!id&&near){id=near;selId=near;manual=near;showStyleBar(near);syncPan()}
         else if(id&&near&&near!==id&&ovDist(id,x,y)>24){id=near;selId=near;manual=near;showStyleBar(near);syncPan()}
