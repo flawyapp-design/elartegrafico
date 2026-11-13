@@ -388,7 +388,7 @@ function start(){
   const curSym=i=>{try{return panes[i].kc.getSymbol().ticker}catch(e){return null}};
   function setActive(i){active=i;panes.forEach((p,j)=>p.el.classList.toggle("act",j===i&&visible()>1));paintList();paintTabs()}
   const visible=()=>(LAYS.find(l=>l[0]===lay)||LAYS[0])[1];
-  let lay=SAVE.layout&&LAYS.some(l=>l[0]===SAVE.layout)?SAVE.layout:"l1";
+  let lay=SAVE.layout&&LAYS.some(l=>l[0]===SAVE.layout)?SAVE.layout:"mtf";   /* por defecto abre en Multitemporalidad (la novedad) */
   function setLayout(k){
     if(mobile()&&!["l1","l2v","mtf"].includes(k))k="l1";
     lay=k;SAVE.layout=k;save();const n=visible();
