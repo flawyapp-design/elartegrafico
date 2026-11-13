@@ -232,7 +232,7 @@ window.EAGWidget=function(o){
   async function loadData(){
     const g=++gen;ready=false;noMore=false;
     if(subKey){o.datafeed.unsubscribe(subKey.s,subKey.p);subKey=null}
-    chart.clearData();try{chart.setPriceVolumePrecision(sym.pricePrecision||3,0)}catch(e){}
+    bulk=true;try{chart.clearData()}catch(e){}bulk=false;try{chart.setPriceVolumePrecision(sym.pricePrecision||3,0)}catch(e){}
     paintBar();
     const to=Date.now(),from=to-msOf(per)*500;
     let list=await o.datafeed.getHistoryKLineData(sym,per,from,to);
@@ -338,7 +338,7 @@ window.EAGWidget=function(o){
     dbar.querySelector('[data-x="lock"]').onclick=()=>{locked=!locked;ovs.forEach((v,id)=>{v.lock=locked;chart.overrideOverlay({id,lock:locked})});persist();paintDbar()};
     dbar.querySelector('[data-x="hide"]').onclick=()=>{hidden=!hidden;ovs.forEach((v,id)=>chart.overrideOverlay({id,visible:!hidden}));paintDbar()};
     const cl=dbar.querySelector('[data-x="clear"]');cl.onclick=()=>{if(!ovs.size)return;if(!cl.classList.contains("confirm")){cl.classList.add("confirm");cl.title="Toca otra vez para borrar todo";setTimeout(()=>{cl.classList.remove("confirm");cl.title="Borrar todos los dibujos de este mercado"},2500);return}
-      chart.removeOverlay();ovs.clear();persist();hideStyleBar();paintDbar()};
+      bulk=true;try{chart.removeOverlay()}catch(e){}bulk=false;ovs.clear();persist();hideStyleBar();paintDbar();setTimeout(renderAlerts,0)};
   }
   function openToolMenu(g,anchor){closeMenu();menu=document.createElement("div");menu.className="wmenu";
     const favs=(o.getToolFav&&o.getToolFav())||[];
@@ -360,7 +360,7 @@ window.EAGWidget=function(o){
       onPressedMoveEnd:e=>{capture(e.overlay);return false},
       onSelected:e=>{selId=e.overlay.id;showStyleBar(e.overlay.id);return false},
       onDeselected:e=>{if(selId===e.overlay.id){selId=null;hideStyleBar()}return false},
-      onRemoved:e=>{ovs.delete(e.overlay.id);if(selId===e.overlay.id){selId=null;hideStyleBar()}persist();return false},
+      onRemoved:e=>{if(bulk)return false;ovs.delete(e.overlay.id);if(selId===e.overlay.id){selId=null;hideStyleBar()}persist();return false},
       onDoubleClick:e=>{if(e.overlay.id!==drawingId)openCtx(e.overlay.id,e,true);return false},
       onRightClick:e=>{if(e.overlay.id===drawingId){cancelDraw();return true}openCtx(e.overlay.id,e);return true}});
     if(id){ovs.set(id,{name:def.name,styles:def.styles||null,extendData:def.extendData||null,lock:!!def.lock,points:def.points||null});if(!drawing)ovs.get(id).done=true}
@@ -381,14 +381,14 @@ window.EAGWidget=function(o){
   function capture(ov){const v=ovs.get(ov.id);if(!v)return;v.points=(ov.points||[]).map(p=>({timestamp:tsOf(p),value:p.value}));v.done=true;v.lock=!!ov.lock;persist()}
   /* guardado por mercado (todas las temporalidades), como en TradingView */
   /* deshacer / rehacer: historial de los dibujos de este mercado */
-  let hist=[],fut=[],snap="[]";
+  let hist=[],fut=[],snap="[]",bulk=false;
   function persist(){if(!sym)return;const all=loadD();const arr=[];ovs.forEach(v=>{if(v.done&&v.points&&v.points.length)arr.push({name:v.name,points:v.points,styles:v.styles,extendData:v.extendData,lock:v.lock})});
     const ns=JSON.stringify(arr);if(ns!==snap){hist.push(snap);if(hist.length>60)hist.shift();fut=[];snap=ns}
     if(arr.length)all[sym.ticker]=arr;else delete all[sym.ticker];saveD(all);o.onDrawingsChange&&o.onDrawingsChange(sym.ticker)}
   function applySnap(ns){const all=loadD(),arr=JSON.parse(ns);if(arr.length)all[sym.ticker]=arr;else delete all[sym.ticker];saveD(all);snap=ns;restoreDrawings(true);o.onDrawingsChange&&o.onDrawingsChange(sym.ticker)}
   function undo(){if(!hist.length)return false;fut.push(snap);applySnap(hist.pop());return true}
   function redo(){if(!fut.length)return false;hist.push(snap);applySnap(fut.pop());return true}
-  function restoreDrawings(keepHist){try{chart.removeOverlay()}catch(e){}ovs.clear();hideStyleBar();
+  function restoreDrawings(keepHist){bulk=true;try{chart.removeOverlay()}catch(e){}bulk=false;ovs.clear();hideStyleBar();
     if(!keepHist){hist=[];fut=[];snap=JSON.stringify(loadD()[sym.ticker]||[])}
     setTimeout(renderAlerts,0);
     (loadD()[sym.ticker]||[]).forEach(d=>{if(d.points&&d.points.every(p=>p.timestamp))makeOverlay(d,false)})}
