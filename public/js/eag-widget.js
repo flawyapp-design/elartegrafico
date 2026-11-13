@@ -24,7 +24,7 @@ function registerAll(){
       const p=overlay.points,pp=(precision&&precision.price)||3,e=coordinates[0],s=coordinates[1],t=coordinates[2]||{x:s.x,y:e.y-(s.y-e.y)*2};
       const x1=Math.min(e.x,s.x),x2=Math.max(e.x,s.x,t.x||s.x),w=Math.max(x2-x1,40);
       const ev=p[0].value,sv=p[1].value,tv=p[2]?p[2].value:ev+(ev-sv)*2,risk=Math.abs(ev-sv),rew=Math.abs(tv-ev),long=sv<ev;
-      const ex=overlay.extendData||{};const cu=ex.up||"#22ab94",cd=ex.dn||"#f23645";
+      const ex=overlay.extendData||{};const cu=ex.up||"#0ecb81",cd=ex.dn||"#f6465d";
       const pct=v=>(v/ev*100).toFixed(2)+"%";
       const lab=(x,y,txt,bg)=>({type:"text",ignoreEvent:true,attrs:{x,y,text:txt,align:"center",baseline:"middle"},styles:{color:"#fff",size:11,backgroundColor:bg,paddingLeft:6,paddingRight:6,paddingTop:3,paddingBottom:3,borderRadius:4}});
       const cx=x1+w/2;
@@ -41,7 +41,7 @@ function registerAll(){
     const p=overlay.points,pp=(precision&&precision.price)||3,e=coordinates[0],s=coordinates[1],t=coordinates[2];
     const x1=Math.min(e.x,s.x,t.x),x2=Math.max(e.x,s.x,t.x),w=Math.max(x2-x1,30);
     const ev=p[0].value,sv=p[1].value,tv=p[2].value,risk=Math.abs(ev-sv),rew=Math.abs(tv-ev);
-    const ex=overlay.extendData||{},cu=ex.up||"#22ab94",cd=ex.dn||"#f23645";
+    const ex=overlay.extendData||{},cu=ex.up||"#0ecb81",cd=ex.dn||"#f6465d";
     const pct=v=>(v/ev*100).toFixed(2)+"%";
     const lab=(x,y,txt,bg)=>({type:"text",ignoreEvent:true,attrs:{x,y,text:txt,align:"center",baseline:"middle"},styles:{color:"#fff",size:11,backgroundColor:bg,paddingLeft:7,paddingRight:7,paddingTop:3,paddingBottom:3,borderRadius:4}});
     const cx=x1+w/2,okDir=side==="long"?(tv>ev&&sv<ev):(tv<ev&&sv>ev);
@@ -60,7 +60,7 @@ function registerAll(){
     createPointFigures:({overlay,coordinates,precision})=>{
       if(coordinates.length<2)return[];
       const[a,b]=coordinates,p=overlay.points,pp=(precision&&precision.price)||3;
-      const d=p[1].value-p[0].value,up=d>=0,col=up?"#2962ff":"#f23645",pip=Math.pow(10,-pp),ticks=Math.round(Math.abs(d)/pip);
+      const d=p[1].value-p[0].value,up=d>=0,col=up?"#2962ff":"#f6465d",pip=Math.pow(10,-pp),ticks=Math.round(Math.abs(d)/pip);
       const bars=(p[1].dataIndex!=null&&p[0].dataIndex!=null)?p[1].dataIndex-p[0].dataIndex:0;
       const ms=Math.abs((p[1].timestamp||0)-(p[0].timestamp||0)),mins=Math.round(ms/6e4);
       const tt=mins>=1440?Math.floor(mins/1440)+"d "+Math.floor(mins%1440/60)+"h":mins>=60?Math.floor(mins/60)+"h "+(mins%60)+"m":mins+"m";
@@ -92,7 +92,7 @@ function registerAll(){
       return K.map((v,i)=>{if(v==null)return{};let ok=true,s=0;for(let j=i-sd+1;j<=i;j++){if(K[j]==null)ok=false;else s+=K[j]}return ok?{k:v,d:s/sd}:{k:v}})}});
   KC.registerIndicator({name:"DONCHIAN",shortName:"Donchian",series:"price",precision:2,calcParams:[20],shouldOhlc:true,figures:[{key:"up",title:"Sup: ",type:"line"},{key:"mid",title:"Med: ",type:"line"},{key:"dn",title:"Inf: ",type:"line"}],
     calc:(L,ind)=>{const n=ind.calcParams[0];return L.map((k,i)=>{if(i<n-1)return{};let hh=-Infinity,ll=Infinity;for(let j=i-n+1;j<=i;j++){hh=Math.max(hh,L[j].high);ll=Math.min(ll,L[j].low)}return{up:hh,dn:ll,mid:(hh+ll)/2}})}});
-  KC.registerIndicator({name:"SUPERTREND",shortName:"SuperTrend",series:"price",precision:2,calcParams:[10,3],shouldOhlc:true,figures:[{key:"up",title:"Alcista: ",type:"line",styles:()=>({color:"#22ab94"})},{key:"dn",title:"Bajista: ",type:"line",styles:()=>({color:"#f23645"})}],
+  KC.registerIndicator({name:"SUPERTREND",shortName:"SuperTrend",series:"price",precision:2,calcParams:[10,3],shouldOhlc:true,figures:[{key:"up",title:"Alcista: ",type:"line",styles:()=>({color:"#0ecb81"})},{key:"dn",title:"Bajista: ",type:"line",styles:()=>({color:"#f6465d"})}],
     calc:(L,ind)=>{const[n,m]=ind.calcParams;let atr=null,fu=0,fl=0,trend=1;
       return L.map((k,i)=>{const pc=i?L[i-1].close:k.close,tr=Math.max(k.high-k.low,Math.abs(k.high-pc),Math.abs(k.low-pc));
         atr=atr==null?tr:(atr*(n-1)+tr)/n;if(i<n)return{};const hl=(k.high+k.low)/2,bu=hl+m*atr,bl=hl-m*atr;
@@ -169,16 +169,16 @@ const TI={
   fiveWaves:'<path d="M2 19 6 11l3 4 5-10 3 6 5-8"/>',
   eightWaves:'<path d="M1 19l3-6 2 3 3-8 2 4 3-9 3 10 3-4 3 6"/>',
   anyWaves:'<path d="M2 16c3-8 5 6 8-2s5 6 8-2 3 2 4 0"/>',
-  eagLong:'<rect x="4" y="4" width="16" height="8" fill="#22ab94" opacity=".45" stroke="none"/><rect x="4" y="12" width="16" height="6" fill="#f23645" opacity=".45" stroke="none"/><path d="M4 12h16M9 9l3-3 3 3"/>',
-  eagShort:'<rect x="4" y="6" width="16" height="6" fill="#f23645" opacity=".45" stroke="none"/><rect x="4" y="12" width="16" height="8" fill="#22ab94" opacity=".45" stroke="none"/><path d="M4 12h16M9 15l3 3 3-3"/>',
-  eagPosition:'<rect x="4" y="4" width="16" height="7" fill="#22ab94" opacity=".35" stroke="none"/><rect x="4" y="11" width="16" height="7" fill="#f23645" opacity=".35" stroke="none"/><path d="M4 11h16"/>',
+  eagLong:'<rect x="4" y="4" width="16" height="8" fill="#0ecb81" opacity=".45" stroke="none"/><rect x="4" y="12" width="16" height="6" fill="#f6465d" opacity=".45" stroke="none"/><path d="M4 12h16M9 9l3-3 3 3"/>',
+  eagShort:'<rect x="4" y="6" width="16" height="6" fill="#f6465d" opacity=".45" stroke="none"/><rect x="4" y="12" width="16" height="8" fill="#0ecb81" opacity=".45" stroke="none"/><path d="M4 12h16M9 15l3 3 3-3"/>',
+  eagPosition:'<rect x="4" y="4" width="16" height="7" fill="#0ecb81" opacity=".35" stroke="none"/><rect x="4" y="11" width="16" height="7" fill="#f6465d" opacity=".35" stroke="none"/><path d="M4 11h16"/>',
   eagMeasure:'<path d="M3 17 17 3l4 4L7 21z"/><path d="m7 13 2 2M10 10l2 2M13 7l2 2"/>',
   eagText:'<path d="M5 6V4h14v2M12 4v16M9 20h6"/>',
   simpleAnnotation:'<rect x="3" y="3" width="18" height="10" rx="2"/><path d="M12 13v8"/>'+P(12,21),
   simpleTag:'<path d="M3 12h7"/><path d="M10 7h9l2 5-2 5h-9z"/>'};
 const tsvg=(k,s=18)=>`<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${TI[k]||""}</svg>`;
 const svg=(k,s=18)=>`<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${IC[k]||""}</svg>`;
-const COLORS=["#e2b55c","#f3d08a","#ffffff","#9da1aa","#2962ff","#22ab94","#f23645","#ff9800","#9c27b0","#e91e63","#00bcd4","#000000"];
+const COLORS=["#e2b55c","#f3d08a","#ffffff","#9da1aa","#2962ff","#0ecb81","#f6465d","#ff9800","#9c27b0","#e91e63","#00bcd4","#000000"];
 const IND=[ // [nombre, nombre en español, dónde]
   ["MA","Media móvil (MA)","main"],["EMA","Media exponencial (EMA)","main"],["SMA","Media suavizada (SMA)","main"],["WMA","Media ponderada (WMA)","main"],
   ["BOLL","Bandas de Bollinger","main"],["DONCHIAN","Canales de Donchian","main"],["SUPERTREND","SuperTrend","main"],["SAR","SAR parabólico","main"],["BBI","BBI (promedio de medias)","main"],

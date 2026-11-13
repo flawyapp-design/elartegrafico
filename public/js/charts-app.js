@@ -289,10 +289,12 @@ function start(){
   const DEF=["BOOM1000","CRASH1000","BOOM500","CRASH500","BOOM300N","CRASH300N"];
   SAVE.panes=Array.isArray(SAVE.panes)?SAVE.panes:[];
   const grid=$("#grid"),panes=[];let active=0;
-  const UP="#22ab94",DN="#f23645",NC="#9da1aa";
+  const UP="#0ecb81",DN="#f6465d",NC="#9da1aa";
   /* ---------- ajustes del gráfico (tema, fondo, cuadrícula, velas…) ---------- */
   const CDEF={theme:"dark",bg:"",grid:true,wmMode:"both",wmOp:10,wmSize:100,wmColor:"auto",up:UP,dn:DN,type:"candle_solid",last:true,hl:true,cross:true,wm:true,axis:true};
   SAVE.cfg=Object.assign({},CDEF,SAVE.cfg||{});
+  /* velas: pasar a los colores nuevos si tenía los de antes por defecto */
+  if(["#35c4a2","#22ab94"].includes(SAVE.cfg.up))SAVE.cfg.up=UP;if(["#ec5b52","#f23645"].includes(SAVE.cfg.dn))SAVE.cfg.dn=DN;
   const CF=()=>SAVE.cfg,light=()=>CF().theme==="light";
   const barOf=()=>{const c=CF();return{upColor:c.up,downColor:c.dn,noChangeColor:NC,upBorderColor:c.up,downBorderColor:c.dn,noChangeBorderColor:NC,upWickColor:c.up,downWickColor:c.dn,noChangeWickColor:NC}};
   const styFor=()=>{const c=CF(),gc=light()?"rgba(16,18,24,.06)":"rgba(255,255,255,.045)";
