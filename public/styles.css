@@ -1680,3 +1680,9 @@ html,body{touch-action:manipulation;-webkit-text-size-adjust:100%}
   nav.main .mnav-sw .sw-charts{grid-column:1/-1;justify-content:center;gap:8px;border:1px solid rgba(216,176,98,.45);background:linear-gradient(135deg,rgba(216,176,98,.14),rgba(216,176,98,.03))}
   nav.main .mnav-sw .sw-charts em{margin-left:0}
 }
+/* celular angosto: sin íconos en El Arte Gráfico / Academia para que el nombre se lea completo */
+@media (max-width:420px){.top-sw a:not(.sw-charts) svg{display:none}.top-sw a{padding:8px 5px}}
+/* computador mediano (861–1260px): la barra superior cabe en una sola línea */
+@media (min-width:861px) and (max-width:1260px){.mnav-sw .sw-charts em{display:none}nav.main{flex-wrap:nowrap!important;min-width:0}nav.main>a:not(.btn){padding:8px 7px;font-size:13.5px;white-space:nowrap}.brand b,.brand span{white-space:nowrap}}
+@media (min-width:861px) and (max-width:1099px){.top .brand>span{display:none}}
+@media (min-width:861px) and (max-width:1099px){.top .wrap>.theme-btn{order:9}}

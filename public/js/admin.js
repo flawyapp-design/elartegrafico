@@ -802,9 +802,9 @@ async function alumnos(){
   const filOpts=()=>`<option value="todos">Todos (${list.length})</option>
     <optgroup label="Acceso">${opt("premium","Con plan activo")}${opt("concurso","Con algún curso comprado")}${opt("gratis","Solo cuenta gratis (sin plan ni curso)")}${opt("sinplan","Sin plan activo")}${opt("vencido","Plan vencido")}</optgroup>
     <optgroup label="Plan">${Object.keys(TN).map(t=>opt("plan:"+t,TN[t])).join("")}</optgroup>
-    ${paidC.length?`<optgroup label="Curso comprado">${paidC.map(c=>opt("curso:"+c.id,`${c.icon||"🎓"} ${c.title}`)).join("")}</optgroup>`:""}
+    ${paidC.length?`<optgroup label="Curso comprado">${paidC.map(c=>opt("curso:"+c.id,esc(`${c.icon||"🎓"} ${c.title}`))).join("")}</optgroup>`:""}
     <optgroup label="Otros">${opt("admin","Admins")}${opt("suspendido","Suspendidos")}</optgroup>`;
-  const chips=()=>[["premium","Con plan"],...Object.keys(TN).map(t=>["plan:"+t,TN[t]]),...paidC.map(c=>["curso:"+c.id,`${c.icon||"🎓"} ${c.title}`]),["gratis","Solo gratis"]]
+  const chips=()=>[["premium","Con plan"],...Object.keys(TN).map(t=>["plan:"+t,TN[t]]),...paidC.map(c=>["curso:"+c.id,esc(`${c.icon||"🎓"} ${c.title}`)]),["gratis","Solo gratis"]]
     .map(([k,t])=>`<button class="uchip${fil===k?" on":""}" data-uf="${esc(k)}">${t} <b>${cnt(k)}</b></button>`).join("");
   let q="",fil="todos",pais="";const draw=()=>{$("#uchips").innerHTML=chips();$$("[data-uf]").forEach(b=>b.onclick=()=>{fil=fil===b.dataset.uf?"todos":b.dataset.uf;$("#uf").value=fil;draw()});const f=list.filter(u=>(!q||(u.username+" "+u.email).toLowerCase().includes(q))
       &&FIL(fil)(u)
