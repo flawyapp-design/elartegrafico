@@ -418,7 +418,9 @@ function start(){
   document.querySelectorAll(".lay button").forEach(b=>b.onclick=()=>setLayout(b.dataset.l));
   function setSym(s){const p=panes[active];if(!p)return;
     const targets=[active];
-    targets.forEach(j=>{panes[j].kc.setSymbol(findInfo(s));SAVE.panes[j]=Object.assign({},SAVE.panes[j],{s})});save();
+    /* cada mercado recuerda su propia temporalidad: al volver a él se abre en la última que usaste */
+    const tf=(SAVE.symTF||{})[s],pp=tf?PERIODS.find(x=>x.text===tf):null;
+    targets.forEach(j=>{panes[j].kc.setSymbol(findInfo(s),pp);SAVE.panes[j]=Object.assign({},SAVE.panes[j],{s},pp?{p:pp.text}:{})});save();if(pp)setTimeout(()=>{try{afterTF()}catch(e){}},80);
     setTimeout(()=>{if(MTFS[active])buildMTF(active);paintList();paintTabs()},60)}
 
   /* ---------- multitemporalidad ---------- */
@@ -485,7 +487,7 @@ function start(){
     panes.forEach((p,k)=>{try{p.kc.setMtfButton&&p.kc.setMtfButton(stripAllowed()&&k<visible(),!!MTFS[k])}catch(e){}})}
 
   /* recordar mercado y temporalidad de cada gráfico; mantener la barra decorada */
-  setInterval(()=>{let ch=false;panes.forEach((p,j)=>{try{const s=p.kc.getSymbol().ticker,t=p.kc.getPeriod().text,o=SAVE.panes[j]||{};if(o.s!==s||o.p!==t){SAVE.panes[j]=Object.assign({},o,{s,p:t});ch=true}}catch(e){}});
+  setInterval(()=>{let ch=false;panes.forEach((p,j)=>{try{const s=p.kc.getSymbol().ticker,t=p.kc.getPeriod().text,o=SAVE.panes[j]||{};SAVE.symTF=SAVE.symTF||{};if(SAVE.symTF[s]!==t){SAVE.symTF[s]=t;ch=true}if(o.s!==s||o.p!==t){SAVE.panes[j]=Object.assign({},o,{s,p:t});ch=true}}catch(e){}});
     if(ch){decorateAll();save();paintList();paintTabs();Object.values(MTFS).forEach(M=>{if(curSym(M.pi)!==M.sym)buildMTF(M.pi)});mtfMark()}},700);
 
   /* ---------- panel de mercados y pestañas de favoritos ---------- */
