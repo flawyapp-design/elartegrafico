@@ -122,8 +122,8 @@ function start(){
       <button class="btn ic" id="wlb" title="Lista de mercados">${ICON.list}<span class="t">Mercados</span></button>
     </header>
     <div class="main" id="main">
-      <div class="center"><nav class="ftabs" id="ftabs" aria-label="Mercados favoritos"></nav><div class="grid" id="grid"></div></div>
-      <aside class="wl" id="wl">
+      <div class="center"><div class="ftw"><button class="fta" data-d="-1" title="Anteriores">‹</button><nav class="ftabs" id="ftabs" aria-label="Mercados favoritos"></nav><button class="fta" data-d="1" title="Siguientes">›</button></div><div class="grid" id="grid"></div></div>
+      <aside class="wl" id="wl"><span class="wlsp" title="Arrastra para cambiar el ancho"></span>
         <div class="wlh"><h3>Mercados</h3><button class="x" id="wlx" title="Ocultar lista">×</button></div>
         <input id="q" type="search" placeholder="Buscar: Boom, Crash, EUR/USD…" autocomplete="off">
         <div class="tabs" id="tabs">${TABS.map(([k,t])=>`<button data-t="${k}">${t}</button>`).join("")}</div>
@@ -176,9 +176,14 @@ function start(){
   const allHidden=()=>PARTS.every(([k])=>SAVE.hide[k]);
   function openVista(anchor){
     pop.innerHTML=`<div class="ph">Vista</div>${PARTS.map(([k,t])=>`<label class="sw"><input type="checkbox" data-k="${k}" ${SAVE.hide[k]?"":"checked"}><i></i><span>${t}</span></label>`).join("")}
-      <div class="pbtns"><button class="btn sm" data-a="clean">${allHidden()?"Mostrar todo":"Modo limpio"}</button> <button class="btn sm" data-a="cfg">Ajustes del gráfico</button></div>`;
+      <div class="ph">Posición</div><label class="sw"><input type="checkbox" data-o="wlLeft" ${SAVE.wlLeft?"checked":""}><i></i><span>Lista de mercados a la izquierda</span></label>
+      <label class="sw"><input type="checkbox" data-o="dbRight" ${SAVE.dbRight?"checked":""}><i></i><span>Barra de dibujo a la derecha</span></label>
+      <div class="pnote">Arrastra los bordes para cambiar tamaños: la lista, la multitemporalidad y la división entre gráficos. Arrastra las pestañas y tus favoritos para ordenarlos.</div>
+      <div class="pbtns"><button class="btn sm" data-a="clean">${allHidden()?"Mostrar todo":"Modo limpio"}</button> <button class="btn sm" data-a="cfg">Ajustes del gráfico</button> <button class="btn sm" data-a="rs">Restablecer tamaños</button></div>`;
+    pop.querySelectorAll("[data-o]").forEach(i=>i.onchange=()=>{SAVE[i.dataset.o]=i.checked;save();applyLayoutPrefs();openVista(anchor)});
+    pop.querySelector('[data-a="rs"]').onclick=()=>{delete SAVE.wlw;delete SAVE.mtfh;SAVE.split={c:.5,r:.5};save();applyLayoutPrefs();closePop()};
     pop.querySelector('[data-a="cfg"]').onclick=()=>openCfg(anchor);
-    pop.querySelectorAll("input").forEach(i=>i.onchange=()=>{SAVE.hide[i.dataset.k]=!i.checked;save();applyHide();openVista(anchor)});
+    pop.querySelectorAll("input[data-k]").forEach(i=>i.onchange=()=>{SAVE.hide[i.dataset.k]=!i.checked;save();applyHide();openVista(anchor)});
     pop.querySelector('[data-a="clean"]').onclick=()=>{const all=!allHidden();PARTS.forEach(([k])=>SAVE.hide[k]=all);save();applyHide();closePop()};
     showPop(anchor,"right")}
   $("#vb").onclick=e=>{e.stopPropagation();pop.hidden||pop.dataset.for!=="vista"?(openVista($("#vb")),pop.dataset.for="vista"):closePop()};
@@ -186,9 +191,70 @@ function start(){
   function showPop(anchor,align){pop.hidden=false;const r=anchor.getBoundingClientRect(),w=pop.offsetWidth,h=pop.offsetHeight;
     let x=align==="right"?r.right-w:r.left;x=Math.max(8,Math.min(x,innerWidth-w-8));let y=r.bottom+6;if(y+h>innerHeight-8)y=Math.max(8,r.top-h-6);
     pop.style.left=x+"px";pop.style.top=y+"px"}
-  function closePop(){pop.hidden=true;pop.dataset.for=""}
-  document.addEventListener("pointerdown",e=>{if(!pop.hidden&&!pop.contains(e.target)&&!e.target.closest("#vb,#fab,#cfgb,.tfdd"))closePop()});
+  function closePop(){pop.hidden=true;pop.dataset.for="";pop.classList.remove("wide");if(shownPick&&shownPick.length){shownPick=[];watch()}}
+  document.addEventListener("pointerdown",e=>{if(!pop.hidden&&!pop.contains(e.target)&&!e.target.closest("#vb,#fab,#cfgb,.tfdd,.wsym,.wtf"))closePop()});
   addEventListener("keydown",e=>{if(e.key==="Escape")closePop()});
+
+  /* ---------- tamaños y posiciones que el usuario acomoda ---------- */
+  SAVE.split=SAVE.split&&typeof SAVE.split==="object"?SAVE.split:{c:.5,r:.5};
+  const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+  function applyLayoutPrefs(){
+    appw.classList.toggle("wl-left",!!SAVE.wlLeft);appw.classList.toggle("db-right",!!SAVE.dbRight);
+    appw.style.setProperty("--wlw",(SAVE.wlw||300)+"px");appw.style.setProperty("--mtfh",(SAVE.mtfh||168)+"px");
+    const c=SAVE.split.c,r=SAVE.split.r;grid.style.setProperty("--cf",c+"fr");grid.style.setProperty("--cf2",(1-c)+"fr");grid.style.setProperty("--rf",r+"fr");grid.style.setProperty("--rf2",(1-r)+"fr");
+    placeSplits();relayout()}
+  function dragger(el,onMove,onEnd){el.addEventListener("pointerdown",e=>{if(e.button!==0)return;e.preventDefault();el.classList.add("on");appw.classList.add("resizing");try{el.setPointerCapture(e.pointerId)}catch(x){}
+    const mv=ev=>onMove(ev),up=()=>{el.classList.remove("on");appw.classList.remove("resizing");el.removeEventListener("pointermove",mv);el.removeEventListener("pointerup",up);save();onEnd&&onEnd();relayout()};
+    el.addEventListener("pointermove",mv);el.addEventListener("pointerup",up)})}
+  /* ancho de la lista de mercados */
+  dragger($(".wlsp"),e=>{const r=main.getBoundingClientRect();SAVE.wlw=Math.round(clamp(SAVE.wlLeft?e.clientX-r.left:r.right-e.clientX,220,560));appw.style.setProperty("--wlw",SAVE.wlw+"px")});
+  $(".wlsp").ondblclick=()=>{delete SAVE.wlw;save();applyLayoutPrefs()};
+  /* división entre gráficos */
+  const gv=document.createElement("span"),gh=document.createElement("span");gv.className="gsp v";gh.className="gsp h";gv.title=gh.title="Arrastra para cambiar el tamaño · doble clic: mitad y mitad";
+  function placeSplits(){if(!gv.isConnected)grid.append(gv,gh);const L=grid.className;
+    const hasV=/\b(l2|l3|l4)\b/.test(L),hasH=/\b(l2v|l3|l4)\b/.test(L);gv.style.display=hasV?"":"none";gh.style.display=hasH?"":"none";
+    gv.style.left=`calc(${SAVE.split.c*100}% - 4px)`;gh.style.top=`calc(${SAVE.split.r*100}% - 4px)`;gh.style.left=/\bl3\b/.test(L)?`${SAVE.split.c*100}%`:"0"}
+  dragger(gv,e=>{const r=grid.getBoundingClientRect();SAVE.split.c=+clamp((e.clientX-r.left)/r.width,.15,.85).toFixed(3);applyLayoutPrefs()});
+  dragger(gh,e=>{const r=grid.getBoundingClientRect();SAVE.split.r=+clamp((e.clientY-r.top)/r.height,.15,.85).toFixed(3);applyLayoutPrefs()});
+  gv.ondblclick=()=>{SAVE.split.c=.5;save();applyLayoutPrefs()};gh.ondblclick=()=>{SAVE.split.r=.5;save();applyLayoutPrefs()};
+  /* ordenar arrastrando (pestañas, favoritos) — con el dedo: mantener presionado y arrastrar */
+  function sortable(box,sel,axis,onDone,enabled){let act=false;
+    box.addEventListener("touchmove",e=>{if(act)e.preventDefault()},{passive:false});
+    box.addEventListener("pointerdown",e=>{const it=e.target.closest(sel);if(!it||e.button!==0||e.target.closest(".x,.fv")||(enabled&&!enabled()))return;
+      const st={x:e.clientX,y:e.clientY},touch=e.pointerType==="touch";let drag=false,armed=!touch,tm=touch?setTimeout(()=>{armed=true;it.classList.add("armed")},280):null;
+      const pos=ev=>axis==="x"?ev.clientX:ev.clientY;
+      const mv=ev=>{const d=pos(ev)-(axis==="x"?st.x:st.y),o=axis==="x"?ev.clientY-st.y:ev.clientX-st.x;
+        if(!drag){if(!armed){if(Math.hypot(d,o)>8){clearTimeout(tm);cleanup()}return}if(Math.abs(d)<6&&Math.abs(o)<6)return;drag=act=true;it.classList.add("dragging");box.classList.add("sorting")}
+        const sibs=[...box.querySelectorAll(sel)].filter(x=>x!==it);let before=null;
+        for(const sb of sibs){const r=sb.getBoundingClientRect();if(pos(ev)<(axis==="x"?r.left+r.width/2:r.top+r.height/2)){before=sb;break}}
+        if(before){if(it.nextElementSibling!==before)box.insertBefore(it,before)}else{const ls=sibs[sibs.length-1];if(ls&&ls.nextElementSibling!==it)ls.after(it)}
+        const r=box.getBoundingClientRect();if(axis==="x"){if(ev.clientX<r.left+36)box.scrollLeft-=14;if(ev.clientX>r.right-36)box.scrollLeft+=14}else{if(ev.clientY<r.top+30)box.scrollTop-=12;if(ev.clientY>r.bottom-30)box.scrollTop+=12}};
+      const cleanup=()=>{clearTimeout(tm);removeEventListener("pointermove",mv);removeEventListener("pointerup",up);removeEventListener("pointercancel",up);it.classList.remove("armed")};
+      const up=()=>{cleanup();if(drag){act=false;it.classList.remove("dragging");box.classList.remove("sorting");onDone([...box.querySelectorAll(sel)].map(x=>x.dataset.s));
+        const kill=ev=>{ev.stopPropagation();ev.preventDefault()};it.addEventListener("click",kill,{capture:true,once:true});setTimeout(()=>it.removeEventListener("click",kill,true),60)}};
+      addEventListener("pointermove",mv);addEventListener("pointerup",up);addEventListener("pointercancel",up)})}
+
+  /* ---------- elegir mercado desde el mismo gráfico ---------- */
+  let spTab=null;
+  function openSymPicker(pane,anchor){
+    const cur=(()=>{try{return pane.kc.getSymbol().ticker}catch(e){return""}})();
+    spTab=spTab||(SAVE.fav.length?"fav":"bc");
+    pop.innerHTML=`<div class="spk"><input class="spq" type="search" placeholder="Buscar mercado…" autocomplete="off"><div class="tabs spt">${TABS.map(([k,t])=>`<button data-t="${k}" class="${k===spTab?"on":""}">${t}</button>`).join("")}</div><div class="spl"></div></div>`;
+    const inp=pop.querySelector(".spq"),box=pop.querySelector(".spl");
+    const draw=()=>{const k=inp.value.trim().toLowerCase();
+      let a=k?SYMS.filter(x=>x.symbol.toLowerCase().includes(k)||String(x.display_name).toLowerCase().includes(k)):spTab==="fav"?SAVE.fav.map(x=>bySym[x]).filter(Boolean):SYMS.filter(x=>tabOf(x)===spTab);
+      if(!(spTab==="fav"&&!k))a=a.slice().sort((x,y)=>(bcOrder(x)-bcOrder(y))||String(x.display_name).localeCompare(y.display_name));
+      a=a.slice(0,80);
+      box.innerHTML=a.length?a.map(x=>{const c=chg(x.symbol);return`<div class="spr${x.symbol===cur?" on":""}" data-s="${esc(x.symbol)}"><span class="fv${SAVE.fav.includes(x.symbol)?" on":""}" title="Favorito">${SAVE.fav.includes(x.symbol)?"★":"☆"}</span><b>${esc(x.display_name)}</b><span class="p">${fmt(last[x.symbol],x)}</span><span class="c ${c==null?"":c>=0?"up":"dn"}">${c==null?"":(c>=0?"+":"")+c.toFixed(2)+"%"}</span></div>`}).join("")
+        :`<p class="pnote">${spTab==="fav"&&!k?"Aún no tienes favoritos: toca ☆ en cualquier mercado.":"No hay mercados con ese nombre."}</p>`;
+      box.querySelectorAll(".spr").forEach(r=>r.onclick=e=>{const sy=r.dataset.s;if(e.target.closest(".fv")){toggleFav(sy);draw();return}
+        const i=panes.indexOf(pane);if(i>=0)active=i;setSym(sy);closePop()});
+      /* precios en vivo de lo que se ve en la lista */
+      shownPick=a.slice(0,30).map(x=>x.symbol);watch()};
+    pop.querySelectorAll(".spt button").forEach(b=>b.onclick=()=>{spTab=b.dataset.t;inp.value="";pop.querySelectorAll(".spt button").forEach(x=>x.classList.toggle("on",x===b));draw()});
+    inp.oninput=draw;inp.onkeydown=e=>{if(e.key==="Enter"){const f=box.querySelector(".spr");f&&f.click()}};
+    draw();pop.dataset.for="sym";pop.classList.add("wide");showPop(anchor,"left");setTimeout(()=>inp.focus(),20)}
+  let shownPick=[];
 
   /* ---------- temporalidades: lista desplegable + favoritas ---------- */
   SAVE.tfFav=Array.isArray(SAVE.tfFav)&&SAVE.tfFav.length?SAVE.tfFav:["1m","5m","15m","1H","4H","1D"];
@@ -257,7 +323,7 @@ function start(){
       getFavTF:()=>SAVE.tfFav,
       onPickTF:t=>{kc.setPeriod(perOf(t));afterTF()},
       onTFClick:a=>{setActive(i);pop.hidden||pop.dataset.for!=="tf"?openTF(p,a):closePop()},
-      onSymbolClick:()=>{setActive(i);q.value="";if(mobile())main.classList.add("wlopen");else if(SAVE.hide.wl){SAVE.hide.wl=false;save();applyHide()}renderList();q.focus()},
+      onSymbolClick:()=>{setActive(i);const a=el.querySelector(".wsym");pop.hidden||pop.dataset.for!=="sym"?openSymPicker(p,a):closePop()},
       onSettings:a=>{pop.hidden||pop.dataset.for!=="cfg"?openCfg(a):closePop()},
       onIndicators:d=>{SAVE.panes[i]=Object.assign({},SAVE.panes[i],{ind:d});save()},
       onMagnet:m=>{SAVE.magnet=m;save()},onLastTools:t=>{SAVE.lastTools=t;save()},
@@ -280,7 +346,7 @@ function start(){
     document.querySelectorAll(".lay button").forEach(b=>b.classList.toggle("on",b.dataset.l===k));
     if(active>=n)active=0;
     k==="mtf"?buildMTF():destroyMTF();
-    setActive(active);relayout();
+    setActive(active);placeSplits();relayout();
   }
   document.querySelectorAll(".lay button").forEach(b=>b.onclick=()=>setLayout(b.dataset.l));
   function setSym(s){const p=panes[active];if(!p)return;p.kc.setSymbol(findInfo(s));SAVE.panes[active]=Object.assign({},SAVE.panes[active],{s});save();
@@ -294,6 +360,9 @@ function start(){
   function buildMTF(){
     destroyMTF();const sym=(()=>{try{return panes[0].kc.getSymbol()}catch(e){return findInfo(DEF[0])}})();
     const el=document.createElement("div");el.className="mtfrow";el.style.setProperty("--n",SAVE.tfFav.length);grid.appendChild(el);
+    const sp=document.createElement("span");sp.className="mtfsp";sp.title="Arrastra para cambiar el alto · doble clic: alto normal";el.appendChild(sp);
+    dragger(sp,e=>{const r=grid.getBoundingClientRect();SAVE.mtfh=Math.round(clamp(r.bottom-e.clientY,110,r.height*.65));appw.style.setProperty("--mtfh",SAVE.mtfh+"px")});
+    sp.ondblclick=()=>{delete SAVE.mtfh;save();applyLayoutPrefs()};
     mtf={el,sym:sym.ticker,minis:[]};
     SAVE.tfFav.forEach((t,i)=>{const per=perOf(t),g=gran(per);
       const box=document.createElement("div");box.className="mini";box.innerHTML=`<button class="mh" title="Ver ${tfName(per)} en el gráfico grande"><b>${t}</b><span class="mp"></span><em></em><i class="mz">⤢</i></button><span class="mc" title="Toca o desliza hacia arriba: ver en grande · rueda o pellizco: acercar · arrastra a los lados: mover"></span>`;el.appendChild(box);
@@ -340,6 +409,7 @@ function start(){
     let a=k?SYMS.filter(s=>s.symbol.toLowerCase().includes(k)||String(s.display_name).toLowerCase().includes(k)):tab==="fav"?SAVE.fav.map(x=>bySym[x]).filter(Boolean):SYMS.filter(s=>tabOf(s)===tab);
     a=a.slice().sort((x,y)=>tab==="fav"&&!k?0:(bcOrder(x)-bcOrder(y))||String(x.display_name).localeCompare(y.display_name)).slice(0,60);
     shown=a.map(s=>s.symbol);
+    list.classList.toggle("sortable",tab==="fav"&&!k);
     list.innerHTML=a.length?a.map(s=>`<div class="sy" data-s="${esc(s.symbol)}"><b>${SAVE.fav.includes(s.symbol)?'<span class="fv on" title="Quitar de favoritos">★</span>':'<span class="fv" title="Agregar a favoritos">☆</span>'} ${esc(s.display_name)}</b><span class="p" data-p></span><small>${esc(s.symbol)}${s.exchange_is_open===0?" · cerrado":""}</small><span class="c" data-c></span></div>`).join("")
       :`<p style="color:var(--dim);padding:8px">${tab==="fav"?"Toca ☆ en cualquier mercado para agregarlo aquí.":"No hay mercados con ese nombre."}</p>`;
     list.querySelectorAll(".sy").forEach(r=>{r.onclick=e=>{const s=r.dataset.s;
@@ -358,18 +428,27 @@ function start(){
       +`<button class="ft add" id="ftadd" title="Agregar mercado a favoritos">${ICON.plus}<span>${SAVE.fav.length?"":"Agrega tus mercados favoritos"}</span></button>`;
     ftabs.querySelectorAll(".ft[data-s]").forEach(t=>t.onclick=e=>{const s=t.dataset.s;if(e.target.closest(".x"))return toggleFav(s);setSym(s)});
     $("#ftadd").onclick=()=>{q.value="";if(mobile())main.classList.add("wlopen");else if(SAVE.hide.wl){SAVE.hide.wl=false;save();applyHide()}setTab(tab==="fav"?"bc":tab);q.focus()};
-    paintTabs();watch()}
+    paintTabs();watch();ftArrows()}
+  const ftw=$(".ftw");
+  function ftArrows(){const over=ftabs.scrollWidth>ftabs.clientWidth+2;ftw.classList.toggle("over",over);
+    ftw.querySelector('[data-d="-1"]').disabled=ftabs.scrollLeft<=2;ftw.querySelector('[data-d="1"]').disabled=ftabs.scrollLeft+ftabs.clientWidth>=ftabs.scrollWidth-2}
+  ftw.querySelectorAll(".fta").forEach(b=>b.onclick=()=>ftabs.scrollBy({left:+b.dataset.d*Math.max(160,ftabs.clientWidth*.7),behavior:"smooth"}));
+  ftabs.addEventListener("scroll",ftArrows,{passive:true});addEventListener("resize",ftArrows);
+  ftabs.addEventListener("wheel",e=>{if(Math.abs(e.deltaY)>Math.abs(e.deltaX)){ftabs.scrollLeft+=e.deltaY;e.preventDefault()}},{passive:false});
+  sortable(ftabs,".ft[data-s]","x",ord=>{SAVE.fav=ord;save();renderList();renderTabs()});
+  sortable(list,".sy","y",ord=>{SAVE.fav=ord;save();renderList();renderTabs()},()=>tab==="fav"&&!q.value.trim());
   function paintTabs(){const act=curSym(active);
-    ftabs.querySelectorAll(".ft[data-s]").forEach(t=>{const s=t.dataset.s,c=chg(s);t.classList.toggle("on",s===act);
+    ftabs.querySelectorAll(".ft[data-s]").forEach(t=>{const s=t.dataset.s,c=chg(s);if(s===act&&!t.classList.contains("on"))setTimeout(()=>t.scrollIntoView({inline:"nearest",block:"nearest",behavior:"smooth"}),30);t.classList.toggle("on",s===act);
       t.querySelector("[data-p]").textContent=fmt(last[s],bySym[s]||{});t.querySelector("[data-p]").className="p "+(dir[s]||"");
       const ce=t.querySelector("[data-c]");if(c!=null){ce.textContent=(c>=0?"▲ ":"▼ ")+Math.abs(c).toFixed(2)+"%";ce.className="c "+(c>=0?"up":"dn")}else ce.textContent="";
       t.querySelector(".dot").className="dot "+(c==null?"":c>=0?"up":"dn")})}
   /* precios en vivo: favoritos + mercados visibles en la lista */
   let watching=new Set(),wt=null;
   const rowOf=s=>list.querySelector(`.sy[data-s="${CSS.escape(s)}"]`);
-  function onPrice(s){const r=rowOf(s);r&&paintRow(r);if(SAVE.fav.includes(s))paintTabs()}
+  function onPrice(s){const r=rowOf(s);r&&paintRow(r);if(SAVE.fav.includes(s))paintTabs();
+    if(!pop.hidden&&pop.dataset.for==="sym"){const pr=pop.querySelector(`.spr[data-s="${CSS.escape(s)}"]`);if(pr){const x=bySym[s]||{},c=chg(s);pr.querySelector(".p").textContent=fmt(last[s],x);const ce=pr.querySelector(".c");ce.className="c "+(c==null?"":c>=0?"up":"dn");ce.textContent=c==null?"":(c>=0?"+":"")+c.toFixed(2)+"%"}}}
   function watch(){clearTimeout(wt);wt=setTimeout(()=>{
-    const want=new Set(SAVE.fav.concat(shown.slice(0,40)));
+    const want=new Set(SAVE.fav.concat(shown.slice(0,40),shownPick||[]));
     watching.forEach(s=>{if(!want.has(s)){feed.unsub("tick:"+s);watching.delete(s)}});
     want.forEach(s=>{if(watching.has(s))return;watching.add(s);
       feed.sub("tick:"+s,{ticks:s},m=>{if(m.tick){const prev=last[s];last[s]=+m.tick.quote;if(prev!=null)dir[s]=last[s]>prev?"up":last[s]<prev?"dn":dir[s];onPrice(s)}},()=>{});
@@ -377,7 +456,7 @@ function start(){
     })},250)}
 
   $("#cfgb").onclick=e=>{e.stopPropagation();pop.hidden||pop.dataset.for!=="cfg"?openCfg($("#cfgb")):closePop()};
-  applyHide();applyCfg();setLayout(lay);setTab(tab);renderTabs();
+  applyHide();applyCfg();applyLayoutPrefs();setLayout(lay);setTab(tab);renderTabs();
   ready.then(()=>{setTab(tab);renderTabs();panes.forEach(p=>{try{const t=p.kc.getSymbol().ticker;if(bySym[t]&&info(bySym[t]).pricePrecision!==p.kc.getSymbol().pricePrecision)p.kc.setSymbol(info(bySym[t]))}catch(e){}})});
   addEventListener("resize",()=>{if(mobile()&&!["l1","l2v","mtf"].includes(lay))setLayout("l1")});
 }
