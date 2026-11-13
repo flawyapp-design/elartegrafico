@@ -394,7 +394,7 @@ window.EAGWidget=function(o){
   let drawingId=null;
   /* ---------- pincel ---------- */
   let brushOn=false,brushEl=null;
-  function startBrush(){cancelDraw();if(brushOn)return;brushOn=true;
+  function startBrush(){cancelDraw();if(brushOn)return;brushOn=true;setTimeout(syncPan,0);
     brushEl=document.createElement("canvas");brushEl.className="wbrush";chartEl.appendChild(brushEl);
     const fit=()=>{const r=chartEl.getBoundingClientRect(),d=devicePixelRatio||1;brushEl.width=r.width*d;brushEl.height=r.height*d;brushEl.style.width=r.width+"px";brushEl.style.height=r.height+"px"};fit();
     const cx=brushEl.getContext("2d");let pts=null;
@@ -409,24 +409,27 @@ window.EAGWidget=function(o){
       if(points.length<2)return;const bs2=((o.getToolStyle&&o.getToolStyle("eagBrush"))||{}).ex||{};const id=makeOverlay({name:"eagBrush",points,extendData:{color:bs2.color||GOLD,size:bs2.size||2}},false);if(id){const v=ovs.get(id);v.done=true;v.points=points;persist()}};
     brushEl.oncontextmenu=e=>{e.preventDefault();stopBrush()};
     dbar.querySelector("[data-b]")&&dbar.querySelector("[data-b]").classList.add("act");o.onToast&&o.onToast("✏️ Pincel activo: dibuja o escribe sobre el gráfico. Esc o clic derecho para salir.")}
-  function stopBrush(){if(!brushOn)return;brushOn=false;if(brushEl){brushEl.remove();brushEl=null}const b=dbar.querySelector("[data-b]");b&&b.classList.remove("act")}
-  function cancelDraw(){if(drawingId){try{chart.removeOverlay(drawingId)}catch(e){}ovs.delete(drawingId);drawingId=null}dbar.querySelectorAll(".dt").forEach(b=>b.classList.remove("act"))}
+  function stopBrush(){if(!brushOn)return;brushOn=false;setTimeout(syncPan,0);if(brushEl){brushEl.remove();brushEl=null}const b=dbar.querySelector("[data-b]");b&&b.classList.remove("act")}
+  /* mientras dibujas o tienes un dibujo seleccionado, el gráfico no se mueve (así se coloca mejor, sobre todo en celular) */
+  let panLocked=false;
+  function syncPan(){const lock=!!(drawingId||selId||brushOn);if(lock===panLocked)return;panLocked=lock;try{chart.setScrollEnabled(!lock);chart.setZoomEnabled(!lock)}catch(e){}chartEl.classList.toggle("locked",lock)}
+  function cancelDraw(){if(drawingId){try{chart.removeOverlay(drawingId)}catch(e){}ovs.delete(drawingId);drawingId=null}dbar.querySelectorAll(".dt").forEach(b=>b.classList.remove("act"));syncPan()}
   function startTool(name){cancelDraw();
     const ts=(o.getToolStyle&&o.getToolStyle(name))||{};
     const ex=Object.assign(name==="eagText"?{text:"Texto"}:{},ts.ex||{});
-    const id=makeOverlay({name,extendData:Object.keys(ex).length?ex:undefined,styles:ts.styles||undefined},true);if(!id)return;drawingId=id;
+    const id=makeOverlay({name,extendData:Object.keys(ex).length?ex:undefined,styles:ts.styles||undefined},true);if(!id)return;drawingId=id;syncPan();
     dbar.querySelectorAll(".dt[data-k]").forEach(b=>b.classList.toggle("act",b.dataset.k===name))}
   function makeOverlay(def,drawing){
     if(!drawing&&BOX.test(def.name)&&def.points&&def.points.length===2)def=Object.assign({},def,{points:boxPts(def.points[0],def.points[1]).map(p=>({timestamp:p.timestamp,value:p.value}))});
     const id=chart.createOverlay({name:def.name,points:def.points,styles:def.styles,extendData:def.extendData,lock:!!def.lock,visible:!hidden,mode:magnet,
-      onDrawEnd:e=>{drawingId=null;dbar.querySelectorAll(".dt").forEach(b=>b.classList.remove("act"));
+      onDrawEnd:e=>{drawingId=null;dbar.querySelectorAll(".dt").forEach(b=>b.classList.remove("act"));setTimeout(syncPan,0);
         if((e.overlay.name==="eagLong"||e.overlay.name==="eagShort")&&e.overlay.points.length<3)autoPos(e.overlay);
         if(BOX.test(e.overlay.name)&&e.overlay.points.length<8&&e.overlay.points.length>=2){const ps=e.overlay.points;chart.overrideOverlay({id:e.overlay.id,points:boxPts({timestamp:tsOf(ps[0]),dataIndex:ps[0].dataIndex,value:ps[0].value},{timestamp:tsOf(ps[1]),dataIndex:ps[1].dataIndex,value:ps[1].value})})}
         capture(chart.getOverlayById(e.overlay.id)||e.overlay);if(e.overlay.name==="eagText")setTimeout(()=>editText(e.overlay.id),30);return false},
       onPressedMoveStart:()=>{movingOv=true;return false},
       onPressedMoveEnd:e=>{movingOv=false;capture(e.overlay);return false},
-      onSelected:e=>{selId=e.overlay.id;showStyleBar(e.overlay.id);return false},
-      onDeselected:e=>{if(selId===e.overlay.id){selId=null;hideStyleBar()}return false},
+      onSelected:e=>{selId=e.overlay.id;showStyleBar(e.overlay.id);syncPan();return false},
+      onDeselected:e=>{if(selId===e.overlay.id){selId=null;hideStyleBar()}syncPan();return false},
       onRemoved:e=>{if(bulk)return false;ovs.delete(e.overlay.id);if(selId===e.overlay.id){selId=null;hideStyleBar()}persist();return false},
       onDoubleClick:e=>{if(e.overlay.id!==drawingId)openCtx(e.overlay.id,e,true);return false},
       onRightClick:e=>{try{if(e.overlay.id===drawingId){cancelDraw();return true}openCtx(e.overlay.id,e)}catch(x){}return true}});
@@ -455,7 +458,7 @@ window.EAGWidget=function(o){
   function applySnap(ns){const all=loadD(),arr=JSON.parse(ns);if(arr.length)all[sym.ticker]=arr;else delete all[sym.ticker];saveD(all);snap=ns;restoreDrawings(true);o.onDrawingsChange&&o.onDrawingsChange(sym.ticker)}
   function undo(){if(!hist.length)return false;fut.push(snap);applySnap(hist.pop());return true}
   function redo(){if(!fut.length)return false;hist.push(snap);applySnap(fut.pop());return true}
-  function restoreDrawings(keepHist){bulk=true;try{chart.removeOverlay()}catch(e){}bulk=false;ovs.clear();hideStyleBar();
+  function restoreDrawings(keepHist){selId=null;setTimeout(syncPan,0);bulk=true;try{chart.removeOverlay()}catch(e){}bulk=false;ovs.clear();hideStyleBar();
     if(!keepHist){hist=[];fut=[];snap=JSON.stringify(loadD()[sym.ticker]||[])}
     setTimeout(renderAlerts,0);
     (loadD()[sym.ticker]||[]).forEach(d=>{if(d.points&&d.points.every(p=>p.timestamp))makeOverlay(d,false)})}
@@ -489,7 +492,7 @@ window.EAGWidget=function(o){
     /* para líneas inclinadas se usa el precio del punto más reciente */
     const price=zone?Math.max(...ps):(/^(segment|rayLine|straightLine)$/.test(v.name)?ps[ps.length-1]:ps[0]);
     o.onCreateAlert({symbol:sym.ticker,symbol_name:sym.name||sym.ticker,kind:zone?"zona":"nivel",price:r(price),price2:zone?r(Math.min(...ps)):null})}
-  function removeOv(id){try{chart.removeOverlay(id)}catch(e){}ovs.delete(id);persist();hideStyleBar();closeMenu()}
+  function removeOv(id){try{chart.removeOverlay(id)}catch(e){}ovs.delete(id);if(selId===id)selId=null;persist();hideStyleBar();closeMenu();syncPan()}
   function dupOv(id){const v=ovs.get(id);if(!v||!v.points)return;const L=chart.getDataList(),last=L[L.length-1],first=L[0],shift=(last&&first&&L.length>2)?(L[1].timestamp-L[0].timestamp)*5:0;
     const d=JSON.parse(JSON.stringify(v));d.points=d.points.map(p=>({timestamp:p.timestamp+shift,value:p.value}));const nid=makeOverlay(d,false);if(nid){ovs.get(nid).done=true;persist()}}
   function toggleLock(id){const v=ovs.get(id);if(!v)return;v.lock=!v.lock;chart.overrideOverlay({id,lock:v.lock});persist();if(!sbar.hidden)showStyleBar(id)}
@@ -562,7 +565,7 @@ window.EAGWidget=function(o){
   chartEl.addEventListener("touchend",()=>{yDrag=null},{capture:true});
   /* mover el gráfico hacia arriba y abajo arrastrando (dedo o mouse), como TradingView */
   let vpan=null,movingOv=false;
-  chartEl.addEventListener("pointerdown",e=>{if(e.button!==0||drawingId||brushOn||e.shiftKey)return;let ya;try{ya=chart.getSize("candle_pane","yAxis")}catch(x){return}if(!ya)return;
+  chartEl.addEventListener("pointerdown",e=>{if(e.button!==0||drawingId||brushOn||selId||e.shiftKey)return;let ya;try{ya=chart.getSize("candle_pane","yAxis")}catch(x){return}if(!ya)return;
     const r=chartEl.getBoundingClientRect(),x=e.clientX-r.left,y=e.clientY-r.top;if(x>=ya.left||y>ya.height)return;
     const ax=chart._candlePane&&chart._candlePane.getAxisComponent();if(!ax||!ax._range)return;
     vpan={x0:e.clientX,y0:e.clientY,ax,h:ya.height,r0:Object.assign({},ax._range),on:false}},true);
