@@ -312,7 +312,12 @@ window.EAGWidget=function(o){
   /* ---------- barra de dibujo ---------- */
   const lastTool=Object.assign({},o.lastTools||{});
   let menu=null;const closeMenu=()=>{if(menu){menu.remove();menu=null}};
-  document.addEventListener("pointerdown",e=>{if(menu&&!menu.contains(e.target)&&!e.target.closest(".dg .more"))closeMenu()},true);
+  /* cualquier clic o toque afuera cierra el menú del dibujo; fuera del gráfico también se quita la barra de estilo */
+  const outside=e=>{const t=e.target;if(!t||!t.closest)return;
+    if(menu&&!menu.contains(t)&&!t.closest(".dg .more")&&!t.closest(".dg>.dt"))closeMenu();
+    if(!sbar.hidden&&!sbar.contains(t)&&!chartEl.contains(t)&&!(menu&&menu.contains(t))){hideStyleBar()}};
+  ["pointerdown","mousedown","touchstart"].forEach(ev=>document.addEventListener(ev,outside,{capture:true,passive:true}));
+  addEventListener("blur",()=>{if(menu&&!menu.classList.contains("panel"))closeMenu()});
   function paintDbar(){
     dbar.innerHTML=`<div class="dmini"><button class="dt dtf" title="Temporalidad (todas)"><b>${esc(per.text)}</b></button><button class="dt" data-mi="sym" title="Cambiar mercado">${svg("list",17)}</button><button class="dt" data-mi="ind" title="Indicadores">${svg("fx",17)}</button><i class="dsep"></i></div><button class="dt" data-k="cross" title="Cursor (cancelar dibujo)">${svg("cross")}</button><button class="dt" data-k="eagMeasure" title="Regla: medir puntos (también Shift + clic)">${tsvg("eagMeasure")}</button><i class="dsep"></i>`+
       TOOLS.map(g=>{const cur=lastTool[g.g]||g.items[0][0];return`<div class="dg" data-g="${g.g}"><button class="dt" data-k="${cur}" title="${esc(TNAME[cur])}">${tsvg(cur)}</button><button class="more" title="${esc(g.t)}">${svg("caret",9)}</button></div>`}).join("")+
