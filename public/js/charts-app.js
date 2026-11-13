@@ -473,7 +473,7 @@ function start(){
   document.addEventListener("dragstart",e=>{if(!editable(e.target))e.preventDefault()});
   document.addEventListener("contextmenu",e=>{if(!editable(e.target))e.preventDefault()});
   /* ---------- barra flotante de dibujos favoritos (se arrastra adonde quieras) ---------- */
-  SAVE.toolFav=Array.isArray(SAVE.toolFav)?SAVE.toolFav:["segment","horizontalStraightLine","eagZone","fibonacciLine","eagPosition","eagMeasure"];
+  SAVE.toolFav=Array.isArray(SAVE.toolFav)?SAVE.toolFav.flatMap(k=>k==="eagPosition"?["eagLong","eagShort"]:[k]):["segment","horizontalStraightLine","eagZone","fibonacciLine","eagLong","eagShort","eagMeasure"];
   const tfav=document.createElement("div");tfav.className="tfav";appw.appendChild(tfav);
   function placeTfav(){const r=grid.getBoundingClientRect(),w=tfav.offsetWidth||200,h=tfav.offsetHeight||36;
     let x,y;if(SAVE.tfavPos){x=SAVE.tfavPos.x;y=SAVE.tfavPos.y}else{x=r.left+r.width/2-w/2;y=r.top+48}

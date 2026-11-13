@@ -35,6 +35,26 @@ function registerAll(){
         lab(cx,t.y+(t.y<e.y?-10:10),`Objetivo ${fmt(tv,pp)} (${pct(rew)})`,cu),
         lab(cx,s.y+(s.y<e.y?-10:10),`Stop ${fmt(sv,pp)} (${pct(risk)})`,cd),
         lab(cx,e.y,`${long?"Largo":"Corto"} · R:B 1:${risk?(rew/risk).toFixed(2):"—"}`,"#2a2d35")]}});
+  /* Posición larga (compra) y corta (venta), como TradingView: un clic pone la entrada; stop y objetivo salen solos y se arrastran */
+  const posFig=side=>({overlay,coordinates,precision})=>{
+    if(coordinates.length<3)return[];
+    const p=overlay.points,pp=(precision&&precision.price)||3,e=coordinates[0],s=coordinates[1],t=coordinates[2];
+    const x1=Math.min(e.x,s.x,t.x),x2=Math.max(e.x,s.x,t.x),w=Math.max(x2-x1,30);
+    const ev=p[0].value,sv=p[1].value,tv=p[2].value,risk=Math.abs(ev-sv),rew=Math.abs(tv-ev);
+    const ex=overlay.extendData||{},cu=ex.up||"#22ab94",cd=ex.dn||"#f23645";
+    const pct=v=>(v/ev*100).toFixed(2)+"%";
+    const lab=(x,y,txt,bg)=>({type:"text",ignoreEvent:true,attrs:{x,y,text:txt,align:"center",baseline:"middle"},styles:{color:"#fff",size:11,backgroundColor:bg,paddingLeft:7,paddingRight:7,paddingTop:3,paddingBottom:3,borderRadius:4}});
+    const cx=x1+w/2,okDir=side==="long"?(tv>ev&&sv<ev):(tv<ev&&sv>ev);
+    return[
+      {type:"rect",attrs:{x:x1,y:Math.min(e.y,t.y),width:w,height:Math.abs(t.y-e.y)},styles:{style:"fill",color:hexA(cu,.2)}},
+      {type:"rect",attrs:{x:x1,y:Math.min(e.y,s.y),width:w,height:Math.abs(s.y-e.y)},styles:{style:"fill",color:hexA(cd,.2)}},
+      {type:"line",attrs:{coordinates:[{x:x1,y:t.y},{x:x1+w,y:t.y}]},styles:{color:cu,size:1}},
+      {type:"line",attrs:{coordinates:[{x:x1,y:s.y},{x:x1+w,y:s.y}]},styles:{color:cd,size:1}},
+      {type:"line",attrs:{coordinates:[{x:x1,y:e.y},{x:x1+w,y:e.y}]},styles:{color:"#9da1aa",size:1}},
+      lab(cx,t.y+(t.y<e.y?-11:11),`Objetivo ${fmt(tv,pp)} · ${fmt(rew,pp)} pts (${pct(rew)})`,cu),
+      lab(cx,s.y+(s.y<e.y?-11:11),`Stop ${fmt(sv,pp)} · ${fmt(risk,pp)} pts (${pct(risk)})`,cd),
+      lab(cx,e.y,`${side==="long"?"▲ Compra":"▼ Venta"} ${fmt(ev,pp)} · R:B 1:${risk?(rew/risk).toFixed(2):"—"}${okDir?"":" ⚠"}`,"#2a2d35")]};
+  ["eagLong","eagShort"].forEach(n=>KC.registerOverlay({name:n,totalStep:2,needDefaultPointFigure:true,needDefaultXAxisFigure:true,needDefaultYAxisFigure:true,createPointFigures:posFig(n==="eagLong"?"long":"short")}));
   /* Medir: diferencia de precio, %, velas y tiempo */
   KC.registerOverlay({name:"eagMeasure",totalStep:3,needDefaultPointFigure:true,needDefaultXAxisFigure:true,needDefaultYAxisFigure:true,
     createPointFigures:({overlay,coordinates,precision})=>{
@@ -89,9 +109,9 @@ const TOOLS=[
   {g:"fib",t:"Fibonacci y Gann",items:[["fibonacciLine","Retroceso de Fibonacci"],["fibonacciExtension","Extensión de Fibonacci"],["fibonacciSegment","Segmentos de Fibonacci"],["fibonacciSpeedResistanceFan","Abanico de Fibonacci"],["fibonacciCircle","Círculos de Fibonacci"],["fibonacciSpiral","Espiral de Fibonacci"],["gannBox","Caja de Gann"]]},
   {g:"shape",t:"Formas y zonas",items:[["eagZone","Zona (se extiende a la derecha)"],["rect","Rectángulo"],["circle","Círculo"],["triangle","Triángulo"],["parallelogram","Paralelogramo"]]},
   {g:"pat",t:"Patrones y ondas",items:[["xabcd","Patrón XABCD"],["abcd","Patrón ABCD"],["threeWaves","Tres ondas"],["fiveWaves","Cinco ondas (Elliott)"],["eightWaves","Ocho ondas"],["anyWaves","Ondas libres"]]},
-  {g:"pos",t:"Posición y medición",items:[["eagPosition","Posición larga / corta"],["eagMeasure","Regla: medir puntos, %, velas y tiempo"]]},
+  {g:"pos",t:"Posición y medición",items:[["eagLong","Posición larga (compra)"],["eagShort","Posición corta (venta)"],["eagMeasure","Regla: medir puntos, %, velas y tiempo"]]},
   {g:"txt",t:"Texto y notas",items:[["eagText","Texto"],["simpleAnnotation","Nota con flecha"],["simpleTag","Etiqueta de precio"]]}];
-const TNAME={};TOOLS.forEach(g=>g.items.forEach(([k,t])=>TNAME[k]=t));
+const TNAME={eagPosition:"Posición (antigua)"};TOOLS.forEach(g=>g.items.forEach(([k,t])=>TNAME[k]=t));
 const IC={
   lines:'<path d="M4 20 20 4"/><circle cx="4" cy="20" r="1.6"/><circle cx="20" cy="4" r="1.6"/>',
   chan:'<path d="M3 15 15 3M9 21 21 9"/>',
@@ -149,6 +169,8 @@ const TI={
   fiveWaves:'<path d="M2 19 6 11l3 4 5-10 3 6 5-8"/>',
   eightWaves:'<path d="M1 19l3-6 2 3 3-8 2 4 3-9 3 10 3-4 3 6"/>',
   anyWaves:'<path d="M2 16c3-8 5 6 8-2s5 6 8-2 3 2 4 0"/>',
+  eagLong:'<rect x="4" y="4" width="16" height="8" fill="#22ab94" opacity=".45" stroke="none"/><rect x="4" y="12" width="16" height="6" fill="#f23645" opacity=".45" stroke="none"/><path d="M4 12h16M9 9l3-3 3 3"/>',
+  eagShort:'<rect x="4" y="6" width="16" height="6" fill="#f23645" opacity=".45" stroke="none"/><rect x="4" y="12" width="16" height="8" fill="#22ab94" opacity=".45" stroke="none"/><path d="M4 12h16M9 15l3 3 3-3"/>',
   eagPosition:'<rect x="4" y="4" width="16" height="7" fill="#22ab94" opacity=".35" stroke="none"/><rect x="4" y="11" width="16" height="7" fill="#f23645" opacity=".35" stroke="none"/><path d="M4 11h16"/>',
   eagMeasure:'<path d="M3 17 17 3l4 4L7 21z"/><path d="m7 13 2 2M10 10l2 2M13 7l2 2"/>',
   eagText:'<path d="M5 6V4h14v2M12 4v16M9 20h6"/>',
@@ -274,7 +296,9 @@ window.EAGWidget=function(o){
     dbar.querySelectorAll(".dt[data-k]").forEach(b=>b.classList.toggle("act",b.dataset.k===name))}
   function makeOverlay(def,drawing){
     const id=chart.createOverlay({name:def.name,points:def.points,styles:def.styles,extendData:def.extendData,lock:!!def.lock,visible:!hidden,mode:magnet,
-      onDrawEnd:e=>{drawingId=null;dbar.querySelectorAll(".dt").forEach(b=>b.classList.remove("act"));capture(e.overlay);if(e.overlay.name==="eagText")setTimeout(()=>editText(e.overlay.id),30);return false},
+      onDrawEnd:e=>{drawingId=null;dbar.querySelectorAll(".dt").forEach(b=>b.classList.remove("act"));
+        if((e.overlay.name==="eagLong"||e.overlay.name==="eagShort")&&e.overlay.points.length<3)autoPos(e.overlay);
+        capture(chart.getOverlayById(e.overlay.id)||e.overlay);if(e.overlay.name==="eagText")setTimeout(()=>editText(e.overlay.id),30);return false},
       onPressedMoveEnd:e=>{capture(e.overlay);return false},
       onSelected:e=>{selId=e.overlay.id;showStyleBar(e.overlay.id);return false},
       onDeselected:e=>{if(selId===e.overlay.id){selId=null;hideStyleBar()}return false},
@@ -283,6 +307,14 @@ window.EAGWidget=function(o){
       onRightClick:e=>{openCtx(e.overlay.id,e);return true}});
     if(id){ovs.set(id,{name:def.name,styles:def.styles||null,extendData:def.extendData||null,lock:!!def.lock,points:def.points||null});if(!drawing)ovs.get(id).done=true}
     return id}
+  /* stop y objetivo automáticos (1:2) según el rango reciente del gráfico */
+  function autoPos(ov){const L=chart.getDataList();if(!L.length)return;const p0=ov.points[0];
+    let i=p0.dataIndex!=null?p0.dataIndex:L.length-1;i=Math.max(0,Math.min(L.length-1,i));
+    const seg=L.slice(Math.max(0,i-60),i+1);let hi=-Infinity,lo=Infinity;seg.forEach(k=>{hi=Math.max(hi,k.high);lo=Math.min(lo,k.low)});
+    const d=Math.max((hi-lo)*.25,Math.abs(p0.value)*.0005),long=ov.name==="eagLong";
+    const bar=L.length>1?L[1].timestamp-L[0].timestamp:6e4,ts=(p0.timestamp||L[i].timestamp)+bar*24;
+    const pts=[{timestamp:p0.timestamp,value:p0.value},{timestamp:ts,value:long?p0.value-d:p0.value+d},{timestamp:ts,value:long?p0.value+2*d:p0.value-2*d}];
+    chart.overrideOverlay({id:ov.id,points:pts})}
   function capture(ov){const v=ovs.get(ov.id);if(!v)return;v.points=(ov.points||[]).map(p=>({timestamp:p.timestamp,value:p.value}));v.done=true;v.lock=!!ov.lock;persist()}
   /* guardado por mercado (todas las temporalidades), como en TradingView */
   function persist(){if(!sym)return;const all=loadD();const arr=[];ovs.forEach(v=>{if(v.done&&v.points&&v.points.length)arr.push({name:v.name,points:v.points,styles:v.styles,extendData:v.extendData,lock:v.lock})});
@@ -298,7 +330,7 @@ window.EAGWidget=function(o){
     return{color:isTxt?((v.extendData||{}).color||GOLD):((s.line&&s.line.color)||(s.polygon&&s.polygon.borderColor)||GOLD),size:(s.line&&s.line.size)||(s.polygon&&s.polygon.borderSize)||1,
       dash:(s.line&&s.line.style)==="dashed"?((s.line.dashedValue||[4,4])[0]<=2?"dot":"dash"):"solid",fill:s.polygon?s.polygon.color:null}};
   function setStyle(id,ch){const v=ovs.get(id);if(!v)return;const c=Object.assign(curStyle(id),ch);
-    if(v.name==="eagText"||v.name==="eagZone"||v.name==="eagPosition"){v.extendData=Object.assign({},v.extendData||{},v.name==="eagPosition"?{}:{color:c.color});if(ch.size&&v.name==="eagText")v.extendData.size=10+ch.size*2;chart.overrideOverlay({id,extendData:v.extendData})}
+    if(v.name==="eagText"||v.name==="eagZone"||/^eag(Position|Long|Short)$/.test(v.name)){v.extendData=Object.assign({},v.extendData||{},/^eag(Position|Long|Short)$/.test(v.name)?{}:{color:c.color});if(ch.size&&v.name==="eagText")v.extendData.size=10+ch.size*2;chart.overrideOverlay({id,extendData:v.extendData})}
     else{const st={line:{color:c.color,size:c.size,style:c.dash==="solid"?"solid":"dashed",dashedValue:c.dash==="dot"?[1,3]:[5,4]},
         polygon:{borderColor:c.color,borderSize:c.size,borderStyle:c.dash==="solid"?"solid":"dashed",color:c.fill!=null?c.fill:hexA(c.color,.14)},
         rect:{borderColor:c.color,borderSize:c.size,color:c.fill!=null?c.fill:hexA(c.color,.14)},circle:{borderColor:c.color,borderSize:c.size,color:c.fill!=null?c.fill:hexA(c.color,.14)},
@@ -311,7 +343,7 @@ window.EAGWidget=function(o){
   function toggleLock(id){const v=ovs.get(id);if(!v)return;v.lock=!v.lock;chart.overrideOverlay({id,lock:v.lock});persist();if(!sbar.hidden)showStyleBar(id)}
   function showStyleBar(id){const v=ovs.get(id);if(!v)return;const c=curStyle(id);
     sbar.innerHTML=`<span class="sn">${tsvg(v.name,16)}${esc(TNAME[v.name]||v.name)}</span><label class="cc" title="Color"><i style="background:${c.color}"></i><input type="color" value="${/^#/.test(c.color)?c.color.slice(0,7):GOLD}"></label>
-      ${v.name==="eagPosition"?"":`<select title="Grosor">${[1,2,3,4].map(n=>`<option value="${n}" ${+c.size===n?"selected":""}>${n}px</option>`).join("")}</select>
+      ${/^eag(Position|Long|Short)$/.test(v.name)?"":`<select title="Grosor">${[1,2,3,4].map(n=>`<option value="${n}" ${+c.size===n?"selected":""}>${n}px</option>`).join("")}</select>
       <select title="Tipo de línea"><option value="solid" ${c.dash==="solid"?"selected":""}>━ Sólida</option><option value="dash" ${c.dash==="dash"?"selected":""}>╍ Guiones</option><option value="dot" ${c.dash==="dot"?"selected":""}>┈ Puntos</option></select>`}
       ${v.name==="eagText"||v.name==="eagZone"?`<button data-a="txt" title="Editar texto">Aa</button>`:""}
       <button data-a="lock" title="${v.lock?"Desbloquear":"Bloquear"}">${svg(v.lock?"lock":"unlock",16)}</button><button data-a="dup" title="Duplicar">${svg("copy",16)}</button><button data-a="del" title="Eliminar (Supr)">${svg("trash",16)}</button>`;
@@ -327,7 +359,7 @@ window.EAGWidget=function(o){
     menu=document.createElement("div");menu.className="wmenu ctx";
     menu.innerHTML=`<div class="mt mti">${tsvg(v.name,15)}${esc(TNAME[v.name]||v.name)}</div>
       <div class="mrow">${COLORS.map(k=>`<button class="sw${c.color===k?" on":""}" data-c="${k}" style="background:${k}" title="${k}"></button>`).join("")}<label class="sw pick" title="Otro color">+<input type="color" value="${/^#/.test(c.color)?c.color.slice(0,7):GOLD}"></label></div>
-      ${v.name==="eagPosition"?"":`<div class="ml">Grosor</div><div class="mrow">${[1,2,3,4].map(n=>`<button class="wd${+c.size===n?" on":""}" data-w="${n}" title="${n}px"><i style="height:${n}px"></i></button>`).join("")}</div>
+      ${/^eag(Position|Long|Short)$/.test(v.name)?"":`<div class="ml">Grosor</div><div class="mrow">${[1,2,3,4].map(n=>`<button class="wd${+c.size===n?" on":""}" data-w="${n}" title="${n}px"><i style="height:${n}px"></i></button>`).join("")}</div>
       <div class="ml">Línea</div><div class="mrow">${[["solid","Sólida"],["dash","Guiones"],["dot","Puntos"]].map(([k,t])=>`<button class="ls${c.dash===k?" on":""}" data-d="${k}" title="${t}"><i class="${k}"></i></button>`).join("")}</div>`}
       ${isFill(v.name)?`<div class="ml">Relleno</div><div class="mrow">${[0,.08,.16,.3,.5].map(a=>`<button class="fa" data-f="${a}" title="${Math.round(a*100)}%"><i style="background:${hexA(c.color,a||.0001)};${a?"":"border:1px dashed var(--dim)"}"></i></button>`).join("")}</div>`:""}
       <div class="msep"></div>
