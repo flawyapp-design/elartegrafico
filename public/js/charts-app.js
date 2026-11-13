@@ -291,7 +291,7 @@ function start(){
   const grid=$("#grid"),panes=[];let active=0;
   const UP="#22ab94",DN="#f23645",NC="#9da1aa";
   /* ---------- ajustes del gráfico (tema, fondo, cuadrícula, velas…) ---------- */
-  const CDEF={theme:"dark",bg:"",grid:true,up:UP,dn:DN,type:"candle_solid",last:true,hl:true,cross:true,wm:true,axis:true};
+  const CDEF={theme:"dark",bg:"",grid:true,wmMode:"both",wmOp:10,wmSize:100,wmColor:"auto",up:UP,dn:DN,type:"candle_solid",last:true,hl:true,cross:true,wm:true,axis:true};
   SAVE.cfg=Object.assign({},CDEF,SAVE.cfg||{});
   const CF=()=>SAVE.cfg,light=()=>CF().theme==="light";
   const barOf=()=>{const c=CF();return{upColor:c.up,downColor:c.dn,noChangeColor:NC,upBorderColor:c.up,downBorderColor:c.dn,noChangeBorderColor:NC,upWickColor:c.up,downWickColor:c.dn,noChangeWickColor:NC}};
@@ -302,6 +302,8 @@ function start(){
   const BGS=["#0b0c0e","#000000","#131722","#0d1512","#15121b","#ffffff","#faf8f3","#f3f5f8"];
   function applyCfg(){const c=CF();
     document.documentElement.classList.toggle("light",light());appw.classList.toggle("h-wm",!c.wm);
+    const de=document.documentElement;de.dataset.wm=c.wmMode;de.style.setProperty("--wmo",(+c.wmOp||0)/100);de.style.setProperty("--wms",(+c.wmSize||100)/100);
+    de.style.setProperty("--wmc",c.wmColor==="auto"?(light()?"#15171c":"#ffffff"):c.wmColor);
     document.documentElement.style.setProperty("--chartbg",c.bg||(light()?"#ffffff":"#0b0c0e"));
     const tc=document.querySelector('meta[name="theme-color"]');tc&&tc.setAttribute("content",light()?"#ffffff":"#0b0c0e");
     panes.forEach(p=>{try{if(p.kc.getTheme()!==c.theme)p.kc.setTheme(c.theme)}catch(e){}setTimeout(()=>{try{p.kc.setStyles(styFor())}catch(e){}},40)});
@@ -314,6 +316,10 @@ function start(){
       <div class="ph">Velas</div><div class="seg">${TYPES.map(([v,t])=>`<button data-ty="${v}" class="${c.type===v?"on":""}">${t}</button>`).join("")}</div>
       <div class="cols"><label>Alcista <input type="color" data-col="up" value="${c.up}"></label><label>Bajista <input type="color" data-col="dn" value="${c.dn}"></label></div>
       <div class="ph">Mostrar</div>${tg("grid","Cuadrícula")}${tg("axis","Ejes de precio y hora")}${tg("last","Línea del último precio")}${tg("hl","Máximo y mínimo visibles")}${tg("cross","Cruz del cursor")}${tg("wm","Marca de agua")}
+      ${c.wm?`<div class="ph">Marca de agua</div><div class="seg">${[["both","Marca y mercado"],["sym","Solo mercado"],["brand","Solo marca"]].map(([v,t])=>`<button data-wm="${v}" class="${c.wmMode===v?"on":""}">${t}</button>`).join("")}</div>
+      <label class="rg"><span>Visibilidad</span><input type="range" min="2" max="60" step="1" data-r="wmOp" value="${c.wmOp}"><em>${c.wmOp}%</em></label>
+      <label class="rg"><span>Tamaño</span><input type="range" min="50" max="200" step="5" data-r="wmSize" value="${c.wmSize}"><em>${c.wmSize}%</em></label>
+      <div class="sws wmc">${[["auto","Automático"],["#e2b55c","Dorado"],["#ffffff","Blanco"],["#000000","Negro"],["#2962ff","Azul"]].map(([v,t])=>`<button class="swc${c.wmColor===v?" on":""}" data-wc="${v}" title="${t}" style="background:${v==="auto"?"linear-gradient(135deg,#fff 50%,#15171c 50%)":v}"></button>`).join("")}</div>`:""}
       <div class="pbtns"><button class="btn sm" data-a="reset">Restaurar valores</button></div>
       <div class="pnote">Indicadores, zona horaria, escala logarítmica y más ajustes: íconos de la barra del gráfico.</div>`;
     const set=(k,v)=>{SAVE.cfg[k]=v;save();applyCfg();openCfg(anchor)};
@@ -323,6 +329,9 @@ function start(){
     pop.querySelectorAll("[data-ty]").forEach(b=>b.onclick=()=>set("type",b.dataset.ty));
     pop.querySelectorAll("[data-col]").forEach(i=>i.onchange=()=>set(i.dataset.col,i.value));
     pop.querySelectorAll(".sw input").forEach(i=>i.onchange=()=>set(i.dataset.k,i.checked));
+    pop.querySelectorAll("[data-wm]").forEach(b=>b.onclick=()=>set("wmMode",b.dataset.wm));
+    pop.querySelectorAll("[data-wc]").forEach(b=>b.onclick=()=>set("wmColor",b.dataset.wc));
+    pop.querySelectorAll("[data-r]").forEach(i=>{i.oninput=()=>{SAVE.cfg[i.dataset.r]=+i.value;i.nextElementSibling.textContent=i.value+"%";applyCfg()};i.onchange=()=>save()});
     pop.querySelector('[data-a="reset"]').onclick=()=>{SAVE.cfg=Object.assign({},CDEF);save();applyCfg();openCfg(anchor)};
     pop.dataset.for="cfg";showPop(anchor,"right")}
   function makePane(i){
