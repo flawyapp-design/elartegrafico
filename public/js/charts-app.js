@@ -756,11 +756,6 @@ function start(){
   document.addEventListener("contextmenu",e=>{if(!editable(e.target))e.preventDefault()});
   /* ---------- barra flotante de dibujos favoritos (se arrastra adonde quieras) ---------- */
   SAVE.toolFav=Array.isArray(SAVE.toolFav)?SAVE.toolFav.flatMap(k=>k==="eagPosition"?["eagLong","eagShort"]:[k]):["segment","horizontalStraightLine","eagZone","fibonacciLine","eagLong","eagShort","eagMeasure"];
-  /* iPhone con la app instalada: iOS calcula la pantalla más corta y deja una franja vacía abajo; se usa el alto real de la pantalla */
-  const iosFull=()=>{const ios=/iphone|ipod/i.test(navigator.userAgent);if(!(ios&&(navigator.standalone===true||matchMedia("(display-mode: standalone)").matches)))return;
-    const land=matchMedia("(orientation: landscape)").matches,H=land?Math.min(screen.width,screen.height):Math.max(screen.width,screen.height);
-    if(H>innerHeight+8){appw.style.height=H+"px";appw.style.bottom="auto"}else{appw.style.height="";appw.style.bottom=""}};
-  iosFull();addEventListener("resize",()=>setTimeout(iosFull,50));addEventListener("orientationchange",()=>setTimeout(iosFull,300));
   const tfav=document.createElement("div");tfav.className="tfav";appw.appendChild(tfav);
   /* la posición se guarda aparte para celular y para computador (si no, la del PC deja la barra fuera de la pantalla del celular) */
   const tfKey=()=>(innerWidth<760||matchMedia("(hover:none)").matches)?"tfavPosM":"tfavPos";
