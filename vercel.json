@@ -83,7 +83,7 @@
       ]
     }
   ],
-  "rewrites": [
+  "redirects": [
     {
       "source": "/",
       "has": [
@@ -92,7 +92,19 @@
           "value": "charts.elartegrafico.com"
         }
       ],
-      "destination": "/charts.html"
+      "destination": "/charts.html",
+      "permanent": false
+    },
+    {
+      "source": "/index.html",
+      "has": [
+        {
+          "type": "host",
+          "value": "charts.elartegrafico.com"
+        }
+      ],
+      "destination": "/charts.html",
+      "permanent": false
     }
   ]
 }
