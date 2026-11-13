@@ -113,6 +113,7 @@ const IC={
   cam:'<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>',
   full:'<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>',
   caret:'<path d="m6 9 6 6 6-6"/>',
+  list:'<path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>',
   copy:'<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M4 16V4h12"/>',
   front:'<rect x="9" y="9" width="11" height="11" rx="1"/><path d="M15 9V4H4v11h5"/>'};
 
@@ -213,7 +214,7 @@ window.EAGWidget=function(o){
   /* ---------- barra superior ---------- */
   function paintBar(){
     $(".wsym b").textContent=sym.shortName||sym.name||sym.ticker;
-    $(".wtf b").textContent=per.text;
+    $(".wtf b").textContent=per.text;const dtf=dbar.querySelector(".dtf b");if(dtf)dtf.textContent=per.text;
     const favs=(o.getFavTF&&o.getFavTF())||[];
     $(".wfav").innerHTML=favs.map(t=>`<button class="wp${t===per.text?" on":""}" data-t="${t}">${t}</button>`).join("");
     $(".wfav").querySelectorAll("button").forEach(b=>b.onclick=()=>o.onPickTF&&o.onPickTF(b.dataset.t))}
@@ -230,12 +231,15 @@ window.EAGWidget=function(o){
   let menu=null;const closeMenu=()=>{if(menu){menu.remove();menu=null}};
   document.addEventListener("pointerdown",e=>{if(menu&&!menu.contains(e.target)&&!e.target.closest(".dg .more"))closeMenu()});
   function paintDbar(){
-    dbar.innerHTML=`<button class="dt" data-k="cross" title="Cursor (cancelar dibujo)">${svg("cross")}</button><button class="dt" data-k="eagMeasure" title="Regla: medir puntos (también Shift + clic)">${tsvg("eagMeasure")}</button><i class="dsep"></i>`+
+    dbar.innerHTML=`<div class="dmini"><button class="dt dtf" title="Temporalidad (todas)"><b>${esc(per.text)}</b></button><button class="dt" data-mi="sym" title="Cambiar mercado">${svg("list",17)}</button><button class="dt" data-mi="ind" title="Indicadores">${svg("fx",17)}</button><i class="dsep"></i></div><button class="dt" data-k="cross" title="Cursor (cancelar dibujo)">${svg("cross")}</button><button class="dt" data-k="eagMeasure" title="Regla: medir puntos (también Shift + clic)">${tsvg("eagMeasure")}</button><i class="dsep"></i>`+
       TOOLS.map(g=>{const cur=lastTool[g.g]||g.items[0][0];return`<div class="dg" data-g="${g.g}"><button class="dt" data-k="${cur}" title="${esc(TNAME[cur])}">${tsvg(cur)}</button><button class="more" title="${esc(g.t)}">${svg("caret",9)}</button></div>`}).join("")+
       `<i class="dsep"></i><button class="dt tg${magnet!=="normal"?" on":""}" data-x="magnet" title="${magnet==="strong_magnet"?"Imán fuerte":magnet==="weak_magnet"?"Imán débil":"Imán apagado"}">${svg("magnet")}<em>${magnet==="strong_magnet"?"F":magnet==="weak_magnet"?"D":""}</em></button>
       <button class="dt tg${locked?" on":""}" data-x="lock" title="${locked?"Desbloquear dibujos":"Bloquear todos los dibujos"}">${svg(locked?"lock":"unlock")}</button>
       <button class="dt tg${hidden?" on":""}" data-x="hide" title="${hidden?"Mostrar dibujos":"Ocultar todos los dibujos"}">${svg(hidden?"eyeoff":"eye")}</button>
       <button class="dt" data-x="clear" title="Borrar todos los dibujos de este mercado">${svg("trash")}</button>`;
+    dbar.querySelector(".dtf").onclick=e=>{e.stopPropagation();o.onTFClick&&o.onTFClick(e.currentTarget)};
+    dbar.querySelector('[data-mi="sym"]').onclick=e=>{e.stopPropagation();o.onSymbolClick&&o.onSymbolClick(e.currentTarget)};
+    dbar.querySelector('[data-mi="ind"]').onclick=e=>{e.stopPropagation();openInd()};
     dbar.querySelectorAll(".dt[data-k]").forEach(b=>b.onclick=()=>b.dataset.k==="cross"?cancelDraw():startTool(b.dataset.k));
     dbar.querySelectorAll(".dg .more").forEach(b=>b.onclick=e=>{e.stopPropagation();const g=TOOLS.find(x=>x.g===b.parentNode.dataset.g);openToolMenu(g,b.parentNode)});
     /* mantener presionado o deslizar sobre el botón abre la lista; soltar sobre una herramienta la elige */

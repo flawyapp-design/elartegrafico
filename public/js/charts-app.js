@@ -203,7 +203,7 @@ function start(){
     let x=align==="right"?r.right-w:r.left;x=Math.max(8,Math.min(x,innerWidth-w-8));let y=r.bottom+6;if(y+h>innerHeight-8)y=Math.max(8,r.top-h-6);
     pop.style.left=x+"px";pop.style.top=y+"px"}
   function closePop(){pop.hidden=true;pop.dataset.for="";pop.classList.remove("wide");if(shownPick&&shownPick.length){shownPick=[];watch()}}
-  document.addEventListener("pointerdown",e=>{if(!pop.hidden&&!pop.contains(e.target)&&!e.target.closest("#vb,#fab,#fteye,#cfgb,.tfdd,.wsym,.wtf"))closePop()});
+  document.addEventListener("pointerdown",e=>{if(!pop.hidden&&!pop.contains(e.target)&&!e.target.closest("#vb,#fab,#fteye,#cfgb,.tfdd,.wsym,.wtf,.dmini"))closePop()});
   addEventListener("keydown",e=>{if(e.key==="Escape")closePop()});
 
   /* ---------- tamaños y posiciones que el usuario acomoda ---------- */
@@ -334,7 +334,7 @@ function start(){
       getFavTF:()=>SAVE.tfFav,
       onPickTF:t=>{kc.setPeriod(perOf(t));afterTF()},
       onTFClick:a=>{setActive(i);pop.hidden||pop.dataset.for!=="tf"?openTF(p,a):closePop()},
-      onSymbolClick:()=>{setActive(i);const a=el.querySelector(".wsym");pop.hidden||pop.dataset.for!=="sym"?openSymPicker(p,a):closePop()},
+      onSymbolClick:anc=>{setActive(i);const a=anc&&anc.nodeType?anc:el.querySelector(".wsym");pop.hidden||pop.dataset.for!=="sym"?openSymPicker(p,a):closePop()},
       onSettings:a=>{pop.hidden||pop.dataset.for!=="cfg"?openCfg(a):closePop()},
       onIndicators:d=>{SAVE.panes[i]=Object.assign({},SAVE.panes[i],{ind:d});save()},
       onMagnet:m=>{SAVE.magnet=m;save()},onLastTools:t=>{SAVE.lastTools=t;save()},
