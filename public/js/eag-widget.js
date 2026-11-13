@@ -13,6 +13,12 @@ const saveD=d=>{try{localStorage.setItem(DKEY,JSON.stringify(d))}catch(e){}};
 const hexA=(h,a)=>{h=String(h||GOLD).replace("#","");if(h.length===3)h=h.split("").map(c=>c+c).join("");const n=parseInt(h.slice(0,6),16);return`rgba(${n>>16&255},${n>>8&255},${n&255},${a})`};
 
 /* ===================== Herramientas propias ===================== */
+const BOX=/^(eagZone|eagRect|eagBuyZone|eagSellZone)$/;
+/* de 2 esquinas opuestas a los 8 puntos de la caja */
+function boxPts(a,b){const L=(a.timestamp||0)<=(b.timestamp||0)?a:b,R=L===a?b:a,T=Math.max(a.value,b.value),B=Math.min(a.value,b.value);
+  const mid={timestamp:Math.round(((L.timestamp||0)+(R.timestamp||0))/2)};if(L.dataIndex!=null&&R.dataIndex!=null)mid.dataIndex=Math.round((L.dataIndex+R.dataIndex)/2);
+  const P=(x,v)=>Object.assign(x.dataIndex!=null?{dataIndex:x.dataIndex}:{},{timestamp:x.timestamp,value:v});
+  return[P(L,T),P(R,T),P(R,B),P(L,B),P(mid,T),P(R,(T+B)/2),P(mid,B),P(L,(T+B)/2)]}
 let registered=false;
 function registerAll(){
   if(registered)return;registered=true;
@@ -84,11 +90,31 @@ function registerAll(){
     createPointFigures:({overlay,coordinates})=>{const c=coordinates[0];if(!c)return[];const ex=overlay.extendData||{};
       return[{type:"text",attrs:{x:c.x,y:c.y,text:ex.text||"Texto",align:"left",baseline:"middle"},styles:{color:ex.color||GOLD,size:ex.size||14,backgroundColor:ex.bg||"transparent",borderSize:0,paddingLeft:4,paddingRight:4,paddingTop:2,paddingBottom:2,borderRadius:3}}]}});
   /* Zona: rectángulo que se extiende a la derecha (ideal para zonas de oferta y demanda) */
-  KC.registerOverlay({name:"eagZone",totalStep:3,needDefaultPointFigure:true,needDefaultXAxisFigure:true,needDefaultYAxisFigure:true,
-    createPointFigures:({overlay,coordinates,bounding})=>{if(coordinates.length<2)return[];const[a,b]=coordinates,ex=overlay.extendData||{};const col=ex.color||GOLD;
-      const x=Math.min(a.x,b.x),y=Math.min(a.y,b.y),h=Math.abs(b.y-a.y);
-      return[{type:"rect",attrs:{x,y,width:bounding.width-x,height:h},styles:{style:"stroke_fill",color:hexA(col,.16),borderColor:col,borderSize:1}},
-        ...(ex.text?[{type:"text",ignoreEvent:true,attrs:{x:x+6,y:y+h/2,text:ex.text,baseline:"middle"},styles:{color:col,size:12,backgroundColor:"transparent"}}]:[])]}});
+  /* ===== Cajas con 8 puntos (4 esquinas + 4 a la mitad de cada lado) ===== */
+  /* orden: 0 sup-izq · 1 sup-der · 2 inf-der · 3 inf-izq · 4 mitad arriba · 5 mitad derecha · 6 mitad abajo · 7 mitad izquierda */
+  const boxFig=kind=>({overlay,coordinates,bounding})=>{
+    if(coordinates.length<2)return[];const ex=overlay.extendData||{};
+    const xs=coordinates.map(c=>c.x),ys=coordinates.map(c=>c.y);let x1=Math.min(...xs),x2=Math.max(...xs);const y1=Math.min(...ys),y2=Math.max(...ys),h=y2-y1;
+    if(kind==="zoneR")x2=bounding.width;
+    const F=[];
+    if(kind==="buy"||kind==="sell"){const top=kind==="buy"?(ex.up||"#089981"):(ex.dn||"#f23645"),bot=kind==="buy"?(ex.dn||"#f23645"):(ex.up||"#089981"),col=ex.color||"#b46cff",lw=ex.size||2;
+      F.push({type:"rect",attrs:{x:x1,y:y1,width:x2-x1,height:h},styles:{style:"stroke_fill",color:hexA(col,.16),borderColor:col,borderSize:1}});
+      F.push({type:"line",ignoreEvent:true,attrs:{coordinates:[{x:0,y:y1},{x:bounding.width,y:y1}]},styles:{color:top,size:lw}});
+      F.push({type:"line",ignoreEvent:true,attrs:{coordinates:[{x:0,y:y2},{x:bounding.width,y:y2}]},styles:{color:bot,size:lw}});
+      F.push({type:"text",ignoreEvent:true,attrs:{x:x1+6,y:y1+6,text:ex.text||(kind==="buy"?"Compra":"Venta"),baseline:"top"},styles:{color:"#fff",size:11,backgroundColor:kind==="buy"?top:top,paddingLeft:6,paddingRight:6,paddingTop:2,paddingBottom:2,borderRadius:4}});
+      return F}
+    const col=ex.color||GOLD;
+    F.push({type:"rect",attrs:{x:x1,y:y1,width:x2-x1,height:h},styles:{style:"stroke_fill",color:ex.fill||hexA(col,.16),borderColor:col,borderSize:ex.size||1}});
+    if(ex.text)F.push({type:"text",ignoreEvent:true,attrs:{x:x1+6,y:y1+h/2,text:ex.text,baseline:"middle"},styles:{color:col,size:12,backgroundColor:"transparent"}});
+    return F};
+  const boxMove=({points,performPointIndex:i,performPoint:pp})=>{if(!points||points.length<8||i==null||!pp)return;
+    let Lp={timestamp:points[0].timestamp,dataIndex:points[0].dataIndex},Rp={timestamp:points[1].timestamp,dataIndex:points[1].dataIndex},T=points[0].value,B=points[2].value;
+    const X={timestamp:pp.timestamp,dataIndex:pp.dataIndex};
+    if([0,3,7].includes(i))Lp=X;if([1,2,5].includes(i))Rp=X;if([0,1,4].includes(i))T=pp.value;if([2,3,6].includes(i))B=pp.value;
+    const np=boxPts(Object.assign({},Lp,{value:T}),Object.assign({},Rp,{value:B}));
+    np.forEach((p,k)=>{points[k].timestamp=p.timestamp;points[k].dataIndex=p.dataIndex;points[k].value=p.value})};
+  [["eagZone","zoneR"],["eagRect","rect"],["eagBuyZone","buy"],["eagSellZone","sell"]].forEach(([n,k])=>KC.registerOverlay({name:n,totalStep:3,needDefaultPointFigure:true,needDefaultXAxisFigure:true,needDefaultYAxisFigure:true,
+    createPointFigures:boxFig(k),performEventPressedMove:boxMove}));
   /* Línea horizontal con precio (como TradingView) */
   /* indicadores extra */
   const sma=(a,n,i)=>{if(i<n-1)return null;let s=0;for(let k=i-n+1;k<=i;k++)s+=a[k];return s/n};
@@ -116,7 +142,7 @@ const TOOLS=[
   {g:"lines",t:"Líneas",items:[["segment","Línea de tendencia"],["rayLine","Rayo"],["straightLine","Línea extendida"],["arrow","Flecha"],["horizontalStraightLine","Línea horizontal"],["horizontalRayLine","Rayo horizontal"],["horizontalSegment","Segmento horizontal"],["verticalStraightLine","Línea vertical"],["priceLine","Línea de precio"]]},
   {g:"chan",t:"Canales",items:[["parallelStraightLine","Canal paralelo"],["priceChannelLine","Canal de precio"]]},
   {g:"fib",t:"Fibonacci y Gann",items:[["fibonacciLine","Retroceso de Fibonacci"],["fibonacciExtension","Extensión de Fibonacci"],["fibonacciSegment","Segmentos de Fibonacci"],["fibonacciSpeedResistanceFan","Abanico de Fibonacci"],["fibonacciCircle","Círculos de Fibonacci"],["fibonacciSpiral","Espiral de Fibonacci"],["gannBox","Caja de Gann"]]},
-  {g:"shape",t:"Formas y zonas",items:[["eagZone","Zona (se extiende a la derecha)"],["rect","Rectángulo"],["circle","Círculo"],["triangle","Triángulo"],["parallelogram","Paralelogramo"]]},
+  {g:"shape",t:"Formas y zonas",items:[["eagBuyZone","Zona de compra (verde arriba, roja abajo)"],["eagSellZone","Zona de venta (roja arriba, verde abajo)"],["eagZone","Zona (se extiende a la derecha)"],["eagRect","Rectángulo"],["circle","Círculo"],["triangle","Triángulo"],["parallelogram","Paralelogramo"]]},
   {g:"pat",t:"Patrones y ondas",items:[["xabcd","Patrón XABCD"],["abcd","Patrón ABCD"],["threeWaves","Tres ondas"],["fiveWaves","Cinco ondas (Elliott)"],["eightWaves","Ocho ondas"],["anyWaves","Ondas libres"]]},
   {g:"pos",t:"Posición y medición",items:[["eagLong","Posición larga (compra)"],["eagShort","Posición corta (venta)"],["eagMeasure","Regla: medir puntos, %, velas y tiempo"]]},
   {g:"txt",t:"Texto y notas",items:[["eagText","Texto"],["simpleAnnotation","Nota con flecha"],["simpleTag","Etiqueta de precio"]]}];
@@ -187,6 +213,9 @@ const TI={
   eagPosition:'<rect x="4" y="4" width="16" height="7" fill="#089981" opacity=".35" stroke="none"/><rect x="4" y="11" width="16" height="7" fill="#f23645" opacity=".35" stroke="none"/><path d="M4 11h16"/>',
   eagMeasure:'<path d="M3 17 17 3l4 4L7 21z"/><path d="m7 13 2 2M10 10l2 2M13 7l2 2"/>',
   eagText:'<path d="M5 6V4h14v2M12 4v16M9 20h6"/>',
+  eagRect:'<rect x="4" y="6" width="16" height="12" rx="1"/>'+P(4,6)+P(20,6)+P(20,18)+P(4,18)+P(12,6)+P(12,18),
+  eagBuyZone:'<path d="M2 7h20" stroke="#089981" stroke-width="2.2"/><path d="M2 17h20" stroke="#f23645" stroke-width="2.2"/><rect x="6" y="7" width="12" height="10" fill="#b46cff" opacity=".3" stroke="none"/>',
+  eagSellZone:'<path d="M2 7h20" stroke="#f23645" stroke-width="2.2"/><path d="M2 17h20" stroke="#089981" stroke-width="2.2"/><rect x="6" y="7" width="12" height="10" fill="#b46cff" opacity=".3" stroke="none"/>',
   eagBrush:'<path d="M3 21c3 0 5-1.5 5-4a2.5 2.5 0 0 0-5 0"/><path d="M8 17 20 5a2.1 2.1 0 0 0-3-3L5 14"/>',
   simpleAnnotation:'<rect x="3" y="3" width="18" height="10" rx="2"/><path d="M12 13v8"/>'+P(12,21),
   simpleTag:'<path d="M3 12h7"/><path d="M10 7h9l2 5-2 5h-9z"/>'};
@@ -387,9 +416,11 @@ window.EAGWidget=function(o){
     const id=makeOverlay({name,extendData:Object.keys(ex).length?ex:undefined,styles:ts.styles||undefined},true);if(!id)return;drawingId=id;
     dbar.querySelectorAll(".dt[data-k]").forEach(b=>b.classList.toggle("act",b.dataset.k===name))}
   function makeOverlay(def,drawing){
+    if(!drawing&&BOX.test(def.name)&&def.points&&def.points.length===2)def=Object.assign({},def,{points:boxPts(def.points[0],def.points[1]).map(p=>({timestamp:p.timestamp,value:p.value}))});
     const id=chart.createOverlay({name:def.name,points:def.points,styles:def.styles,extendData:def.extendData,lock:!!def.lock,visible:!hidden,mode:magnet,
       onDrawEnd:e=>{drawingId=null;dbar.querySelectorAll(".dt").forEach(b=>b.classList.remove("act"));
         if((e.overlay.name==="eagLong"||e.overlay.name==="eagShort")&&e.overlay.points.length<3)autoPos(e.overlay);
+        if(BOX.test(e.overlay.name)&&e.overlay.points.length<8&&e.overlay.points.length>=2){const ps=e.overlay.points;chart.overrideOverlay({id:e.overlay.id,points:boxPts({timestamp:tsOf(ps[0]),dataIndex:ps[0].dataIndex,value:ps[0].value},{timestamp:tsOf(ps[1]),dataIndex:ps[1].dataIndex,value:ps[1].value})})}
         capture(chart.getOverlayById(e.overlay.id)||e.overlay);if(e.overlay.name==="eagText")setTimeout(()=>editText(e.overlay.id),30);return false},
       onPressedMoveEnd:e=>{capture(e.overlay);return false},
       onSelected:e=>{selId=e.overlay.id;showStyleBar(e.overlay.id);return false},
@@ -436,12 +467,12 @@ window.EAGWidget=function(o){
 
   /* ---------- personalizar un dibujo: barra flotante + clic derecho ---------- */
   const sbar=document.createElement("div");sbar.className="wstyle";sbar.hidden=true;chartEl.appendChild(sbar);
-  const isFill=n=>/^(rect|circle|triangle|parallelogram|eagZone|fibonacciCircle|gannBox)$/.test(n);
-  const curStyle=id=>{const v=ovs.get(id)||{},s=v.styles||{},isTxt=v.name==="eagText"||v.name==="eagZone"||v.name==="eagBrush";
-    return{color:isTxt?((v.extendData||{}).color||GOLD):((s.line&&s.line.color)||(s.polygon&&s.polygon.borderColor)||GOLD),size:v.name==="eagBrush"?((v.extendData||{}).size||2):((s.line&&s.line.size)||(s.polygon&&s.polygon.borderSize)||1),
+  const isFill=n=>/^(rect|circle|triangle|parallelogram|eagZone|eagRect|fibonacciCircle|gannBox)$/.test(n);
+  const curStyle=id=>{const v=ovs.get(id)||{},s=v.styles||{},isTxt=v.name==="eagText"||BOX.test(v.name)||v.name==="eagBrush";
+    return{color:isTxt?((v.extendData||{}).color||GOLD):((s.line&&s.line.color)||(s.polygon&&s.polygon.borderColor)||GOLD),size:(v.name==="eagBrush"||BOX.test(v.name))?((v.extendData||{}).size||(v.name==="eagBrush"||/Buy|Sell/.test(v.name)?2:1)):((s.line&&s.line.size)||(s.polygon&&s.polygon.borderSize)||1),
       dash:(s.line&&s.line.style)==="dashed"?((s.line.dashedValue||[4,4])[0]<=2?"dot":"dash"):"solid",fill:s.polygon?s.polygon.color:null}};
   function setStyle(id,ch){const v=ovs.get(id);if(!v)return;const c=Object.assign(curStyle(id),ch);
-    if(v.name==="eagText"||v.name==="eagZone"||v.name==="eagBrush"||/^eag(Position|Long|Short)$/.test(v.name)){v.extendData=Object.assign({},v.extendData||{},/^eag(Position|Long|Short)$/.test(v.name)?{}:{color:c.color});if(ch.size&&v.name==="eagText")v.extendData.size=10+ch.size*2;if(ch.size&&v.name==="eagBrush")v.extendData.size=ch.size;chart.overrideOverlay({id,extendData:v.extendData})}
+    if(v.name==="eagText"||BOX.test(v.name)||v.name==="eagBrush"||/^eag(Position|Long|Short)$/.test(v.name)){v.extendData=Object.assign({},v.extendData||{},/^eag(Position|Long|Short)$/.test(v.name)?{}:{color:c.color});if(ch.size&&v.name==="eagText")v.extendData.size=10+ch.size*2;if(ch.size&&(v.name==="eagBrush"||BOX.test(v.name)))v.extendData.size=ch.size;if(ch.fill!==undefined&&BOX.test(v.name))v.extendData.fill=ch.fill;chart.overrideOverlay({id,extendData:v.extendData})}
     else{const st={line:{color:c.color,size:c.size,style:c.dash==="solid"?"solid":"dashed",dashedValue:c.dash==="dot"?[1,3]:[5,4]},
         polygon:{borderColor:c.color,borderSize:c.size,borderStyle:c.dash==="solid"?"solid":"dashed",color:c.fill!=null?c.fill:hexA(c.color,.14)},
         rect:{borderColor:c.color,borderSize:c.size,color:c.fill!=null?c.fill:hexA(c.color,.14)},circle:{borderColor:c.color,borderSize:c.size,color:c.fill!=null?c.fill:hexA(c.color,.14)},
@@ -450,12 +481,12 @@ window.EAGWidget=function(o){
     persist();if(!sbar.hidden)showStyleBar(id);
     /* recordar el estilo para los próximos dibujos de esta herramienta */
     if(o.onToolStyle){const ex={};const e2=v.extendData||{};["color","size","up","dn"].forEach(k=>{if(e2[k]!=null)ex[k]=e2[k]});o.onToolStyle(v.name,{styles:v.styles||null,ex})}}
-  const alertable=v=>/^(horizontalStraightLine|horizontalRayLine|horizontalSegment|priceLine|eagZone|rect|segment|rayLine|straightLine)$/.test(v.name)&&v.points&&v.points.length;
+  const alertable=v=>/^(horizontalStraightLine|horizontalRayLine|horizontalSegment|priceLine|eagZone|eagRect|eagBuyZone|eagSellZone|rect|segment|rayLine|straightLine)$/.test(v.name)&&v.points&&v.points.length;
   function alertFrom(id){const v=ovs.get(id);if(!v||!o.onCreateAlert)return;const ps=v.points.map(p=>p.value),pp=sym.pricePrecision||3,r=x=>+(+x).toFixed(pp);
-    const zone=/^(eagZone|rect)$/.test(v.name)&&ps.length>1;
+    const zone=/^(eagZone|eagRect|eagBuyZone|eagSellZone|rect)$/.test(v.name)&&ps.length>1;
     /* para líneas inclinadas se usa el precio del punto más reciente */
-    const price=zone?Math.max(ps[0],ps[1]):(/^(segment|rayLine|straightLine)$/.test(v.name)?ps[ps.length-1]:ps[0]);
-    o.onCreateAlert({symbol:sym.ticker,symbol_name:sym.name||sym.ticker,kind:zone?"zona":"nivel",price:r(price),price2:zone?r(Math.min(ps[0],ps[1])):null})}
+    const price=zone?Math.max(...ps):(/^(segment|rayLine|straightLine)$/.test(v.name)?ps[ps.length-1]:ps[0]);
+    o.onCreateAlert({symbol:sym.ticker,symbol_name:sym.name||sym.ticker,kind:zone?"zona":"nivel",price:r(price),price2:zone?r(Math.min(...ps)):null})}
   function removeOv(id){try{chart.removeOverlay(id)}catch(e){}ovs.delete(id);persist();hideStyleBar();closeMenu()}
   function dupOv(id){const v=ovs.get(id);if(!v||!v.points)return;const L=chart.getDataList(),last=L[L.length-1],first=L[0],shift=(last&&first&&L.length>2)?(L[1].timestamp-L[0].timestamp)*5:0;
     const d=JSON.parse(JSON.stringify(v));d.points=d.points.map(p=>({timestamp:p.timestamp+shift,value:p.value}));const nid=makeOverlay(d,false);if(nid){ovs.get(nid).done=true;persist()}}
@@ -478,7 +509,7 @@ window.EAGWidget=function(o){
   function openCtx(id,e,panel){const prev=menu&&menu.classList.contains("panel")?{x:menu.offsetLeft,y:menu.offsetTop}:null;closeMenu();const v=ovs.get(id);if(!v)return;selId=id;showStyleBar(id);const c=curStyle(id);
     const again=()=>openCtx(id,e,panel);
     menu=document.createElement("div");menu.className="wmenu ctx"+(panel?" panel":"");
-    const isTxt=v.name==="eagText"||v.name==="eagZone";
+    const isTxt=v.name==="eagText"||v.name==="eagZone"||v.name==="eagRect";
     menu.innerHTML=(panel?`<div class="ph2"><span class="mti">${tsvg(v.name,16)}<b>${esc(TNAME[v.name]||v.name)}</b></span><button class="px" title="Cerrar">×</button></div>`:`<div class="mt mti">${tsvg(v.name,15)}${esc(TNAME[v.name]||v.name)}</div>`)+
       (panel&&isTxt?`<div class="ml">Texto</div><div class="mrow"><input class="ptxt" maxlength="80" value="${esc((v.extendData||{}).text||"")}" placeholder="Escribe aquí"></div>`:"")+`
       <div class="mrow">${COLORS.map(k=>`<button class="sw${c.color===k?" on":""}" data-c="${k}" style="background:${k}" title="${k}"></button>`).join("")}<label class="sw pick" title="Otro color">+<input type="color" value="${/^#/.test(c.color)?c.color.slice(0,7):GOLD}"></label></div>
