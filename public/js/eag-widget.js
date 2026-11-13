@@ -132,6 +132,7 @@ const IC={
   gear:'<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/>',
   cam:'<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>',
   full:'<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>',
+  unfull:'<path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5"/>',
   caret:'<path d="m6 9 6 6 6-6"/>',
   list:'<path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>',
   chevl:'<path d="m15 6-6 6 6 6"/>',chevr:'<path d="m9 6 6 6-6 6"/>',
@@ -258,7 +259,12 @@ window.EAGWidget=function(o){
   root.querySelector('[data-a="cfg"]').onclick=e=>{e.stopPropagation();o.onSettings&&o.onSettings(e.currentTarget)};
   root.querySelector('[data-a="shot"]').onclick=()=>{try{const bg=getComputedStyle(root).getPropertyValue("--chartbg").trim()||(theme==="light"?"#ffffff":"#0b0c0e");
     const url=chart.getConvertPictureUrl(true,"png",bg),a=document.createElement("a");a.href=url;a.download=`EAG_${sym.ticker}_${per.text}.png`;document.body.appendChild(a);a.click();a.remove()}catch(e){}};
-  root.querySelector('[data-a="full"]').onclick=()=>{const el=root.closest(".pane")||root;document.fullscreenElement?document.exitFullscreen():(el.requestFullscreen&&el.requestFullscreen())};
+  /* pantalla completa de toda la plataforma: se mantienen las barras que el usuario dejó visibles */
+  root.querySelector('[data-a="full"]').onclick=()=>{const d=document,el=d.documentElement;
+    if(d.fullscreenElement||d.webkitFullscreenElement){(d.exitFullscreen||d.webkitExitFullscreen).call(d)}
+    else{const f=el.requestFullscreen||el.webkitRequestFullscreen;if(f)f.call(el);else o.onFullscreenFallback&&o.onFullscreenFallback()}};
+  const fsSync=()=>{const on=!!(document.fullscreenElement||document.webkitFullscreenElement),b=root.querySelector('[data-a="full"]');b.classList.toggle("on",on);b.title=on?"Salir de pantalla completa (Esc)":"Pantalla completa";b.innerHTML=svg(on?"unfull":"full")};
+  document.addEventListener("fullscreenchange",fsSync);document.addEventListener("webkitfullscreenchange",fsSync);
 
   /* ---------- navegación rápida (abajo al centro) ---------- */
   let bs0=null;setTimeout(()=>{try{bs0=chart.getBarSpace()}catch(e){}},0);
