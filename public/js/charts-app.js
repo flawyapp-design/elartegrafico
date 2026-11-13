@@ -348,7 +348,7 @@ function start(){
   const BGS=["#060b1a","#0b0c0e","#000000","#131722","#0d1512","#15121b","#ffffff","#faf8f3","#f3f5f8"];
   function applyCfg(){const c=CF();
     document.documentElement.classList.toggle("light",light());document.documentElement.classList.toggle("eag",eagT());appw.classList.toggle("h-wm",!c.wm);
-    const de=document.documentElement;de.dataset.wm=c.wmMode;de.style.setProperty("--wmo",(+c.wmOp||0)/100);de.style.setProperty("--wms",(+c.wmSize||100)/100);
+    const de=document.documentElement;de.dataset.wm=(c.wmMode==="brand"||!c.wm)?"brand":"both";de.style.setProperty("--wmo",Math.max(6,+c.wmOp||10)/100);de.style.setProperty("--wms",(+c.wmSize||100)/100);
     de.style.setProperty("--wmc",c.wmColor==="auto"?(light()?"#15171c":"#ffffff"):c.wmColor);
     document.documentElement.style.setProperty("--chartbg",c.bg||defBg());
     const tc=document.querySelector('meta[name="theme-color"]');tc&&tc.setAttribute("content",defBg());
@@ -361,9 +361,9 @@ function start(){
       <div class="ph">Fondo del gráfico</div><div class="sws">${BGS.map(b=>`<button class="swc${(c.bg||"")===b?" on":""}" data-bg="${b}" style="background:${b}" title="${b}"></button>`).join("")}<label class="swc pick" title="Otro color"><input type="color" data-bgp value="${c.bg||defBg()}">+</label><button class="swc auto${c.bg?"":" on"}" data-bg="" title="Según el tema">A</button></div>
       <div class="ph">Velas</div><div class="seg">${TYPES.map(([v,t])=>`<button data-ty="${v}" class="${c.type===v?"on":""}">${t}</button>`).join("")}</div>
       <div class="cols"><label>Alcista <input type="color" data-col="up" value="${c.up}"></label><label>Bajista <input type="color" data-col="dn" value="${c.dn}"></label></div>
-      <div class="ph">Mostrar</div>${tg("grid","Cuadrícula")}${tg("axis","Ejes de precio y hora")}${tg("last","Línea del último precio")}${tg("hl","Máximo y mínimo visibles")}${tg("cross","Cruz del cursor")}${tg("wm","Marca de agua")}
-      ${c.wm?`<div class="ph">Marca de agua</div><div class="seg">${[["both","Marca y mercado"],["sym","Solo mercado"],["brand","Solo marca"]].map(([v,t])=>`<button data-wm="${v}" class="${c.wmMode===v?"on":""}">${t}</button>`).join("")}</div>
-      <label class="rg"><span>Visibilidad</span><input type="range" min="2" max="60" step="1" data-r="wmOp" value="${c.wmOp}"><em>${c.wmOp}%</em></label>
+      <div class="ph">Mostrar</div>${tg("grid","Cuadrícula")}${tg("axis","Ejes de precio y hora")}${tg("last","Línea del último precio")}${tg("hl","Máximo y mínimo visibles")}${tg("cross","Cruz del cursor")}${tg("wm","Mercado en la marca de agua")}
+      ${1?`<div class="ph">Marca de agua</div><div class="seg">${[["both","Marca y mercado"],["brand","Solo marca"]].map(([v,t])=>`<button data-wm="${v}" class="${c.wmMode===v?"on":""}">${t}</button>`).join("")}</div>
+      <label class="rg"><span>Visibilidad</span><input type="range" min="6" max="60" step="1" data-r="wmOp" value="${c.wmOp}"><em>${c.wmOp}%</em></label>
       <label class="rg"><span>Tamaño</span><input type="range" min="50" max="200" step="5" data-r="wmSize" value="${c.wmSize}"><em>${c.wmSize}%</em></label>
       <div class="sws wmc">${[["auto","Automático"],["#e2b55c","Dorado"],["#ffffff","Blanco"],["#000000","Negro"],["#2962ff","Azul"]].map(([v,t])=>`<button class="swc${c.wmColor===v?" on":""}" data-wc="${v}" title="${t}" style="background:${v==="auto"?"linear-gradient(135deg,#fff 50%,#15171c 50%)":v}"></button>`).join("")}</div>`:""}
       <div class="pbtns"><button class="btn sm" data-a="reset">Restaurar valores</button></div>
@@ -632,9 +632,9 @@ function start(){
       <div class="seg">${[[11,"Normal"],[13,"Mediana"],[15,"Grande"],[18,"Muy grande"]].map(([v,t])=>`<button data-fz="${v}" class="${+c.font===v?"on":""}">${t}</button>`).join("")}</div>
       <div class="slabel">Mostrar</div>`+[["grid","Cuadrícula","Líneas de fondo para ubicar precios y horas."],["axis","Ejes de precio y hora","La escala de precios a la derecha y las horas abajo."],["last","Línea del último precio","Línea punteada y etiqueta con el precio actual."],["hl","Máximo y mínimo visibles","Marca el precio más alto y más bajo de lo que estás viendo."],["cross","Cruz del cursor","Líneas que siguen al mouse con precio y hora exactos."]].map(([k,t,d])=>row(t,d,tog(`data-k="${k}"`,c[k]))).join("");
     if(cat==="marca")return`<h3>Marca de agua</h3><p class="shelp">Ideal para tus lives: se ve el mercado, la temporalidad y tu marca de fondo.</p>
-      ${row("Mostrar marca de agua","",tog('data-k="wm"',c.wm))}
-      <div class="sgrp${c.wm?"":" off"}"><div class="slabel">Qué mostrar</div><div class="seg">${[["both","Marca y mercado"],["sym","Solo mercado"],["brand","Solo marca"]].map(([v,t])=>`<button data-wm="${v}" class="${c.wmMode===v?"on":""}">${t}</button>`).join("")}</div>
-      <label class="rg"><span>Visibilidad</span><input type="range" min="2" max="60" step="1" data-r="wmOp" value="${c.wmOp}"><em>${c.wmOp}%</em></label>
+      ${row("Mostrar mercado y temporalidad","La marca EL ARTE GRÁFICO siempre se ve; esto quita o pone el nombre del mercado.",tog('data-k="wm"',c.wm))}
+      <div class="sgrp"><div class="slabel">Qué mostrar</div><div class="seg">${[["both","Marca y mercado"],["brand","Solo marca"]].map(([v,t])=>`<button data-wm="${v}" class="${c.wmMode===v?"on":""}">${t}</button>`).join("")}</div>
+      <label class="rg"><span>Visibilidad</span><input type="range" min="6" max="60" step="1" data-r="wmOp" value="${c.wmOp}"><em>${c.wmOp}%</em></label>
       <label class="rg"><span>Tamaño</span><input type="range" min="50" max="200" step="5" data-r="wmSize" value="${c.wmSize}"><em>${c.wmSize}%</em></label>
       <div class="slabel">Color</div><div class="sws">${[["auto","Automático"],["#e2b55c","Dorado"],["#ffffff","Blanco"],["#000000","Negro"],["#2962ff","Azul"]].map(([v,t])=>`<button class="swc${c.wmColor===v?" on":""}" data-wc="${v}" title="${t}" style="background:${v==="auto"?"linear-gradient(135deg,#fff 50%,#15171c 50%)":v}"></button>`).join("")}</div></div>`;
     if(cat==="barras")return`<h3>Barras y paneles</h3><p class="shelp">Activa solo lo que usas. Todo se guarda en tu cuenta.</p>

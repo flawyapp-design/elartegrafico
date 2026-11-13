@@ -116,7 +116,7 @@ html.light{--bg:#ffffff;--bg2:#f7f7f8;--card:#ffffff;--card2:#f0f1f3;--line:#e5e
 html.light body,html.light .app{background:var(--bg);color:var(--fg)}
 html.light .lay button.on,.app.light .mini.on .mh em{color:#fff}
 .app .pane,.grid.mtf{background:var(--chartbg)}
-.app.h-wm .wwm{display:none}
+/* la marca EL ARTE GRÁFICO nunca se quita; solo se puede quitar el mercado */
 .pop.wide{width:min(380px,calc(100vw - 16px));max-width:none;padding:8px}
 .spq{width:100%;background:var(--bg2);border:1px solid var(--line2);border-radius:9px;padding:8px 10px;margin-bottom:8px}
 .spt{padding:0 0 8px!important}.spl{max-height:min(52vh,420px);overflow:auto}
@@ -290,7 +290,7 @@ kbd{font:600 11.5px Inter,system-ui,sans-serif;background:var(--bg2);border:1px 
 .wwm{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:calc(10px*var(--wms,1));pointer-events:none;white-space:nowrap;opacity:var(--wmo,.1);color:var(--wmc,#fff);text-align:center;overflow:hidden;padding:0 12px}
 .wm-s{font:700 calc(clamp(22px,5.2vw,64px)*var(--wms,1))/1.05 Inter,system-ui,sans-serif;letter-spacing:-.01em;max-width:100%;overflow:hidden;text-overflow:ellipsis}
 .wm-b{font:700 calc(clamp(11px,1.3vw,17px)*var(--wms,1))/1 Inter,system-ui,sans-serif;letter-spacing:.32em}
-html[data-wm=sym] .wm-b,html[data-wm=brand] .wm-s{display:none}html[data-wm=brand] .wm-b{font-size:calc(clamp(18px,2.6vw,30px)*var(--wms,1))}
+html[data-wm=brand] .wm-s{display:none}.wm-b{display:block!important}html[data-wm=brand] .wm-b{font-size:calc(clamp(18px,2.6vw,30px)*var(--wms,1))}
 .rg{display:grid;grid-template-columns:78px 1fr 40px;align-items:center;gap:8px;padding:6px 10px;font-size:12.5px;color:var(--mut)}.rg input{accent-color:var(--gold);width:100%}.rg em{font-style:normal;text-align:right;color:var(--fg2);font-variant-numeric:tabular-nums}
 .app.h-pb .wbar{display:none}.app.h-bb .wfoot{display:none}
 .app.h-db .dbar{display:none}.app.h-db .wbody{grid-template-columns:minmax(0,1fr)}
