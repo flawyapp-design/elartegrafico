@@ -26,7 +26,7 @@ function exXP(ex,pts){if(!pts||!ex)return;S.prog.px=S.prog.px||[];const k=ex.id|
 const VIEWS={gratis:"Alumno gratis",prueba:"Alumno en prueba gratis",curso:"Alumno con un curso",cobre:"Suscriptor Cobre",plata:"Suscriptor Plata",oro:"Suscriptor Oro",diamond:"Suscriptor Diamond"};
 const viewAs=()=>{if(!API.isAdmin())return"";let v="";try{v=sessionStorage.getItem("ag_view_as")||""}catch(e){}return VIEWS[v]?v:""};
 const setViewAs=v=>{try{v?sessionStorage.setItem("ag_view_as",v):sessionStorage.removeItem("ag_view_as")}catch(e){}};
-const premium=()=>{const v=viewAs();return v?["cobre","plata","oro"].includes(v):API.isPremium()}, admin=()=>API.isAdmin()&&!viewAs(), logged=()=>!!API.user();
+const premium=()=>{const v=viewAs();return v?["cobre","plata","oro","diamond"].includes(v):API.isPremium()}, admin=()=>API.isAdmin()&&!viewAs(), logged=()=>!!API.user();
 /* prueba gratis: módulos marcados como "free" durante los primeros días de la cuenta */
 const trialDays=()=>{const d=(S.site||{}).trialDays;return d==null||d===""?7:Math.max(0,+d||0)};
 const trialLeft=()=>{if(viewAs()==="prueba")return trialDays();if(viewAs()==="gratis")return 0;if(!logged()||premium())return 0;const p=API.profile()||{},u=API.user()||{};const c=Math.max(new Date(p.created_at||u.created_at||Date.now()).getTime(),(S.site||{}).trialFrom?new Date(S.site.trialFrom).getTime():0);return Math.max(0,Math.ceil((c+trialDays()*864e5-Date.now())/864e5))};
