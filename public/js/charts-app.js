@@ -158,6 +158,7 @@ function start(){
       <button class="btn ic" id="alb" title="Alertas de precio"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/></svg><span class="t">Alertas</span><em class="badge" id="alc" hidden></em></button>
       <button class="btn ic" id="cfgb" title="Configuración: apariencia, barras, marca de agua, alertas y atajos"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg><span class="t">Configuración</span></button>
       <button class="btn ic" id="wlb" title="Lista de mercados">${ICON.list}<span class="t">Mercados</span></button>
+      <button class="btn ic fsb" id="fsb" title="Pantalla completa (toda la plataforma)" hidden><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
     </header>
     <div class="main" id="main">
       <div class="center"><div class="ftw"><button class="fta" data-d="-1" title="Anteriores">‹</button><nav class="ftabs" id="ftabs" aria-label="Mercados favoritos"></nav><button class="fta" data-d="1" title="Siguientes">›</button><button class="fteye" id="fteye" title="Mostrar barras">${ICON.eye}</button></div><div class="grid" id="grid"></div></div>
@@ -502,6 +503,15 @@ function start(){
   function setWl(on){main.classList.toggle("wlopen",!!on);wlbk.classList.toggle("on",!!on);if(!on){const a=document.activeElement;a&&a.blur&&a.closest&&a.closest(".wl")&&a.blur()}}
   wlbk.addEventListener("pointerdown",e=>{e.preventDefault();e.stopPropagation();setWl(false)});
   document.addEventListener("keydown",e=>{if(e.key==="Escape"&&main.classList.contains("wlopen"))setWl(false)});
+  /* pantalla completa de TODA la plataforma (antes estaba en la barra de cada gráfico y se iba al ocultar las temporalidades) */
+  {const fb=$("#fsb"),d=document,de=d.documentElement,can=!!(de.requestFullscreen||de.webkitRequestFullscreen);
+    const isFs=()=>!!(d.fullscreenElement||d.webkitFullscreenElement);
+    const ic=on=>`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${on?'<path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5"/>':'<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>'}</svg>`;
+    const sync=()=>{const on=isFs();fb.classList.toggle("on",on);fb.title=on?"Salir de pantalla completa (Esc)":"Pantalla completa (toda la plataforma)";fb.innerHTML=ic(on)};
+    /* en iPhone no existe pantalla completa en el navegador: el botón se oculta (instalada como app ya ocupa toda la pantalla) */
+    fb.hidden=!can;
+    fb.onclick=()=>{try{if(isFs())(d.exitFullscreen||d.webkitExitFullscreen).call(d);else{const r=(de.requestFullscreen||de.webkitRequestFullscreen).call(de);r&&r.catch&&r.catch(()=>{})}}catch(e){}};
+    d.addEventListener("fullscreenchange",sync);d.addEventListener("webkitfullscreenchange",sync);sync()}
   $("#wlb").onclick=()=>{if(mobile())setWl(!main.classList.contains("wlopen"));else{SAVE.hide.wl=!SAVE.hide.wl;save();applyHide()}};
   $("#wlx").onclick=()=>{if(mobile())setWl(false);else{SAVE.hide.wl=true;save();applyHide()}};
   function setTab(t){tab=t;SAVE.tab=t;save();document.querySelectorAll("#tabs button").forEach(b=>b.classList.toggle("on",b.dataset.t===t));renderList()}
@@ -642,7 +652,7 @@ function start(){
     ["barras","Barras y paneles","Qué se ve y dónde",SI('<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M9 9v11"/>')],
     ["alertas","Alertas de precio","Aviso al celular",SI('<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/>')],
     ["atajos","Ayuda y atajos","Tutorial y teclado",SI('<rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10"/>')]];
-  const PDESC={top:"Logo, distribución de gráficos, estado de conexión y botones principales.",pb:"Mercado, temporalidades favoritas, indicadores, captura y pantalla completa de cada gráfico.",
+  const PDESC={top:"Logo, distribución de gráficos, estado de conexión y botones principales.",pb:"Mercado, temporalidades favoritas, indicadores y captura de cada gráfico.",
     bb:"Rangos rápidos (1D, 5D, 1M…), reloj, cuenta regresiva y escala % / log.",db:"Herramientas de dibujo a la izquierda de cada gráfico.",tf:"Tus herramientas de dibujo favoritas en una barra que puedes mover.",
     ft:"Tus mercados favoritos como pestañas, con precio y % del día.",wl:"Todos los mercados por categoría, con buscador y precios en vivo."};
   let setCat="apariencia";
