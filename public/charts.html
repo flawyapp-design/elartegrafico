@@ -368,7 +368,7 @@ html[data-wm=brand] .wm-s{display:none}.wm-b{display:block!important}html[data-w
 .gate img{width:72px;height:72px;border-radius:50%}.gate h1{margin:14px 0 8px;font-size:26px}.gate p{color:var(--mut)}
 .gate .row{display:flex;gap:8px;justify-content:center;margin-top:16px}
 .btn.gold{background:var(--gold);color:#16120a;border-color:var(--gold)}
-@media (max-width:1180px){.lay .mtfb .t,#vb .t,#wlb .t,#cfgb .t,#linkb .t,#alb .t{display:none}}
+@media (max-width:1180px){.lay .mtfb .t,#vb .t,#wlb .t,#cfgb .t,#linkb .t,#alb .t,#instb .t{display:none}}
 @media (max-width:900px){.wlsp,.gsp,.mtfsp{display:none}.app.wl-left .wl{order:0}.main,.app.h-wl .main{grid-template-columns:1fr}.wl,.app.h-wl .wl{display:grid;position:fixed;right:0;top:0;bottom:0;width:min(86vw,320px);z-index:30;transform:translateX(100%);transition:transform .2s;box-shadow:-20px 0 40px rgba(0,0,0,.5)}
   .wl,.app.h-wl .wl{z-index:46;padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom)}
   .wlbk{position:fixed;inset:0;z-index:45;background:rgba(0,0,0,.45);opacity:0;pointer-events:none;transition:opacity .2s}.wlbk.on{opacity:1;pointer-events:auto}
@@ -413,7 +413,10 @@ html.eag body,html.eag .app{background:var(--bg)}
 .tbtns{display:flex;align-items:center;gap:8px}
 #instb{border-color:var(--gold);color:var(--gold)}
 #prob{position:relative;gap:6px;width:auto!important;padding:0 12px;border-color:transparent;background:linear-gradient(135deg,#f3d58f,#c9963d);color:#1b1406;font-weight:700}#prob .pi{font-size:15px}#prob em{font:800 8.5px/1 Inter,system-ui,sans-serif;font-style:normal;letter-spacing:.6px;padding:3px 5px;border-radius:6px;background:#1b1406;color:#f3d58f}
-@media (max-width:900px){#prob{padding:0 9px}#prob .t{display:none}#prob em{position:absolute;top:-5px;right:-6px}}#instb[hidden]{display:none}
+@media (max-width:900px){#prob{padding:0 9px}#prob .t{display:none}#prob em{position:absolute;top:-5px;right:-6px}}
+/* celular angosto: que quepan todos los botones de arriba (Estudio, instalar, alertas, ajustes, mercados) */
+@media (max-width:520px){.top{gap:6px!important}.top .btn.ic{width:34px!important;height:34px!important}#prob{padding:0!important;width:34px!important;justify-content:center}.lay button{padding:0 6px!important}}
+@media (max-width:370px){.top .st{display:none}.top{padding:0 6px!important}}#instb[hidden]{display:none}
 .inst-box{max-width:420px}.inst-p{color:var(--mut);font-size:13.5px;margin:0 4px 10px;line-height:1.45}
 .inst-s{margin:0 0 6px;padding-left:22px;display:grid;gap:9px;font-size:14px;line-height:1.45}.inst-s b{color:var(--fg)}.inst-i{display:inline-grid;place-items:center;width:20px;height:20px;border:1px solid var(--line2);border-radius:5px;font-size:12px}
 .inst-f{display:flex;justify-content:flex-end;padding-top:10px}
