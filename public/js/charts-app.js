@@ -339,8 +339,10 @@ function start(){
   const grid=$("#grid"),panes=[];let active=0;
   const UP="#089981",DN="#f23645",NC="#9da1aa";
   /* ---------- ajustes del gráfico (tema, fondo, cuadrícula, velas…) ---------- */
-  const CDEF={theme:"light",bg:"",grid:true,dec:"auto",font:11,wmMode:"both",wmOp:10,wmSize:100,wmColor:"auto",up:UP,dn:DN,type:"candle_solid",last:true,hl:true,cross:true,wm:true,axis:true,cd:"vela"};
+  const CDEF={theme:"light",bg:"",grid:true,dec:"auto",font:11,wmMode:"both",wmOp:10,wmSize:100,wmColor:"auto",up:UP,dn:DN,type:"candle_solid",last:true,hl:true,cross:true,wm:true,axis:true,cd:"mtf"};
   SAVE.cfg=Object.assign({},CDEF,SAVE.cfg||{});
+  /* el reloj de cierre de vela ahora va por defecto en la multitemporalidad (cada temporalidad con su tiempo) */
+  if(SAVE.cfg.cdV!==2){SAVE.cfg.cd="mtf";SAVE.cfg.cdV=2}
   /* velas: pasar a los colores nuevos si tenía los de antes por defecto */
   if(["#35c4a2","#22ab94","#0ecb81"].includes(SAVE.cfg.up))SAVE.cfg.up=UP;if(["#ec5b52","#f6465d"].includes(SAVE.cfg.dn))SAVE.cfg.dn=DN;
   const CF=()=>SAVE.cfg,light=()=>CF().theme==="light",eagT=()=>CF().theme==="eag",defBg=()=>light()?"#ffffff":eagT()?"#060b1a":"#0b0c0e";
@@ -452,10 +454,10 @@ function start(){
       dots.addEventListener("click",e=>{const d=e.target.closest("[data-pg]");if(!d)return;const n=pages(),max=el.scrollWidth-el.clientWidth;el.scrollTo({left:n<2?0:max*(+d.dataset.pg)/(n-1),behavior:"smooth"})});
       setTimeout(paint,300);addEventListener("resize",()=>setTimeout(paint,300))}
     SAVE.tfFav.forEach((t,i)=>{const per=perOf(t),g=gran(per);
-      const box=document.createElement("div");box.className="mini";box.innerHTML=`<button class="mh" title="Ver ${tfName(per)} en el gráfico grande"><b>${t}</b><span class="mp"></span><em></em><i class="mz">⤢</i></button><span class="mc" title="Toca o desliza hacia arriba: ver en grande · rueda o pellizco: acercar · arrastra a los lados: mover"></span>`;el.appendChild(box);
+      const box=document.createElement("div");box.className="mini";box.innerHTML=`<button class="mh" title="Ver ${tfName(per)} en el gráfico grande"><b>${t}</b><span class="mcd" title="Tiempo para que cierre la vela de ${tfName(per)}" hidden></span><span class="mp"></span><em></em><i class="mz">⤢</i></button><span class="mc" title="Toca o desliza hacia arriba: ver en grande · rueda o pellizco: acercar · arrastra a los lados: mover"></span>`;el.appendChild(box);
       const mc=box.querySelector(".mc"),c=KC.init(mc,{locale:"es-ES",timezone:TZ,styles:MINI()});
       try{c.setPriceVolumePrecision(sym.pricePrecision||3,0);c.setScrollEnabled(true);c.setZoomEnabled(true);c.setOffsetRightDistance(6)}catch(e){}
-      const m={t,box,mc,c,key:sym.ticker+":"+g,who:"mtf"+pi+"-"+i+":"+Date.now()};M.minis.push(m);
+      const m={t,g,cd:box.querySelector(".mcd"),box,mc,c,key:sym.ticker+":"+g,who:"mtf"+pi+"-"+i+":"+Date.now()};M.minis.push(m);
       /* más pasado: 300 velas, y si arrastras a la izquierda carga más */
       let miniNoMore=false;
       try{c.setLoadDataCallback(async({type,data,callback})=>{if(type!=="forward"||!data||miniNoMore){callback([],false);return}
@@ -478,6 +480,14 @@ function start(){
     if(g.box.isConnected&&((dy<-30&&Math.abs(dy)>Math.abs(dx)*1.2)||(quick&&Math.abs(dx)<5&&Math.abs(dy)<5)))g.big()});
   addEventListener("pointercancel",()=>{if(mtfG){mtfG.box.classList.remove("lift");mtfG=null}});
   function fit(m){try{const w=m.mc.clientWidth||200;m.c.resize();m.c.setBarSpace(Math.max(1.2,(w-14)/90))}catch(e){}}
+  /* reloj de cierre de vela en cada mini (una sola cuenta para todos) */
+  const two=n=>String(n).padStart(2,"0");
+  setInterval(()=>{if(document.hidden)return;const on=CF().cd==="mtf",now=Date.now();
+    Object.values(MTFS).forEach(M=>M.minis.forEach(m=>{const el=m.cd;if(!el)return;if(!on){el.hidden=true;return}
+      let L;try{L=m.c.getDataList()}catch(e){L=null}const k=L&&L[L.length-1];if(!k){el.hidden=true;return}
+      const left=Math.max(0,k.timestamp+m.g*1000-now),s=Math.floor(left/1000),h=Math.floor(s/3600),mi=Math.floor(s%3600/60);
+      const tx=h?`${h}:${two(mi)}:${two(s%60)}`:`${two(mi)}:${two(s%60)}`;if(el.textContent!==tx)el.textContent=tx;
+      el.classList.toggle("soon",left<10000);el.classList.toggle("dn",k.close<k.open);el.hidden=false}))},1000);
   function mtfResize(){Object.values(MTFS).forEach(M=>M.minis.forEach(m=>{try{m.c.resize()}catch(e){}}))}
   function mtfMark(){Object.values(MTFS).forEach(M=>{let cur="";try{cur=panes[M.pi].kc.getPeriod().text}catch(e){}
     M.minis.forEach(m=>{const on=m.t===cur;m.box.classList.toggle("on",on);m.box.querySelector("em").textContent=on?"●":""})})}
@@ -669,8 +679,8 @@ function start(){
       <div class="seg">${[["auto","Auto"],["0","0"],["1","1"],["2","2"],["3","3"],["4","4"]].map(([v,t])=>`<button data-dec="${v}" class="${String(c.dec)===v?"on":""}">${t}</button>`).join("")}</div>
       <div class="slabel">Tamaño de letra del gráfico</div><p class="shelp">Escala de precios, horas, leyenda y etiquetas. Usa "Grande" o "Muy grande" para transmitir en vivo.</p>
       <div class="seg">${[[11,"Normal"],[13,"Mediana"],[15,"Grande"],[18,"Muy grande"]].map(([v,t])=>`<button data-fz="${v}" class="${+c.font===v?"on":""}">${t}</button>`).join("")}</div>
-      <div class="slabel">Contador de cierre de vela</div><p class="shelp">"Junto a la vela" es como en MT5: al lado de la última vela, fuera de la regla, con el nombre del mercado y debajo el tiempo que le falta a la vela.</p>
-      <div class="seg">${[["vela","Junto a la vela"],["regla","En la regla"],["off","Oculto"]].map(([v,t])=>`<button data-cd="${v}" class="${(c.cd||"vela")===v?"on":""}">${t}</button>`).join("")}</div>
+      <div class="slabel">Contador de cierre de vela</div><p class="shelp">"En Multi-TF": cada temporalidad de la multitemporalidad muestra lo que le falta a su vela. "Junto a la vela" es como en MT5: al lado de la última vela del gráfico grande, con el nombre del mercado.</p>
+      <div class="seg">${[["mtf","En Multi-TF"],["vela","Junto a la vela"],["regla","En la regla"],["off","Oculto"]].map(([v,t])=>`<button data-cd="${v}" class="${(c.cd||"mtf")===v?"on":""}">${t}</button>`).join("")}</div>
       <div class="slabel">Mostrar</div>`+[["grid","Cuadrícula","Líneas de fondo para ubicar precios y horas."],["axis","Ejes de precio y hora","La escala de precios a la derecha y las horas abajo."],["last","Línea del último precio","Línea punteada y etiqueta con el precio actual."],["hl","Máximo y mínimo visibles","Marca el precio más alto y más bajo de lo que estás viendo."],["cross","Cruz del cursor","Líneas que siguen al mouse con precio y hora exactos."]].map(([k,t,d])=>row(t,d,tog(`data-k="${k}"`,c[k]))).join("");
     if(cat==="marca")return`<h3>Marca de agua</h3><p class="shelp">Ideal para tus lives: se ve el mercado, la temporalidad y tu marca de fondo.</p>
       ${row("Mostrar mercado y temporalidad","La marca EL ARTE GRÁFICO siempre se ve; esto quita o pone el nombre del mercado.",tog('data-k="wm"',c.wm))}

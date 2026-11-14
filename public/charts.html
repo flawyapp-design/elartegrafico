@@ -208,6 +208,9 @@ html.light .mini.on .mh em{color:var(--gold)}
 .wclk{color:var(--fg2);font-variant-numeric:tabular-nums;padding:0 6px}
 .wsep{width:1px;height:16px;background:var(--line2);margin:0 4px}
 html.light .wfoot button.on{color:var(--gold)}
+.mh .mcd{flex:none;font:700 10.5px/1 Inter,system-ui,sans-serif;font-variant-numeric:tabular-nums;color:#fff;background:var(--up,#089981);border-radius:4px;padding:3px 5px;margin-left:2px}
+.mh .mcd.dn{background:var(--dn,#f23645)}.mh .mcd.soon{animation:cdcBlink 1s steps(2,start) infinite}.mh .mcd[hidden]{display:none}
+@media (max-width:520px){.mh .mcd{font-size:9.5px;padding:2px 4px}}
 #fsb.on{color:var(--gold2)!important;background:var(--gbg)!important}
 .wcdc{position:absolute;left:0;top:0;z-index:3;pointer-events:none;display:grid;gap:2px;padding:3px 8px 4px 7px;border-left:2px solid var(--cdc,#089981);border-radius:2px 4px 4px 2px;background:rgba(11,12,14,.72);background:color-mix(in srgb,var(--chartbg,#0b0c0e) 80%,transparent);font:600 11px/1.1 Inter,system-ui,sans-serif;font-variant-numeric:tabular-nums;white-space:nowrap;will-change:transform}
 .wcdc b{font-size:.8em;font-weight:600;letter-spacing:.03em;color:#9da1aa;text-transform:uppercase}

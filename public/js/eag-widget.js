@@ -109,8 +109,8 @@ function registerAll(){
     createPointFigures:({overlay,coordinates,bounding})=>{const c=coordinates[0];if(!c)return[];const ex=overlay.extendData||{};const col="#ff9800";
       return[{type:"line",ignoreEvent:true,attrs:{coordinates:[{x:0,y:c.y},{x:bounding.width,y:c.y}]},styles:{color:col,size:1,style:"dashed",dashedValue:[6,4]}},
         {type:"text",ignoreEvent:true,attrs:{x:8,y:c.y-9,text:`🔔 ${ex.label||"Alerta"}`,baseline:"middle"},styles:{color:"#16120a",size:AXF,backgroundColor:col,paddingLeft:6,paddingRight:6,paddingTop:2,paddingBottom:2,borderRadius:4}}]}});
-  /* etiqueta del precio actual en la regla: se dibuja en la capa de dibujos con el nivel más alto,
-     así el precio SIEMPRE queda encima de las etiquetas de líneas, zonas y alertas (como MT5) */
+  /* etiqueta del precio actual en la regla: se dibuja en la capa de dibujos con el nivel MÁS BAJO,
+     así las etiquetas de tus líneas, zonas y alertas SIEMPRE quedan encima del precio y se pueden leer */
   KC.registerOverlay({name:"eagLastPx",totalStep:2,lock:true,needDefaultPointFigure:false,needDefaultXAxisFigure:false,needDefaultYAxisFigure:false,
     createPointFigures:()=>[],
     createYAxisFigures:({overlay,bounding,yAxis})=>{const g=(overlay.extendData||{}).get,r=g&&g();if(!r||!yAxis)return[];
@@ -351,7 +351,7 @@ window.EAGWidget=function(o){
     let list=await o.datafeed.getHistoryKLineData(sym,per,from,to);
     if(g!==gen)return;
     const seen=new Set();list=list.filter(k=>!seen.has(k.timestamp)&&seen.add(k.timestamp)).sort((x,y)=>x.timestamp-y.timestamp);
-    chart.applyNewData(list,list.length>0);autoScale();ready=true;offR=null;fixOffR(true);
+    chart.applyNewData(list,list.length>0);autoScale();ready=true;applyStyles();offR=null;fixOffR(true);
     o.datafeed.subscribe(sym,per,d=>{if(g===gen){chart.updateData(d);cdKick(120)}});subKey={s:sym,p:per};
     restoreDrawings();
   }
@@ -404,7 +404,7 @@ window.EAGWidget=function(o){
   const cdl=document.createElement("div");cdl.className="wcdl";chartEl.appendChild(cdl);
   const cdc=document.createElement("div");cdc.className="wcdc";cdc.innerHTML='<b></b><span></span>';chartEl.appendChild(cdc);
   const cdcN=cdc.firstChild,cdcT=cdc.lastChild;
-  const cdMode=()=>{const m=o.getCdMode&&o.getCdMode();return m==="regla"||m==="off"?m:"vela"};
+  const cdMode=()=>{const m=o.getCdMode&&o.getCdMode();return m==="regla"||m==="vela"?m:"off"};  /* "mtf" (por defecto): el reloj va en cada mini de la multitemporalidad, no en el gráfico grande */
   /* espacio libre a la derecha de la última vela para que el contador no tape velas (como el "desplazamiento" de MT5) */
   /* OJO: setOffsetRightDistance mueve la vista al tiempo real, así que SOLO se llama al cargar el mercado o al cambiar el modo/la letra
      (antes se llamaba en cada cuadro y al hacer zoom con la rueda el gráfico se iba para un lado) */
@@ -436,6 +436,20 @@ window.EAGWidget=function(o){
   let cdUntil=0,cdLoop=false;
   function cdKick(ms){cdUntil=Math.max(cdUntil,Date.now()+(ms||700));if(cdLoop)return;cdLoop=true;const f=()=>{placeCdl();if(Date.now()<cdUntil&&root.isConnected)requestAnimationFrame(f);else cdLoop=false};requestAnimationFrame(f)}
   ["pointerdown","pointermove","wheel","touchmove"].forEach(ev=>chartEl.addEventListener(ev,e=>{if(ev==="pointermove"&&!e.buttons&&e.pointerType==="mouse")return;cdKick()},{passive:true,capture:true}));
+
+  /* rueda del mouse como en los charts de Deriv/TradingView: el zoom se ancla en la última vela (lado derecho),
+     así el gráfico no se "va" para un lado. Con Ctrl o ⌘ apretado, el zoom es donde está el mouse. */
+  chartEl.addEventListener("wheel",e=>{
+    if(e.ctrlKey||e.metaKey||Math.abs(e.deltaX)>Math.abs(e.deltaY)||!e.deltaY||brushOn)return;
+    if(panLocked&&panLocked.split("|")[1]==="true")return;
+    try{const r=chartEl.getBoundingClientRect(),mn=chart.getSize("candle_pane","main");if(!mn)return;
+      const x=e.clientX-r.left;if(x<mn.left||x>mn.left+mn.width)return;
+      let d=-(e.deltaY/100);if(e.deltaMode===1)d*=32;else if(e.deltaMode===2)d*=120;
+      const sc=Math.sign(d)*Math.min(1,Math.abs(d));if(!sc)return;
+      e.preventDefault();e.stopPropagation();
+      const L=chart.getDataList(),last=L[L.length-1];let ax=mn.width;
+      if(last){const pt=chart.convertToPixel({timestamp:last.timestamp,value:last.close},{paneId:"candle_pane"});if(pt&&pt.x!=null&&pt.x>=0&&pt.x<=mn.width)ax=pt.x}
+      chart.zoomAtCoordinate(1+sc/10,{x:ax,y:0});cdKick()}catch(err){}},{passive:false,capture:true});
 
   /* ---------- navegación rápida (abajo al centro) ---------- */
   let bs0=null;setTimeout(()=>{try{bs0=chart.getBarSpace()}catch(e){}},0);
@@ -520,9 +534,14 @@ window.EAGWidget=function(o){
     brushEl.oncontextmenu=e=>{e.preventDefault();stopBrush()};
     dbar.querySelector("[data-b]")&&dbar.querySelector("[data-b]").classList.add("act");o.onToast&&o.onToast("✏️ Pincel activo: dibuja o escribe sobre el gráfico. Esc o clic derecho para salir.")}
   function stopBrush(){if(!brushOn)return;brushOn=false;setTimeout(syncPan,0);if(brushEl){brushEl.remove();brushEl=null}const b=dbar.querySelector("[data-b]");b&&b.classList.remove("act")}
-  /* mientras dibujas o tienes un dibujo seleccionado, el gráfico no se mueve (así se coloca mejor, sobre todo en celular) */
-  let panLocked=false;
-  function syncPan(){const lock=!!(drawingId||selId||brushOn);if(lock===panLocked)return;panLocked=lock;try{chart.setScrollEnabled(!lock);chart.setZoomEnabled(!lock)}catch(e){}chartEl.classList.toggle("locked",lock)}
+  /* celular: mientras dibujas o tienes un dibujo seleccionado, el gráfico no se mueve (así se coloca mejor con el dedo).
+     PC (mouse): como en los charts de Deriv, un dibujo seleccionado NO bloquea el gráfico: se puede arrastrar y hacer zoom
+     con la rueda; el dibujo se mueve solo si lo agarras a él. Mientras dibujas, la rueda sigue haciendo zoom. */
+  let panLocked=null;
+  function syncPan(){const touch=lastTouch||(window.matchMedia&&matchMedia("(hover:none)").matches);
+    const scrollLock=!!(brushOn||drawingId||(touch&&selId)),zoomLock=!!(brushOn||(touch&&(drawingId||selId)));
+    const k=scrollLock+"|"+zoomLock;if(k===panLocked)return;panLocked=k;
+    try{chart.setScrollEnabled(!scrollLock);chart.setZoomEnabled(!zoomLock)}catch(e){}chartEl.classList.toggle("locked",scrollLock)}
   function cancelDraw(){if(drawingId){try{chart.removeOverlay(drawingId)}catch(e){}ovs.delete(drawingId);drawingId=null}dbar.querySelectorAll(".dt").forEach(b=>b.classList.remove("act"));syncPan()}
   function startTool(name){cancelDraw();
     const ts=(o.getToolStyle&&o.getToolStyle(name))||{};
@@ -575,7 +594,7 @@ window.EAGWidget=function(o){
   o.reloadDrawings=()=>{if(ready)restoreDrawings()};
   /* alertas de este mercado dibujadas como líneas naranjas punteadas */
   let alertIds=[];
-  /* precio actual en la regla, por encima de todo lo marcado (ver eagLastPx) */
+  /* precio actual en la regla, por debajo de todo lo marcado (ver eagLastPx) */
   let lpId=null;
   function lpGet(){const L=chart.getDataList(),d=L[L.length-1];if(!d)return null;let st;try{st=chart.getStyles().candle.priceMark}catch(e){return null}
     const lm=st&&st.last;if(!st||!st.show||!lm||!lm.show)return null;
@@ -584,7 +603,7 @@ window.EAGWidget=function(o){
     else t=(+d.close).toLocaleString("en-US",{minimumFractionDigits:pp,maximumFractionDigits:pp});
     const f=fz();return{v:d.close,t,st:Object.assign({},lm.text,{show:true,size:f,color:"#fff",backgroundColor:bg,borderColor:bg,paddingLeft:Math.round(f*.4),paddingRight:Math.round(f*.4),paddingTop:Math.round(f*.3),paddingBottom:Math.round(f*.3),borderRadius:2})}}
   function ensureLp(){if(!ready)return;if(lpId&&chart.getOverlayById(lpId))return;const L=chart.getDataList(),d=L[L.length-1];if(!d)return;
-    try{lpId=chart.createOverlay({name:"eagLastPx",lock:true,zLevel:1e6,points:[{timestamp:d.timestamp,value:d.close}],extendData:{get:lpGet}})}catch(e){lpId=null}}
+    try{lpId=chart.createOverlay({name:"eagLastPx",lock:true,zLevel:-1e6,points:[{timestamp:d.timestamp,value:d.close}],extendData:{get:lpGet}})}catch(e){lpId=null}}
   function renderAlerts(){alertIds.forEach(id=>{try{chart.removeOverlay(id)}catch(e){}});alertIds=[];ensureLp();if(!ready||!o.getAlerts)return;
     const L=chart.getDataList(),last=L[L.length-1];if(!last)return;const pp=sym.pricePrecision||3;
     (o.getAlerts(sym.ticker)||[]).forEach(a=>{const vals=a.kind==="zona"&&a.price2!=null?[+a.price,+a.price2]:[+a.price];
@@ -742,7 +761,7 @@ window.EAGWidget=function(o){
   function lockTip(x,y,on){const t=document.createElement("div");t.className="wlock";t.textContent=on?"🔒 Bloqueado":"🔓 Desbloqueado";t.style.left=x+"px";t.style.top=(y-46)+"px";chartEl.appendChild(t);setTimeout(()=>t.remove(),1300)}
   {let tdn=null,lastTap=null,manual=null;
     let lp=null;
-    chartEl.addEventListener("pointerdown",e=>{lastTouch=e.pointerType!=="mouse";if(e.pointerType==="mouse")return;tdn={x:e.clientX,y:e.clientY,t:Date.now(),sel:selId};
+    chartEl.addEventListener("pointerdown",e=>{const lt=e.pointerType!=="mouse";if(lt!==lastTouch){lastTouch=lt;syncPan()}if(e.pointerType==="mouse")return;tdn={x:e.clientX,y:e.clientY,t:Date.now(),sel:selId};
       /* mantener oprimido un dibujo = bloquear / desbloquear (como MT5) */
       clearTimeout(lp);const d0=tdn;lp=setTimeout(()=>{if(tdn!==d0||drawingId||brushOn)return;const r=chartEl.getBoundingClientRect(),x=d0.x-r.left,y=d0.y-r.top,id=nearOv(x,y,24);if(!id)return;
         tdn=null;toggleLock(id);const v=ovs.get(id);try{navigator.vibrate&&navigator.vibrate(18)}catch(x){}
@@ -800,7 +819,15 @@ window.EAGWidget=function(o){
         {title:{text:"L",color:tx},value:{text:f(c.low),color:col}},{title:{text:"C",color:tx},value:{text:f(c.close),color:col}},{title:{text:"",color:tx},value:{text:`${ch>=0?"+":""}${f(ch)} (${ch>=0?"+":""}${pc.toFixed(2)}%)`,color:ch>=0?up:dn}}]}}
   /* tamaño de letra del gráfico (pensado para transmitir) */
   const fz=()=>+(o.getFont&&o.getFont())||11;
-  function applyStyles(){const f=fz(),t={size:f};chart.setStyles(deep(deep(themeStyles(theme==="light",theme==="eag"),extra),{yAxis:{type:axisType,tickText:t},xAxis:{tickText:t},
+  /* regla de precios con ancho FIJO: no se agranda ni se achica al acercar/alejar (se calcula con el precio más largo del mercado) */
+  let axCv=null;
+  function axWidth(f){if(!ready)return"auto";const L=chart.getDataList();if(!L.length)return"auto";
+    let txt;if(axisType==="percentage")txt="-888.88%";
+    else{let mx=0;for(const k of L)mx=Math.max(mx,Math.abs(k.high),Math.abs(k.low));const pp=dec();
+      txt=(mx*10).toLocaleString("en-US",{minimumFractionDigits:pp,maximumFractionDigits:pp}).replace(/\d/g,"8")}   /* un dígito de más, por si el precio crece */
+    try{axCv=axCv||document.createElement("canvas").getContext("2d");axCv.font=`${f}px Helvetica Neue, Arial, sans-serif`;return Math.ceil(axCv.measureText(txt).width+f*.9+14)}catch(e){return"auto"}}
+  let axW="auto";
+  function applyStyles(){const f=fz(),t={size:f};axW=axWidth(f);chart.setStyles(deep(deep(themeStyles(theme==="light",theme==="eag"),extra),{yAxis:{type:axisType,tickText:t,size:axW},xAxis:{tickText:t},
     crosshair:{horizontal:{text:t},vertical:{text:t}},indicator:{tooltip:{text:{size:f}}},overlay:{text:{size:f+1},rectText:{size:f}},
     candle:{priceMark:{last:{text:{size:f,show:false}},high:{textSize:Math.max(10,f-1)},low:{textSize:Math.max(10,f-1)}},tooltip:{showRule:"always",showType:"standard",custom:legend(),text:{size:f+1,marginLeft:10,marginTop:8,marginRight:10}}}}));
     cdl.style.fontSize=(f-0.5)+"px";cdc.style.fontSize=f+"px";AXF=f;ensureLp();if(ready&&offR!=null&&offF!==f){offF=f;fixOffR()}offF=f;placeCdl()}
