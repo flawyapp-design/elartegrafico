@@ -1706,8 +1706,7 @@ html,body{touch-action:manipulation;-webkit-text-size-adjust:100%}
 .dur-c button b{font-size:12px;white-space:nowrap}.dur-c button em{font-style:normal;font-size:10.5px;font-weight:800;color:#10b981}
 .dur-c button.on{background:linear-gradient(135deg,#f3d58f,#c9963d);color:#1b1406}.dur-c button.on em{color:#1b1406}
 html.light .dur-c{background:rgba(0,0,0,.03)}
-.prices>.price{container-type:inline-size}
-.dur-c{grid-template-columns:1fr 1fr}
-@container (min-width:300px){.dur-c{grid-template-columns:repeat(4,1fr)}}
-.dur-c button{grid-auto-flow:column;gap:6px;align-items:baseline;justify-content:center}
-@container (min-width:300px){.dur-c button{grid-auto-flow:row;gap:1px}}
+/* meses: 4 en fila en celular/tarjetas anchas; 2x2 cuando las 4 tarjetas van lado a lado */
+.dur-c{grid-template-columns:repeat(4,1fr)}
+@media (min-width:1000px){.dur-c{grid-template-columns:1fr 1fr}.dur-c button{grid-auto-flow:column;gap:6px;align-items:baseline;justify-content:center}}
+.crs-prices{width:100%}
