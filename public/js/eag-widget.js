@@ -29,6 +29,8 @@ function boxPts(a,b){const both=a.dataIndex!=null&&b.dataIndex!=null;
 let registered=false;let EAG_TZ="America/Bogota";
 /* tamaño de letra de la regla (lo pone cada gráfico en applyStyles): las etiquetas de los dibujos crecen igual que los precios */
 let AXF=11;const axPad=()=>Math.round(AXF*.28);
+/* eje del tiempo: siempre tamaño normal (el tamaño de letra del usuario solo agranda la regla de precios) */
+const axStX=bg=>({color:"#fff",size:11,backgroundColor:bg,paddingLeft:5,paddingRight:5,paddingTop:3,paddingBottom:3,borderRadius:2});
 const axSt=(bg,x)=>Object.assign({color:"#fff",size:AXF,backgroundColor:bg,paddingLeft:Math.round(AXF*.4),paddingRight:Math.round(AXF*.4),paddingTop:axPad(),paddingBottom:axPad(),borderRadius:2},x||{});
 function registerAll(){
   if(registered)return;registered=true;
@@ -41,7 +43,7 @@ function registerAll(){
     const yLab=({overlay,coordinates,precision,defaultStyles})=>{if(!coordinates.length||!overlay.points||!overlay.points.length)return[];const pr=(precision&&precision.price!=null)?precision.price:2,c=lineCol(overlay,defaultStyles);
       return[{type:"text",ignoreEvent:true,attrs:{x:0,y:coordinates[0].y,text:pf(overlay.points[0].value,pr),align:"left",baseline:"middle"},styles:axSt(c)}]};
     const xLab=({overlay,coordinates,defaultStyles})=>{if(!coordinates.length||!overlay.points||!overlay.points.length)return[];const ts=overlay.points[0].timestamp;if(!ts)return[];const c=lineCol(overlay,defaultStyles);
-      return[{type:"text",ignoreEvent:true,attrs:{x:coordinates[0].x,y:3,text:tf(ts),align:"center",baseline:"top"},styles:axSt(c)}]};
+      return[{type:"text",ignoreEvent:true,attrs:{x:coordinates[0].x,y:3,text:tf(ts),align:"center",baseline:"top"},styles:axStX(c)}]};
     /* se reescriben las 6 líneas (mismos nombres y mismos puntos que las originales, así los dibujos guardados siguen igual) */
     const L1=(a,b)=>({type:"line",attrs:{coordinates:[a,b]}});
     const sameY=({points,performPoint})=>{if(points[0])points[0].value=performPoint.value;if(points[1])points[1].value=performPoint.value};
@@ -169,7 +171,7 @@ function registerAll(){
     np.forEach((p,k)=>{if(p.timestamp!=null)points[k].timestamp=p.timestamp;else delete points[k].timestamp;if(p.dataIndex!=null)points[k].dataIndex=p.dataIndex;points[k].value=p.value})};
   const axY=(y,v,c,precision)=>{const pr=(precision&&precision.price!=null)?precision.price:2;return{type:"text",ignoreEvent:true,attrs:{x:0,y,text:(+v).toLocaleString("en-US",{minimumFractionDigits:pr,maximumFractionDigits:pr}),align:"left",baseline:"middle"},styles:axSt(c)}};
   const two2=n=>String(n).padStart(2,"0"),fmtT=t=>{const d=new Date(t);return `${two2(d.getDate())}/${two2(d.getMonth()+1)} ${two2(d.getHours())}:${two2(d.getMinutes())}`};
-  const axX=(x,t,c)=>({type:"text",ignoreEvent:true,attrs:{x,y:3,text:fmtT(t),align:"center",baseline:"top"},styles:axSt(c)});
+  const axX=(x,t,c)=>({type:"text",ignoreEvent:true,attrs:{x,y:3,text:fmtT(t),align:"center",baseline:"top"},styles:axStX(c)});
   /* en la regla de precios: el precio de entrada (verde) y del SL (rojo) siempre marcados */
   const boxAxis=kind=>({overlay,coordinates,bounding,precision})=>{if(coordinates.length<4||!overlay.points||overlay.points.length<4)return[];const ex=overlay.extendData||{};
     const up=ex.up||"#089981",dn=ex.dn||"#f23645",pr=(precision&&precision.price!=null)?precision.price:2;
@@ -311,7 +313,7 @@ function themeStyles(light,eag){
   const tx=light?"#5c616b":eag?"#93a1c4":"#9da1aa",ln=light?"#e5e6e9":eag?"#1f3266":"#24262c",cb=light?"#15171c":eag?"#2b4282":"#363a45";
   const axis={axisLine:{color:ln},tickLine:{color:ln},tickText:{color:tx,size:11}};
   const ch={line:{color:light?"#9aa0aa":"#5d626c",style:"dashed",dashedValue:[4,4]},text:{backgroundColor:cb,borderColor:cb,color:"#fff"}};
-  return{xAxis:axis,yAxis:axis,separator:{color:ln},crosshair:{horizontal:ch,vertical:ch},
+  return{xAxis:JSON.parse(JSON.stringify(axis)),yAxis:JSON.parse(JSON.stringify(axis)),separator:{color:ln},crosshair:{horizontal:JSON.parse(JSON.stringify(ch)),vertical:JSON.parse(JSON.stringify(ch))},
     candle:{tooltip:{text:{color:tx,size:11}},priceMark:{high:{color:tx},low:{color:tx}}},indicator:{tooltip:{text:{color:tx,size:11}}},
     overlay:{line:{color:GOLD,size:1},point:{color:light?"#ffffff":"#0b0c0e",borderColor:GOLD,borderSize:1.5,radius:4,activeColor:GOLD,activeBorderColor:hexA(GOLD,.25),activeBorderSize:5,activeRadius:4},
       rect:{color:hexA(GOLD,.12),borderColor:GOLD},polygon:{color:hexA(GOLD,.12),borderColor:GOLD},circle:{color:hexA(GOLD,.12),borderColor:GOLD},arc:{color:GOLD},
@@ -437,6 +439,33 @@ window.EAGWidget=function(o){
   function cdKick(ms){cdUntil=Math.max(cdUntil,Date.now()+(ms||700));if(cdLoop)return;cdLoop=true;const f=()=>{placeCdl();if(Date.now()<cdUntil&&root.isConnected)requestAnimationFrame(f);else cdLoop=false};requestAnimationFrame(f)}
   ["pointerdown","pointermove","wheel","touchmove"].forEach(ev=>chartEl.addEventListener(ev,e=>{if(ev==="pointermove"&&!e.buttons&&e.pointerType==="mouse")return;cdKick()},{passive:true,capture:true}));
 
+  /* estirar la regla de precios arrastrando arriba/abajo (mouse y dedo).
+     El motor original escalaba según la altura absoluta del mouse en la pantalla (cerca del borde "se frenaba")
+     y se detenía si el mouse se salía un poco de la regla. Aquí: proporcional al movimiento, suave, y sigue aunque salgas de la regla.
+     Doble clic / doble toque en la regla: vuelve a la escala automática. */
+  {let yd=null,lastTapY=0;
+    const inYAxis=(cx,cy)=>{try{const r=chartEl.getBoundingClientRect(),ya=chart.getSize("candle_pane","yAxis");if(!ya)return false;const x=cx-r.left,y=cy-r.top;
+      return x>=ya.left&&x<=ya.left+ya.width&&y>=ya.top&&y<=ya.top+ya.height}catch(e){return false}};
+    const axC=()=>chart._candlePane&&chart._candlePane.getAxisComponent();
+    const start=(cy,isTouch)=>{const ax=axC();const rg=ax&&ax.getRange&&ax.getRange();if(!rg)return false;
+      let h=300;try{h=chart.getSize("candle_pane","yAxis").height||300}catch(e){}
+      yd={y0:cy,rg:Object.assign({},rg),h,ax};return true};
+    const move=cy=>{if(!yd)return;const {ax,rg,h}=yd,k=Math.exp((cy-yd.y0)*2.2/h),nr=rg.range*k,c=(rg.from+rg.to)/2,from=c-nr/2,to=c+nr/2;
+      try{ax.setAutoCalcTickFlag?ax.setAutoCalcTickFlag(false):(ax._autoCalcTickFlag=false);
+        const rf=ax.convertToRealValue(from),rt=ax.convertToRealValue(to);ax.setRange({from,to,range:nr,realFrom:rf,realTo:rt,realRange:rt-rf});
+        chart.adjustPaneViewport(false,true,true,true)}catch(e){}cdKick(200)};
+    const end=()=>{yd=null;document.removeEventListener("mousemove",mm,true);document.removeEventListener("mouseup",mu,true)};
+    const mm=e=>{if(!yd)return;e.preventDefault();e.stopPropagation();move(e.clientY)};
+    const mu=e=>{if(!yd)return;e.stopPropagation();end()};
+    chartEl.addEventListener("mousedown",e=>{if(e.button!==0||!inYAxis(e.clientX,e.clientY))return;if(e.detail>=2)return;
+      if(!start(e.clientY))return;e.preventDefault();e.stopPropagation();document.addEventListener("mousemove",mm,true);document.addEventListener("mouseup",mu,true)},true);
+    chartEl.addEventListener("dblclick",e=>{if(inYAxis(e.clientX,e.clientY)){end();autoScale();cdKick(300)}},true);
+    chartEl.addEventListener("touchstart",e=>{if(e.touches.length!==1)return;const t=e.touches[0];if(!inYAxis(t.clientX,t.clientY))return;
+      const now=Date.now();if(now-lastTapY<300){lastTapY=0;autoScale();cdKick(300);e.preventDefault();e.stopPropagation();return}lastTapY=now;
+      if(!start(t.clientY,true))return;e.stopPropagation()},{capture:true,passive:false});
+    chartEl.addEventListener("touchmove",e=>{if(!yd)return;e.preventDefault();e.stopPropagation();move(e.touches[0].clientY)},{capture:true,passive:false});
+    chartEl.addEventListener("touchend",e=>{if(yd){e.stopPropagation();end()}},true);
+    chartEl.addEventListener("touchcancel",()=>{if(yd)end()},true)}
   /* rueda del mouse como en los charts de Deriv/TradingView: el zoom se ancla en la última vela (lado derecho),
      así el gráfico no se "va" para un lado. Con Ctrl o ⌘ apretado, el zoom es donde está el mouse. */
   chartEl.addEventListener("wheel",e=>{
@@ -827,10 +856,12 @@ window.EAGWidget=function(o){
       txt=(mx*10).toLocaleString("en-US",{minimumFractionDigits:pp,maximumFractionDigits:pp}).replace(/\d/g,"8")}   /* un dígito de más, por si el precio crece */
     try{axCv=axCv||document.createElement("canvas").getContext("2d");axCv.font=`${f}px Helvetica Neue, Arial, sans-serif`;return Math.ceil(axCv.measureText(txt).width+f*.9+14)}catch(e){return"auto"}}
   let axW="auto";
-  function applyStyles(){const f=fz(),t={size:f};axW=axWidth(f);chart.setStyles(deep(deep(themeStyles(theme==="light",theme==="eag"),extra),{yAxis:{type:axisType,tickText:t,size:axW},xAxis:{tickText:t},
-    crosshair:{horizontal:{text:t},vertical:{text:t}},indicator:{tooltip:{text:{size:f}}},overlay:{text:{size:f+1},rectText:{size:f}},
-    candle:{priceMark:{last:{text:{size:f,show:false}},high:{textSize:Math.max(10,f-1)},low:{textSize:Math.max(10,f-1)}},tooltip:{showRule:"always",showType:"standard",custom:legend(),text:{size:f+1,marginLeft:10,marginTop:8,marginRight:10}}}}));
-    cdl.style.fontSize=(f-0.5)+"px";cdc.style.fontSize=f+"px";AXF=f;ensureLp();if(ready&&offR!=null&&offF!==f){offF=f;fixOffR()}offF=f;placeCdl()}
+  /* el tamaño de letra elegido SOLO agranda la regla de precios (precios, precio actual, etiquetas de dibujos en la regla y la cruz en la regla).
+     Eje del tiempo, leyenda, textos dentro del gráfico y botones quedan siempre igual, así el diseño no se desarma. */
+  function applyStyles(){const f=fz(),t={size:f},B=11,tb={size:B};axW=axWidth(f);chart.setStyles(deep(deep(themeStyles(theme==="light",theme==="eag"),extra),{yAxis:{type:axisType,tickText:t,size:axW},xAxis:{tickText:tb,size:"auto"},
+    crosshair:{horizontal:{text:t},vertical:{text:tb}},indicator:{tooltip:{text:{size:B}}},overlay:{text:{size:B+1},rectText:{size:B}},
+    candle:{priceMark:{last:{text:{size:f,show:false}},high:{textSize:10},low:{textSize:10}},tooltip:{showRule:"always",showType:"standard",custom:legend(),text:{size:B+1,marginLeft:10,marginTop:8,marginRight:10}}}}));
+    cdl.style.fontSize=(f-0.5)+"px";cdc.style.fontSize=Math.min(f,13)+"px";AXF=f;ensureLp();if(ready&&offR!=null&&offF!==f){offF=f;fixOffR()}offF=f;placeCdl()}
   /* decimales del precio: automático o los que elija el usuario */
   const dec=()=>{const d=o.getDecimals&&o.getDecimals();return d==null||d==="auto"?(sym.pricePrecision||3):+d};
   function applyDec(){try{chart.setPriceVolumePrecision(dec(),0)}catch(e){}}

@@ -677,7 +677,7 @@ function start(){
     if(cat==="grafico")return`<h3>Gráfico</h3>
       <div class="slabel">Decimales del precio</div><p class="shelp">Cuántos decimales se ven en el precio, la escala y la leyenda. "Auto" usa los del mercado.</p>
       <div class="seg">${[["auto","Auto"],["0","0"],["1","1"],["2","2"],["3","3"],["4","4"]].map(([v,t])=>`<button data-dec="${v}" class="${String(c.dec)===v?"on":""}">${t}</button>`).join("")}</div>
-      <div class="slabel">Tamaño de letra del gráfico</div><p class="shelp">Escala de precios, horas, leyenda y etiquetas. Usa "Grande" o "Muy grande" para transmitir en vivo.</p>
+      <div class="slabel">Tamaño de letra del gráfico</div><p class="shelp">Agranda la regla de precios (precios y etiquetas de tus dibujos en la regla). El resto del gráfico queda igual. Usa "Grande" o "Muy grande" para transmitir en vivo.</p>
       <div class="seg">${[[11,"Normal"],[13,"Mediana"],[15,"Grande"],[18,"Muy grande"]].map(([v,t])=>`<button data-fz="${v}" class="${+c.font===v?"on":""}">${t}</button>`).join("")}</div>
       <div class="slabel">Contador de cierre de vela</div><p class="shelp">"En Multi-TF": cada temporalidad de la multitemporalidad muestra lo que le falta a su vela. "Junto a la vela" es como en MT5: al lado de la última vela del gráfico grande, con el nombre del mercado.</p>
       <div class="seg">${[["mtf","En Multi-TF"],["vela","Junto a la vela"],["regla","En la regla"],["off","Oculto"]].map(([v,t])=>`<button data-cd="${v}" class="${(c.cd||"mtf")===v?"on":""}">${t}</button>`).join("")}</div>
