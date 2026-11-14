@@ -213,6 +213,8 @@ html.light .wfoot button.on{color:var(--gold)}
 .mh .mcd::before{content:"";width:9px;height:9px;flex:none;background:currentColor;-webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.6' stroke-linecap='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpath d='M12 7v5l3 2'/%3E%3C/svg%3E") center/contain no-repeat;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.6' stroke-linecap='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpath d='M12 7v5l3 2'/%3E%3C/svg%3E") center/contain no-repeat}
 .mh .mcd.dn{color:#f23645!important;background:rgba(242,54,69,.12)!important}.mh .mcd.soon{animation:cdcBlink 1s steps(2,start) infinite}.mh .mcd[hidden]{display:none}
 @media (max-width:520px){.mh .mcd{font-size:9.5px;padding:2px 4px}}
+/* cursor sobre los dibujos como en Deriv: mano al pasar, "agarrando" al moverlos */
+.wchart.ovh canvas{cursor:pointer!important}.wchart.ovdrag canvas{cursor:grabbing!important}
 #fsb.on{color:var(--gold2)!important;background:var(--gbg)!important}
 .wcdc{position:absolute;left:0;top:0;z-index:3;pointer-events:none;display:grid;gap:2px;padding:3px 8px 4px 7px;border-left:2px solid var(--cdc,#089981);border-radius:2px 4px 4px 2px;background:rgba(11,12,14,.72);background:color-mix(in srgb,var(--chartbg,#0b0c0e) 80%,transparent);font:600 11px/1.1 Inter,system-ui,sans-serif;font-variant-numeric:tabular-nums;white-space:nowrap;will-change:transform}
 .wcdc b{font-size:.8em;font-weight:600;letter-spacing:.03em;color:#9da1aa;text-transform:uppercase}

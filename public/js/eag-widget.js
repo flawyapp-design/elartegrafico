@@ -34,6 +34,13 @@ const axStX=bg=>({color:"#fff",size:11,backgroundColor:bg,paddingLeft:5,paddingR
 const axSt=(bg,x)=>Object.assign({color:"#fff",size:AXF,backgroundColor:bg,paddingLeft:Math.round(AXF*.4),paddingRight:Math.round(AXF*.4),paddingTop:axPad(),paddingBottom:axPad(),borderRadius:2},x||{});
 function registerAll(){
   if(registered)return;registered=true;
+  /* agarrar líneas como en TradingView/Deriv: el motor solo aceptaba el clic a 2 px de la línea; ahora a 6 px (mismo dibujo) */
+  try{const LineC=KC.getFigureClass&&KC.getFigureClass("line");
+    if(LineC){const TOL=6;
+      const near=(c,a,b)=>{const dx=b.x-a.x,dy=b.y-a.y,l2=dx*dx+dy*dy;let t=l2?((c.x-a.x)*dx+(c.y-a.y)*dy)/l2:0;t=Math.max(0,Math.min(1,t));const px=a.x+t*dx-c.x,py=a.y+t*dy-c.y;return px*px+py*py<=TOL*TOL};
+      KC.registerFigure({name:"line",
+        checkEventOn:(c,attrs)=>{const L=[].concat(attrs);for(const l of L){const cs=l&&l.coordinates||[];for(let i=1;i<cs.length;i++)if(near(c,cs[i-1],cs[i]))return true}return false},
+        draw:(ctx,attrs,styles)=>{new LineC({name:"line",attrs,styles}).draw(ctx)}})}}catch(e){console.warn("línea",e)}
   /* líneas horizontales y verticales: su precio queda SIEMPRE marcado en la regla y su hora abajo en el eje del tiempo
      (se envuelven las herramientas originales de klinecharts y solo se les agrega la etiqueta) */
   try{
@@ -315,7 +322,7 @@ function themeStyles(light,eag){
   const ch={line:{color:light?"#9aa0aa":"#5d626c",style:"dashed",dashedValue:[4,4]},text:{backgroundColor:cb,borderColor:cb,color:"#fff"}};
   return{xAxis:JSON.parse(JSON.stringify(axis)),yAxis:JSON.parse(JSON.stringify(axis)),separator:{color:ln},crosshair:{horizontal:JSON.parse(JSON.stringify(ch)),vertical:JSON.parse(JSON.stringify(ch))},
     candle:{tooltip:{text:{color:tx,size:11}},priceMark:{high:{color:tx},low:{color:tx}}},indicator:{tooltip:{text:{color:tx,size:11}}},
-    overlay:{line:{color:GOLD,size:1},point:{color:light?"#ffffff":"#0b0c0e",borderColor:GOLD,borderSize:1.5,radius:4,activeColor:GOLD,activeBorderColor:hexA(GOLD,.25),activeBorderSize:5,activeRadius:4},
+    overlay:{line:{color:GOLD,size:1},point:{color:light?"#ffffff":eag?"#060b1a":"#0b0c0e",borderColor:GOLD,borderSize:1.5,radius:4.5,activeColor:GOLD,activeBorderColor:hexA(GOLD,.28),activeBorderSize:5,activeRadius:5},
       rect:{color:hexA(GOLD,.12),borderColor:GOLD},polygon:{color:hexA(GOLD,.12),borderColor:GOLD},circle:{color:hexA(GOLD,.12),borderColor:GOLD},arc:{color:GOLD},
       text:{color:GOLD},rectText:{color:"#16120a",backgroundColor:GOLD,borderColor:GOLD}}};
 }
@@ -577,15 +584,21 @@ window.EAGWidget=function(o){
     const ex=Object.assign(name==="eagText"?{text:"Texto"}:{},ts.ex||{});
     const id=makeOverlay({name,extendData:Object.keys(ex).length?ex:undefined,styles:ts.styles||undefined},true);if(!id)return;drawingId=id;syncPan();
     dbar.querySelectorAll(".dt[data-k]").forEach(b=>b.classList.toggle("act",b.dataset.k===name))}
+  /* puntos para mover (como Deriv/TradingView): del color de cada dibujo */
+  const lcOf=v=>{const s=(v&&v.styles)||{},e=(v&&v.extendData)||{};return(s.line&&s.line.color)||(s.polygon&&s.polygon.borderColor)||e.color||GOLD};
+  const ptOf=c=>({borderColor:c,activeColor:c,activeBorderColor:/^#/.test(c)?hexA(c,.28):c});
+  const withPt=v=>Object.assign({},(v&&v.styles)||{},{point:ptOf(lcOf(v))});
+  function refreshPt(id){const v=ovs.get(id);if(!v)return;try{chart.overrideOverlay({id,styles:withPt(v)})}catch(e){}}
   function makeOverlay(def,drawing){
     if(!drawing&&BOX.test(def.name)&&def.points&&def.points.length===2)def=Object.assign({},def,{points:boxPts(def.points[0],def.points[1]).map(p=>({timestamp:p.timestamp,value:p.value}))});
-    const id=chart.createOverlay({name:def.name,points:def.points,styles:def.styles,extendData:def.extendData,lock:!!def.lock,visible:!hidden,mode:magnet,
+    const id=chart.createOverlay({name:def.name,points:def.points,styles:withPt(def),extendData:def.extendData,lock:!!def.lock,visible:!hidden,mode:magnet,
       onDrawEnd:e=>{drawingId=null;dbar.querySelectorAll(".dt").forEach(b=>b.classList.remove("act"));setTimeout(syncPan,0);
         if((e.overlay.name==="eagLong"||e.overlay.name==="eagShort")&&e.overlay.points.length<3)autoPos(e.overlay);
         if(BOX.test(e.overlay.name)&&e.overlay.points.length<8&&e.overlay.points.length>=2){const ps=e.overlay.points;chart.overrideOverlay({id:e.overlay.id,points:boxPts({timestamp:tsOf(ps[0]),dataIndex:ps[0].dataIndex,value:ps[0].value},{timestamp:tsOf(ps[1]),dataIndex:ps[1].dataIndex,value:ps[1].value})})}
         capture(chart.getOverlayById(e.overlay.id)||e.overlay);if(e.overlay.name==="eagText")setTimeout(()=>editText(e.overlay.id),30);return false},
-      onPressedMoveStart:()=>{movingOv=true;return false},
-      onPressedMoveEnd:e=>{movingOv=false;capture(e.overlay);return false},
+      onPressedMoveStart:()=>{movingOv=true;chartEl.classList.add("ovdrag");return false},
+      onPressedMoveEnd:e=>{movingOv=false;chartEl.classList.remove("ovdrag");capture(e.overlay);return false},
+      onMouseEnter:()=>{chartEl.classList.add("ovh");return false},onMouseLeave:()=>{chartEl.classList.remove("ovh");return false},
       onSelected:e=>{const lv=ovs.get(e.overlay.id);if(lastTouch&&lv&&lv.lock)return false;selId=e.overlay.id;showStyleBar(e.overlay.id);syncPan();return false},
       onDeselected:e=>{if(selId===e.overlay.id){selId=null;hideStyleBar()}syncPan();return false},
       onRemoved:e=>{if(bulk)return false;ovs.delete(e.overlay.id);if(selId===e.overlay.id){selId=null;hideStyleBar()}persist();return false},
@@ -651,7 +664,7 @@ window.EAGWidget=function(o){
         rect:{borderColor:c.color,borderSize:c.size,color:c.fill!=null?c.fill:hexA(c.color,.14)},circle:{borderColor:c.color,borderSize:c.size,color:c.fill!=null?c.fill:hexA(c.color,.14)},
         arc:{color:c.color,size:c.size},text:{color:c.color},rectText:{backgroundColor:c.color,borderColor:c.color}};
       v.styles=st;chart.overrideOverlay({id,styles:st})}
-    persist();if(!sbar.hidden)showStyleBar(id);
+    refreshPt(id);persist();if(!sbar.hidden)showStyleBar(id);
     /* recordar el estilo para los próximos dibujos de esta herramienta */
     if(o.onToolStyle){const ex={};const e2=v.extendData||{};["color","size","up","dn"].forEach(k=>{if(e2[k]!=null)ex[k]=e2[k]});o.onToolStyle(v.name,{styles:v.styles||null,ex})}}
   const alertable=v=>/^(horizontalStraightLine|horizontalRayLine|horizontalSegment|priceLine|eagZone|eagRect|eagBuyZone|eagSellZone|rect|segment|rayLine|straightLine)$/.test(v.name)&&v.points&&v.points.length;
@@ -716,7 +729,7 @@ window.EAGWidget=function(o){
     const box=document.createElement("div");box.className="wtxt";box.innerHTML=`<input type="text" maxlength="80" value="${esc((v.extendData||{}).text||"")}" placeholder="Escribe y presiona Enter">`;
     chartEl.appendChild(box);box.style.left=Math.max(4,Math.min(px.x,chartEl.clientWidth-230))+"px";box.style.top=Math.max(4,px.y-16)+"px";
     const inp=box.querySelector("input");inp.focus();inp.select();
-    const done=ok=>{if(!box.isConnected)return;if(ok){v.extendData=Object.assign({},v.extendData||{},{text:inp.value.trim()||(v.name==="eagText"?"Texto":"")});chart.overrideOverlay({id,extendData:v.extendData});persist()}box.remove()};
+    let fin=false;const done=ok=>{if(fin||!box.isConnected)return;fin=true;if(ok){v.extendData=Object.assign({},v.extendData||{},{text:inp.value.trim()||(v.name==="eagText"?"Texto":"")});chart.overrideOverlay({id,extendData:v.extendData});persist()}box.remove()};
     inp.onkeydown=e=>{e.stopPropagation();if(e.key==="Enter")done(true);if(e.key==="Escape")done(false)};inp.onblur=()=>done(true)}
   root.tabIndex=-1;
   root.addEventListener("keydown",e=>{if((e.key==="Delete"||e.key==="Backspace")&&selId&&!/input|select|textarea/i.test(e.target.tagName)){removeOv(selId);selId=null}if(e.key==="Escape"){cancelDraw();closeMenu();stopBrush()}});
