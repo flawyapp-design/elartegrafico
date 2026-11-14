@@ -157,7 +157,7 @@ function SupabaseAPI(url,key){
     setReview(id,patch){return req(`/rest/v1/reviews?id=eq.${id}`,{method:"PATCH",body:patch,headers:{Prefer:"return=minimal"}})},
     delReview(id){return del("reviews",id)},
     // pagos (Binance, semiautomático)
-    async payRequest(o){const body={method:"binance",plan:o.plan||"",days:o.days||30,amount:o.amount||"",order_id:o.order_id,note:o.note||""};if(o.course_id)body.course_id=o.course_id;const r=await req("/rest/v1/payment_requests",{method:"POST",body,headers:{Prefer:"return=representation"}});return r&&r[0]},
+    async payRequest(o){const body={method:["breb","airtm"].includes(o.method)?o.method:"binance",plan:o.plan||"",days:o.days||30,amount:o.amount||"",order_id:o.order_id,note:o.note||""};if(o.course_id)body.course_id=o.course_id;const r=await req("/rest/v1/payment_requests",{method:"POST",body,headers:{Prefer:"return=representation"}});return r&&r[0]},
     // cursos, planes y Sala Oro
     courses(){return sel("courses","&order=sort.asc,created_at.asc")},
     myCourses(){if(!sess||!sess.user)return Promise.resolve([]);return req(`/rest/v1/user_courses?select=course_id&user_id=eq.${sess.user.id}`)},
@@ -333,7 +333,7 @@ function LocalAPI(){
       const oid=String(o.order_id||"").trim();if(oid.length<4)throw new Error("Escribe el ID de orden de Binance.");
       if(db.payments.some(x=>x.status!=="rechazado"&&x.order_id.toLowerCase()===oid.toLowerCase()))throw new Error("Ese ID de orden ya fue registrado.");
       if(db.payments.filter(x=>x.user_id===uid&&x.status==="pendiente").length>=3)throw new Error("Ya tienes 3 pagos por confirmar. Espera a que los revisemos.");
-      const r={id:uuid(),user_id:uid,method:"binance",plan:o.plan||"",days:o.days||30,amount:o.amount||"",order_id:oid,note:o.note||"",course_id:o.course_id||null,status:"pendiente",admin_note:"",created_at:now(),reviewed_at:null};db.payments.push(r);save();return r},
+      const r={id:uuid(),user_id:uid,method:["breb","airtm"].includes(o.method)?o.method:"binance",plan:o.plan||"",days:o.days||30,amount:o.amount||"",order_id:oid,note:o.note||"",course_id:o.course_id||null,status:"pendiente",admin_note:"",created_at:now(),reviewed_at:null};db.payments.push(r);save();return r},
     async myFeedback(){return(db.feedback||[]).filter(x=>x.user_id===uid).map(x=>({module_id:x.module_id}))},
     async sendFeedback(o){if(!uid)throw new Error("Inicia sesión");db.feedback=db.feedback||[];if(db.feedback.some(x=>x.user_id===uid&&x.module_id===o.module_id))throw new Error("Ya dejaste tu reseña de este módulo");
       db.feedback.push({id:"f"+Date.now(),user_id:uid,module_id:o.module_id,rating:o.rating,liked:o.liked,improve:o.improve,created_at:new Date().toISOString()});save()},

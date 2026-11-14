@@ -1219,37 +1219,56 @@ async function afterLogin(){await API.loadProfile();await loadProg();await loadC
 
 /* ---------- mercados / premium ---------- */
 ROUTES.mercados=()=>{app.innerHTML=`<div class="pagehead"><span class="eyebrow">Mercados</span><h1>Un método, varios mercados</h1><p class="muted">La base es la misma para todos: el curso <b>Fundamentos del trading</b>, gratis con tu cuenta. Encima va la estrategia de cada mercado: empezamos con Boom y Crash, y después llegan Step Index, Volatility, Forex y metales.</p></div><div class="mkts big">${marketsHTML(S.site.markets||[],false)}</div>`};
-ROUTES.premium=()=>{const s=S.site;const plans=(s.plans||[]).filter(x=>x&&x.name);const off=!!s.paymentsOff;const bin=!off&&!!(s.binancePayId&&(plans.length||(S.courses||[]).length));const pf=API.profile()||{};
+ROUTES.premium=()=>{const s=S.site;const plans=(s.plans||[]).filter(x=>x&&x.name);const off=!!s.paymentsOff;/* medios de pago: Binance Pay, Airtm y Bre-B (Colombia); cada uno aparece si está configurado en Admin → Sitio */
+  const PM=[s.binancePayId&&{k:"binance",t:"Binance Pay",ref:"ID de orden de Binance",ph:"Ej.: 382947561029384756"},
+    s.airtmUser&&{k:"airtm",t:"Airtm",ref:"ID de la transacción de Airtm",ph:"Ej.: el código del movimiento"},
+    s.brebKey&&{k:"breb",t:"Bre-B · Colombia",ref:"Número de comprobante o referencia",ph:"Ej.: M12345678"}].filter(Boolean);
+  let pmK=(()=>{try{const k=sessionStorage.getItem("ag_pm");if(PM.some(m=>m.k===k))return k}catch(e){}return PM[0]&&PM[0].k})();
+  const bin=!off&&PM.length>0&&!!(plans.length||(S.courses||[]).length);const pf=API.profile()||{};
   app.innerHTML=`<div class="pagehead"><span class="eyebrow">Premium</span><h1>${esc(s.premiumTitle||"Hazte premium")}</h1><p class="muted">${esc(s.premiumText||"")}</p></div>
   ${premium()?`<div class="note ok-note">Eres suscriptor ${(TIERS[myPlan()]||{n:"premium"}).n}${pf.premium_until&&new Date(pf.premium_until).getFullYear()<2090?` hasta el <b>${fmtDate(pf.premium_until)}</b>`:""}. Si pagas otro plan, los días se suman a los que te quedan.</div>`:""}
   ${off?`<div class="panel pay-off"><span class="mt-i">${ico("crown")}</span><div><h3>Los pagos están pausados por ahora</h3><p class="muted">Estamos preparando la apertura. Te avisaremos por la comunidad${s.discordUrl?" y el Discord":""} cuando puedas activar tu plan.${s.contact?` Si tienes dudas escríbenos: <b class="sel">${esc(s.contact)}</b>`:""}</p></div></div>`:""}
   <section class="sec" id="pmPlans"></section>
   ${off?""
-  :bin?`<div class="panel" id="pay"><h3>Paga con Binance Pay</h3>
-    <ol class="prose" style="padding-left:20px">
-      <li>${logged()?"Ya tienes tu cuenta creada.":'<a href="#registro">Crea tu cuenta gratis</a> o <a href="#entrar">ingresa</a>.'}</li>
-      <li>En la app de Binance entra a <b>Pay → Enviar</b> y envía el monto de tu plan al <b>Binance Pay ID</b>: <b class="mono sel" id="bpid">${esc(s.binancePayId)}</b> <button type="button" class="btn sm ghost" id="cpid">Copiar</button>${s.binanceName?` <span class="dim">(${esc(s.binanceName)})</span>`:""}</li>
-      <li>Cuando termine, abre el pago en tu historial y copia el <b>ID de orden</b>.</li>
-      <li>Regístralo aquí abajo. Revisamos el pago y activamos tu acceso premium.</li></ol>
+  :bin?`<div class="panel" id="pay"><h3>Paga tu plan</h3>
+    ${PM.length>1?`<div class="pmeth" role="tablist" aria-label="Medio de pago">${PM.map(m=>`<button type="button" role="tab" data-pm="${m.k}">${esc(m.t)}</button>`).join("")}</div>`:""}
+    <div id="payi"></div>
     ${s.payNote?`<div class="note">${esc(s.payNote)}</div>`:""}
     <div id="payf"></div></div>`:
   `<div class="panel"><h3>Cómo activar tu acceso</h3><ol class="prose" style="padding-left:20px"><li>${logged()?"Ya tienes tu cuenta creada.":'<a href="#registro">Crea tu cuenta gratis</a>.'}</li><li>Escríbenos para realizar el pago${s.contact?`: <b class="sel">${esc(s.contact)}</b>`:"."}</li><li>Activamos tu acceso premium y entras a todo el contenido.</li></ol>${logged()?`<p class="muted">Tu usuario: <b>${esc((API.profile()||{}).username||"")}</b> · ${esc((API.profile()||{}).email||"")}</p>`:""}</div>`}`;
   pricingBlock($("#pmPlans"),{page:true,off});
   if(!bin)return;
-  $("#cpid").onclick=async()=>{try{await navigator.clipboard.writeText(s.binancePayId);toast("Binance Pay ID copiado")}catch(e){toast("No se pudo copiar")}};
+  const cp=(v,t)=>`<b class="mono sel">${esc(v)}</b> <button type="button" class="btn sm ghost" data-copy="${esc(v)}" data-ct="${esc(t)}">Copiar</button>`;
+  const usdOf=p=>{const v=parseFloat((String(p||"").replace(",",".").match(/\d+(\.\d+)?/)||["x"])[0]);return isFinite(v)?v:null};
+  const cop=p=>{const r=+s.copRate,u=usdOf(p);return r>0&&u!=null&&/usd|usdt|\$|^\s*\d/i.test(String(p))?`$${Math.round(u*r/1000)*1000>0?(Math.round(u*r/1000)*1000).toLocaleString("es-CO"):Math.round(u*r).toLocaleString("es-CO")} COP`:""};
+  const step1=`<li>${logged()?"Ya tienes tu cuenta creada.":'<a href="#registro">Crea tu cuenta gratis</a> o <a href="#entrar">ingresa</a>.'}</li>`;
+  const STEPS={
+    binance:()=>`${step1}<li>En la app de Binance entra a <b>Pay → Enviar</b> y envía el monto de tu plan al <b>Binance Pay ID</b>: ${cp(s.binancePayId,"Binance Pay ID copiado")}${s.binanceName?` <span class="dim">(${esc(s.binanceName)})</span>`:""}</li>
+      <li>Cuando termine, abre el pago en tu historial y copia el <b>ID de orden</b>.</li><li>Regístralo aquí abajo. Revisamos el pago y activamos tu acceso.</li>`,
+    airtm:()=>`${step1}<li>En Airtm entra a <b>Enviar</b> y envía el monto de tu plan en <b>USD</b> al usuario de Airtm: ${cp(s.airtmUser,"Usuario de Airtm copiado")}${s.airtmName?` <span class="dim">(${esc(s.airtmName)})</span>`:""}</li>
+      <li>Abre el movimiento en tu historial y copia el <b>ID de la transacción</b>.</li><li>Regístralo aquí abajo. Revisamos el pago y activamos tu acceso.</li>`,
+    breb:()=>`${step1}<li>Desde la app de tu banco o billetera (Nequi, Daviplata, Bancolombia… cualquiera con <b>Bre-B</b>) elige <b>enviar con llave</b> y usa la llave: ${cp(s.brebKey,"Llave Bre-B copiada")}${s.brebName?` <span class="dim">(${esc(s.brebName)})</span>`:""}</li>
+      <li>Envía el valor de tu plan en <b>pesos colombianos</b>${+s.copRate>0?` (tasa: 1 USD = $${(+s.copRate).toLocaleString("es-CO")} COP; el valor en pesos sale en la lista de abajo)`:" (si no sabes el valor en pesos, escríbenos por Mensajes)"}.</li>
+      <li>Guarda el comprobante y copia su <b>número de comprobante o referencia</b>.</li><li>Regístralo aquí abajo. Revisamos el pago y activamos tu acceso.</li>`};
+  const paintPM=()=>{const m=PM.find(x=>x.k===pmK)||PM[0];pmK=m.k;try{sessionStorage.setItem("ag_pm",pmK)}catch(e){}
+    $$("[data-pm]").forEach(b=>{const on=b.dataset.pm===pmK;b.classList.toggle("on",on);b.setAttribute("aria-selected",on)});
+    $("#payi").innerHTML=`<ol class="prose" style="padding-left:20px">${STEPS[pmK]()}</ol>`;
+    $$("#payi [data-copy]").forEach(b=>b.onclick=async()=>{try{await navigator.clipboard.writeText(b.dataset.copy);toast(b.dataset.ct)}catch(e){toast("No se pudo copiar")}})};
+  $$("[data-pm]").forEach(b=>b.onclick=()=>{pmK=b.dataset.pm;paintPM();draw()});paintPM();
   const host=$("#payf");
+  let draw=()=>{};
   if(!logged()){host.innerHTML='<div class="note">Para registrar tu pago primero <a href="#entrar">ingresa a tu cuenta</a>.</div>';return}
   const estado={pendiente:'<span class="pill gold">Por confirmar</span>',aprobado:'<span class="pill ok">Aprobado</span>',rechazado:'<span class="pill">Rechazado</span>'};
-  const draw=async()=>{let mine=[];try{mine=await API.myPayments()}catch(e){}
+  draw=async()=>{let mine=[];try{mine=await API.myPayments()}catch(e){}const M=PM.find(x=>x.k===pmK)||PM[0],co=M.k==="breb";
     host.innerHTML=`<form class="form" id="pf" novalidate><h3 style="margin-top:6px">Registrar mi pago</h3>
-      <div class="two"><label for="pP">Qué pagaste<select id="pP">${plans.map((x,i)=>`<option value="p:${i}">${(TIERS[tierOfPlan(x)]||{}).n||""} · ${esc(x.name)} · ${esc(x.price)}</option>`).join("")}${(S.courses||[]).filter(c=>c.status!=="borrador"&&!c.base&&!ownsCourse(c.id)).map(c=>`<option value="c:${esc(c.id)}">Curso ${esc(c.title)} · ${esc(c.price||"40 USD")} · de por vida</option>`).join("")}</select></label>
-      <label for="pO">ID de orden de Binance<input id="pO" inputmode="numeric" autocomplete="off" placeholder="Ej.: 382947561029384756" maxlength="80"></label></div>
+      <div class="two"><label for="pP">Qué pagaste<select id="pP">${plans.map((x,i)=>`<option value="p:${i}">${(TIERS[tierOfPlan(x)]||{}).n||""} · ${esc(x.name)} · ${esc(x.price)}${co&&cop(x.price)?` ≈ ${cop(x.price)}`:""}</option>`).join("")}${(S.courses||[]).filter(c=>c.status!=="borrador"&&!c.base&&!ownsCourse(c.id)).map(c=>`<option value="c:${esc(c.id)}">Curso ${esc(c.title)} · ${esc(c.price||"40 USD")}${co&&cop(c.price||"40 USD")?` ≈ ${cop(c.price||"40 USD")}`:""} · de por vida</option>`).join("")}</select></label>
+      <label for="pO">${esc(M.ref)}<input id="pO" ${M.k==="binance"?'inputmode="numeric" ':""}autocomplete="off" placeholder="${esc(M.ph)}" maxlength="80"></label></div>
       <label for="pN">Nota (opcional)<input id="pN" maxlength="300" placeholder="Ej.: pagué desde la cuenta de mi hermano"></label>
       <div class="err" id="pE" role="alert"></div><div class="row"><button class="btn gold" id="pB">Registrar pago</button></div></form>
-      ${mine.length?`<h3>Mis pagos</h3><div class="list">${mine.map(r=>`<div class="item"><span class="txt"><b>${esc(r.plan)} · ${esc(r.amount)}</b><span>ID ${esc(r.order_id)} · ${fmtDT(r.created_at)}${r.status==="rechazado"&&r.admin_note?` · ${esc(r.admin_note)}`:""}</span></span>${estado[r.status]||""}</div>`).join("")}</div>`:""}`;
+      ${mine.length?`<h3>Mis pagos</h3><div class="list">${mine.map(r=>`<div class="item"><span class="txt"><b>${esc(r.plan)} · ${esc(r.amount)}</b><span>${({breb:"Bre-B",airtm:"Airtm"})[r.method]||"Binance"} · ${esc(r.order_id)} · ${fmtDT(r.created_at)}${r.status==="rechazado"&&r.admin_note?` · ${esc(r.admin_note)}`:""}</span></span>${estado[r.status]||""}</div>`).join("")}</div>`:""}`;
     $("#pf").onsubmit=async e=>{e.preventDefault();const pv=$("#pP").value||"p:0";const crs=pv.startsWith("c:")?(S.courses||[]).find(c=>c.id===pv.slice(2)):null;const pl=crs?{name:"Curso "+crs.title,days:30,price:crs.price||"40 USD"}:(plans[+pv.slice(2)]||plans[0]);const oid=$("#pO").value.replace(/\s+/g,"");
-      if(!/^[A-Za-z0-9-]{4,80}$/.test(oid)){$("#pE").textContent="Escribe el ID de orden tal como sale en Binance (solo números y letras).";return}
-      try{busy($("#pB"),true);await API.payRequest({plan:pl.name,days:pl.days,amount:pl.price,order_id:oid,note:$("#pN").value.trim(),course_id:crs?crs.id:null});pop({icon:"coin",kicker:"Pago registrado",title:"Estamos confirmando tu pago",text:"Te avisamos apenas lo activemos. Tu pago quedó en Mensajes: si se demora, escríbenos por ahí."});draw()}
+      if(!(M.k==="binance"?/^[A-Za-z0-9-]{4,80}$/:/^[A-Za-z0-9._#:\/-]{4,80}$/).test(oid)){$("#pE").textContent=M.k==="binance"?"Escribe el ID de orden tal como sale en Binance (solo números y letras).":"Escribe la referencia tal como sale en tu comprobante (números y letras).";return}
+      try{busy($("#pB"),true);await API.payRequest({method:M.k,plan:pl.name,days:pl.days,amount:co&&cop(pl.price)?`${pl.price} (${cop(pl.price)})`:pl.price,order_id:oid,note:$("#pN").value.trim(),course_id:crs?crs.id:null});pop({icon:"coin",kicker:"Pago registrado",title:"Estamos confirmando tu pago",text:"Te avisamos apenas lo activemos. Tu pago quedó en Mensajes: si se demora, escríbenos por ahí."});draw()}
       catch(x){$("#pE").textContent=/duplicate|unique|ya fue registrado/i.test(x.message)?"Ese ID de orden ya fue registrado.":x.message}finally{const b=$("#pB");if(b)busy(b,false)}}};
   draw()};
 

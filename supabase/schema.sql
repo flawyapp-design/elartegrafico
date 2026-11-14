@@ -3648,3 +3648,15 @@ select r.created_at::date as fecha, p.username, r.plan as pago, p.plan as placa_
 from public.payment_requests r join public.profiles p on p.id = r.user_id
 where r.status = 'aprobado' and r.plan ilike '%·%meses%'
 order by r.created_at desc;
+
+
+-- ===== pagos_airtm_breb.sql =====
+-- =====================================================================
+-- Pagos con Airtm y Bre-B (Colombia), además de Binance Pay. Se puede correr varias veces.
+-- =====================================================================
+
+-- los pagos aceptan los nuevos medios
+alter table public.payment_requests drop constraint if exists payment_requests_method_check;
+alter table public.payment_requests add constraint payment_requests_method_check
+  check (method in ('binance','airtm','breb','otro'));
+
