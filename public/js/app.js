@@ -556,26 +556,35 @@ const TIER_ITEMS={
   plata:["✅ Todo lo de Cobre","📊 EAG Charts completo 24/7: gráficos en vivo de Boom, Crash, sintéticos y forex, multitemporalidad, alertas al celular, dibujos guardados en tu cuenta y app instalable","🎉 Eventos de la comunidad","🏆 Torneos gratis con premios reales en USDT","🚀 Acceso anticipado a cursos nuevos","🆕 Módulos nuevos y actualizaciones de los cursos apenas salen"],
   oro:["✅ Todo lo de Plata","🔴 Clase grupal en vivo con Nicolás Ardila, CEO de El Arte Gráfico y profesor: 2 horas, 1 día a la semana (y más cuando hay temas nuevos)","⏯ Replay en EAG Charts: backtesting con el mercado real desde la fecha que tú quieras"],
   diamond:["✅ Todo lo de Oro","🎓 Práctica guiada en EAG Charts: estudia con mercado real proyección, zonas, rompimientos e impulsos, con corrección al instante","🧩 Tus indicadores de MT5 en EAG Charts, en PC y en la app del celular (con código fuente y bajo políticas de aceptación)","📞 1 hora a la semana para hablar con Nicolás Ardila (la agendas tú)","⚡ Uso prioritario de las nuevas herramientas del ecosistema El Arte Gráfico","🤖 Cupo prioritario cuando salga el bot de El Arte Gráfico, con auditoría e historial en cuenta real (próximamente)"]};
-let PRICE_M=null; /* duración elegida en la página de precios (meses) */
+/* El admin pone solo el precio de 1 mes de cada plan; 3, 6 y 12 meses se calculan con su descuento
+   (precios que terminan en 9 cuando quedan cerca). Si el admin escribió a mano otra duración, se respeta la suya. */
+function planPrice(p1,m,d){const t=p1*m*(1-d/100),c9=Math.floor((t+1)/10)*10-1;return c9>0&&c9<=t&&(t-c9)/t<=0.03?c9:Math.round(t)}
+function expandPlans(pl,disc){pl=(Array.isArray(pl)?pl:[]).filter(x=>x&&!x.auto);const D=String(disc||"3:10, 6:20, 12:30").split(/[,;]/).map(z=>z.split(":").map(n=>parseFloat(n))).filter(z=>z[0]>1&&z[1]>=0&&z[1]<90);
+  const out=pl.slice(),mo=x=>Math.max(1,Math.round((+x.days||30)/30));
+  ["cobre","plata","oro","diamond"].forEach(t=>{const one=pl.find(x=>tierOfPlan(x)===t&&mo(x)===1);if(!one)return;const v=parseFloat((String(one.price).replace(",",".").match(/\d+(\.\d+)?/)||["x"])[0]);if(!isFinite(v))return;
+    const curr=String(one.price).replace(/[\d.,\s]+/g," ").trim()||"USD",nm=String(one.name).replace(/\s*·.*$/,"");
+    D.forEach(([m,d])=>{if(pl.some(x=>tierOfPlan(x)===t&&mo(x)===m))return;out.push({name:`${nm} · ${m} meses`,days:m===12?365:m*30,price:`${planPrice(v,m,d)} ${curr}`,tier:t,auto:true})})});
+  return out}
+let PRICE_SEL={}; /* meses elegidos en cada plan (tarjeta) */
 function pricingBlock(host,o={}){if(!host)return;const s=S.site;const pl=(s.plans||[]).filter(x=>x&&x.name&&x.price);const cs=(S.courses||[]).filter(c=>c.status!=="borrador"&&!c.base),bases=(S.courses||[]).filter(c=>c.status!=="borrador"&&c.base);
   if((!pl.length&&!cs.length)||(premium()&&!o.page)){host.remove();return}const off=o.off??!!s.paymentsOff;
   const num=x=>{const m=String(x).replace(",",".").match(/\d+(\.\d+)?/);return m?parseFloat(m[0]):NaN};const cur=x=>String(x).replace(/[\d.,\s]+/g," ").trim()||"USD";
   const fm=v=>(Math.round(v*10)/10).toLocaleString("es-CO",{maximumFractionDigits:1});
   const btn=(lbl,attr,gold)=>off?'<span class="btn disabled" aria-disabled="true">Disponible pronto</span>':o.page?`<button type="button" class="btn ${gold?"gold":""}" ${attr}>${lbl}</button>`:`<a class="btn ${gold?"gold":""}" href="${toMain("premium")}">${lbl}</a>`;
-  const ORD=["cobre","plata","oro","diamond"],mo=x=>x.days>=3650?0:Math.max(1,Math.round(x.days/30));
-  /* precio de 1 mes de cada placa (para calcular el ahorro) */
-  const base={};pl.forEach(x=>{const t=tierOfPlan(x);if(mo(x)===1)base[t]=num(x.price)});
-  const durs=[...new Set(pl.map(mo))].sort((a,b)=>(a||999)-(b||999));
-  const disc=m=>{let best=0;pl.filter(x=>mo(x)===m).forEach(x=>{const b=base[tierOfPlan(x)];if(b&&m>1){const d=Math.round(100*(1-num(x.price)/(b*m)));if(d>best)best=d}});return best};
-  if(PRICE_M==null||!durs.includes(PRICE_M))PRICE_M=durs.includes(12)?12:durs[durs.length-1];
-  const dLab=m=>m===0?"De por vida":m===1?"1 mes":m+" meses";
-  const sel=durs.length>1?`<div class="dur-sw" role="tablist" aria-label="Duración del plan">${durs.map(m=>{const d=disc(m);return`<button type="button" role="tab" data-dur="${m}" class="${m===PRICE_M?"on":""}"><b>${dLab(m)}</b>${d?`<em>−${d}%</em>`:'<em class="z">precio normal</em>'}</button>`}).join("")}</div>`:"";
-  const list=pl.map((x,i)=>({x,i,t:tierOfPlan(x),m:mo(x)})).filter(r=>durs.length<2||r.m===PRICE_M).sort((a,b)=>ORD.indexOf(a.t)-ORD.indexOf(b.t));
-  const plans=list.map(({x,i,t,m})=>{const T=TIERS[t],v=num(x.price),life=m===0,b=base[t],full=b&&m>1?b*m:NaN,ah=isFinite(full)&&v<full?Math.round(100*(1-v/full)):0,pm=m>0?v/m:NaN;
-      return `<div class="price tier-${t}${t==="plata"?" fav":""}">${t==="plata"?'<span class="price-tag">Más elegido</span>':t==="oro"?'<span class="price-tag oro-tag">Clases en vivo</span>':t==="diamond"?'<span class="price-tag dia-tag">Todo incluido</span>':""}<h3><span class="tier-i">${T.i}</span> ${T.n}</h3><span class="dim tier-d">${esc(x.name)}</span>
-        ${ah?`<span class="price-old">${fm(full)} ${esc(cur(x.price))}</span>`:""}<div class="price-v"><b>${esc(String(x.price).replace(/\s*[A-Za-z]+$/,""))}</b><span>${esc(cur(x.price))}</span></div>
-        <span class="dim">${life?"pago único · acceso de por vida":m>1&&isFinite(pm)?`<b class="pm">${fm(pm)} ${esc(cur(x.price))} al mes</b> · pago único por ${m} meses`:`pago único por 1 mes, sin renovación automática`}</span>${ah?`<span class="pill ok">Ahorras ${ah}% · ${fm(full-v)} ${esc(cur(x.price))}</span>`:""}
-        <ul class="checks">${(TIER_ITEMS[t]||[]).map(t2=>`<li>${esc(t2)}</li>`).join("")}</ul>${myPlan()===t&&premium()?'<span class="pill ok">Tu plan actual</span>':""}${btn("Elegir "+T.n+(m>1?` · ${m} meses`:""),`data-pick="${i}"`,t!=="cobre")}</div>`}).join("");
+  const ORD=["cobre","plata","oro","diamond"],mo=x=>Math.max(1,Math.round(x.days/30));
+  /* una tarjeta por plan; adentro eliges 1, 3, 6 o 12 meses */
+  const byT={};pl.forEach((x,i)=>{const t=tierOfPlan(x);(byT[t]=byT[t]||[]).push({x,i,m:mo(x)})});
+  const tiers=ORD.filter(t=>byT[t]).concat(Object.keys(byT).filter(t=>!ORD.includes(t)));
+  const card=t=>{const opts=byT[t].sort((a,b)=>a.m-b.m),T=TIERS[t]||{n:t,i:""},b1=opts.find(r=>r.m===1),base=b1?num(b1.x.price):NaN;
+    const selM=opts.some(r=>r.m===PRICE_SEL[t])?PRICE_SEL[t]:(b1?1:opts[0].m),r=opts.find(z=>z.m===selM),x=r.x,v=num(x.price),m=r.m,full=isFinite(base)&&m>1?base*m:NaN,ah=isFinite(full)&&v<full?Math.round(100*(1-v/full)):0,pm=v/m;
+    const dsc=z=>isFinite(base)&&z.m>1?Math.round(100*(1-num(z.x.price)/(base*z.m))):0;
+    const chips=opts.length>1?`<div class="dur-c" role="radiogroup" aria-label="Meses del plan ${esc(T.n)}">${opts.map(z=>`<button type="button" role="radio" aria-checked="${z.m===m}" data-tdur="${t}:${z.m}" class="${z.m===m?"on":""}"><b>${z.m===1?"1 mes":z.m+" meses"}</b>${dsc(z)>0?`<em>−${dsc(z)}%</em>`:""}</button>`).join("")}</div>`:"";
+    return `<div class="price tier-${t}${t==="plata"?" fav":""}">${t==="plata"?'<span class="price-tag">Más elegido</span>':t==="oro"?'<span class="price-tag oro-tag">Clases en vivo</span>':t==="diamond"?'<span class="price-tag dia-tag">Todo incluido</span>':""}<h3><span class="tier-i">${T.i}</span> ${T.n}</h3>
+      ${chips}
+      ${ah?`<span class="price-old">${fm(full)} ${esc(cur(x.price))}</span>`:""}<div class="price-v"><b>${esc(String(x.price).replace(/\s*[A-Za-z]+$/,""))}</b><span>${esc(cur(x.price))}</span></div>
+      <span class="dim">${m>1?`<b class="pm">${fm(pm)} ${esc(cur(x.price))} al mes</b> · pago único por ${m} meses`:`por 1 mes · sin renovación automática`}</span>${ah?`<span class="pill ok">Ahorras ${ah}% · ${fm(full-v)} ${esc(cur(x.price))}</span>`:""}
+      <ul class="checks">${(TIER_ITEMS[t]||[]).map(t2=>`<li>${esc(t2)}</li>`).join("")}</ul>${myPlan()===t&&premium()?'<span class="pill ok">Tu plan actual</span>':""}${btn(`Elegir ${T.n} · ${m===1?"1 mes":m+" meses"}`,`data-pick="${r.i}"`,t!=="cobre")}</div>`};
+  const plans=tiers.map(card).join("");
   const launch=c=>{let at=null;(S.modules||[]).filter(m=>m.course_id===c.id&&m.open_at).forEach(m=>{const t=Date.parse(m.open_at);if(t>Date.now()&&(at==null||t<at))at=t});
     const opened=(S.modules||[]).some(m=>m.course_id===c.id&&m.status==="publicado"&&!m.open_at&&m.available!==false&&!/^demo/i.test(m.title||""));
     if(at&&!opened)return"Sale el "+new Date(at).toLocaleDateString("es-CO",{timeZone:"America/Bogota",day:"numeric",month:"long"});
@@ -583,10 +592,10 @@ function pricingBlock(host,o={}){if(!host)return;const s=S.site;const pl=(s.plan
   const courses=cs.map(c=>{const mine=ownsCourse(c.id),ln=launch(c);return `<div class="price crs-card" style="--cc:${esc(c.color||"#d8b062")}"><span class="price-tag crs-ptag">${ln?"🗓 "+esc(ln):"Pago único"}</span><h3><span class="tier-i">${esc(c.icon||"🎓")}</span> Curso ${esc(c.title)}</h3><span class="dim tier-d">${ln?esc(ln)+" · un módulo nuevo cada 5 días":"De por vida"}</span><div class="price-v"><b>${esc(String(c.price||"40 USD").replace(/\s*[A-Za-z]+$/,""))}</b><span>${esc(cur(c.price||"40 USD"))}</span></div><span class="dim">un solo pago, es tuyo para siempre</span>
       <ul class="checks"><li>Todo el curso ${esc(c.title)}: videos, ejercicios y encuestas</li><li>Sus módulos nuevos y actualizaciones incluidos</li><li>Medallas del curso, placa y ✓ Graduado al terminarlo</li><li>📊 7 días de EAG Charts para que lo pruebes</li><li class="no">Sin los demás cursos ni beneficios de los planes</li></ul>${mine?'<span class="pill ok">Ya es tuyo</span>':btn("Comprar curso",`data-pickc="${esc(c.id)}"`,false)}</div>`}).join("");
   host.innerHTML=`${o.page?"":`<div class="sec-h"><div><span class="eyebrow">Precios</span><h2>Elige tu plan</h2></div><a href="#premium">Cómo pagar</a></div>`}
-    ${sel}<div class="prices${freeCard(o)?" has-free":""}">${freeCard(o)}${plans}</div>
+    <p class="dur-note">Todos los planes los puedes tomar por <b>1, 3, 6 o 12 meses</b>: entre más tiempo, más ahorras.</p><div class="prices${freeCard(o)?" has-free":""}">${freeCard(o)}${plans}</div>
     ${courses?`<h3 class="crs-h">¿Solo quieres un curso?</h3><div class="prices crs-prices">${courses}</div>`:""}
     <p class="dim price-foot">${off?"Los pagos están pausados por ahora: te avisaremos cuando abran.":"Pagas con Binance Pay en USDT y activamos tu plan o tu curso al confirmar el pago. Sin cobros automáticos: cuando se acaba tu tiempo, renuevas si quieres."} Los planes incluyen <b>todos</b> los cursos; el curso suelto es solo ese curso, para siempre.${bases.length?` El curso <b>${esc(bases.map(b=>b.title).join(" y "))}</b> es gratis con tu cuenta.`:""}</p>`;
-  $$("[data-dur]",host).forEach(b=>b.onclick=()=>{PRICE_M=+b.dataset.dur;pricingBlock(host,o)});
+  $$("[data-tdur]",host).forEach(b=>b.onclick=()=>{const[t,m]=b.dataset.tdur.split(":");PRICE_SEL[t]=+m;pricingBlock(host,o)});
   $$("[data-pick]",host).forEach(b=>b.onclick=()=>{const sel=$("#pP");const k=pl[+b.dataset.pick];if(sel){const j=(S.site.plans||[]).findIndex(x=>x.name===k.name);if(j>=0)sel.value="p:"+j}const t=$("#pay");if(t)t.scrollIntoView({behavior:"smooth",block:"start"})});
   $$("[data-pickc]",host).forEach(b=>b.onclick=()=>{const sel=$("#pP");if(sel)sel.value="c:"+b.dataset.pickc;const t=$("#pay");if(t)t.scrollIntoView({behavior:"smooth",block:"start"})})}
 const FAQ_DEF=[["¿Necesito experiencia?","No. Empiezas por el curso gratis Fundamentos del trading, desde cero: qué es un bróker, cómo usar MT5, qué son los índices sintéticos y cómo leer las velas. Después pasas a la estrategia del mercado que elijas."],
@@ -1514,7 +1523,7 @@ async function boot(){
   const r=$("#rstLocal");if(r)r.onclick=()=>API.resetLocal();
   const pSite=API.site().catch(()=>({}));                     // los ajustes del sitio no dependen de la sesión
   let rec=false;try{rec=(await API.init()).recovery}catch(e){}
-  S.site=await pSite||{};
+  S.site=await pSite||{};S.site.plans=expandPlans(S.site.plans,S.site.planDisc);
   /* Diamond siempre es de por vida, aunque en Admin hayan quedado otros días */
   applySite();
   await Promise.all([loadProg(),loadContent()]);S.loaded=true;
