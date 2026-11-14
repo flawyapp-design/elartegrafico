@@ -39,13 +39,28 @@ function registerAll(){
       return[{type:"text",ignoreEvent:true,attrs:{x:0,y:coordinates[0].y,text:pf(overlay.points[0].value,pr),align:"left",baseline:"middle"},styles:{color:"#fff",size:11,backgroundColor:c,paddingLeft:4,paddingRight:4,paddingTop:3,paddingBottom:3,borderRadius:2}}]};
     const xLab=({overlay,coordinates,defaultStyles})=>{if(!coordinates.length||!overlay.points||!overlay.points.length)return[];const ts=overlay.points[0].timestamp;if(!ts)return[];const c=lineCol(overlay,defaultStyles);
       return[{type:"text",ignoreEvent:true,attrs:{x:coordinates[0].x,y:3,text:tf(ts),align:"center",baseline:"top"},styles:{color:"#fff",size:11,backgroundColor:c,paddingLeft:5,paddingRight:5,paddingTop:3,paddingBottom:3,borderRadius:2}}]};
-    const KEYS=["totalStep","lock","visible","zLevel","mode","modeSensitivity","extendData","styles","needDefaultPointFigure","needDefaultXAxisFigure","needDefaultYAxisFigure","createPointFigures","createXAxisFigures","createYAxisFigures","performEventPressedMove","performEventMoveForDrawing"];
-    const wrap=(name,axis)=>{const C=KC.getOverlayClass&&KC.getOverlayClass(name);if(!C)return;const inst=new C();if(typeof inst.createPointFigures!=="function")return;
-      const t={name};KEYS.forEach(k=>{if(inst[k]!==undefined&&inst[k]!==null)t[k]=inst[k]});
-      if(axis==="y"){t.needDefaultYAxisFigure=false;t.createYAxisFigures=yLab}else{t.needDefaultXAxisFigure=false;t.createXAxisFigures=xLab}
-      KC.registerOverlay(t)};
-    ["horizontalStraightLine","horizontalRayLine","horizontalSegment"].forEach(n=>wrap(n,"y"));
-    ["verticalStraightLine","verticalRayLine","verticalSegment"].forEach(n=>wrap(n,"x"));
+    /* se reescriben las 6 líneas (mismos nombres y mismos puntos que las originales, así los dibujos guardados siguen igual) */
+    const L1=(a,b)=>({type:"line",attrs:{coordinates:[a,b]}});
+    const sameY=({points,performPoint})=>{if(points[0])points[0].value=performPoint.value;if(points[1])points[1].value=performPoint.value};
+    const sameX=({points,performPoint})=>{[points[0],points[1]].forEach(p=>{if(!p)return;p.timestamp=performPoint.timestamp;p.dataIndex=performPoint.dataIndex})};
+    const H={needDefaultPointFigure:true,needDefaultXAxisFigure:true,needDefaultYAxisFigure:false,createYAxisFigures:yLab};
+    const V={needDefaultPointFigure:true,needDefaultXAxisFigure:false,needDefaultYAxisFigure:true,createXAxisFigures:xLab};
+    KC.registerOverlay(Object.assign({name:"horizontalStraightLine",totalStep:2,
+      createPointFigures:({coordinates,bounding})=>coordinates.length?[L1({x:0,y:coordinates[0].y},{x:bounding.width,y:coordinates[0].y})]:[]},H));
+    KC.registerOverlay(Object.assign({name:"horizontalRayLine",totalStep:3,
+      createPointFigures:({coordinates,bounding})=>{if(!coordinates.length)return[];const e={x:0,y:coordinates[0].y};if(!coordinates[1]||coordinates[0].x<coordinates[1].x)e.x=bounding.width;return[L1(coordinates[0],e)]},
+      performEventPressedMove:sameY,performEventMoveForDrawing:({currentStep,points,performPoint})=>{if(currentStep===2&&points[0])points[0].value=performPoint.value}},H));
+    KC.registerOverlay(Object.assign({name:"horizontalSegment",totalStep:3,
+      createPointFigures:({coordinates})=>coordinates.length===2?[L1(coordinates[0],coordinates[1])]:[],
+      performEventPressedMove:sameY,performEventMoveForDrawing:({currentStep,points,performPoint})=>{if(currentStep===2&&points[0])points[0].value=performPoint.value}},H));
+    KC.registerOverlay(Object.assign({name:"verticalStraightLine",totalStep:2,
+      createPointFigures:({coordinates,bounding})=>coordinates.length?[L1({x:coordinates[0].x,y:0},{x:coordinates[0].x,y:bounding.height})]:[]},V));
+    KC.registerOverlay(Object.assign({name:"verticalRayLine",totalStep:3,
+      createPointFigures:({coordinates,bounding})=>{if(!coordinates.length)return[];const e={x:coordinates[0].x,y:0};if(!coordinates[1]||coordinates[0].y<coordinates[1].y)e.y=bounding.height;return[L1(coordinates[0],e)]},
+      performEventPressedMove:sameX,performEventMoveForDrawing:({currentStep,points,performPoint})=>{if(currentStep===2&&points[0]){points[0].timestamp=performPoint.timestamp;points[0].dataIndex=performPoint.dataIndex}}},V));
+    KC.registerOverlay(Object.assign({name:"verticalSegment",totalStep:3,
+      createPointFigures:({coordinates})=>coordinates.length===2?[L1(coordinates[0],coordinates[1])]:[],
+      performEventPressedMove:sameX,performEventMoveForDrawing:({currentStep,points,performPoint})=>{if(currentStep===2&&points[0]){points[0].timestamp=performPoint.timestamp;points[0].dataIndex=performPoint.dataIndex}}},V));
   }catch(e){console.warn("etiquetas de líneas",e)}
   const fmt=(v,p)=>(+v).toFixed(p);
   /* Posición larga/corta: entrada, stop y objetivo con relación riesgo/beneficio */
