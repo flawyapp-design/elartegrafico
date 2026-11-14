@@ -3,7 +3,7 @@
 const fs = require("fs");
 let JO;
 try { JO = require("javascript-obfuscator"); } catch (e) { console.warn("[protect] javascript-obfuscator no disponible:", e.message); process.exit(0); }
-const files = ["public/js/charts-app.js", "public/js/eag-widget.js"];
+const files = ["public/js/charts-app.js", "public/js/eag-widget.js", "public/js/eag-pro.js", "public/js/eag-pro-core.js"];
 const opts = {
   compact: true, simplify: true,
   identifierNamesGenerator: "hexadecimal", renameGlobals: false,

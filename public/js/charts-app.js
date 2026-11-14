@@ -151,6 +151,7 @@ function start(){
       <span class="st" id="st"><i></i><span>Conectando…</span></span>
       <span class="grow"></span>
       <span class="who">${esc(prof.username||"")}</span>
+      <button class="btn ic prob" id="prob" title="Estudio: Replay del mercado y Práctica guiada (Premium)"><span class="pi">🎓</span><span class="t">Estudio</span><em>PRO</em></button>
       <button class="btn ic inst" id="instb" data-inst title="Instalar EAG Charts como app" hidden><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg><span class="t">Instalar app</span></button>
       <button class="btn ic" id="alb" title="Alertas de precio"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/></svg><span class="t">Alertas</span><em class="badge" id="alc" hidden></em></button>
       <button class="btn ic" id="cfgb" title="Configuración: apariencia, barras, marca de agua, alertas y atajos"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg><span class="t">Configuración</span></button>
@@ -601,6 +602,15 @@ function start(){
 
   $("#cfgb").onclick=e=>{e.stopPropagation();openSettings()};
   $("#alb").onclick=e=>{e.stopPropagation();openSettings("alertas")};
+  /* ---------- Estudio (Replay + Práctica): Premium; el admin puede incluirlo en la prueba de 3 días ---------- */
+  let SITE={};try{API.site&&API.site().then(d=>{SITE=d||{}}).catch(()=>{})}catch(e){}
+  const proAccess=()=>{if(API.isPremium()||API.isAdmin())return{ok:true};
+    if(window.__trial&&SITE.chartProTrial)return{ok:true};
+    return{ok:false,why:window.__trial?"Estás en la prueba gratis de EAG Charts. Replay y Práctica son parte de Premium.":"Replay del mercado y práctica guiada para entrenar tu lectura del gráfico."}};
+  if(window.EAGPro){window.EAGPro.init({feed,syms:()=>SYMS,SAVE,save,toast,MAIN,access:proAccess,
+      get up(){return CF().up||"#089981"},get dn(){return CF().dn||"#f23645"},
+      cur:()=>{try{const p=panes[active];return{sym:p.kc.getSymbol().ticker,tf:p.kc.getPeriod().text}}catch(e){return{}}}});
+    $("#prob").onclick=e=>{e.stopPropagation();window.EAGPro.open("prac")}}else $("#prob").hidden=true;
   /* botón Instalar app: visible si no está instalada y el navegador lo permite (o en iPhone, con instrucciones) */
   const ib=$("#instb");
   function installHelp(){const ov=document.createElement("div");ov.className="wmodal";const ios=isIOS(),ia=inApp();

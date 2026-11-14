@@ -10,6 +10,7 @@
 <meta name="robots" content="noindex">
 <link rel="icon" href="/assets/charts-favicon-48.png">
 <link rel="manifest" href="/charts.webmanifest">
+<link rel="stylesheet" href="/css/eag-pro.css">
 <link rel="apple-touch-icon" href="/assets/charts-apple-touch-icon.png">
 <meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="EAG Charts"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -410,7 +411,9 @@ html.eag body,html.eag .app{background:var(--bg)}
 .tcard .tic{font-size:30px;line-height:1;margin-bottom:10px}.tcard b{display:block;font-size:17px;margin-bottom:6px}.tcard p{margin:0;font-size:13.5px;line-height:1.55;color:var(--fg2)}
 .tdots{display:flex;gap:5px;margin:14px 0 12px}.tdots i{width:7px;height:7px;border-radius:50%;background:var(--line2)}.tdots i.on{background:var(--gold);width:18px;border-radius:4px}
 .tbtns{display:flex;align-items:center;gap:8px}
-#instb{border-color:var(--gold);color:var(--gold)}#instb[hidden]{display:none}
+#instb{border-color:var(--gold);color:var(--gold)}
+#prob{position:relative;gap:6px;width:auto!important;padding:0 12px;border-color:transparent;background:linear-gradient(135deg,#f3d58f,#c9963d);color:#1b1406;font-weight:700}#prob .pi{font-size:15px}#prob em{font:800 8.5px/1 Inter,system-ui,sans-serif;font-style:normal;letter-spacing:.6px;padding:3px 5px;border-radius:6px;background:#1b1406;color:#f3d58f}
+@media (max-width:900px){#prob{padding:0 9px}#prob .t{display:none}#prob em{position:absolute;top:-5px;right:-6px}}#instb[hidden]{display:none}
 .inst-box{max-width:420px}.inst-p{color:var(--mut);font-size:13.5px;margin:0 4px 10px;line-height:1.45}
 .inst-s{margin:0 0 6px;padding-left:22px;display:grid;gap:9px;font-size:14px;line-height:1.45}.inst-s b{color:var(--fg)}.inst-i{display:inline-grid;place-items:center;width:20px;height:20px;border:1px solid var(--line2);border-radius:5px;font-size:12px}
 .inst-f{display:flex;justify-content:flex-end;padding-top:10px}
@@ -474,6 +477,8 @@ html,body{overscroll-behavior:none}.dbar{overscroll-behavior:contain;touch-actio
 <script src="https://cdn.jsdelivr.net/npm/klinecharts@9.8.12/dist/umd/klinecharts.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@klinecharts/pro@0.1.1/dist/klinecharts-pro.umd.js"></script>
 <script src="js/eag-widget.js"></script>
+<script src="js/eag-pro-core.js"></script>
+<script src="js/eag-pro.js"></script>
 <script src="js/charts-app.js"></script>
 </body>
 </html>

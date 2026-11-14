@@ -443,12 +443,16 @@ async function chartsop(){
     $("#cfL").innerHTML=L.length?L.map(r=>`<div class="item" style="align-items:flex-start"><span class="txt"><b>${esc(r.username||"alumno")}${r.country?" · "+esc(r.country):""}${r.premium?' <span class="tag pub">Con plan</span>':""}${r.feedback_at?` · <span class="stars">${"★".repeat(+r.rating||0)}${"☆".repeat(5-(+r.rating||0))}</span>`:""}</b>
       <span>${r.feedback_at?esc(r.feedback||"(sin comentario)"):'<span class="dim">Aún no deja recomendaciones</span>'}</span>
       <span class="dim">Empezó ${fmtDT(r.started_at)}${r.feedback_at?" · opinó "+fmtDT(r.feedback_at):""}</span></span></div>`).join(""):`<p class="muted">Nada por aquí todavía.</p>`};
-  H().innerHTML=`<div class="panel"><h3>EAG Charts</h3><p class="muted">Todos los registrados tienen 3 días gratis desde la primera vez que abren EAG Charts. Al terminar se les pide que califiquen y dejen recomendaciones.</p>
+  const pt=!!(S.site||{}).chartProTrial;
+  H().innerHTML=`<div class="acad-switch ${pt?"on":"off"}" style="margin-bottom:14px"><div><b>Estudio (Replay y Práctica) en la prueba: ${pt?"incluido":"solo Premium"}</b><span class="muted">${pt?"Los que están en la prueba de 3 días también pueden usar Replay y Práctica. Úsalo como gancho para que se animen a Premium.":"Replay y Práctica solo los usan los que tienen plan. Los de la prueba ven el botón con el sello PRO y una invitación a Premium."}</span></div>
+    <button class="btn ${pt?"bad":"gold"}" id="ptSw">${pt?"Quitar de la prueba":"Incluir en la prueba de 3 días"}</button></div>
+    <div class="panel"><h3>EAG Charts</h3><p class="muted">Todos los registrados tienen 3 días gratis desde la primera vez que abren EAG Charts. Al terminar se les pide que califiquen y dejen recomendaciones.</p>
     <div class="row" style="flex-wrap:wrap;gap:10px;margin:10px 0"><span class="tag">${list.length} lo han probado</span><span class="tag">${act} en prueba ahora</span><span class="tag">${fb.length} opiniones</span><span class="tag">Promedio ${avg?avg.toFixed(1)+" ★":"—"}</span>
     <a class="btn sm gold" href="https://charts.elartegrafico.com" target="_blank" rel="noopener">Abrir EAG Charts ↗</a></div>
     <div class="row" style="gap:6px;margin-bottom:10px">${[["todas","Todos"],["con","Con opinión"],["sin","Sin opinión"]].map(([k,t])=>`<button class="btn sm${k===f?" gold":""}" data-cf="${k}">${t}</button>`).join("")}</div>
     <div class="list" id="cfL"></div></div>`;
   $$("[data-cf]").forEach(b=>b.onclick=()=>{f=b.dataset.cf;$$("[data-cf]").forEach(x=>x.classList.toggle("gold",x===b));draw()});draw();
+  $("#ptSw").onclick=async()=>{const ns=Object.assign({},S.site,{chartProTrial:!pt});try{await API.saveSite(ns);S.site=ns;toast(pt?"Estudio ahora es solo Premium":"Estudio incluido en la prueba de 3 días")}catch(x){toast(x.message)}A.ROUTES.admin("chartsop")};
 }
 /* ---------- opiniones ---------- */
 async function opiniones(){
