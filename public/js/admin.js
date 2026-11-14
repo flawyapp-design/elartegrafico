@@ -287,12 +287,30 @@ async function contenido(){
         <div class="dim" style="padding:0 12px 6px;font-size:12px">${esc(m.category||"")}</div>
         ${lesOf(m.id).map((l,li)=>`<button class="l ${sel.id===l.id?"on":""}" data-s="l:${esc(l.id)}"><span><span class="mono dim">${mi+1}.${li+1}</span> ${esc(l.title)}</span><span class="tag ${l.status==="publicado"?"pub":""}">${l.status==="publicado"?"Pub.":"Borr."}</span></button>`).join("")}
         <button class="l" data-nl="${esc(m.id)}" style="color:var(--gold)">+ Nueva lección</button></div>`).join("")||'<div class="muted" style="padding:8px 12px">Este curso aún no tiene módulos.</div>'}
-      <button class="btn sm ghost crs-new" data-nm="${c?esc(c.id):""}">+ Nuevo módulo${c?` en ${esc(c.title)}`:""}</button></details>`).join("")||'<div class="muted">Aún no hay módulos.</div>'}</div></div><div class="panel" id="ed"><div class="muted">Elige un módulo o una lección para editarla.</div></div></div>`;
+      <button class="btn sm ghost crs-new" data-nm="${c?esc(c.id):""}">+ Nuevo módulo${c?` en ${esc(c.title)}`:""}</button>${c&&ms.length?`<button class="btn sm ghost crs-new" data-sched="${esc(c.id)}">📅 Programar salida de módulos</button>`:""}</details>`).join("")||'<div class="muted">Aún no hay módulos.</div>'}</div></div><div class="panel" id="ed"><div class="muted">Elige un módulo o una lección para editarla.</div></div></div>`;
   const cats=[...new Set(mods.map(m=>m.category).concat(["Fundamentos","Método El Arte Gráfico","Gestión y psicología","Sintéticos","Forex","Metales","Evaluación"]))].filter(Boolean);
   const reload=async()=>{await A.loadContent();contenido()};
   $$("[data-nm]").forEach(b=>b.onclick=async()=>{const cid=b.dataset.nm||null;const same=mods.filter(x=>(x.course_id||null)===cid);try{const m=await API.saveModule({title:"Nuevo módulo",descr:"",level:"",category:cid&&(S.courses||[]).some(c=>c.id===cid&&c.base)?"Fundamentos":"Módulos",sort:(same.length?Math.max(...same.map(x=>x.sort||0)):(mods.length?Math.max(...mods.map(x=>x.sort||0)):0))+1,status:"borrador",locked:true,available:false,...(cid?{course_id:cid}:{})});sel={t:"m",id:m.id};reload()}catch(x){toast(x.message)}});
   $$("[data-nl]").forEach(b=>b.onclick=async()=>{const mid=b.dataset.nl;const ls=les.filter(l=>l.module_id===mid);try{const l=await API.saveLesson({module_id:mid,title:"Nueva lección",sort:(ls.length?Math.max(...ls.map(x=>x.sort||0)):0)+1,status:"borrador",video_url:"",body:"",min_score:80});sel={t:"l",id:l.id};reload()}catch(x){toast(x.message)}});
   $$("[data-s]").forEach(b=>b.onclick=()=>{const [t,id]=b.dataset.s.split(":");sel={t,id};contenido()});
+  /* calendario de salida: el primer módulo sale en una fecha y cada N días sale el siguiente */
+  $$("[data-sched]").forEach(b=>b.onclick=()=>{const cid=b.dataset.sched,c=(S.courses||[]).find(x=>x.id===cid)||{},ms=mods.filter(m=>m.course_id===cid).sort((a,b)=>(a.sort||0)-(b.sort||0));
+    const ed=$("#ed"),fmt=d=>d.toLocaleString("es-CO",{timeZone:"America/Bogota",weekday:"short",day:"2-digit",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"});
+    ed.innerHTML=`<div class="form"><div class="sec-h"><h3>📅 Salida de módulos · ${esc(c.title||"")}</h3></div>
+      <p class="muted" style="font-size:13.5px">El primer módulo marcado se abre en la fecha que elijas y cada cierto número de días se abre el siguiente, en el orden del temario. Los alumnos ven "Abre el …" hasta que llegue su fecha. Los módulos sin marcar no cambian.</p>
+      <div class="two"><label for="scS">El primer módulo sale el (hora Colombia)<input id="scS" type="datetime-local" value="2026-12-01T00:00"></label><label for="scN">Y uno nuevo cada (días)<input id="scN" type="number" min="1" max="60" value="5"></label></div>
+      <div class="list" id="scL" style="margin:10px 0"></div>
+      <div class="row" style="gap:8px;flex-wrap:wrap"><button class="btn gold" id="scG">Guardar calendario</button><button class="btn ghost" id="scQ">Quitar fechas a los marcados</button></div></div>`;
+    const chk=new Set(ms.filter(m=>!/^demo/i.test(m.title||"")).map(m=>m.id));
+    const plan=()=>{const st=Date.parse($("#scS").value+":00-05:00"),n=Math.max(1,+$("#scN").value||5);let k=0;const out={};ms.forEach(m=>{if(chk.has(m.id)&&isFinite(st)){out[m.id]=new Date(st+k*n*864e5);k++}});return out};
+    const draw=()=>{const P=plan();$("#scL").innerHTML=ms.map((m,i)=>`<label class="item" style="cursor:pointer;align-items:center"><input type="checkbox" data-sc="${esc(m.id)}" ${chk.has(m.id)?"checked":""} style="width:18px;height:18px;margin-right:10px">
+      <span class="txt"><b>${i+1}. ${esc(m.title)}</b><span class="${P[m.id]?"":"dim"}">${P[m.id]?"Sale: "+fmt(P[m.id]):(m.open_at?"Sin cambios · "+A.modState(m):"Sin cambios · "+(A.modOpen(m,true)?"Disponible":"Cerrado"))}</span>${m.status!=="publicado"?'<span class="tag lock">Borrador: publícalo para que los alumnos lo vean al llegar la fecha</span>':""}</span></label>`).join("");
+      $$("[data-sc]").forEach(x=>x.onchange=()=>{x.checked?chk.add(x.dataset.sc):chk.delete(x.dataset.sc);draw()})};
+    $("#scS").oninput=draw;$("#scN").oninput=draw;draw();
+    const save=async(clear)=>{const P=plan(),L=ms.filter(m=>chk.has(m.id));if(!L.length){toast("Marca al menos un módulo");return}const btn=clear?$("#scQ"):$("#scG");busy(btn,true);
+      try{for(const m of L)await API.saveModule(Object.assign({},m,clear?{open_at:null}:{open_at:P[m.id].toISOString(),available:false}));
+        toast(clear?"Fechas quitadas":`Listo: ${L.length} módulos programados, el primero sale el ${fmt(P[L[0].id])}`);reload()}catch(x){toast(x.message)}finally{busy(btn,false)}};
+    $("#scG").onclick=()=>save(false);$("#scQ").onclick=()=>save(true)});
   const ed=$("#ed");
   if(sel.t==="m"){const m=mods.find(x=>x.id===sel.id);if(!m)return;
     ed.innerHTML=`<form class="form" id="fm"><div class="sec-h"><h3>Módulo</h3><a class="btn sm ghost" href="#modulo-${esc(m.id)}">Ver como alumno</a></div>
