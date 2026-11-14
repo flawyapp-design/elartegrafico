@@ -39,7 +39,10 @@ function SChart(host,opt){
     cv.width=Math.round(S.W*S.dpr);cv.height=Math.round(S.H*S.dpr);cv.style.width=S.W+"px";cv.style.height=S.H+"px";draw()}
   const ro=new ResizeObserver(()=>resize());ro.observe(wrap);
   function clampEnd(){const pad=PADB(),minE=Math.min(S.shown-1,Math.max(5,plotW()/S.bw*0.3)),maxE=Math.max(S.shown-1+pad,0);S.end=Math.max(minE,Math.min(maxE,S.end))}
-  function scale(){if(S.fixedY){yMin=S.fixedY[0];yMax=S.fixedY[1];return}
+  function scale(){
+    /* si estiraste la regla a mano y la vela nueva queda por fuera, vuelve a ajustarse sola (si no, las velas "desaparecen") */
+    if(S.fixedY){const L=S.data[S.shown-1];if(L&&(L.high>S.fixedY[1]||L.low<S.fixedY[0]))S.fixedY=null}
+    if(S.fixedY){yMin=S.fixedY[0];yMax=S.fixedY[1];return}
     const vis=plotW()/S.bw,i0=Math.max(0,Math.floor(S.end-vis)),i1=Math.min(S.shown-1,Math.ceil(S.end));let lo=Infinity,hi=-Infinity;
     for(let i=i0;i<=i1;i++){const k=S.data[i];if(!k)continue;if(k.low<lo)lo=k.low;if(k.high>hi)hi=k.high}
     for(const o of S.ov){if(o.fit===false)continue;const ps=o.type==="hline"?[o.p]:o.type==="zone"?[o.lo,o.hi]:o.type==="seg"?[o.p1,o.p2]:[];for(const p of ps){if(p<lo)lo=p;if(p>hi)hi=p}}
@@ -71,7 +74,7 @@ function SChart(host,opt){
     for(const o of S.ov)if(o.type==="zone")drawZone(o,pw);
     /* velas */
     const bw=Math.max(1,S.bw*0.72);
-    for(let i=i0;i<=i1;i++){const k=S.data[i];if(!k)continue;const x=xOf(i),up=k.close>=k.open,c=up?UP:DN;
+    for(let i=i0;i<=i1;i++){const k=S.data[i];if(!k||!isFinite(k.high)||!isFinite(k.low))continue;const x=xOf(i),up=k.close>=k.open,c=up?UP:DN;
       g.strokeStyle=c;g.fillStyle=c;g.lineWidth=1;const xc=Math.round(x)+.5;g.beginPath();g.moveTo(xc,yOf(k.high));g.lineTo(xc,yOf(k.low));g.stroke();
       const yo=yOf(k.open),yc=yOf(k.close),top=Math.min(yo,yc),h=Math.max(1,Math.abs(yo-yc));g.fillRect(Math.round(x-bw/2),top,Math.max(1,Math.round(bw)),h)}
     for(const o of S.ov)if(o.type!=="zone")drawOv(o,pw,ph,GOLD,FG);
@@ -159,8 +162,14 @@ function symsOf(grp){const all=(X.syms()||[]).filter(s=>s.symbol&&!s.is_trading_
   const f={bc:s=>s.submarket==="crash_index",vol:s=>s.submarket==="random_index",syn:s=>s.market==="synthetic_index",fx:s=>s.market==="forex",all:s=>["synthetic_index","forex","cryptocurrency","commodities"].includes(s.market)}[grp]||(()=>true);
   const r=all.filter(f);return r.length?r:all}
 const precOf=s=>{const v=String(s.pip||s.pip_size||0.01);return v.includes("e-")?+v.split("e-")[1]:(v.split(".")[1]||"").length};
-async function candles(sym,g,o){const m=await X.feed.ask(Object.assign({ticks_history:sym,style:"candles",granularity:g,adjust_start_time:1},o),30000);
-  return(m.candles||[]).map(k=>({timestamp:k.epoch*1000,open:+k.open,high:+k.high,low:+k.low,close:+k.close}))}
+async function candles(sym,g,o){const m=await X.feed.ask(Object.assign({ticks_history:sym,style:"candles",granularity:g},o),30000);
+  /* se limpian velas incompletas y se ordenan por hora (nunca se dibuja una vela sin precio) */
+  const out=(m.candles||[]).map(k=>{const t=+(k.epoch!=null?k.epoch:k.open_time),o2=+k.open,h=+k.high,l=+k.low,c=+k.close;return{timestamp:t*1000,open:o2,high:Math.max(h,o2,c),low:Math.min(l,o2,c),close:c}})
+    .filter(k=>isFinite(k.timestamp)&&k.timestamp>0&&isFinite(k.open)&&isFinite(k.high)&&isFinite(k.low)&&isFinite(k.close)).sort((a,b)=>a.timestamp-b.timestamp);
+  const u=[];for(const k of out)if(!u.length||k.timestamp>u[u.length-1].timestamp)u.push(k);return u}
+/* velas DESPUÉS de una fecha: se pide con "end + count" (igual que el historial normal) y se recorta desde la fecha */
+async function candlesAfter(sym,g,from,n){const now=Math.floor(Date.now()/1000),end=Math.min(now,from+g*n);if(end<=from)return[];
+  const L=await candles(sym,g,{end,count:Math.min(5000,n+5)});return L.filter(k=>k.timestamp>from*1000)}
 /* bloque al azar en el pasado: de 1 a N días atrás según la temporalidad */
 async function randomBlock(sym,g,count){const now=Math.floor(Date.now()/1000),maxBack={60:25,300:120,900:300,3600:700,14400:1400}[g]||200,
   back=Math.floor((count*g)/86400)+1+Math.floor(Math.random()*maxBack),end=now-back*86400;
@@ -325,7 +334,7 @@ async function replay(ro,at){const m=shell();setTab("replay");const g=(TFS.find(
   m.innerHTML=spinner("Cargando el mercado…");
   let start=at?Math.floor(at/1000):null;
   try{if(!start){const now=Math.floor(Date.now()/1000),maxBack={60:25,300:120,900:300,3600:700,14400:1400}[g];start=now-(2+Math.floor(Math.random()*maxBack))*86400}
-    var before=await candles(sym.symbol,g,{end:start,count:300}),after=await candles(sym.symbol,g,{start:start+1,end:Math.min(Math.floor(Date.now()/1000),start+g*1500),count:1500})}
+    var before=await candles(sym.symbol,g,{end:start,count:300}),after=await candlesAfter(sym.symbol,g,start,1500)}
   catch(e){m.innerHTML=`<div class="pro-err"><b>No se pudieron traer los datos.</b><p>${esc(e.message||"")}</p><button class="pro-btn gold" data-b>Volver</button></div>`;$("[data-b]",m).onclick=replayHome;return}
   if(!OV)return;
   const data=before.concat(after.filter(k=>!before.length||k.timestamp>before[before.length-1].timestamp));
@@ -355,7 +364,7 @@ async function replay(ro,at){const m=shell();setTab("replay");const g=(TFS.find(
     const n=R.trades.length,w=R.trades.filter(t=>t.pts>0).length,pts=R.trades.reduce((a,t)=>a+t.pts,0);$("[data-n]",m).textContent=n;$("[data-w]",m).textContent=n?Math.round(w/n*100)+"%":"0%";
     const P=$("[data-pts]",m);P.textContent=(pts>=0?"+":"")+fprice(pts,prec);P.className=pts>=0?"up":"dn"}
   async function more(){if(R.loading||R.done)return;R.loading=true;try{const last=R.data[R.data.length-1],now=Math.floor(Date.now()/1000),s0=Math.floor(last.timestamp/1000)+1;
-      if(s0>=now-g){R.done=true;return}const nx=await candles(sym.symbol,g,{start:s0,end:Math.min(now,s0+g*1500),count:1500});const add=nx.filter(k=>k.timestamp>last.timestamp);if(!add.length)R.done=true;else R.data.push(...add)}catch(e){}finally{R.loading=false}}
+      if(s0>=now-g){R.done=true;return}const nx=await candlesAfter(sym.symbol,g,s0-1,1500);const add=nx.filter(k=>k.timestamp>last.timestamp);if(!add.length)R.done=true;else R.data.push(...add)}catch(e){}finally{R.loading=false}}
   function step(d){const n=R.i+d;if(n<30)return;if(n>R.data.length){if(R.done){setPlay(false);X.toast("Llegaste al presente: no hay más velas.")}return}
     R.i=n;chart.setShown(R.i);paintInfo();if(R.data.length-R.i<60)more()}
   let tmr=null;function setPlay(on){R.play=on;$("[data-play]",m).textContent=on?"⏸":"▶";$("[data-play]",m).classList.toggle("on",on);clearInterval(tmr);if(on)tmr=setInterval(()=>step(1),1000/R.speed)}
