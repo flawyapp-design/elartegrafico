@@ -36,8 +36,9 @@ function SChart(host,opt){
   let yMin=0,yMax=1;
   const yOf=p=>{const h=plotH()-24;return 12+(yMax-p)/(yMax-yMin||1)*h};
   const pOf=y=>{const h=plotH()-24;return yMax-(y-12)/h*(yMax-yMin||1)};
-  function resize(){const r=wrap.getBoundingClientRect();S.dpr=Math.min(3,window.devicePixelRatio||1);S.W=Math.max(50,r.width);S.H=Math.max(50,r.height);
-    cv.width=Math.round(S.W*S.dpr);cv.height=Math.round(S.H*S.dpr);cv.style.width=S.W+"px";cv.style.height=S.H+"px";draw()}
+  function resize(){const r=wrap.getBoundingClientRect();S.dpr=Math.min(3,window.devicePixelRatio||1);const w0=S.W;S.W=Math.max(50,r.width);S.H=Math.max(50,r.height);
+    if(S.data.length&&!S.touched&&Math.abs(S.W-w0)>4&&S.W>120){S.needFit=true}
+    cv.width=Math.round(S.W*S.dpr);cv.height=Math.round(S.H*S.dpr);cv.style.width=S.W+"px";cv.style.height=S.H+"px";if(S.needFit){S.needFit=false;fitNow()}draw()}
   const ro=new ResizeObserver(()=>resize());ro.observe(wrap);
   function clampEnd(){const pad=PADB(),minE=Math.min(S.shown-1,Math.max(5,plotW()/S.bw*0.3)),maxE=Math.max(S.shown-1+pad,0);S.end=Math.max(minE,Math.min(maxE,S.end))}
   function scale(){
@@ -61,7 +62,7 @@ function SChart(host,opt){
     if(SMOOTH&&S.follow){const tg=S.shown-1+PADB(),d=tg-S.end;if(Math.abs(d)>0.003){S.end+=d*0.2;anim=true}else S.end=tg}
     clampEnd();scale();const pw=plotW(),ph=plotH();
     /* cuadrícula y eje de precios */
-    g.font="11px Inter,system-ui,sans-serif";g.textBaseline="middle";const st=niceStep(yMax-yMin,narrow()?6:8);
+    g.font="11px Inter,system-ui,sans-serif";g.textBaseline="middle";const st=niceStep(yMax-yMin,Math.max(2,Math.min(9,Math.floor(ph/48))));
     g.strokeStyle=LINE;g.lineWidth=1;g.fillStyle=MUT;
     for(let p=Math.ceil(yMin/st)*st;p<=yMax;p+=st){const y=Math.round(yOf(p))+0.5;if(y<4||y>ph-4)continue;g.beginPath();g.moveTo(0,y);g.lineTo(pw,y);g.stroke();g.fillText(fprice(p,S.prec),pw+6,y)}
     /* zona del futuro */
@@ -130,7 +131,7 @@ function SChart(host,opt){
   cv.addEventListener("pointermove",e=>{const p=loc(e);if(P.has(e.pointerId))P.set(e.pointerId,p);
     if(pinch&&P.size===2){const[a,b]=[...P.values()],d=Math.hypot(a.x-b.x,a.y-b.y);const nb=Math.max(1.5,Math.min(40,pinch.bw*d/pinch.d));const anchor=pinch.end-(plotW()-pinch.cx)/pinch.bw;S.bw=nb;S.end=anchor+(plotW()-pinch.cx)/nb;req();return}
     if(!drag){if(e.pointerType==="mouse"){S.cross=p.x<plotW()&&p.y<plotH()?p:null;req()}return}
-    if(drag.kind==="pan"){const dx=p.x-drag.x;if(Math.abs(dx)>3){drag.moved=true;S.follow=false}S.end=drag.end-dx/S.bw;if(e.pointerType==="mouse")S.cross=null;req()}
+    if(drag.kind==="pan"){const dx=p.x-drag.x;if(Math.abs(dx)>3){drag.moved=true;S.follow=false;S.touched=true}S.end=drag.end-dx/S.bw;if(e.pointerType==="mouse")S.cross=null;req()}
     else if(drag.kind==="yaxis"){const dy=p.y-drag.y,f=Math.exp(dy/200),mid=(drag.min+drag.max)/2,h=(drag.max-drag.min)*f/2;S.fixedY=[mid-h,mid+h];req()}
     else if(drag.kind==="zone"){const pr=pOf(p.y);S.draft.lo=Math.min(drag.p0,pr);S.draft.hi=Math.max(drag.p0,pr);tipAt(p,`${fprice(S.draft.lo,S.prec)} – ${fprice(S.draft.hi,S.prec)}`);req()}
     else if(drag.kind==="trend"){S.draft.i2=Math.round(iOf(p.x));S.draft.p2=pOf(p.y);req()}
@@ -144,12 +145,13 @@ function SChart(host,opt){
   cv.addEventListener("pointerup",up);cv.addEventListener("pointercancel",up);
   cv.addEventListener("pointerleave",e=>{if(e.pointerType==="mouse"&&!drag){S.cross=null;req()}});
   cv.addEventListener("dblclick",()=>{S.fixedY=null;fit();});
-  cv.addEventListener("wheel",e=>{e.preventDefault();const p=loc(e);S.snapY=!SMOOTH;if(e.ctrlKey||Math.abs(e.deltaY)>=Math.abs(e.deltaX)){const f=Math.exp(-e.deltaY/400),nb=Math.max(1.5,Math.min(40,S.bw*f)),anchor=iOf(p.x);S.bw=nb;S.end=anchor+(plotW()-p.x)/nb-0.5}else S.end+=e.deltaX/S.bw;req()},{passive:false});
+  cv.addEventListener("wheel",e=>{e.preventDefault();const p=loc(e);S.snapY=!SMOOTH;S.touched=true;if(e.ctrlKey||Math.abs(e.deltaY)>=Math.abs(e.deltaX)){const f=Math.exp(-e.deltaY/400),nb=Math.max(1.5,Math.min(40,S.bw*f)),anchor=iOf(p.x);S.bw=nb;S.end=anchor+(plotW()-p.x)/nb-0.5}else S.end+=e.deltaX/S.bw;req()},{passive:false});
   function tipAt(p,t){tip.textContent=t;tip.hidden=false;tip.style.left=Math.min(plotW()-140,Math.max(4,p.x+12))+"px";tip.style.top=Math.max(4,p.y-34)+"px"}
-  function fit(){const vis=Math.min(S.shown,narrow()?70:120);S.bw=Math.max(2,Math.min(22,(plotW()-PADB()*8)/Math.max(20,vis)));S.end=S.shown-1+PADB();S.fixedY=null;S.follow=true;S.snapY=true;req();opt.onFollow&&opt.onFollow(true)}
+  function fitNow(){const pw=plotW();if(pw<60)return;const vis=Math.min(S.shown,narrow()?70:120);S.bw=Math.max(2,Math.min(22,(pw-64)/Math.max(20,vis)));S.end=S.shown-1+PADB();S.fixedY=null;S.follow=true;S.snapY=true}
+  function fit(){fitNow();if(plotW()<60)S.needFit=true;req();opt.onFollow&&opt.onFollow(true)}
   return{
     el:wrap,
-    setData(d,shown,prec){S.data=d;S.shown=Math.max(1,Math.min(d.length,shown==null?d.length:shown));if(prec!=null)S.prec=prec;measureAx();resize();fit()},
+    setData(d,shown,prec){S.data=d;S.shown=Math.max(1,Math.min(d.length,shown==null?d.length:shown));if(prec!=null)S.prec=prec;S.touched=false;measureAx();resize();fit()},
     /* datos que crecen (replay): no mueve la vista si estás analizando atrás */
     setLive(d){S.data=d;S.shown=d.length;if(!SMOOTH&&S.follow)S.end=S.shown-1+PADB();req()},
     goLive(){S.follow=true;S.fixedY=null;req();opt.onFollow&&opt.onFollow(true)},get follow(){return S.follow},
@@ -238,7 +240,7 @@ function session(opt){const m=shell();setTab("prac");
   m.innerHTML=`<div class="pro-ses"><div class="pro-sbar"><button class="pro-btn sm" data-back>← Salir</button><span class="pro-prog"><i></i></span><b class="pro-cnt"></b><span class="pro-sc"></span></div>
     <div class="pro-body"><div class="pro-chart"></div><aside class="pro-q"></aside></div></div>`;
   $("[data-back]",m).onclick=()=>{if(ses.i>0&&ses.res.length)finish(ses);else pracHome()};
-  chart=SChart($(".pro-chart",m),{zoneColor:"#b46cff",onZone:(lo,hi)=>ses.cur&&ses.cur.onZone&&ses.cur.onZone(lo,hi),onPick:(p)=>ses.cur&&ses.cur.onPick&&ses.cur.onPick(p)});
+  chart=SChart($(".pro-chart",m),{smooth:true,zoneColor:"#b46cff",onZone:(lo,hi)=>ses.cur&&ses.cur.onZone&&ses.cur.onZone(lo,hi),onPick:(p)=>ses.cur&&ses.cur.onPick&&ses.cur.onPick(p)});
   const prep=()=>prepare(opt).catch(e=>({err:e}));
   ses.next=prep();
   (async function loop(){while(ses.i<opt.n&&OV){paintTop(ses,m);const qp=ses.next;ses.next=null;
@@ -291,9 +293,11 @@ function ask(ses,Q,m){return new Promise(done=>{const{q,c,s,tf,prec}=Q,T=C.TOPIC
     if(q.type==="zona"){ex.zr=C.evalZona(c,q.A,q.t,q.K,zone[0],zone[1]);ex.auto=(q.auto||[]).map(z=>({z,r:C.evalZona(c,q.A,q.t,q.K,z.lo,z.hi)}))}
     const fb=C.feedback(q,c,v,ex);
     /* revelar el futuro vela por vela */
-    chart.setFuture(false);chart.fit();const end=Math.min(c.length,q.t+1+q.K),step=Math.max(1,Math.round(q.K/18));
-    for(let n=q.t+1;n<=end&&OV;n+=step){chart.setShown(n);await sleep(45)}
-    if(!OV)return done();chart.setShown(end);chart.setHideTime(false);
+    chart.setFuture(false);chart.goLive();const end=Math.min(c.length,q.t+1+q.K),tot=end-(q.t+1),dur=Math.min(4200,1400+tot*80);
+    /* el futuro se revela vela por vela, cada vela formándose (apertura → extremos → cierre) */
+    await new Promise(res=>{const t0=performance.now();const fr=now=>{if(!OV)return res();const x=Math.min(1,(now-t0)/dur)*tot,n=Math.floor(x),f=x-n;
+      const V=c.slice(0,q.t+1+n);if(f>0&&q.t+1+n<end)V.push(partialOf(c[q.t+1+n],f));chart.setLive(V);if(x>=tot)return res();requestAnimationFrame(fr)};requestAnimationFrame(fr)});
+    if(!OV)return done();chart.setLive(c.slice(0,end));chart.setHideTime(false);
     /* dibujar la explicación */
     const ov=base.slice();ov.push({type:"vline",i:q.t,color:"#e2b55c",dash:[5,4],label:"Pregunta"});
     if(q.type==="proy"){ov.push({type:"seg",i1:q.t,p1:c[q.t].close,i2:q.t+q.K,p2:c[q.t+q.K].close,color:q.ans==="up"?"#089981":q.ans==="dn"?"#f23645":"#8a8f98",w:2.5,label:(q.mv>=0?"+":"")+fprice(q.mv,prec)});if(target!=null)ov.push({type:"hline",p:target,color:"#1e88e5",dash:[6,4],label:"Objetivo"})}
