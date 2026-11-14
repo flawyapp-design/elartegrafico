@@ -606,9 +606,11 @@ function start(){
   $("#alb").onclick=e=>{e.stopPropagation();openSettings("alertas")};
   /* ---------- Estudio (Replay + Práctica): Premium; el admin puede incluirlo en la prueba de 3 días ---------- */
   let SITE={};try{API.site&&API.site().then(d=>{SITE=d||{}}).catch(()=>{})}catch(e){}
-  const proAccess=()=>{if(window.chartsPlan())return{ok:true};
+  /* Práctica: desde Plata. Replay: solo Oro (y Diamond de antes). El admin puede abrir ambos en la prueba. */
+  const planRank=()=>{try{if(API.isAdmin())return 9;if(!API.isPremium())return 0;return({cobre:1,plata:2,oro:3,diamond:4})[String(((API.profile&&API.profile())||{}).plan||"").toLowerCase()]||0}catch(e){return 0}};
+  const proAccess=mode=>{const need=mode==="replay"?3:2,r=planRank();if(r>=need)return{ok:true};
     if(window.__trial&&SITE.chartProTrial)return{ok:true};
-    return{ok:false,why:window.__trial?"Estás en la prueba gratis de EAG Charts. Replay y Práctica vienen con los planes Plata, Oro y Diamond.":"Replay del mercado y práctica guiada para entrenar tu lectura del gráfico."}};
+    return{ok:false,need,why:mode==="replay"?"El Replay del mercado es exclusivo del plan Oro: mira el mercado vela por vela, en varias temporalidades a la vez y con operaciones simuladas.":"La Práctica guiada viene desde el plan Plata: proyección, zonas, rompimientos e impulsos vs. retrocesos con corrección al instante."}};
   if(window.EAGPro){window.EAGPro.init({feed,syms:()=>SYMS,SAVE,save,toast,MAIN,access:proAccess,
       get up(){return CF().up||"#089981"},get dn(){return CF().dn||"#f23645"},
       cur:()=>{try{const p=panes[active];return{sym:p.kc.getSymbol().ticker,tf:p.kc.getPeriod().text}}catch(e){return{}}}});

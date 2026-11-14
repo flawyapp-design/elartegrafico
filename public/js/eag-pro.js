@@ -208,17 +208,16 @@ const chipVal=(root,n)=>{const b=$(`.pro-chips[data-name="${n}"] button.on`,root
 function spinner(t){return`<div class="pro-load"><div class="pro-spin"></div><p>${esc(t)}</p></div>`}
 
 /* ---------------- bloqueo premium ---------------- */
-function lock(why){const m=shell();setTab("");$(".pro-tabs",OV).style.visibility="hidden";
-  m.innerHTML=`<div class="pro-lock"><div class="pro-lock-i">🔒</div><h2>Incluido en Plata, Oro y Diamond</h2>
-   <p>${esc(why||"Replay del mercado y práctica guiada para entrenar tu lectura del gráfico en cualquier mercado.")}</p>
-   <ul><li><b>Replay:</b> vuelve a cualquier fecha y mira el mercado vela por vela, con dibujos y operaciones simuladas.</li>
-   <li><b>Práctica:</b> proyección, zonas, rompimientos e impulsos vs. retrocesos en puntos al azar de todos los mercados, con corrección al instante.</li>
-   <li><b>Tu progreso:</b> aciertos por tema y racha.</li></ul>
-   <div class="pro-row"><a class="pro-btn gold" href="${X.MAIN}#premium">Ver planes Plata, Oro y Diamond</a><button class="pro-btn" data-c>Ahora no</button></div></div>`;
+function lock(why,need){const m=shell();setTab(need>=3?"replay":"prac");const oro=need>=3;
+  m.innerHTML=`<div class="pro-lock"><div class="pro-lock-i">${oro?"👑":"🔒"}</div><h2>${oro?"Exclusivo del plan Oro":"Desde el plan Plata"}</h2>
+   <p>${esc(why||"")}</p>
+   <ul><li><b>Plata:</b> EAG Charts completo y la Práctica guiada en todos los mercados, con corrección al instante.</li>
+   <li><b>Oro:</b> todo lo de Plata más el Replay del mercado en varias temporalidades, clases en vivo y la Sala Oro.</li></ul>
+   <div class="pro-row"><a class="pro-btn gold" href="${X.MAIN}#premium">Ver planes</a><button class="pro-btn" data-c>Ahora no</button></div></div>`;
   $("[data-c]",m).onclick=close}
 
 /* ---------------- Práctica: inicio ---------------- */
-function pracHome(){const m=shell();setTab("prac");const S=state(),o=Object.assign({topic:"proy",grp:"bc",tf:"rnd",n:10,hide:1},S.opt||{});
+function pracHome(){{const a=X.access("prac");if(!a.ok)return lock(a.why,a.need)}const m=shell();setTab("prac");const S=state(),o=Object.assign({topic:"proy",grp:"bc",tf:"rnd",n:10,hide:1},S.opt||{});
   const pct=t=>{const s=S.st[t];return s&&s.n?Math.round(s.ok/s.n*100)+"%":"—"};
   const tot=Object.values(S.st).reduce((a,s)=>a+(s.n||0),0),okT=Object.values(S.st).reduce((a,s)=>a+(s.ok||0),0);
   m.innerHTML=`<div class="pro-home"><section class="pro-intro"><h1>Práctica guiada</h1><p>Te llevamos a un punto al azar del pasado de un mercado. Tú lees el gráfico, respondes y te mostramos lo que pasó después, con la explicación. Todo se mide con lo que muestra el precio, no con un método en particular.</p>
@@ -331,7 +330,7 @@ function finish(ses){const m=$(".pro-m",OV);if(!m)return;const n=ses.res.length,
 /* ============================================================
    Replay
    ============================================================ */
-function replayHome(){const m=shell();setTab("replay");const S=state(),cur=X.cur()||{};
+function replayHome(){{const a=X.access("replay");if(!a.ok)return lock(a.why,a.need)}const m=shell();setTab("replay");const S=state(),cur=X.cur()||{};
   const o=Object.assign({sym:cur.sym||"BOOM1000",tfs:[TFS.find(t=>t[0]===cur.tf)?cur.tf:"5m"],start:"rnd",hide:0},S.ropt||{});if(!Array.isArray(o.tfs)||!o.tfs.length)o.tfs=[o.tf||"5m"];
   const all=symsOf("all").slice().sort((a,b)=>String(a.display_name).localeCompare(String(b.display_name)));
   const dflt=new Date(Date.now()-7*86400000),p=tparts(dflt.getTime());
@@ -465,6 +464,6 @@ async function replay(ro,at){const m=shell();setTab("replay");
    ============================================================ */
 window.EAGPro={
   init(ctx){X=ctx},
-  open(mode){if(!X)return;const a=X.access();if(!a.ok)return lock(a.why);mode==="replay"?replayHome():pracHome()},
+  open(mode){if(!X)return;mode==="replay"?replayHome():pracHome()},
   close,_SChart:SChart};
 })();
