@@ -208,11 +208,11 @@ const chipVal=(root,n)=>{const b=$(`.pro-chips[data-name="${n}"] button.on`,root
 function spinner(t){return`<div class="pro-load"><div class="pro-spin"></div><p>${esc(t)}</p></div>`}
 
 /* ---------------- bloqueo premium ---------------- */
-function lock(why,need){const m=shell();setTab(need>=3?"replay":"prac");const oro=need>=3;
-  m.innerHTML=`<div class="pro-lock"><div class="pro-lock-i">${oro?"👑":"🔒"}</div><h2>${oro?"Exclusivo del plan Oro":"Desde el plan Plata"}</h2>
+function lock(why,need){const m=shell();setTab(need===3?"replay":"prac");const dia=need>=4;
+  m.innerHTML=`<div class="pro-lock"><div class="pro-lock-i">${dia?"💎":"👑"}</div><h2>${dia?"Exclusivo del plan Diamond":"Desde el plan Oro"}</h2>
    <p>${esc(why||"")}</p>
-   <ul><li><b>Plata:</b> EAG Charts completo y la Práctica guiada en todos los mercados, con corrección al instante.</li>
-   <li><b>Oro:</b> todo lo de Plata más el Replay del mercado en varias temporalidades, clases en vivo y la Sala Oro.</li></ul>
+   <ul><li><b>Oro:</b> Replay en EAG Charts para hacer backtesting con mercado real desde la fecha que quieras, y la clase grupal en vivo cada semana.</li>
+   <li><b>Diamond:</b> todo lo de Oro más la Práctica guiada en mercado real, tus indicadores de MT5 en los charts y 1 hora a la semana con Nicolás Ardila.</li></ul>
    <div class="pro-row"><a class="pro-btn gold" href="${X.MAIN}#premium">Ver planes</a><button class="pro-btn" data-c>Ahora no</button></div></div>`;
   $("[data-c]",m).onclick=close}
 
