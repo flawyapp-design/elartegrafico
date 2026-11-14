@@ -27,6 +27,9 @@ function boxPts(a,b){const both=a.dataIndex!=null&&b.dataIndex!=null;
   const P=(x,v)=>{const o={value:v};if(x.dataIndex!=null)o.dataIndex=x.dataIndex;if(okT(x.timestamp))o.timestamp=x.timestamp;return o};
   return[P(L,T),P(R,T),P(R,B),P(L,B),P(mid,T),P(R,(T+B)/2),P(mid,B),P(L,(T+B)/2)]}
 let registered=false;let EAG_TZ="America/Bogota";
+/* tamaño de letra de la regla (lo pone cada gráfico en applyStyles): las etiquetas de los dibujos crecen igual que los precios */
+let AXF=11;const axPad=()=>Math.round(AXF*.28);
+const axSt=(bg,x)=>Object.assign({color:"#fff",size:AXF,backgroundColor:bg,paddingLeft:Math.round(AXF*.4),paddingRight:Math.round(AXF*.4),paddingTop:axPad(),paddingBottom:axPad(),borderRadius:2},x||{});
 function registerAll(){
   if(registered)return;registered=true;
   /* líneas horizontales y verticales: su precio queda SIEMPRE marcado en la regla y su hora abajo en el eje del tiempo
@@ -36,9 +39,9 @@ function registerAll(){
     const pf=(v,pr)=>(+v).toLocaleString("en-US",{minimumFractionDigits:pr,maximumFractionDigits:pr});
     const tf=ts=>{try{const d=new Date(ts),o={timeZone:EAG_TZ||undefined,hour12:false};const p=new Intl.DateTimeFormat("en-CA",Object.assign({month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit"},o)).formatToParts(d).reduce((a,x)=>(a[x.type]=x.value,a),{});return `${p.month}-${p.day} ${p.hour==="24"?"00":p.hour}:${p.minute}`}catch(e){return""}};
     const yLab=({overlay,coordinates,precision,defaultStyles})=>{if(!coordinates.length||!overlay.points||!overlay.points.length)return[];const pr=(precision&&precision.price!=null)?precision.price:2,c=lineCol(overlay,defaultStyles);
-      return[{type:"text",ignoreEvent:true,attrs:{x:0,y:coordinates[0].y,text:pf(overlay.points[0].value,pr),align:"left",baseline:"middle"},styles:{color:"#fff",size:11,backgroundColor:c,paddingLeft:4,paddingRight:4,paddingTop:3,paddingBottom:3,borderRadius:2}}]};
+      return[{type:"text",ignoreEvent:true,attrs:{x:0,y:coordinates[0].y,text:pf(overlay.points[0].value,pr),align:"left",baseline:"middle"},styles:axSt(c)}]};
     const xLab=({overlay,coordinates,defaultStyles})=>{if(!coordinates.length||!overlay.points||!overlay.points.length)return[];const ts=overlay.points[0].timestamp;if(!ts)return[];const c=lineCol(overlay,defaultStyles);
-      return[{type:"text",ignoreEvent:true,attrs:{x:coordinates[0].x,y:3,text:tf(ts),align:"center",baseline:"top"},styles:{color:"#fff",size:11,backgroundColor:c,paddingLeft:5,paddingRight:5,paddingTop:3,paddingBottom:3,borderRadius:2}}]};
+      return[{type:"text",ignoreEvent:true,attrs:{x:coordinates[0].x,y:3,text:tf(ts),align:"center",baseline:"top"},styles:axSt(c)}]};
     /* se reescriben las 6 líneas (mismos nombres y mismos puntos que las originales, así los dibujos guardados siguen igual) */
     const L1=(a,b)=>({type:"line",attrs:{coordinates:[a,b]}});
     const sameY=({points,performPoint})=>{if(points[0])points[0].value=performPoint.value;if(points[1])points[1].value=performPoint.value};
@@ -105,7 +108,15 @@ function registerAll(){
   KC.registerOverlay({name:"eagAlert",totalStep:2,needDefaultPointFigure:false,needDefaultXAxisFigure:false,needDefaultYAxisFigure:true,lock:true,
     createPointFigures:({overlay,coordinates,bounding})=>{const c=coordinates[0];if(!c)return[];const ex=overlay.extendData||{};const col="#ff9800";
       return[{type:"line",ignoreEvent:true,attrs:{coordinates:[{x:0,y:c.y},{x:bounding.width,y:c.y}]},styles:{color:col,size:1,style:"dashed",dashedValue:[6,4]}},
-        {type:"text",ignoreEvent:true,attrs:{x:8,y:c.y-9,text:`🔔 ${ex.label||"Alerta"}`,baseline:"middle"},styles:{color:"#16120a",size:11,backgroundColor:col,paddingLeft:6,paddingRight:6,paddingTop:2,paddingBottom:2,borderRadius:4}}]}});
+        {type:"text",ignoreEvent:true,attrs:{x:8,y:c.y-9,text:`🔔 ${ex.label||"Alerta"}`,baseline:"middle"},styles:{color:"#16120a",size:AXF,backgroundColor:col,paddingLeft:6,paddingRight:6,paddingTop:2,paddingBottom:2,borderRadius:4}}]}});
+  /* etiqueta del precio actual en la regla: se dibuja en la capa de dibujos con el nivel más alto,
+     así el precio SIEMPRE queda encima de las etiquetas de líneas, zonas y alertas (como MT5) */
+  KC.registerOverlay({name:"eagLastPx",totalStep:2,lock:true,needDefaultPointFigure:false,needDefaultXAxisFigure:false,needDefaultYAxisFigure:false,
+    createPointFigures:()=>[],
+    createYAxisFigures:({overlay,bounding,yAxis})=>{const g=(overlay.extendData||{}).get,r=g&&g();if(!r||!yAxis)return[];
+      let y;try{y=yAxis.convertToNicePixel?yAxis.convertToNicePixel(r.v):yAxis.convertToPixel(r.v)}catch(e){return[]}
+      if(!isFinite(y))return[];const z=yAxis.isFromZero&&yAxis.isFromZero();
+      return[{type:"text",ignoreEvent:true,attrs:{x:z?0:bounding.width,y,text:r.t,align:z?"left":"right",baseline:"middle"},styles:r.st}]}});
   /* Pincel: trazo libre a mano alzada */
   KC.registerOverlay({name:"eagBrush",totalStep:2,needDefaultPointFigure:false,needDefaultXAxisFigure:false,needDefaultYAxisFigure:false,
     createPointFigures:({overlay,coordinates})=>{if(coordinates.length<2)return[];const ex=overlay.extendData||{};
@@ -143,7 +154,7 @@ function registerAll(){
       F.push({type:"line",ignoreEvent:true,attrs:{coordinates:[{x:0,y:y2},{x:bounding.width,y:y2}]},styles:{color:bot,size:lw}});
       F.push({type:"text",ignoreEvent:true,attrs:{x:x1+6,y:y1+6,text:ex.text||(kind==="buy"?"Compra":"Venta"),baseline:"top"},styles:{color:"#fff",size:11,backgroundColor:kind==="buy"?top:top,paddingLeft:6,paddingRight:6,paddingTop:2,paddingBottom:2,borderRadius:4}});
       /* etiquetas en cada línea: verde = Entrada, roja = SL (a la derecha, junto a la regla de precios) */
-      const tag=(y,txt,c,above)=>F.push({type:"text",ignoreEvent:true,attrs:{x:bounding.width-6,y:above?y-4:y+4,text:txt,align:"right",baseline:above?"bottom":"top"},styles:{color:"#fff",size:10.5,weight:"bold",backgroundColor:c,paddingLeft:5,paddingRight:5,paddingTop:2,paddingBottom:2,borderRadius:3}});
+      const tag=(y,txt,c,above)=>F.push({type:"text",ignoreEvent:true,attrs:{x:bounding.width-6,y:above?y-4:y+4,text:txt,align:"right",baseline:above?"bottom":"top"},styles:{color:"#fff",size:AXF-.5,weight:"bold",backgroundColor:c,paddingLeft:Math.round(AXF*.45),paddingRight:Math.round(AXF*.45),paddingTop:2,paddingBottom:2,borderRadius:3}});
       tag(y1,kind==="buy"?"Entrada":"SL",top,true);tag(y2,kind==="buy"?"SL":"Entrada",bot,false);
       return F}
     const col=ex.color||GOLD;
@@ -156,15 +167,15 @@ function registerAll(){
     if([0,3,7].includes(i))Lp=X;if([1,2,5].includes(i))Rp=X;if([0,1,4].includes(i))T=pp.value;if([2,3,6].includes(i))B=pp.value;
     const np=boxPts(Object.assign({},Lp,{value:T}),Object.assign({},Rp,{value:B}));
     np.forEach((p,k)=>{if(p.timestamp!=null)points[k].timestamp=p.timestamp;else delete points[k].timestamp;if(p.dataIndex!=null)points[k].dataIndex=p.dataIndex;points[k].value=p.value})};
-  const axY=(y,v,c,precision)=>{const pr=(precision&&precision.price!=null)?precision.price:2;return{type:"text",ignoreEvent:true,attrs:{x:0,y,text:(+v).toLocaleString("en-US",{minimumFractionDigits:pr,maximumFractionDigits:pr}),align:"left",baseline:"middle"},styles:{color:"#fff",size:11,backgroundColor:c,paddingLeft:4,paddingRight:4,paddingTop:3,paddingBottom:3,borderRadius:2}}};
+  const axY=(y,v,c,precision)=>{const pr=(precision&&precision.price!=null)?precision.price:2;return{type:"text",ignoreEvent:true,attrs:{x:0,y,text:(+v).toLocaleString("en-US",{minimumFractionDigits:pr,maximumFractionDigits:pr}),align:"left",baseline:"middle"},styles:axSt(c)}};
   const two2=n=>String(n).padStart(2,"0"),fmtT=t=>{const d=new Date(t);return `${two2(d.getDate())}/${two2(d.getMonth()+1)} ${two2(d.getHours())}:${two2(d.getMinutes())}`};
-  const axX=(x,t,c)=>({type:"text",ignoreEvent:true,attrs:{x,y:3,text:fmtT(t),align:"center",baseline:"top"},styles:{color:"#fff",size:11,backgroundColor:c,paddingLeft:5,paddingRight:5,paddingTop:3,paddingBottom:3,borderRadius:2}});
+  const axX=(x,t,c)=>({type:"text",ignoreEvent:true,attrs:{x,y:3,text:fmtT(t),align:"center",baseline:"top"},styles:axSt(c)});
   /* en la regla de precios: el precio de entrada (verde) y del SL (rojo) siempre marcados */
   const boxAxis=kind=>({overlay,coordinates,bounding,precision})=>{if(coordinates.length<4||!overlay.points||overlay.points.length<4)return[];const ex=overlay.extendData||{};
     const up=ex.up||"#089981",dn=ex.dn||"#f23645",pr=(precision&&precision.price!=null)?precision.price:2;
     const f=v=>(+v).toLocaleString("en-US",{minimumFractionDigits:pr,maximumFractionDigits:pr});
     const tv=overlay.points[0].value,bv=overlay.points[3].value,ty=coordinates[0].y,by=coordinates[3].y;
-    const lab=(y,v,c)=>({type:"text",ignoreEvent:true,attrs:{x:0,y,text:f(v),align:"left",baseline:"middle"},styles:{color:"#fff",size:11,backgroundColor:c,paddingLeft:4,paddingRight:4,paddingTop:3,paddingBottom:3,borderRadius:2}});
+    const lab=(y,v,c)=>({type:"text",ignoreEvent:true,attrs:{x:0,y,text:f(v),align:"left",baseline:"middle"},styles:axSt(c)});
     return kind==="buy"?[lab(ty,tv,up),lab(by,bv,dn)]:[lab(ty,tv,dn),lab(by,bv,up)]};
   /* zona y rectángulo: precio de arriba y de abajo siempre marcados en la regla */
   const zoneAxis=({overlay,coordinates,precision})=>{if(coordinates.length<4||!overlay.points||overlay.points.length<4)return[];const c=(overlay.extendData||{}).color||GOLD;
@@ -391,15 +402,34 @@ window.EAGWidget=function(o){
     const L=chart.getDataList(),last=L[L.length-1];if(last){const left=Math.max(0,last.timestamp+msOf(per)-now),s2=Math.floor(left/1000),h=Math.floor(s2/3600),m=Math.floor(s2%3600/60);
       cdEl.textContent=`Cierra en ${h?h+":"+two(m):m}:${two(s2%60)}`;cdEl.classList.toggle("soon",left<10000)}};
   const clkT=setInterval(tick,1000);tick();
-  /* cuenta regresiva del cierre de vela, debajo de la etiqueta del precio actual (como TradingView) */
+  /* cuenta regresiva del cierre de vela. Dos modos (Configuración → Gráfico):
+     "vela"  → como MT5: al lado de la última vela, FUERA de la regla, con el nombre del mercado y debajo el reloj
+     "regla" → debajo de la etiqueta del precio actual, dentro de la regla (como TradingView)
+     "off"   → no se muestra */
   const cdl=document.createElement("div");cdl.className="wcdl";chartEl.appendChild(cdl);
-  function placeCdl(){const L=chart.getDataList(),last=L[L.length-1];if(!last||!ready){cdl.hidden=true;return}
-    try{const pt=chart.convertToPixel({timestamp:last.timestamp,value:last.close},{paneId:"candle_pane",absolute:true}),ya=chart.getSize("candle_pane","yAxis");
-      if(!pt||!ya||pt.y==null||pt.y<0||pt.y>ya.height){cdl.hidden=true;return}
+  const cdc=document.createElement("div");cdc.className="wcdc";cdc.innerHTML='<b></b><span></span>';chartEl.appendChild(cdc);
+  const cdcN=cdc.firstChild,cdcT=cdc.lastChild;
+  const cdMode=()=>{const m=o.getCdMode&&o.getCdMode();return m==="regla"||m==="off"?m:"vela"};
+  /* espacio libre a la derecha de la última vela para que el contador no tape velas (como el "desplazamiento" de MT5) */
+  let offR=null;const setOffR=d=>{d=Math.round(d/10)*10;if(d===offR)return;offR=d;try{chart.setOffsetRightDistance(d)}catch(e){}};
+  const symShort=()=>String(sym.shortName||sym.name||sym.ticker||"").replace(/\s+Index$/i,"").trim();
+  function placeCdl(){const L=chart.getDataList(),last=L[L.length-1],mode=cdMode();if(!last||!ready||mode==="off"){cdl.hidden=true;cdc.hidden=true;if(ready&&mode==="off")setOffR(80);return}
+    try{const pt=chart.convertToPixel({timestamp:last.timestamp,value:last.close},{paneId:"candle_pane",absolute:true}),ya=chart.getSize("candle_pane","yAxis"),mn=chart.getSize("candle_pane","main");
+      if(!pt||!ya||pt.y==null||pt.y<0||pt.y>ya.height){cdl.hidden=true;cdc.hidden=true;return}
       const left=Math.max(0,last.timestamp+msOf(per)-Date.now()),s2=Math.floor(left/1000),h=Math.floor(s2/3600),m=Math.floor(s2%3600/60);
-      cdl.textContent=h?`${h}:${two(m)}:${two(s2%60)}`:`${two(m)}:${two(s2%60)}`;
-      const up=((extra.candle||{}).bar||{}).upColor||"#089981",dn=((extra.candle||{}).bar||{}).downColor||"#f23645";cdl.style.background=last.close>=last.open?up:dn;
-      cdl.style.left=ya.left+"px";cdl.style.width=ya.width+"px";cdl.style.top=(pt.y+10)+"px";cdl.hidden=false}catch(e){cdl.hidden=true}}
+      const txt=h?`${h}:${two(m)}:${two(s2%60)}`:`${two(m)}:${two(s2%60)}`;
+      const up=((extra.candle||{}).bar||{}).upColor||"#089981",dn=((extra.candle||{}).bar||{}).downColor||"#f23645",col=last.close>=last.open?up:dn,f=fz();
+      if(mode==="regla"){cdc.hidden=true;setOffR(80);cdl.textContent=txt;cdl.style.background=col;
+        cdl.style.left=ya.left+"px";cdl.style.width=ya.width+"px";cdl.style.top=(pt.y+f/2+4)+"px";cdl.hidden=false;return}
+      /* modo MT5: a la derecha de la última vela, justo debajo de la línea del precio */
+      cdl.hidden=true;
+      const bw=(()=>{try{return chart.getBarSpace()}catch(e){return 8}})(),x=pt.x+bw/2+8;
+      if(!mn||pt.x==null||x<mn.left||pt.x>mn.left+mn.width+bw){cdc.hidden=true;return}
+      if(cdcN.textContent!==symShort())cdcN.textContent=symShort();if(cdcT.textContent!==txt)cdcT.textContent=txt;
+      cdc.classList.toggle("soon",left<10000);cdc.style.setProperty("--cdc",col);cdc.hidden=false;
+      const w=cdc.offsetWidth,hh=cdc.offsetHeight,maxX=mn.left+mn.width-w-6;setOffR(Math.max(80,w+bw/2+22));
+      let top=pt.y+6;if(top+hh>mn.top+mn.height-4)top=pt.y-6-hh;
+      cdc.style.transform=`translate(${Math.round(Math.max(mn.left+4,Math.min(x,maxX)))}px,${Math.round(top)}px)`}catch(e){cdl.hidden=true;cdc.hidden=true}}
   const cdlT=setInterval(()=>{if(!root.isConnected)return clearInterval(cdlT);placeCdl()},500);
   try{chart.subscribeAction("onScroll",placeCdl);chart.subscribeAction("onZoom",placeCdl)}catch(e){}
   /* el reloj de cierre sigue al precio cuadro a cuadro mientras mueves o estiras la escala (antes se actualizaba cada medio segundo y "saltaba") */
@@ -545,7 +575,17 @@ window.EAGWidget=function(o){
   o.reloadDrawings=()=>{if(ready)restoreDrawings()};
   /* alertas de este mercado dibujadas como líneas naranjas punteadas */
   let alertIds=[];
-  function renderAlerts(){alertIds.forEach(id=>{try{chart.removeOverlay(id)}catch(e){}});alertIds=[];if(!ready||!o.getAlerts)return;
+  /* precio actual en la regla, por encima de todo lo marcado (ver eagLastPx) */
+  let lpId=null;
+  function lpGet(){const L=chart.getDataList(),d=L[L.length-1];if(!d)return null;let st;try{st=chart.getStyles().candle.priceMark}catch(e){return null}
+    const lm=st&&st.last;if(!st||!st.show||!lm||!lm.show)return null;
+    const bg=d.close>d.open?lm.upColor:d.close<d.open?lm.downColor:lm.noChangeColor,pp=dec();let t;
+    if(axisType==="percentage"){let f0=null;try{const r=chart.getVisibleRange();f0=(L[Math.max(0,r.from)]||L[0]).close}catch(e){f0=L[0].close}t=f0?((d.close-f0)/f0*100).toFixed(2)+"%":""}
+    else t=(+d.close).toLocaleString("en-US",{minimumFractionDigits:pp,maximumFractionDigits:pp});
+    const f=fz();return{v:d.close,t,st:Object.assign({},lm.text,{show:true,size:f,color:"#fff",backgroundColor:bg,borderColor:bg,paddingLeft:Math.round(f*.4),paddingRight:Math.round(f*.4),paddingTop:Math.round(f*.3),paddingBottom:Math.round(f*.3),borderRadius:2})}}
+  function ensureLp(){if(!ready)return;if(lpId&&chart.getOverlayById(lpId))return;const L=chart.getDataList(),d=L[L.length-1];if(!d)return;
+    try{lpId=chart.createOverlay({name:"eagLastPx",lock:true,zLevel:1e6,points:[{timestamp:d.timestamp,value:d.close}],extendData:{get:lpGet}})}catch(e){lpId=null}}
+  function renderAlerts(){alertIds.forEach(id=>{try{chart.removeOverlay(id)}catch(e){}});alertIds=[];ensureLp();if(!ready||!o.getAlerts)return;
     const L=chart.getDataList(),last=L[L.length-1];if(!last)return;const pp=sym.pricePrecision||3;
     (o.getAlerts(sym.ticker)||[]).forEach(a=>{const vals=a.kind==="zona"&&a.price2!=null?[+a.price,+a.price2]:[+a.price];
       vals.forEach((v,k)=>{const id=chart.createOverlay({name:"eagAlert",lock:true,onRightClick:()=>true,points:[{timestamp:last.timestamp,value:v}],extendData:{label:(a.kind==="zona"?(k?"Zona (abajo) ":"Zona (arriba) "):"Alerta ")+v.toFixed(pp)+(a.note?" · "+a.note:"")}});if(id)alertIds.push(id)})})}
@@ -762,8 +802,8 @@ window.EAGWidget=function(o){
   const fz=()=>+(o.getFont&&o.getFont())||11;
   function applyStyles(){const f=fz(),t={size:f};chart.setStyles(deep(deep(themeStyles(theme==="light",theme==="eag"),extra),{yAxis:{type:axisType,tickText:t},xAxis:{tickText:t},
     crosshair:{horizontal:{text:t},vertical:{text:t}},indicator:{tooltip:{text:{size:f}}},overlay:{text:{size:f+1},rectText:{size:f}},
-    candle:{priceMark:{last:{text:{size:f}},high:{textSize:Math.max(10,f-1)},low:{textSize:Math.max(10,f-1)}},tooltip:{showRule:"always",showType:"standard",custom:legend(),text:{size:f+1,marginLeft:10,marginTop:8,marginRight:10}}}}));
-    cdl.style.fontSize=(f-0.5)+"px"}
+    candle:{priceMark:{last:{text:{size:f,show:false}},high:{textSize:Math.max(10,f-1)},low:{textSize:Math.max(10,f-1)}},tooltip:{showRule:"always",showType:"standard",custom:legend(),text:{size:f+1,marginLeft:10,marginTop:8,marginRight:10}}}}));
+    cdl.style.fontSize=(f-0.5)+"px";cdc.style.fontSize=f+"px";AXF=f;ensureLp();placeCdl()}
   /* decimales del precio: automático o los que elija el usuario */
   const dec=()=>{const d=o.getDecimals&&o.getDecimals();return d==null||d==="auto"?(sym.pricePrecision||3):+d};
   function applyDec(){try{chart.setPriceVolumePrecision(dec(),0)}catch(e){}}
