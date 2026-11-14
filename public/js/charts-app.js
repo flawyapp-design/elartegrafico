@@ -616,7 +616,7 @@ function start(){
   ib.onclick=e=>{e.stopPropagation();doInstall()};
   /* aviso una sola vez en celular: instalarla como app */
   if(!standalone()&&matchMedia("(hover:none)").matches&&!SAVE.instAsked)setTimeout(()=>{if(standalone()||SAVE.instAsked)return;SAVE.instAsked=1;save();
-    const bn=document.createElement("div");bn.className="inst-bn";bn.innerHTML=`<img src="assets/icon-192.png" alt=""><span><b>Instala EAG Charts</b><small>Pantalla completa, como una app</small></span><button class="btn sm gold">Instalar</button><button class="x" title="Cerrar">×</button>`;
+    const bn=document.createElement("div");bn.className="inst-bn";bn.innerHTML=`<img src="/assets/charts-icon-192.png" alt=""><span><b>Instala EAG Charts</b><small>Pantalla completa, como una app</small></span><button class="btn sm gold">Instalar</button><button class="x" title="Cerrar">×</button>`;
     bn.querySelector(".gold").onclick=()=>{bn.remove();doInstall()};bn.querySelector(".x").onclick=()=>bn.remove();document.body.appendChild(bn);setTimeout(()=>bn.remove(),20000)},25000);
 
   /* ======================= CONFIGURACIÓN (un solo menú por categorías) ======================= */
