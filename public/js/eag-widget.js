@@ -496,7 +496,7 @@ window.EAGWidget=function(o){
   root.querySelectorAll(".wnav button").forEach(b=>b.onclick=e=>{e.stopPropagation();const n=b.dataset.n,w=chartEl.clientWidth;
     try{if(n==="left")chart.scrollByDistance(w*.35,250);else if(n==="right")chart.scrollByDistance(-w*.35,250);
       else if(n==="reset"){if(bs0)chart.setBarSpace(bs0);chart.scrollToRealTime(300);autoScale()}
-      else if(n==="reload"){b.classList.add("spin");setTimeout(()=>b.classList.remove("spin"),900);if(bs0)chart.setBarSpace(bs0);loadData();o.onReload&&o.onReload()}}catch(x){}});
+      else if(n==="reload"){if(o.onFullReload&&o.onFullReload()){b.classList.add("spin");return}b.classList.add("spin");setTimeout(()=>b.classList.remove("spin"),900);if(bs0)chart.setBarSpace(bs0);loadData();o.onReload&&o.onReload()}}catch(x){}});
 
   /* ---------- barra de dibujo ---------- */
   const lastTool=Object.assign({},o.lastTools||{});

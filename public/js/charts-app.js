@@ -397,7 +397,7 @@ function start(){
       onTFClick:a=>{setActive(i);pop.hidden||pop.dataset.for!=="tf"?openTF(p,a):closePop()},
       onSymbolClick:anc=>{setActive(i);const a=anc&&anc.nodeType?anc:el.querySelector(".wsym");pop.hidden||pop.dataset.for!=="sym"?openSymPicker(p,a):closePop()},
       onSettings:()=>openSettings("apariencia"),getDecimals:()=>CF().dec,getFont:()=>CF().font,getCdMode:()=>CF().cd,
-      getToolStyle:n=>(SAVE.toolStyles||{})[n],onToolStyle:(n,st)=>{SAVE.toolStyles=Object.assign({},SAVE.toolStyles,{[n]:st});save()},onReload:()=>{if(MTFS[i])buildMTF(i)},onToggleMtf:()=>{SAVE.panes[i]=Object.assign({},SAVE.panes[i],{mtf:!(SAVE.panes[i]||{}).mtf});save();syncStrips()},onToast:t=>toast(t),getAlerts:tk=>ALERTS.filter(a=>a.active&&a.symbol===tk),onCreateAlert:a=>alertDialog(a),
+      onFullReload:()=>fullReload(),getToolStyle:n=>(SAVE.toolStyles||{})[n],onToolStyle:(n,st)=>{SAVE.toolStyles=Object.assign({},SAVE.toolStyles,{[n]:st});save()},onReload:()=>{if(MTFS[i])buildMTF(i)},onToggleMtf:()=>{SAVE.panes[i]=Object.assign({},SAVE.panes[i],{mtf:!(SAVE.panes[i]||{}).mtf});save();syncStrips()},onToast:t=>toast(t),getAlerts:tk=>ALERTS.filter(a=>a.active&&a.symbol===tk),onCreateAlert:a=>alertDialog(a),
       onIndicators:d=>{SAVE.panes[i]=Object.assign({},SAVE.panes[i],{ind:d});save()},
       onMagnet:m=>{SAVE.magnet=m;save()},getTfav:()=>!SAVE.hide.tf&&SAVE.toolFav.length>0,onTfav:()=>{if(!SAVE.toolFav.length){SAVE.hide.tf=false;save();applyHide();toast("Aún no tienes favoritas: abre una lista de herramientas (doble toque) y marca la ☆. Aparecen en la barra rápida.");return}SAVE.hide.tf=!SAVE.hide.tf;save();applyHide();panes.forEach(p=>{try{p.kc.refreshBar()}catch(e){}})},axisType:sv.ax,onAxisType:t=>{SAVE.panes[i]=Object.assign({},SAVE.panes[i],{ax:t});save()},getToolFav:()=>SAVE.toolFav,onToolFav:k=>{SAVE.toolFav=SAVE.toolFav.includes(k)?SAVE.toolFav.filter(x=>x!==k):SAVE.toolFav.concat(k);save();renderToolFav()},onLastTools:t=>{SAVE.lastTools=t;save()},
       onDrawingsChange:tk=>(window.__eagSync&&window.__eagSync(),panes).forEach(q2=>{if(q2!==p&&q2.kc&&q2.kc.getSymbol().ticker===tk)q2.kc.reloadDrawings()})});
@@ -611,11 +611,22 @@ function start(){
     lastPush=js;
     API.saveChartState(body).catch(()=>{lastPush=null}).then(()=>{try{localStorage.setItem("eag_sync_ts",String(Date.now()))}catch(e){}}).catch(()=>{})}
   document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="hidden"&&syncT){clearTimeout(syncT);pushSync()}});
+  /* celular: el sistema (sobre todo iPhone) borra los gráficos cuando la app pasa mucho rato en segundo plano y quedan en blanco.
+     Ahí lo único 100% seguro es recargar la página completa: el botón ↻ del gráfico lo hace en celular, y si la app estuvo
+     oculta 3 minutos o más, al volver se recarga sola (se guarda todo antes). */
+  const touchDev=()=>mobile()||(window.matchMedia&&matchMedia("(hover:none)").matches);
+  let reloading=false;
+  function fullReload(){if(!touchDev())return false;if(reloading)return true;reloading=true;
+    try{save()}catch(e){}try{clearTimeout(syncT);pushSync()}catch(e){}
+    const m=document.createElement("div");m.className="reloadov";m.innerHTML='<i></i><span>Actualizando gráficos…</span>';document.body.appendChild(m);
+    setTimeout(()=>location.reload(),250);return true}
+  addEventListener("pageshow",e=>{if(e.persisted&&touchDev())fullReload()});
   /* pestaña/app oculta más de 1 minuto: se pausan los precios en vivo; al volver se reconecta y se recargan los gráficos */
-  let hideT=null;
+  let hideT=null,hiddenAt=0;
   document.addEventListener("visibilitychange",()=>{
-    if(document.visibilityState==="hidden"){clearTimeout(hideT);hideT=setTimeout(()=>feed.pause(),60000);return}
+    if(document.visibilityState==="hidden"){hiddenAt=Date.now();clearTimeout(hideT);hideT=setTimeout(()=>feed.pause(),60000);return}
     clearTimeout(hideT);
+    if(touchDev()&&hiddenAt&&Date.now()-hiddenAt>=180000){fullReload();return}
     if(!feed.paused())return;
     feed.resume();
     setTimeout(()=>{try{panes.forEach(p=>p&&p.kc&&p.kc.reloadData&&p.kc.reloadData())}catch(e){}
