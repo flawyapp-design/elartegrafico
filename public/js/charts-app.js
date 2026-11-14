@@ -100,11 +100,13 @@ const app=$("#app");
 const gate=(h1,p,btns)=>{app.innerHTML=`<div class="gate"><img src="assets/logo_circle.webp" alt=""><h1>${h1}</h1><p>${p}</p><div class="row">${btns}</div></div>`};
 (async function(){
   try{await API.init()}catch(e){}
+  window.chartsPlan=()=>{try{if(API.isAdmin())return true;if(!API.isPremium())return false;const p=(API.profile&&API.profile())||{};return["plata","oro","diamond"].includes(String(p.plan||"").toLowerCase())}catch(e){return false}};
   if(!API.user())return gate("EAG Charts","Gráficos en vivo de Boom y Crash, sintéticos, forex y más, con herramientas de análisis. Ingresa con tu cuenta de El Arte Gráfico.",`<a class="btn gold" href="${MAIN}#entrar">Ingresar</a><a class="btn" href="${MAIN}#registro">Crear cuenta</a>`);
   /* prueba gratis de 3 días para todos los registrados (empieza la primera vez que abren EAG Charts) */
-  if(!(API.isPremium()||API.isAdmin())){
+  /* EAG Charts viene con los planes Plata, Oro y Diamond (por el mismo tiempo del plan). Cobre y cuentas gratis: prueba de 3 días */
+  if(!chartsPlan()){
     let t=null;try{t=API.chartTrial?await API.chartTrial():null}catch(e){t=null}
-    if(!t||!t.ends_at)return gate("Exclusivo para miembros","EAG Charts está incluido en los planes de El Arte Gráfico. Activa tu plan y vuelve a esta página.",`<a class="btn gold" href="${MAIN}#premium">Ver planes</a><a class="btn" href="${ACAD}">Ir a la academia</a>`);
+    if(!t||!t.ends_at)return gate("Incluido en Plata, Oro y Diamond","EAG Charts viene con los planes Plata, Oro y Diamond, por el mismo tiempo de tu plan (Diamond, de por vida). Activa uno de esos planes y vuelve a esta página.",`<a class="btn gold" href="${MAIN}#premium">Ver planes</a><a class="btn" href="${ACAD}">Ir a la academia</a>`);
     if(new Date(t.ends_at).getTime()<=Date.now())return trialEnded(t);
     window.__trial=t}
   /* traer lo guardado en la cuenta si es más nuevo que lo de este navegador */
@@ -125,9 +127,9 @@ function wireFb(root,after){let r=0;const st=[...root.querySelectorAll("[data-st
     try{await API.chartFeedback(r,root.querySelector("textarea").value.trim());after&&after()}catch(err){e.target.disabled=false;msg.textContent="No se pudo enviar. Intenta de nuevo."}}}
 function trialEnded(t){
   const plans=`<a class="btn gold" href="${MAIN}#premium">Ver planes</a><a class="btn" href="${ACAD}">Ir a la academia</a>`;
-  if(t.has_feedback)return gate("Tu prueba de EAG Charts terminó","¡Gracias por tus recomendaciones! Con ellas estamos mejorando la plataforma. Para seguir usándola, activa tu plan.",plans);
+  if(t.has_feedback)return gate("Tu prueba de EAG Charts terminó","¡Gracias por tus recomendaciones! Con ellas estamos mejorando la plataforma. Para seguir usándola, activa un plan Plata, Oro o Diamond.",plans);
   app.innerHTML=`<div class="gate fbgate"><img src="assets/logo_circle.webp" alt=""><h1>Terminó tu prueba de 3 días</h1><p>Antes de seguir, ayúdanos a mejorar: ¿cómo te pareció EAG Charts?</p>${fbForm()}<div class="row">${plans}</div></div>`;
-  wireFb(app,()=>gate("¡Gracias!","Tus recomendaciones nos llegan directo. Estamos mejorando EAG Charts con lo que nos dicen. Para seguir usándolo, activa tu plan.",plans))}
+  wireFb(app,()=>gate("¡Gracias!","Tus recomendaciones nos llegan directo. Estamos mejorando EAG Charts con lo que nos dicen. Para seguir usándolo, activa un plan Plata, Oro o Diamond.",plans))}
 
 function start(){
   const KP=window.klinechartspro,KC=window.klinecharts;
@@ -604,9 +606,9 @@ function start(){
   $("#alb").onclick=e=>{e.stopPropagation();openSettings("alertas")};
   /* ---------- Estudio (Replay + Práctica): Premium; el admin puede incluirlo en la prueba de 3 días ---------- */
   let SITE={};try{API.site&&API.site().then(d=>{SITE=d||{}}).catch(()=>{})}catch(e){}
-  const proAccess=()=>{if(API.isPremium()||API.isAdmin())return{ok:true};
+  const proAccess=()=>{if(window.chartsPlan())return{ok:true};
     if(window.__trial&&SITE.chartProTrial)return{ok:true};
-    return{ok:false,why:window.__trial?"Estás en la prueba gratis de EAG Charts. Replay y Práctica son parte de Premium.":"Replay del mercado y práctica guiada para entrenar tu lectura del gráfico."}};
+    return{ok:false,why:window.__trial?"Estás en la prueba gratis de EAG Charts. Replay y Práctica vienen con los planes Plata, Oro y Diamond.":"Replay del mercado y práctica guiada para entrenar tu lectura del gráfico."}};
   if(window.EAGPro){window.EAGPro.init({feed,syms:()=>SYMS,SAVE,save,toast,MAIN,access:proAccess,
       get up(){return CF().up||"#089981"},get dn(){return CF().dn||"#f23645"},
       cur:()=>{try{const p=panes[active];return{sym:p.kc.getSymbol().ticker,tf:p.kc.getPeriod().text}}catch(e){return{}}}});

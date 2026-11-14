@@ -209,12 +209,12 @@ function spinner(t){return`<div class="pro-load"><div class="pro-spin"></div><p>
 
 /* ---------------- bloqueo premium ---------------- */
 function lock(why){const m=shell();setTab("");$(".pro-tabs",OV).style.visibility="hidden";
-  m.innerHTML=`<div class="pro-lock"><div class="pro-lock-i">🔒</div><h2>Estudio es exclusivo de Premium</h2>
+  m.innerHTML=`<div class="pro-lock"><div class="pro-lock-i">🔒</div><h2>Incluido en Plata, Oro y Diamond</h2>
    <p>${esc(why||"Replay del mercado y práctica guiada para entrenar tu lectura del gráfico en cualquier mercado.")}</p>
    <ul><li><b>Replay:</b> vuelve a cualquier fecha y mira el mercado vela por vela, con dibujos y operaciones simuladas.</li>
    <li><b>Práctica:</b> proyección, zonas, rompimientos e impulsos vs. retrocesos en puntos al azar de todos los mercados, con corrección al instante.</li>
    <li><b>Tu progreso:</b> aciertos por tema y racha.</li></ul>
-   <div class="pro-row"><a class="pro-btn gold" href="${X.MAIN}#premium">Ver planes</a><button class="pro-btn" data-c>Ahora no</button></div></div>`;
+   <div class="pro-row"><a class="pro-btn gold" href="${X.MAIN}#premium">Ver planes Plata, Oro y Diamond</a><button class="pro-btn" data-c>Ahora no</button></div></div>`;
   $("[data-c]",m).onclick=close}
 
 /* ---------------- Práctica: inicio ---------------- */
