@@ -208,8 +208,10 @@ html.light .mini.on .mh em{color:var(--gold)}
 .wclk{color:var(--fg2);font-variant-numeric:tabular-nums;padding:0 6px}
 .wsep{width:1px;height:16px;background:var(--line2);margin:0 4px}
 html.light .wfoot button.on{color:var(--gold)}
-.mh .mcd{flex:none;font:700 10.5px/1 Inter,system-ui,sans-serif;font-variant-numeric:tabular-nums;color:#fff;background:var(--up,#089981);border-radius:4px;padding:3px 5px;margin-left:2px}
-.mh .mcd.dn{background:var(--dn,#f23645)}.mh .mcd.soon{animation:cdcBlink 1s steps(2,start) infinite}.mh .mcd[hidden]{display:none}
+/* reloj de cierre de vela en cada Multi-TF: texto del color de la vela sobre un fondo suave (se lee en claro y oscuro) */
+.mh .mcd{flex:none;display:inline-flex;align-items:center;gap:3px;font:700 10.5px/1 Inter,system-ui,sans-serif;font-variant-numeric:tabular-nums;color:#089981!important;background:rgba(8,153,129,.12)!important;border-radius:999px;padding:3px 7px 3px 6px;margin-left:2px;margin-right:auto}
+.mh .mcd::before{content:"";width:9px;height:9px;flex:none;background:currentColor;-webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.6' stroke-linecap='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpath d='M12 7v5l3 2'/%3E%3C/svg%3E") center/contain no-repeat;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.6' stroke-linecap='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpath d='M12 7v5l3 2'/%3E%3C/svg%3E") center/contain no-repeat}
+.mh .mcd.dn{color:#f23645!important;background:rgba(242,54,69,.12)!important}.mh .mcd.soon{animation:cdcBlink 1s steps(2,start) infinite}.mh .mcd[hidden]{display:none}
 @media (max-width:520px){.mh .mcd{font-size:9.5px;padding:2px 4px}}
 #fsb.on{color:var(--gold2)!important;background:var(--gbg)!important}
 .wcdc{position:absolute;left:0;top:0;z-index:3;pointer-events:none;display:grid;gap:2px;padding:3px 8px 4px 7px;border-left:2px solid var(--cdc,#089981);border-radius:2px 4px 4px 2px;background:rgba(11,12,14,.72);background:color-mix(in srgb,var(--chartbg,#0b0c0e) 80%,transparent);font:600 11px/1.1 Inter,system-ui,sans-serif;font-variant-numeric:tabular-nums;white-space:nowrap;will-change:transform}
