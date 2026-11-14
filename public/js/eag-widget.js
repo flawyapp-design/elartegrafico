@@ -351,7 +351,7 @@ window.EAGWidget=function(o){
     let list=await o.datafeed.getHistoryKLineData(sym,per,from,to);
     if(g!==gen)return;
     const seen=new Set();list=list.filter(k=>!seen.has(k.timestamp)&&seen.add(k.timestamp)).sort((x,y)=>x.timestamp-y.timestamp);
-    chart.applyNewData(list,list.length>0);autoScale();ready=true;
+    chart.applyNewData(list,list.length>0);autoScale();ready=true;offR=null;fixOffR(true);
     o.datafeed.subscribe(sym,per,d=>{if(g===gen){chart.updateData(d);cdKick(120)}});subKey={s:sym,p:per};
     restoreDrawings();
   }
@@ -406,15 +406,20 @@ window.EAGWidget=function(o){
   const cdcN=cdc.firstChild,cdcT=cdc.lastChild;
   const cdMode=()=>{const m=o.getCdMode&&o.getCdMode();return m==="regla"||m==="off"?m:"vela"};
   /* espacio libre a la derecha de la última vela para que el contador no tape velas (como el "desplazamiento" de MT5) */
-  let offR=null;const setOffR=d=>{d=Math.round(d/10)*10;if(d===offR)return;offR=d;try{chart.setOffsetRightDistance(d)}catch(e){}};
+  /* OJO: setOffsetRightDistance mueve la vista al tiempo real, así que SOLO se llama al cargar el mercado o al cambiar el modo/la letra
+     (antes se llamaba en cada cuadro y al hacer zoom con la rueda el gráfico se iba para un lado) */
+  let offR=null,offMode=null,offF=null;
+  const wantOffR=()=>{const m=cdMode();if(m!=="vela")return 80;const f=fz(),w=cdc.offsetWidth||Math.round(f*6.6+18);return Math.max(80,Math.round((w+28)/10)*10)};
+  function fixOffR(force){const d=wantOffR();if(!force&&d===offR)return;offR=d;offMode=cdMode();try{chart.setOffsetRightDistance(d)}catch(e){}}
   const symShort=()=>String(sym.shortName||sym.name||sym.ticker||"").replace(/\s+Index$/i,"").trim();
-  function placeCdl(){const L=chart.getDataList(),last=L[L.length-1],mode=cdMode();if(!last||!ready||mode==="off"){cdl.hidden=true;cdc.hidden=true;if(ready&&mode==="off")setOffR(80);return}
+  function placeCdl(){const L=chart.getDataList(),last=L[L.length-1],mode=cdMode();if(!last||!ready||mode==="off"){cdl.hidden=true;cdc.hidden=true;if(ready&&offMode!==mode)fixOffR();return}
     try{const pt=chart.convertToPixel({timestamp:last.timestamp,value:last.close},{paneId:"candle_pane",absolute:true}),ya=chart.getSize("candle_pane","yAxis"),mn=chart.getSize("candle_pane","main");
       if(!pt||!ya||pt.y==null||pt.y<0||pt.y>ya.height){cdl.hidden=true;cdc.hidden=true;return}
       const left=Math.max(0,last.timestamp+msOf(per)-Date.now()),s2=Math.floor(left/1000),h=Math.floor(s2/3600),m=Math.floor(s2%3600/60);
       const txt=h?`${h}:${two(m)}:${two(s2%60)}`:`${two(m)}:${two(s2%60)}`;
       const up=((extra.candle||{}).bar||{}).upColor||"#089981",dn=((extra.candle||{}).bar||{}).downColor||"#f23645",col=last.close>=last.open?up:dn,f=fz();
-      if(mode==="regla"){cdc.hidden=true;setOffR(80);cdl.textContent=txt;cdl.style.background=col;
+      if(offMode!==mode)fixOffR();
+      if(mode==="regla"){cdc.hidden=true;cdl.textContent=txt;cdl.style.background=col;
         cdl.style.left=ya.left+"px";cdl.style.width=ya.width+"px";cdl.style.top=(pt.y+f/2+4)+"px";cdl.hidden=false;return}
       /* modo MT5: a la derecha de la última vela, justo debajo de la línea del precio */
       cdl.hidden=true;
@@ -422,7 +427,7 @@ window.EAGWidget=function(o){
       if(!mn||pt.x==null||x<mn.left||pt.x>mn.left+mn.width+bw){cdc.hidden=true;return}
       if(cdcN.textContent!==symShort())cdcN.textContent=symShort();if(cdcT.textContent!==txt)cdcT.textContent=txt;
       cdc.classList.toggle("soon",left<10000);cdc.style.setProperty("--cdc",col);cdc.hidden=false;
-      const w=cdc.offsetWidth,hh=cdc.offsetHeight,maxX=mn.left+mn.width-w-6;setOffR(Math.max(80,w+bw/2+22));
+      const w=cdc.offsetWidth,hh=cdc.offsetHeight,maxX=mn.left+mn.width-w-6;
       let top=pt.y+6;if(top+hh>mn.top+mn.height-4)top=pt.y-6-hh;
       cdc.style.transform=`translate(${Math.round(Math.max(mn.left+4,Math.min(x,maxX)))}px,${Math.round(top)}px)`}catch(e){cdl.hidden=true;cdc.hidden=true}}
   const cdlT=setInterval(()=>{if(!root.isConnected)return clearInterval(cdlT);placeCdl()},500);
@@ -798,7 +803,7 @@ window.EAGWidget=function(o){
   function applyStyles(){const f=fz(),t={size:f};chart.setStyles(deep(deep(themeStyles(theme==="light",theme==="eag"),extra),{yAxis:{type:axisType,tickText:t},xAxis:{tickText:t},
     crosshair:{horizontal:{text:t},vertical:{text:t}},indicator:{tooltip:{text:{size:f}}},overlay:{text:{size:f+1},rectText:{size:f}},
     candle:{priceMark:{last:{text:{size:f,show:false}},high:{textSize:Math.max(10,f-1)},low:{textSize:Math.max(10,f-1)}},tooltip:{showRule:"always",showType:"standard",custom:legend(),text:{size:f+1,marginLeft:10,marginTop:8,marginRight:10}}}}));
-    cdl.style.fontSize=(f-0.5)+"px";cdc.style.fontSize=f+"px";AXF=f;ensureLp();placeCdl()}
+    cdl.style.fontSize=(f-0.5)+"px";cdc.style.fontSize=f+"px";AXF=f;ensureLp();if(ready&&offR!=null&&offF!==f){offF=f;fixOffR()}offF=f;placeCdl()}
   /* decimales del precio: automático o los que elija el usuario */
   const dec=()=>{const d=o.getDecimals&&o.getDecimals();return d==null||d==="auto"?(sym.pricePrecision||3):+d};
   function applyDec(){try{chart.setPriceVolumePrecision(dec(),0)}catch(e){}}
