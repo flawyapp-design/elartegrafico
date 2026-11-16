@@ -178,6 +178,7 @@ function start(){
       <span class="grow"></span>
       <span class="who">${esc(prof.username||"")}</span>
       ${window.__free?`<a class="btn ic freeb" href="${MAIN}#premium" title="Estás en la versión gratis. Mejora a Plata, Oro o Diamond para tenerlo todo"><span class="pi">⭐</span><span class="t">Gratis · Mejorar</span></a>`:""}
+      <button class="btn ic clb" id="clb" title="Modo Clase y Zonas del profe"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="12" rx="1.5"/><path d="m7 12 3-3 2 2 4-4"/><path d="M9 20l3-4 3 4"/></svg><span class="t">Clase</span><i class="cdot"></i></button>
       <button class="btn ic prob" id="prob" title="Estudio: Replay del mercado y Práctica guiada (Premium)"><span class="pi">🎓</span><span class="t">Estudio</span><em>PRO</em></button>
       <button class="btn ic inst" id="instb" data-inst title="Instalar EAG Charts como app" hidden><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg><span class="t">Instalar app</span></button>
       <button class="btn ic" id="alb" title="Alertas de precio"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/></svg><span class="t">Alertas</span><em class="badge" id="alc" hidden></em></button>
@@ -429,7 +430,7 @@ function start(){
       onFullReload:()=>fullReload(),getToolStyle:n=>(SAVE.toolStyles||{})[n],onToolStyle:(n,st)=>{SAVE.toolStyles=Object.assign({},SAVE.toolStyles,{[n]:st});save()},onReload:()=>{if(MTFS[i])buildMTF(i)},onToggleMtf:()=>{SAVE.panes[i]=Object.assign({},SAVE.panes[i],{mtf:!(SAVE.panes[i]||{}).mtf});save();syncStrips()},onToast:t=>toast(t),getAlerts:tk=>ALERTS.filter(a=>a.active&&a.symbol===tk),onCreateAlert:a=>alertDialog(a),
       onIndicators:d=>{SAVE.panes[i]=Object.assign({},SAVE.panes[i],{ind:d});save()},
       onMagnet:m=>{SAVE.magnet=m;save()},getTfav:()=>!SAVE.hide.tf&&SAVE.toolFav.length>0,onTfav:()=>{if(!SAVE.toolFav.length){SAVE.hide.tf=false;save();applyHide();toast("Aún no tienes favoritas: abre una lista de herramientas (doble toque) y marca la ☆. Aparecen en la barra rápida.");return}SAVE.hide.tf=!SAVE.hide.tf;save();applyHide();panes.forEach(p=>{try{p.kc.refreshBar()}catch(e){}})},axisType:sv.ax,onAxisType:t=>{SAVE.panes[i]=Object.assign({},SAVE.panes[i],{ax:t});save()},getToolFav:()=>SAVE.toolFav,onToolFav:k=>{SAVE.toolFav=SAVE.toolFav.includes(k)?SAVE.toolFav.filter(x=>x!==k):SAVE.toolFav.concat(k);save();renderToolFav()},onLastTools:t=>{SAVE.lastTools=t;save()},
-      onDrawingsChange:tk=>(window.__eagSync&&window.__eagSync(),panes).forEach(q2=>{if(q2!==p&&q2.kc&&q2.kc.getSymbol().ticker===tk)q2.kc.reloadDrawings()})});
+      onDrawingsChange:tk=>(window.__eagSync&&window.__eagSync(),window.EAGClase&&window.EAGClase.drawingsChanged(),panes).forEach(q2=>{if(q2!==p&&q2.kc&&q2.kc.getSymbol().ticker===tk)q2.kc.reloadDrawings()})});
     p.kc=kc;
     setTimeout(()=>{try{kc.setStyles(styFor())}catch(e){}},0);
     el.addEventListener("pointerdown",()=>{if(active!==i)setActive(i)},true);
@@ -676,6 +677,15 @@ function start(){
       get up(){return CF().up||"#089981"},get dn(){return CF().dn||"#f23645"},
       cur:()=>{try{const p=panes[active];return{sym:p.kc.getSymbol().ticker,tf:p.kc.getPeriod().text}}catch(e){return{}}}});
     $("#prob").onclick=e=>{e.stopPropagation();window.EAGPro.open(proAccess("prac").ok||!proAccess("replay").ok?"prac":"replay")}}else $("#prob").hidden=true;
+  /* Modo Clase (en vivo) y Zonas del profe */
+  if(window.EAGClase&&API.liveGet){
+    window.EAGClase.init({API,toast,SAVE,save,btn:$("#clb"),host:main,planUrl:PLAN_URL,
+      isAdmin:()=>API.isAdmin(),rank:planRank,trialPro:()=>!!(window.__trial&&SITE.chartProTrial),
+      panes:()=>panes.slice(0,visible()),active:()=>active,
+      follow:(s,tf)=>{if(!s)return;if(!bySym[s]&&SYMS.length>20){toast("Ese mercado no está disponible ahora.");return}const p=panes[active];if(!p)return;
+        const pp=tf?PERIODS.find(x=>x.text===tf):null;try{p.kc.setSymbol(findInfo(s),pp||undefined);if(pp&&p.kc.getPeriod().text!==pp.text)p.kc.setPeriod(pp)}catch(e){}
+        SAVE.panes[active]=Object.assign({},SAVE.panes[active],{s},pp?{p:pp.text}:{});save();setTimeout(()=>{try{if(MTFS[active])buildMTF(active);paintList();paintTabs();afterTF()}catch(e){}},80)}})}
+  else{const cb=$("#clb");cb&&(cb.hidden=true)}
   /* Operar con Deriv: solo administradores (para los lives) */
   if(window.EAGTrade&&API.isAdmin()){const tb=$("#trb");tb.hidden=false;
     window.EAGTrade.init({toast,syms:()=>SYMS,cur:()=>{try{const p=panes[active],s=p.kc.getSymbol();return{sym:s.ticker,name:s.name||s.shortName,tf:p.kc.getPeriod().text}}catch(e){return{}}},chart:()=>{try{return panes[active].kc.chart}catch(e){return null}},autoConnect:true});
@@ -705,6 +715,7 @@ function start(){
     ["grafico","Gráfico","Cuadrícula, ejes y precio",SI('<path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/>')],
     ["marca","Marca de agua","Mercado y logo de fondo",SI('<path d="M4 7h16M4 12h10M4 17h7"/>')],
     ["barras","Barras y paneles","Qué se ve y dónde",SI('<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M9 9v11"/>')],
+    ["riesgo","Calculadora de lote","Lote según tu riesgo",SI('<rect x="4" y="2" width="16" height="20" rx="2"/><path d="M8 6h8M8 11h2M14 11h2M8 15h2M14 15h2M8 19h8"/>')],
     ["alertas","Alertas de precio","Aviso al celular",SI('<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/>')],
     ["atajos","Ayuda y atajos","Tutorial y teclado",SI('<rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10"/>')]];
   const PDESC={top:"Logo, distribución de gráficos, estado de conexión y botones principales.",pb:"Mercado, temporalidades favoritas, indicadores y captura de cada gráfico.",
@@ -713,6 +724,16 @@ function start(){
   let setCat="apariencia";
   const row=(t,d,ctl)=>`<div class="srow"><div><b>${t}</b>${d?`<p>${d}</p>`:""}</div><div class="sctl">${ctl}</div></div>`;
   const tog=(attr,on)=>`<label class="sw2"><input type="checkbox" ${attr} ${on?"checked":""}><i></i></label>`;
+  /* ---------- calculadora de lote ---------- */
+  const RISK=()=>Object.assign({on:false,bal:0,mode:"pct",pct:1,usd:0},SAVE.risk||{});
+  const riskUsd=r=>r.mode==="usd"?(+r.usd||0):(+r.bal||0)*(+r.pct||0)/100;
+  /* tamaño del contrato en MT5: sintéticos y cripto 1, forex 100.000, oro y platino 100, plata 5.000 */
+  const contractOf=tk=>{const i=bySym[tk]||{},m=i.market||"";if(/XAU|XPT|XPD/.test(tk))return[100,true];if(/XAG/.test(tk))return[5000,true];
+    if(m==="forex"||/^frx/.test(tk))return[100000,/USD$/.test(tk)];return[1,true]};
+  window.__eagLot=(tk,entry,sl)=>{const r=RISK();if(!r.on||!tk)return"";const d=Math.abs(+entry-+sl),usd=riskUsd(r);if(!(d>0)||!(usd>0))return"";
+    const [cs,exact]=contractOf(tk),lot=Math.floor(usd/(d*cs)*100+1e-9)/100;
+    return lot>=0.01?`${exact?"":"≈ "}Lote ${lot.toFixed(2)} · $${usd%1?usd.toFixed(2):usd}`:`Lote < 0.01 · SL muy lejos`};
+  let lotT=0;const lotRepaint=()=>{clearTimeout(lotT);lotT=setTimeout(()=>panes.forEach(p=>{try{p.kc.repaint()}catch(e){}}),60)};
   function settingsBody(cat){const c=CF();
     if(cat==="apariencia")return`<h3>Apariencia</h3>
       <div class="sgrp"><div class="slabel">Tema</div><div class="thm">${[["dark","Oscuro","#0b0c0e","#131418"],["light","Claro","#ffffff","#f3f4f6"],["eag","Arte Gráfico","#060b1a","#0a1330"]].map(([v,t,a,b])=>`<button class="thc${c.theme===v?" on":""}" data-th="${v}"><span class="thp" style="background:${a}"><i style="background:${b}"></i><em style="background:${c.up}"></em><em style="background:${c.dn};height:40%"></em><em style="background:${c.up};height:55%"></em></span><b>${t}</b></button>`).join("")}</div></div>
@@ -745,6 +766,19 @@ function start(){
         <div class="slabel">Activas (${act.length}/30)</div>${act.length?act.map(li).join(""):`<p class="shelp">No tienes alertas activas.</p>`}
         ${old.length?`<div class="slabel">Ya avisadas</div>${old.map(li).join("")}`:""}
         <p class="shelp">Las notificaciones llegan a los dispositivos donde las activaste en la academia (en iPhone, con la app agregada a la pantalla de inicio). Se revisan cada minuto.</p>`}
+    if(cat==="riesgo"){const r=RISK();const usd=riskUsd(r);
+      return`<h3>Calculadora de lote</h3><p class="shelp">Dibuja una <b>zona de compra o venta</b> (Entrada y SL) o una <b>posición larga/corta</b>: en su etiqueta te sale el <b>lote</b> exacto para arriesgar lo que elijas aquí. Si mueves el SL, el lote se recalcula solo.</p>
+        ${row("Mostrar el lote en mis zonas y posiciones","",tog('data-rk="on"',r.on))}
+        <div class="sgrp${r.on?"":" off"}">
+        <label class="af"><span>Saldo de tu cuenta (USD)</span><input type="number" min="0" step="any" data-rv="bal" value="${r.bal||""}" placeholder="Ej: 100"></label>
+        <div class="slabel">¿Cuánto arriesgas por operación?</div>
+        <div class="seg"><button data-rm="pct" class="${r.mode!=="usd"?"on":""}">Un % de la cuenta</button><button data-rm="usd" class="${r.mode==="usd"?"on":""}">Un monto fijo</button></div>
+        ${r.mode==="usd"?`<label class="af"><span>Monto fijo por operación (USD)</span><input type="number" min="0" step="any" data-rv="usd" value="${r.usd||""}" placeholder="Ej: 5"></label>`
+          :`<label class="af"><span>Porcentaje de la cuenta (%)</span><input type="number" min="0" max="100" step="any" data-rv="pct" value="${r.pct||""}" placeholder="Ej: 2"></label>`}
+        <p class="shelp" data-rinfo>${usd>0?`Arriesgas <b>US$ ${usd.toFixed(2)}</b> por operación.`:"Escribe tu saldo y tu riesgo."}</p></div>
+        <div class="slabel">Cómo se calcula</div>
+        <p class="shelp"><b>Lote = riesgo en US$ ÷ (puntos hasta el SL × tamaño del contrato)</b>. En Boom, Crash y los sintéticos de Deriv el contrato es de 1: con 1 lote, cada punto vale US$ 1. Ejemplo: arriesgas US$ 10 y el SL está a 25 puntos → lote 0,40. En forex se usa el contrato de 100.000 (exacto en pares que terminan en USD; en los demás es aproximado, por eso sale con ≈).</p>
+        <p class="shelp">Antes de entrar revisa en tu MT5 el <b>lote mínimo</b> del mercado (en Boom y Crash suele ser 0,20 y en Boom/Crash 300 es 1). Es una herramienta educativa, no una asesoría financiera.</p>`}
     if(cat==="atajos"){const K=(k,t)=>`<div class="krow"><span>${t}</span><kbd>${k}</kbd></div>`;const mac=/Mac|iP/.test(navigator.platform),A=mac?"⌥":"Alt",C=mac?"⌘":"Ctrl";
       return`<h3>Ayuda y atajos</h3><div class="sbtns"><button class="btn sm gold" data-a="tour">▶ Ver el tutorial otra vez</button><button class="btn sm" data-a="fb">💬 Dar mi opinión</button></div><div class="slabel">Dibujo</div>${K(A+" + B","Pincel (dibujo libre)")}${K(A+" + T","Línea de tendencia")}${K(A+" + H","Línea horizontal")}${K(A+" + J","Rayo horizontal")}${K(A+" + V","Línea vertical")}${K(A+" + F","Retroceso de Fibonacci")}${K(A+" + C","Canal paralelo")}${K(A+" + Z","Zona")}${K(A+" + R","Rectángulo")}${K(A+" + L","Posición larga (compra)")}${K(A+" + S","Posición corta (venta)")}${K(A+" + M","Regla (o Shift + clic)")}${K(A+" + X","Texto")}
         <div class="slabel">Edición</div>${K(C+" + Z","Deshacer")}${K(C+" + Shift + Z","Rehacer")}${K("Supr","Borrar el dibujo seleccionado")}${K("Esc","Cancelar dibujo / salir de modo limpio")}
@@ -778,6 +812,10 @@ function start(){
     const tb=ov.querySelector('[data-a="tour"]');tb&&(tb.onclick=()=>{ov.remove();showTour(0)});
     const fbb=ov.querySelector('[data-a="fb"]');fbb&&(fbb.onclick=()=>{ov.remove();window.__openFb()});
     const na=ov.querySelector('[data-a="newal"]');na&&(na.onclick=()=>{const t=curSym(active),i=bySym[t]||{},v=last[t];ov.remove();alertDialog({symbol:t,symbol_name:i.display_name||t,kind:"nivel",price:v!=null?+(+v).toFixed(prec(i.pip)):null,price2:null})});
+    ov.querySelectorAll('input[data-rk="on"]').forEach(i=>i.onchange=()=>{SAVE.risk=Object.assign(RISK(),{on:i.checked});save();lotRepaint();re()});
+    ov.querySelectorAll("[data-rm]").forEach(b=>b.onclick=()=>{SAVE.risk=Object.assign(RISK(),{mode:b.dataset.rm});save();lotRepaint();re()});
+    ov.querySelectorAll("[data-rv]").forEach(i=>i.oninput=()=>{const v=parseFloat(String(i.value).replace(",","."));SAVE.risk=Object.assign(RISK(),{[i.dataset.rv]:isFinite(v)&&v>=0?v:0});save();lotRepaint();
+      const u=riskUsd(RISK()),inf=ov.querySelector("[data-rinfo]");if(inf)inf.innerHTML=u>0?`Arriesgas <b>US$ ${u.toFixed(2)}</b> por operación.`:"Escribe tu saldo y tu riesgo."});
     ov.querySelectorAll("[data-del]").forEach(b=>b.onclick=async()=>{try{await API.deleteChartAlert(b.dataset.del)}catch(e){}ALERTS=ALERTS.filter(a=>a.id!==b.dataset.del);paintAlerts();re()});
     ov.querySelectorAll("[data-re]").forEach(b=>b.onclick=async()=>{const a=ALERTS.find(x=>x.id===b.dataset.re);if(!a)return;try{const r=await API.saveChartAlert({id:a.id,symbol:a.symbol,symbol_name:a.symbol_name,kind:a.kind,price:a.price,price2:a.price2,note:a.note,active:true});Object.assign(a,r||{},{active:true})}catch(e){toast(esc(e.message||"No se pudo reactivar"))}paintAlerts();re()})}
   addEventListener("keydown",e=>{if(e.key==="Escape"){const m=$(".smodal");if(m){m.remove();e.stopImmediatePropagation();return}const pn=document.querySelector(".wmenu.panel");if(pn){pn.remove();e.stopImmediatePropagation()}}},true);
@@ -828,6 +866,7 @@ function start(){
     ["🧭","Moverte por el gráfico","Rueda del mouse: zoom. Arrastra para moverte, también hacia arriba y abajo. Los botones ‹ › ⟲ ↻ de abajo mueven, vuelven al precio actual o recargan si algo se traba; el 👁 de la esquina los oculta.",null],
     ["📏","Regla y posiciones","Shift + clic mide puntos, %, velas y tiempo. Posición larga o corta: un clic pone la entrada y salen stop y objetivo 1:2 que puedes arrastrar.",null],
     ["🔔","Alertas al celular","Selecciona una línea o zona y toca 🔔 en su barrita (o clic derecho → Crear alerta). Cuando el precio llegue te avisamos al celular, aunque tengas la página cerrada.","#alb"],
+    ["🔴","Modo Clase","Cuando el profe esté en vivo, actívalo aquí y verás en tu gráfico lo mismo que él dibuja. Con Oro y Diamond también ves sus Zonas publicadas.","#clb"],
     ["⚙️","Hazlo tuyo","En Configuración eliges tema (Oscuro, Claro o Arte Gráfico), decimales, tamaño de letra para transmitir, marca de agua y qué barras ver. Todo se guarda en tu cuenta. Atajos: Alt+T línea, Alt+H horizontal, Ctrl+Z deshacer.","#cfgb"],
     ["✅","¡Listo para analizar!","Puedes volver a ver este tutorial en Configuración → Ayuda y atajos. Datos de Deriv solo para análisis educativo; compara siempre con tu plataforma.",null]];
   const TOUR_M=[
@@ -841,6 +880,7 @@ function start(){
     ["🔒","Bloquear dibujos","Mantén oprimido un dibujo medio segundo: queda 🔒 bloqueado y ya no se selecciona al tocar, ideal cuando tienes muchos. Mantén oprimido otra vez para desbloquearlo.",null],
     ["🧭","Mover el gráfico","Arrastra con un dedo para moverte, también hacia arriba y abajo. Pellizca para acercar. Arrastra la escala de precios para estirarla. Los botones ‹ › ⟲ ↻ mueven, vuelven al precio actual o recargan; el 👁 de la esquina los oculta.",".wnavt"],
     ["🔔","Alertas al celular","Toca una línea o zona y luego 🔔 en su barrita. Cuando el precio llegue te llega una notificación, aunque tengas la app cerrada.","#alb"],
+    ["🔴","Modo Clase","Cuando el profe esté en vivo, actívalo aquí y verás en tu gráfico lo mismo que él dibuja.","#clb"],
     ["📲","Instálala como app","Con el botón de descarga de arriba queda en tu pantalla de inicio: pantalla completa, como una app. En iPhone: Safari → Compartir → Agregar a inicio.","#instb"],
     ["✅","¡Listo para analizar!","Puedes volver a ver este tutorial en Configuración → Ayuda y atajos. Datos de Deriv solo para análisis educativo; compara siempre con tu plataforma.",null]];
   let TOUR=TOUR_PC;

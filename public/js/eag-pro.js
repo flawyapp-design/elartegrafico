@@ -43,7 +43,7 @@ function SChart(host,opt){
   function clampEnd(){const pad=PADB(),minE=Math.min(S.shown-1,Math.max(5,plotW()/S.bw*0.3)),maxE=Math.max(S.shown-1+pad,0);S.end=Math.max(minE,Math.min(maxE,S.end))}
   function scale(){
     /* si estiraste la regla a mano y la vela nueva queda por fuera, vuelve a ajustarse sola (si no, las velas "desaparecen") */
-    if(S.fixedY){const L=S.data[S.shown-1];if(L&&(L.high>S.fixedY[1]||L.low<S.fixedY[0]))S.fixedY=null}
+    if(S.fixedY&&S.follow){const L=S.data[S.shown-1];if(L&&(L.high>S.fixedY[1]||L.low<S.fixedY[0]))S.fixedY=null}
     if(S.fixedY){yMin=S.fixedY[0];yMax=S.fixedY[1];return}
     const vis=plotW()/S.bw,i0=Math.max(0,Math.floor(S.end-vis)),i1=Math.min(S.shown-1,Math.ceil(S.end));let lo=Infinity,hi=-Infinity;
     for(let i=i0;i<=i1;i++){const k=S.data[i];if(!k)continue;if(k.low<lo)lo=k.low;if(k.high>hi)hi=k.high}
@@ -120,10 +120,16 @@ function SChart(host,opt){
   /* ---------- gestos ---------- */
   const P=new Map();let drag=null,pinch=null;
   const loc=e=>{const r=cv.getBoundingClientRect();return{x:e.clientX-r.left,y:e.clientY-r.top}};
-  cv.addEventListener("pointerdown",e=>{cv.setPointerCapture(e.pointerId);const p=loc(e);P.set(e.pointerId,p);
+  /* inercia: al soltar el gráfico rápido sigue deslizándose y frena suave (como en el celular) */
+  let fl=null;const stopFling=()=>{if(fl){cancelAnimationFrame(fl.raf);fl=null}};
+  function fling(v){stopFling();if(Math.abs(v)<0.25)return;let last=performance.now();fl={v};
+    const step=t=>{if(!fl)return;const dt=Math.min(40,t-last);last=t;fl.v*=Math.pow(0.94,dt/16.7);S.end-=fl.v*dt/S.bw;clampEnd();draw();
+      if(Math.abs(fl.v)<0.03||S.end>=S.shown-1+PADB()){if(S.end>=S.shown-1+PADB()-0.5){S.follow=true;opt.onFollow&&opt.onFollow(true)}fl=null;return}fl.raf=requestAnimationFrame(step)};
+    fl.raf=requestAnimationFrame(step)}
+  cv.addEventListener("pointerdown",e=>{stopFling();cv.setPointerCapture(e.pointerId);const p=loc(e);P.set(e.pointerId,p);
     if(P.size===2){const[a,b]=[...P.values()];pinch={d:Math.hypot(a.x-b.x,a.y-b.y),bw:S.bw,cx:(a.x+b.x)/2,end:S.end};drag=null;S.draft=null;return}
     if(p.x>plotW()){drag={kind:"yaxis",y:p.y,min:yMin,max:yMax};return}
-    if(S.mode==="pan"){drag={kind:"pan",x:p.x,end:S.end,moved:false,t:Date.now()};return}
+    if(S.mode==="pan"){drag={kind:"pan",x:p.x,y:p.y,end:S.end,fy:S.fixedY&&S.fixedY.slice(),moved:false,t:Date.now(),smp:[{x:p.x,t:performance.now()}]};return}
     const pr=pOf(p.y),i=Math.round(iOf(p.x));
     if(S.mode==="zone"){drag={kind:"zone",p0:pr};S.draft={type:"zone",lo:pr,hi:pr,color:opt.zoneColor};req();return}
     if(S.mode==="trend"){drag={kind:"trend"};S.draft={type:"seg",i1:i,p1:pr,i2:i,p2:pr};req();return}
@@ -131,7 +137,11 @@ function SChart(host,opt){
   cv.addEventListener("pointermove",e=>{const p=loc(e);if(P.has(e.pointerId))P.set(e.pointerId,p);
     if(pinch&&P.size===2){const[a,b]=[...P.values()],d=Math.hypot(a.x-b.x,a.y-b.y);const nb=Math.max(1.5,Math.min(40,pinch.bw*d/pinch.d));const anchor=pinch.end-(plotW()-pinch.cx)/pinch.bw;S.bw=nb;S.end=anchor+(plotW()-pinch.cx)/nb;req();return}
     if(!drag){if(e.pointerType==="mouse"){S.cross=p.x<plotW()&&p.y<plotH()?p:null;req()}return}
-    if(drag.kind==="pan"){const dx=p.x-drag.x;if(Math.abs(dx)>3){drag.moved=true;S.follow=false;S.touched=true}S.end=drag.end-dx/S.bw;if(e.pointerType==="mouse")S.cross=null;req()}
+    if(drag.kind==="pan"){const dx=p.x-drag.x;if(Math.abs(dx)>3||Math.abs(p.y-drag.y)>3){drag.moved=true;S.touched=true;if(Math.abs(dx)>3)S.follow=false}S.end=drag.end-dx/S.bw;
+      /* si estiraste la regla a mano, también se mueve arriba/abajo (como TradingView) */
+      if(drag.fy){const k=(drag.fy[1]-drag.fy[0])/Math.max(1,plotH()-24),dy=(p.y-drag.y)*k;S.fixedY=[drag.fy[0]+dy,drag.fy[1]+dy]}
+      const now=performance.now();drag.smp.push({x:p.x,t:now});while(drag.smp.length>2&&now-drag.smp[0].t>90)drag.smp.shift();
+      if(e.pointerType==="mouse")S.cross=null;req()}
     else if(drag.kind==="yaxis"){const dy=p.y-drag.y,f=Math.exp(dy/200),mid=(drag.min+drag.max)/2,h=(drag.max-drag.min)*f/2;S.fixedY=[mid-h,mid+h];req()}
     else if(drag.kind==="zone"){const pr=pOf(p.y);S.draft.lo=Math.min(drag.p0,pr);S.draft.hi=Math.max(drag.p0,pr);tipAt(p,`${fprice(S.draft.lo,S.prec)} – ${fprice(S.draft.hi,S.prec)}`);req()}
     else if(drag.kind==="trend"){S.draft.i2=Math.round(iOf(p.x));S.draft.p2=pOf(p.y);req()}
@@ -141,11 +151,18 @@ function SChart(host,opt){
     else if(d.kind==="trend"){const z=S.draft;S.draft=null;if(z&&(z.i2!==z.i1||Math.abs(yOf(z.p2)-yOf(z.p1))>8)&&opt.onTrend)opt.onTrend(z);req()}
     else if(d.kind==="tap"){if(Math.hypot(p.x-d.x,p.y-d.y)<12){const pr=pOf(p.y),i=Math.round(iOf(p.x));if(S.mode==="hline"&&opt.onHline)opt.onHline(pr,i);if(S.mode==="pick"&&opt.onPick)opt.onPick(pr,i)}}
     else if(d.kind==="pan"&&!d.moved&&opt.onTap)opt.onTap(pOf(p.y),Math.round(iOf(p.x)));
-    if(d.kind==="pan"&&d.moved){S.follow=S.end>=S.shown-1;opt.onFollow&&opt.onFollow(S.follow)}};
+    if(d.kind==="pan"&&d.moved){const a=d.smp[0],b={x:p.x,t:performance.now()},dt=b.t-a.t;if(dt>0&&dt<120)fling((b.x-a.x)/dt*1.0);
+      S.follow=S.end>=S.shown-1;opt.onFollow&&opt.onFollow(S.follow)}};
   cv.addEventListener("pointerup",up);cv.addEventListener("pointercancel",up);
   cv.addEventListener("pointerleave",e=>{if(e.pointerType==="mouse"&&!drag){S.cross=null;req()}});
   cv.addEventListener("dblclick",()=>{S.fixedY=null;fit();});
-  cv.addEventListener("wheel",e=>{e.preventDefault();const p=loc(e);S.snapY=!SMOOTH;S.touched=true;if(e.ctrlKey||Math.abs(e.deltaY)>=Math.abs(e.deltaX)){const f=Math.exp(-e.deltaY/400),nb=Math.max(1.5,Math.min(40,S.bw*f)),anchor=iOf(p.x);S.bw=nb;S.end=anchor+(plotW()-p.x)/nb-0.5}else S.end+=e.deltaX/S.bw;req()},{passive:false});
+  /* rueda: acerca/aleja dejando fija la última vela (como el gráfico principal); con Ctrl/⌘ o pellizco del trackpad, en el mouse.
+     Desplazamiento lateral (trackpad o Shift + rueda): mueve el gráfico. */
+  cv.addEventListener("wheel",e=>{e.preventDefault();stopFling();const p=loc(e);S.snapY=!SMOOTH;S.touched=true;
+    const dy=e.deltaMode===1?e.deltaY*16:e.deltaY,dx=e.deltaMode===1?e.deltaX*16:e.deltaX;
+    if(!e.ctrlKey&&(e.shiftKey||Math.abs(dx)>Math.abs(dy))){S.end+=(e.shiftKey?dy:dx)/S.bw;S.follow=S.end>=S.shown-1;opt.onFollow&&opt.onFollow(S.follow);req();return}
+    const f=Math.exp(-Math.max(-120,Math.min(120,dy))/(e.ctrlKey?160:400)),nb=Math.max(1.5,Math.min(40,S.bw*f));
+    const ax=e.ctrlKey||e.metaKey||!S.follow?p.x:Math.min(plotW(),xOf(S.shown-1)),anchor=iOf(ax);S.bw=nb;S.end=anchor+(plotW()-ax)/nb-0.5;if(S.follow)S.end=Math.max(S.end,S.shown-1+PADB());req()},{passive:false});
   function tipAt(p,t){tip.textContent=t;tip.hidden=false;tip.style.left=Math.min(plotW()-140,Math.max(4,p.x+12))+"px";tip.style.top=Math.max(4,p.y-34)+"px"}
   function fitNow(){const pw=plotW();if(pw<60)return;const vis=Math.min(S.shown,narrow()?70:120);S.bw=Math.max(2,Math.min(22,(pw-64)/Math.max(20,vis)));S.end=S.shown-1+PADB();S.fixedY=null;S.follow=true;S.snapY=true}
   function fit(){fitNow();if(plotW()<60)S.needFit=true;req();opt.onFollow&&opt.onFollow(true)}
@@ -180,9 +197,15 @@ async function candles(sym,g,o){const m=await X.feed.ask(Object.assign({ticks_hi
   const out=(m.candles||[]).map(k=>{const t=+(k.epoch!=null?k.epoch:k.open_time),o2=+k.open,h=+k.high,l=+k.low,c=+k.close;return{timestamp:t*1000,open:o2,high:Math.max(h,o2,c),low:Math.min(l,o2,c),close:c}})
     .filter(k=>isFinite(k.timestamp)&&k.timestamp>0&&isFinite(k.open)&&isFinite(k.high)&&isFinite(k.low)&&isFinite(k.close)).sort((a,b)=>a.timestamp-b.timestamp);
   const u=[];for(const k of out)if(!u.length||k.timestamp>u[u.length-1].timestamp)u.push(k);return u}
-/* velas DESPUÉS de una fecha: se pide con "end + count" (igual que el historial normal) y se recorta desde la fecha */
-async function candlesAfter(sym,g,from,n){const now=Math.floor(Date.now()/1000),end=Math.min(now,from+g*n);if(end<=from)return[];
-  const L=await candles(sym,g,{end,count:Math.min(5000,n+5)});return L.filter(k=>k.timestamp>from*1000)}
+/* velas DESPUÉS de una fecha */
+/* Deriv entrega máximo 1000 velas por pedido: si se piden más, devuelve las ÚLTIMAS 1000 y se salta las primeras
+   (eso hacía que el replay "saltara" horas y dejara huecos). Se piden en tramos seguidos de 1000 con inicio y fin. */
+async function candlesAfter(sym,g,from,n){const now=Math.floor(Date.now()/1000),out=[];let f=from,empty=0;
+  while(out.length<n){const end=Math.min(now,f+g*1000);if(end<=f)break;
+    const L=(await candles(sym,g,{start:Math.max(1,f-g),end,count:1000})).filter(k=>k.timestamp>f*1000);
+    if(!L.length){if(end>=now||++empty>4)break;f=end;continue} /* mercado cerrado (forex en fin de semana): sigue adelante */
+    empty=0;out.push(...L);f=Math.floor(L[L.length-1].timestamp/1000);if(end>=now)break}
+  return out.slice(0,n)}
 /* bloque al azar en el pasado: de 1 a N días atrás según la temporalidad */
 async function randomBlock(sym,g,count){const now=Math.floor(Date.now()/1000),maxBack={60:25,300:120,900:300,3600:700,14400:1400}[g]||200,
   back=Math.floor((count*g)/86400)+1+Math.floor(Math.random()*maxBack),end=now-back*86400;
@@ -407,7 +430,8 @@ async function replay(ro,at){const m=shell();setTab("replay");
   function view(){const pk=R.j<B.length?partialOf(B[R.j],R.f):null;
     T.forEach(t=>{let V=t.D;if(pk){const b=bucket(pk.timestamp,t.g),L=t.D[t.D.length-1];
         if(t.D.length>t.nHist&&L&&L.timestamp===b){V=t.D.slice();V[V.length-1]=mergeK(L,pk)}else{V=t.D.slice();V.push({timestamp:b,open:pk.open,high:pk.high,low:pk.low,close:pk.close})}}
-      t.V=V;t.chart.setLive(V);const c=V[V.length-1];if(c)$(`.pro-pane[data-p="${T.indexOf(t)}"] [data-ohlc]`,m).innerHTML=`A <i>${fprice(c.open,prec)}</i> M <i>${fprice(c.high,prec)}</i> m <i>${fprice(c.low,prec)}</i> C <i class="${c.close>=c.open?"up":"dn"}">${fprice(c.close,prec)}</i>`});
+      t.V=V;t.chart.setLive(V);const c=V[V.length-1];if(c){const h=`A <i>${fprice(c.open,prec)}</i> M <i>${fprice(c.high,prec)}</i> m <i>${fprice(c.low,prec)}</i> C <i class="${c.close>=c.open?"up":"dn"}">${fprice(c.close,prec)}</i>`;
+        if(t.oh!==h){t.oh=h;(t.ohEl||(t.ohEl=$(`.pro-pane[data-p="${T.indexOf(t)}"] [data-ohlc]`,m))).innerHTML=h}}});
     paintInfo();paintOv()}
   const curPrice=()=>{const pk=R.j<B.length?partialOf(B[R.j],R.f):null;return pk?pk.close:(R.j?B[R.j-1].close:H[0][H[0].length-1].close)};
   const curTime=()=>R.j<B.length?B[R.j].timestamp+R.f*base*1000:(B.length?B[B.length-1].timestamp+base*1000:start*1000);

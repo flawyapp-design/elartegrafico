@@ -15,6 +15,9 @@ const hexA=(h,a)=>{h=String(h||GOLD).replace("#","");if(h.length===3)h=h.split("
 
 /* ===================== Herramientas propias ===================== */
 const BOX=/^(eagZone|eagRect|eagBuyZone|eagSellZone)$/;
+/* calculadora de lote: id del dibujo → mercado (la fórmula y el riesgo los pone charts-app en window.__eagLot) */
+const OVSYM=new Map();
+const lotOf=(id,entry,sl)=>{try{const f=window.__eagLot;return f?f(OVSYM.get(id),entry,sl)||"":""}catch(e){return""}};
 /* de 2 esquinas opuestas a los 8 puntos de la caja */
 /* rectángulo/zonas: 2 esquinas → 8 puntos. Ojo: un punto dibujado a la derecha de la última vela no trae hora (solo índice);
    antes se tomaba como hora 0 y el cuadro "se iba" años atrás al estirarlo. */
@@ -111,7 +114,7 @@ function registerAll(){
       {type:"line",attrs:{coordinates:[{x:x1,y:e.y},{x:x1+w,y:e.y}]},styles:{color:"#9da1aa",size:1}},
       lab(cx,t.y+(t.y<e.y?-11:11),`Objetivo ${fmt(tv,pp)} · ${fmt(rew,pp)} pts (${pct(rew)})`,cu),
       lab(cx,s.y+(s.y<e.y?-11:11),`Stop ${fmt(sv,pp)} · ${fmt(risk,pp)} pts (${pct(risk)})`,cd),
-      lab(cx,e.y,`${side==="long"?"▲ Compra":"▼ Venta"} ${fmt(ev,pp)} · R:B 1:${risk?(rew/risk).toFixed(2):"—"}${okDir?"":" ⚠"}`,"#2a2d35")]};
+      lab(cx,e.y,`${side==="long"?"▲ Compra":"▼ Venta"} ${fmt(ev,pp)} · R:B 1:${risk?(rew/risk).toFixed(2):"—"}${okDir?"":" ⚠"}${(l=>l?" · "+l:"")(lotOf(overlay.id,ev,sv))}`,"#2a2d35")]};
   ["eagLong","eagShort"].forEach(n=>KC.registerOverlay({name:n,totalStep:2,needDefaultPointFigure:true,needDefaultXAxisFigure:true,needDefaultYAxisFigure:true,createPointFigures:posFig(n==="eagLong"?"long":"short")}));
   /* línea de alerta (solo se muestra; se maneja desde el panel de alertas) */
   KC.registerOverlay({name:"eagAlert",totalStep:2,needDefaultPointFigure:false,needDefaultXAxisFigure:false,needDefaultYAxisFigure:true,lock:true,
@@ -167,7 +170,9 @@ function registerAll(){
       F.push({type:"rect",attrs:{x:x1,y:y1,width:x2-x1,height:h},styles:{style:"stroke_fill",color:hexA(col,.16),borderColor:col,borderSize:1}});
       F.push({type:"line",ignoreEvent:true,attrs:{coordinates:[{x:0,y:y1},{x:bounding.width,y:y1}]},styles:{color:top,size:lw}});
       F.push({type:"line",ignoreEvent:true,attrs:{coordinates:[{x:0,y:y2},{x:bounding.width,y:y2}]},styles:{color:bot,size:lw}});
-      F.push({type:"text",ignoreEvent:true,attrs:{x:x1+6,y:y1+6,text:ex.text||(kind==="buy"?"Compra":"Venta"),baseline:"top"},styles:{color:"#fff",size:11,backgroundColor:kind==="buy"?top:top,paddingLeft:6,paddingRight:6,paddingTop:2,paddingBottom:2,borderRadius:4}});
+      const tv=overlay.points&&overlay.points.length?Math.max(...overlay.points.map(q=>q.value)):null,bv=overlay.points&&overlay.points.length?Math.min(...overlay.points.map(q=>q.value)):null;
+      const lot=tv!=null?lotOf(overlay.id,kind==="buy"?tv:bv,kind==="buy"?bv:tv):"";
+      F.push({type:"text",ignoreEvent:true,attrs:{x:x1+6,y:y1+6,text:(ex.text||(kind==="buy"?"Compra":"Venta"))+(lot?" · "+lot:""),baseline:"top"},styles:{color:"#fff",size:11,backgroundColor:kind==="buy"?top:top,paddingLeft:6,paddingRight:6,paddingTop:2,paddingBottom:2,borderRadius:4}});
       /* etiquetas en cada línea: verde = Entrada, roja = SL (a la derecha, junto a la regla de precios) */
       const tag=(y,txt,c,above)=>F.push({type:"text",ignoreEvent:true,attrs:{x:bounding.width-6,y:above?y-4:y+4,text:txt,align:"right",baseline:above?"bottom":"top"},styles:{color:"#fff",size:AXF-.5,weight:"bold",backgroundColor:c,paddingLeft:Math.round(AXF*.45),paddingRight:Math.round(AXF*.45),paddingTop:2,paddingBottom:2,borderRadius:3}});
       tag(y1,kind==="buy"?"Entrada":"SL",top,true);tag(y2,kind==="buy"?"SL":"Entrada",bot,false);
@@ -362,7 +367,7 @@ window.EAGWidget=function(o){
     if(subKey){o.datafeed.unsubscribe(subKey.s,subKey.p);subKey=null}
     bulk=true;try{chart.clearData()}catch(e){}bulk=false;applyDec();
     paintBar();
-    const to=Date.now(),from=to-msOf(per)*500;
+    const to=Date.now(),from=to-msOf(per)*990;
     let list=await o.datafeed.getHistoryKLineData(sym,per,from,to);
     if(g!==gen)return;
     const seen=new Set();list=list.filter(k=>!seen.has(k.timestamp)&&seen.add(k.timestamp)).sort((x,y)=>x.timestamp-y.timestamp);
@@ -372,7 +377,7 @@ window.EAGWidget=function(o){
   }
   chart.setLoadDataCallback(async({type,data,callback})=>{
     if(type!=="forward"||!data){callback([],false);return}
-    const g=gen,to=data.timestamp-1,from=to-msOf(per)*500;
+    const g=gen,to=data.timestamp-1,from=to-msOf(per)*990;
     if(noMore){callback([],false);return}
     const raw=await o.datafeed.getHistoryKLineData(sym,per,from,to);
     if(g!==gen)return;
@@ -551,10 +556,10 @@ window.EAGWidget=function(o){
       b.addEventListener("click",e=>{if(b.dataset.skip){e.stopImmediatePropagation();e.preventDefault()}},true)});
     dbar.querySelector('[data-x="magnet"]').onclick=()=>{magnet=magnet==="normal"?"weak_magnet":magnet==="weak_magnet"?"strong_magnet":"normal";ovs.forEach((v,id)=>chart.overrideOverlay({id,mode:magnet}));o.onMagnet&&o.onMagnet(magnet);paintDbar()};
     dbar.querySelector('[data-x="lock"]').onclick=()=>{locked=!locked;ovs.forEach((v,id)=>{v.lock=locked;chart.overrideOverlay({id,lock:locked})});persist();paintDbar()};
-    dbar.querySelector('[data-x="hide"]').onclick=()=>{hidden=!hidden;ovs.forEach((v,id)=>chart.overrideOverlay({id,visible:!hidden}));paintDbar()};
+    dbar.querySelector('[data-x="hide"]').onclick=()=>{hidden=!hidden;ovs.forEach((v,id)=>chart.overrideOverlay({id,visible:!hidden}));guestIds.forEach(id=>{try{chart.overrideOverlay({id,visible:!hidden})}catch(e){}});paintDbar()};
     const tfb=dbar.querySelector('[data-x="tfav"]');if(tfb)tfb.onclick=e=>{e.stopPropagation();o.onTfav()};
     const cl=dbar.querySelector('[data-x="clear"]');cl.onclick=()=>{if(!ovs.size)return;if(!cl.classList.contains("confirm")){cl.classList.add("confirm");cl.title="Toca otra vez para borrar todo";setTimeout(()=>{cl.classList.remove("confirm");cl.title="Borrar todos los dibujos de este mercado"},2500);return}
-      bulk=true;try{chart.removeOverlay()}catch(e){}bulk=false;ovs.clear();persist();hideStyleBar();paintDbar();setTimeout(renderAlerts,0)};
+      bulk=true;try{chart.removeOverlay()}catch(e){}bulk=false;ovs.clear();persist();hideStyleBar();paintDbar();guestIds=[];paintGuest();setTimeout(renderAlerts,0)};
   }
   function openToolMenu(g,anchor){closeMenu();menu=document.createElement("div");menu.className="wmenu";
     const favs=(o.getToolFav&&o.getToolFav())||[];
@@ -616,8 +621,20 @@ window.EAGWidget=function(o){
       onRemoved:e=>{if(bulk)return false;ovs.delete(e.overlay.id);if(selId===e.overlay.id){selId=null;hideStyleBar()}persist();return false},
       onDoubleClick:e=>{if(e.overlay.id!==drawingId)openCtx(e.overlay.id,e,true);return false},
       onRightClick:e=>{try{if(e.overlay.id===drawingId){cancelDraw();return true}openCtx(e.overlay.id,e)}catch(x){}return true}});
-    if(id){ovs.set(id,{name:def.name,styles:def.styles||null,extendData:def.extendData||null,lock:!!def.lock,points:def.points||null});if(!drawing)ovs.get(id).done=true}
+    if(id){OVSYM.set(id,sym&&sym.ticker);ovs.set(id,{name:def.name,styles:def.styles||null,extendData:def.extendData||null,lock:!!def.lock,points:def.points||null});if(!drawing)ovs.get(id).done=true}
     return id}
+  /* ---------- capas de solo lectura (Modo Clase y Zonas del profe): no se guardan ni se pueden mover ---------- */
+  let guest={},guestIds=[];
+  function paintGuest(){bulk=true;guestIds.forEach(id=>{try{chart.removeOverlay(id)}catch(e){}OVSYM.delete(id)});bulk=false;guestIds=[];if(!ready)return;
+    Object.keys(guest).forEach(k=>(guest[k]||[]).forEach(d=>{if(!d||!d.name||!Array.isArray(d.points)||!d.points.length||!d.points.every(p=>p&&p.timestamp))return;
+      let pts=d.points;if(BOX.test(d.name)&&pts.length===2)pts=boxPts(pts[0],pts[1]).map(p=>({timestamp:p.timestamp,value:p.value}));
+      try{const id=chart.createOverlay({name:d.name,points:pts,styles:withPt(d),extendData:d.extendData,lock:true,visible:!hidden,onRightClick:()=>true,onDoubleClick:()=>true,onPressedMoveStart:()=>true});
+        if(id){guestIds.push(id);OVSYM.set(id,sym&&sym.ticker)}}catch(e){}}))}
+  function setGuest(layers){guest=layers||{};paintGuest()}
+  /* copiar dibujos de otro (el profe) a los míos: se pueden deshacer */
+  function importDrawings(arr){if(!sym||!Array.isArray(arr)||!arr.length)return 0;const all=loadD(),mine=all[sym.ticker]||[];
+    const add=arr.filter(d=>d&&d.name&&Array.isArray(d.points)&&d.points.every(p=>p&&p.timestamp)).map(d=>Object.assign(JSON.parse(JSON.stringify(d)),{lock:false}));if(!add.length)return 0;
+    const ns=JSON.stringify(mine.concat(add));hist.push(snap);fut=[];applySnap(ns);return add.length}
   /* stop y objetivo automáticos (1:2) según el rango reciente del gráfico */
   /* tiempo de un punto aunque esté antes de la primera vela o después de la última */
   function tsOf(p){if(p.timestamp)return p.timestamp;const L=chart.getDataList(),ms=msOf(per);if(!L.length)return Date.now();
@@ -644,7 +661,7 @@ window.EAGWidget=function(o){
   function restoreDrawings(keepHist){selId=null;setTimeout(syncPan,0);bulk=true;try{chart.removeOverlay()}catch(e){}bulk=false;ovs.clear();hideStyleBar();
     if(!keepHist){hist=[];fut=[];snap=JSON.stringify(loadD()[sym.ticker]||[])}
     setTimeout(renderAlerts,0);
-    (loadD()[sym.ticker]||[]).forEach(d=>{if(d.points&&d.points.every(p=>p.timestamp))makeOverlay(d,false)})}
+    (loadD()[sym.ticker]||[]).forEach(d=>{if(d.points&&d.points.every(p=>p.timestamp))makeOverlay(d,false)});guestIds=[];paintGuest()}
   o.reloadDrawings=()=>{if(ready)restoreDrawings()};
   /* alertas de este mercado dibujadas como líneas naranjas punteadas */
   let alertIds=[];
@@ -909,6 +926,9 @@ window.EAGWidget=function(o){
     setMtfButton(show,on){const b=root.querySelector('[data-a="mtf"]');b.hidden=!show;b.classList.toggle("on",!!on)},
     setDrawingBar(v){dbar.style.display=v?"":"none"},
     reloadDrawings(){if(ready)restoreDrawings()},
-    reloadData(){loadData()}}
+    reloadData(){loadData()},
+    drawings(){return sym?JSON.parse(JSON.stringify(loadD()[sym.ticker]||[])):[]},
+    setGuest,importDrawings,
+    repaint(){applyStyles()}}
 };
 })();
