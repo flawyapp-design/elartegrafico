@@ -96,17 +96,5 @@
       "permanent": false
     }
   ],
-  "cleanUrls": true,
-  "rewrites": [
-    {
-      "source": "/",
-      "has": [
-        {
-          "type": "host",
-          "value": "charts.elartegrafico.com"
-        }
-      ],
-      "destination": "/charts-root.html"
-    }
-  ]
+  "cleanUrls": true
 }
