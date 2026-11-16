@@ -217,6 +217,44 @@ html.light .wfoot button.on{color:var(--gold)}
 .wchart.ovh canvas{cursor:pointer!important}.wchart.ovdrag canvas{cursor:grabbing!important}
 .reloadov{position:fixed;inset:0;z-index:9999;display:grid;place-content:center;justify-items:center;gap:12px;background:var(--bg,#0b0c0e);color:var(--fg,#ececee);font:600 14px Inter,system-ui,sans-serif}
 .reloadov i{width:28px;height:28px;border-radius:50%;border:3px solid rgba(226,181,92,.25);border-top-color:#e2b55c;animation:spin .8s linear infinite}
+/* ===== Operar con Deriv (solo admin) ===== */
+.trb{border-color:rgba(8,153,129,.45)!important;color:#0bb594!important}
+.trd{position:fixed;right:14px;top:64px;z-index:60;width:310px;max-width:calc(100vw - 16px);max-height:calc(100vh - 80px);overflow:auto;background:var(--card);border:1px solid var(--line2);border-radius:14px;box-shadow:var(--shadow);color:var(--fg);font-size:13px}
+.trd[hidden]{display:none}
+.trd-h{display:flex;align-items:center;gap:8px;padding:10px 10px 8px 14px;border-bottom:1px solid var(--line);cursor:move;user-select:none;position:sticky;top:0;background:var(--card);z-index:1}
+.trd-h b{font-size:14px}.trd-h .sp{flex:1}.trd-tag{font-size:10.5px;color:var(--dim);letter-spacing:.02em}
+.trd-ic{border:0;background:none;color:var(--mut);font-size:17px;line-height:1;padding:4px 7px;border-radius:7px;cursor:pointer}.trd-ic:hover{background:var(--card2);color:var(--fg)}
+.trd-b{padding:12px 14px 14px;display:grid;gap:10px}
+.trd-help{margin:0;color:var(--fg2);line-height:1.45}.trd-fine{margin:0;color:var(--dim);font-size:11.5px;line-height:1.4}
+.trd-go{border:0;border-radius:10px;padding:11px 14px;font-weight:700;font-size:14px;cursor:pointer;background:var(--gold);color:#16120a}
+.trd-go.t-up{background:#089981;color:#fff}.trd-go.t-dn{background:#f23645;color:#fff}
+.trd-err{background:rgba(242,54,69,.12);color:#ff6b78;border-radius:9px;padding:8px 10px;font-size:12.5px;line-height:1.4}
+.trd-warn{background:rgba(242,54,69,.14);color:#ff6b78;border:1px solid rgba(242,54,69,.4);border-radius:9px;padding:6px 10px;font-weight:700;font-size:12px;text-align:center}
+.trd-state{color:var(--mut);font-size:12px}
+.trd-acc{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:11px;border:1px solid var(--line2);background:var(--bg2)}
+.trd-acc.demo{border-color:rgba(226,181,92,.45)}.trd-acc.real{border-color:rgba(242,54,69,.55)}
+.trd-acc select{flex:1;min-width:0;background:transparent;border:0;color:var(--fg);font-weight:600;font-size:12.5px}
+.trd-bal{display:grid;text-align:right}.trd-bal small{font-size:10px;color:var(--dim)}.trd-bal b{font-size:15px;font-variant-numeric:tabular-nums}
+.trd-sym{display:flex;align-items:baseline;justify-content:space-between}.trd-sym b{font-size:15px}.trd-sym span{font-size:11.5px;color:var(--dim)}
+.trd-f{display:grid;gap:4px}.trd-f>span{font-size:11.5px;color:var(--mut)}.trd-f small{color:var(--dim)}
+.trd-f input,.trd-f select{background:var(--bg2);border:1px solid var(--line2);border-radius:9px;padding:9px 10px;color:var(--fg);font-size:14px;font-variant-numeric:tabular-nums;width:100%;box-sizing:border-box}
+.trd-two{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.trd-chips{display:flex;gap:5px}.trd-chips button{flex:1;border:1px solid var(--line2);background:var(--bg2);color:var(--mut);border-radius:8px;padding:5px 0;font-weight:600;cursor:pointer}.trd-chips button.on{border-color:var(--gold);color:var(--gold2);background:var(--gbg)}
+.trd-bt{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.trd-buy{border:0;border-radius:11px;padding:13px 6px;font-weight:800;font-size:15px;color:#fff;cursor:pointer;transition:filter .15s,transform .05s}
+.trd-buy.t-up{background:#089981}.trd-buy.t-dn{background:#f23645}.trd-buy:hover{filter:brightness(1.1)}.trd-buy:active{transform:scale(.98)}.trd-buy:disabled{opacity:.45;cursor:not-allowed}
+.trd-conf{border:1px solid rgba(242,54,69,.5);border-radius:11px;padding:10px;display:grid;gap:8px;line-height:1.4}.trd-conf p{margin:0}.trd-conf div{display:flex;gap:8px;justify-content:flex-end}
+.trd-pos{display:grid;gap:4px}
+.trd-ph{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--mut);padding-top:4px;border-top:1px solid var(--line)}.trd-ph b{color:var(--fg)}.trd-ph span{margin-left:auto;font-weight:700;font-variant-numeric:tabular-nums}
+.trd-row{display:flex;align-items:center;gap:8px;padding:7px 8px;border-radius:9px;background:var(--bg2)}.trd-row.sold{opacity:.6}
+.trd-d{font-size:13px}.trd-s{flex:1;min-width:0;display:grid}.trd-s small{color:var(--dim);font-size:10.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.trd-p{font-weight:800;font-variant-numeric:tabular-nums}.trd .t-up{color:#0bb594}.trd .t-dn{color:#f23645}.trd .trd-buy,.trd .trd-go.t-up,.trd .trd-go.t-dn{color:#fff}
+.trd-x{border:1px solid var(--line2);background:var(--card);color:var(--fg);border-radius:8px;padding:5px 9px;font-weight:600;font-size:12px;cursor:pointer}.trd-x:disabled{opacity:.5}
+.trd-done{font-size:11px;color:var(--dim)}.trd-empty{color:var(--dim);font-size:12px;text-align:center;padding:6px}
+.trd-ft{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;padding-top:6px;border-top:1px solid var(--line)}
+.trd-ck{display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--mut)}
+.trd-lnk{border:0;background:none;color:var(--dim);font-size:11.5px;text-decoration:underline;cursor:pointer;margin-left:auto}
+@media (max-width:640px){.trd{left:6px!important;right:6px!important;top:auto!important;bottom:6px;width:auto;max-height:72vh;border-radius:16px}.trd-h{cursor:default}}
 #fsb.on{color:var(--gold2)!important;background:var(--gbg)!important}
 .wcdc{position:absolute;left:0;top:0;z-index:3;pointer-events:none;display:grid;gap:2px;padding:3px 8px 4px 7px;border-left:2px solid var(--cdc,#089981);border-radius:2px 4px 4px 2px;background:rgba(11,12,14,.72);background:color-mix(in srgb,var(--chartbg,#0b0c0e) 80%,transparent);font:600 11px/1.1 Inter,system-ui,sans-serif;font-variant-numeric:tabular-nums;white-space:nowrap;will-change:transform}
 .wcdc b{font-size:.8em;font-weight:600;letter-spacing:.03em;color:#9da1aa;text-transform:uppercase}
@@ -500,6 +538,7 @@ html,body{overscroll-behavior:none}.dbar{overscroll-behavior:contain;touch-actio
 <script src="js/eag-widget.js"></script>
 <script src="js/eag-pro-core.js"></script>
 <script src="js/eag-pro.js"></script>
+<script src="js/eag-trade.js"></script>
 <script src="js/charts-app.js"></script>
 </body>
 </html>

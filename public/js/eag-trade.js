@@ -1,0 +1,213 @@
+/* EAG Charts · Operar con Deriv (solo administradores)
+   - Inicia sesión con Deriv (OAuth con PKCE). El código se canjea en /api/deriv (servidor), como pide Deriv.
+   - El token queda solo en este navegador (localStorage) hasta que vence o tocas "Desconectar".
+   - Opera multiplicadores (Sube = MULTUP / Baja = MULTDOWN) con monto, multiplicador, take profit y stop loss.
+   - Muestra el saldo (se puede ocultar para los lives), las posiciones abiertas con ganancia en vivo y la entrada en el gráfico. */
+(function(){
+"use strict";
+const APP_ID=(window.AG_CONFIG||{}).DERIV_OAUTH_APP_ID||"";
+const BRIDGE="/api/deriv";
+const LS_TOK="eag_dv_tok",LS_ACC="eag_dv_acc",LS_CFG="eag_dv_cfg",SS_PKCE="eag_dv_pkce";
+const OK_HOSTS=["charts.elartegrafico.com","elartegrafico.com","www.elartegrafico.com"];
+const ls={get:(k,d)=>{try{const v=localStorage.getItem(k);return v==null?d:JSON.parse(v)}catch(e){return d}},set:(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}},del:k=>{try{localStorage.removeItem(k)}catch(e){}}};
+const esc=s=>String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[c]);
+const money=(v,cur)=>{const n=+v;if(!isFinite(n))return"—";return(n<0?"-":"")+(cur==="USD"||!cur?"$":"")+Math.abs(n).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2})+(cur&&cur!=="USD"?" "+cur:"")};
+const b64u=buf=>btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"");
+const rnd=n=>{const a=new Uint8Array(n);crypto.getRandomValues(a);return b64u(a)};
+
+let O=null;            /* opciones que pasa charts-app */
+let panel=null,ws=null,wsTimer=null,pingT=null,reqN=1,pending={},accounts=[],acc=null,bal=null,cur="USD";
+let contracts={},cfInfo={},busy=false,confirmAsk=null,lastErr="";
+const cfg=Object.assign({stake:1,mult:0,tp:"",sl:"",hide:false,confirmReal:true},ls.get(LS_CFG,{}));
+const saveCfg=()=>ls.set(LS_CFG,cfg);
+
+/* ---------- token ---------- */
+const tok=()=>{const t=ls.get(LS_TOK,null);if(!t||!t.t)return null;if(t.exp&&Date.now()>t.exp-60000){ls.del(LS_TOK);return null}return t.t};
+const redirectUri=()=>location.origin+"/charts";
+const canLogin=()=>OK_HOSTS.includes(location.hostname)&&!!APP_ID;
+async function bridge(body){
+  const r=await fetch(BRIDGE,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(body)});
+  let j={};try{j=await r.json()}catch(e){}
+  if(r.status===401){ls.del(LS_TOK);throw new Error("Tu sesión de Deriv venció. Vuelve a conectar.")}
+  if(!r.ok)throw new Error((j&&(j.error&&(j.error.message||j.error))||j.message)||("Error "+r.status));
+  return j}
+async function login(){
+  if(!canLogin()){toast("Conectar con Deriv funciona en charts.elartegrafico.com");return}
+  const v=rnd(64),st=rnd(24);
+  const ch=b64u(await crypto.subtle.digest("SHA-256",new TextEncoder().encode(v)));
+  try{sessionStorage.setItem(SS_PKCE,JSON.stringify({v,st,t:Date.now()}))}catch(e){}
+  const u=new URL("https://auth.deriv.com/oauth2/auth");
+  u.search=new URLSearchParams({response_type:"code",client_id:APP_ID,redirect_uri:redirectUri(),scope:"trade",state:st,code_challenge:ch,code_challenge_method:"S256"}).toString();
+  location.href=u.toString()}
+/* regreso desde Deriv: ?code=...&state=... */
+async function handleCallback(){
+  const q=new URLSearchParams(location.search);const code=q.get("code"),st=q.get("state"),err=q.get("error");
+  if(!code&&!err)return false;
+  const clean=()=>{try{history.replaceState(null,"",location.pathname+location.hash)}catch(e){}};
+  let pk=null;try{pk=JSON.parse(sessionStorage.getItem(SS_PKCE)||"null")}catch(e){}
+  if(err){clean();lastErr=err==="invalid_scope"?"Deriv no aceptó el permiso \"Operar\". En developers.deriv.com → Aplicaciones, edita EAG Charts y marca \"Operar\".":"Deriv canceló el inicio de sesión ("+err+").";return true}
+  if(!pk||pk.st!==st){clean();lastErr="El inicio de sesión no coincide (por seguridad se canceló). Intenta de nuevo.";return true}
+  try{sessionStorage.removeItem(SS_PKCE)}catch(e){}
+  clean();
+  try{const j=await bridge({action:"token",code,code_verifier:pk.v,redirect_uri:redirectUri()});
+    ls.set(LS_TOK,{t:j.access_token,exp:j.expires_in?Date.now()+j.expires_in*1000:0});lastErr="";toast("Conectado con Deriv")}
+  catch(e){lastErr=e.message}
+  return true}
+function logout(){closeWs();ls.del(LS_TOK);ls.del(LS_ACC);accounts=[];acc=null;bal=null;contracts={};clearLines();render()}
+
+/* ---------- cuentas ---------- */
+function parseAccounts(j){
+  let a=Array.isArray(j)?j:Array.isArray(j&&j.data)?j.data:(j&&j.data&&(j.data.accounts||j.data.items))||(j&&j.accounts)||[];
+  return a.map(x=>{const id=x.account_id||x.accountId||x.loginid||x.id;const t=String(x.account_type||x.type||(x.is_virtual?"demo":"")||"").toLowerCase();
+    const demo=t.includes("demo")||t.includes("virtual")||/^VR/i.test(String(id));
+    return{id:String(id),demo,cur:x.currency||"USD",bal:x.balance!=null?+x.balance:null}}).filter(x=>x.id&&x.id!=="undefined")}
+async function loadAccounts(){
+  const t=tok();if(!t)return;
+  try{accounts=parseAccounts(await bridge({action:"accounts",token:t}))}catch(e){lastErr=e.message;render();return}
+  const keep=ls.get(LS_ACC,null);acc=accounts.find(a=>a.id===keep)||accounts.find(a=>a.demo)||accounts[0]||null;
+  if(!acc){lastErr="Tu cuenta de Deriv no tiene cuentas de opciones. Crea una (demo o real) en Deriv y vuelve a conectar.";render();return}
+  ls.set(LS_ACC,acc.id);if(acc.bal!=null)bal=acc.bal;cur=acc.cur||"USD";connect()}
+
+/* ---------- websocket autenticado ---------- */
+function closeWs(){clearTimeout(wsTimer);clearInterval(pingT);if(ws){ws.onclose=null;try{ws.close()}catch(e){}}ws=null;Object.values(pending).forEach(p=>p.rej(new Error("Conexión cerrada")));pending={}}
+async function connect(){
+  closeWs();const t=tok();if(!t||!acc){render();return}
+  setState("Conectando con tu cuenta…");
+  let url;try{const j=await bridge({action:"otp",token:t,account_id:acc.id});url=(j&&j.data&&j.data.url)||(j&&j.url)}catch(e){lastErr=e.message;render();return}
+  if(!url){lastErr="Deriv no devolvió la conexión de la cuenta.";render();return}
+  const s=new WebSocket(url);ws=s;
+  s.onopen=()=>{lastErr="";setState("");send({balance:1,subscribe:1}).catch(()=>{});send({portfolio:1}).then(r=>{((r.portfolio||{}).contracts||[]).forEach(c=>watch(c.contract_id))}).catch(()=>{});
+    loadCF();pingT=setInterval(()=>{if(ws&&ws.readyState===1)ws.send(JSON.stringify({ping:1}))},25000);render()};
+  s.onmessage=ev=>{let m;try{m=JSON.parse(ev.data)}catch(e){return}
+    const p=m.req_id&&pending[m.req_id];
+    if(p&&!p.done){p.done=true;m.error?p.rej(new Error(m.error.message||"Error de Deriv")):p.res(m)}
+    if(p&&!m.subscription)delete pending[m.req_id];
+    if(m.msg_type==="balance"&&m.balance){bal=+m.balance.balance;cur=m.balance.currency||cur;paintTop()}
+    if(m.msg_type==="proposal_open_contract"&&m.proposal_open_contract&&m.proposal_open_contract.contract_id)onPoc(m.proposal_open_contract);
+    if(m.msg_type==="buy"&&m.buy){toast(`Operación abierta · ${money(m.buy.buy_price,cur)}`);watch(m.buy.contract_id)}};
+  s.onclose=()=>{ws=null;clearInterval(pingT);if(tok()&&acc){setState("Reconectando…");wsTimer=setTimeout(connect,2500)}};
+  s.onerror=()=>{}}
+function send(o){return new Promise((res,rej)=>{if(!ws||ws.readyState!==1)return rej(new Error("Sin conexión con Deriv"));const id=reqN++;pending[id]={res,rej};ws.send(JSON.stringify(Object.assign({},o,{req_id:id})));
+  setTimeout(()=>{if(pending[id]&&!pending[id].done){delete pending[id];rej(new Error("Deriv no respondió a tiempo"))}},20000)})}
+const watched=new Set();
+function watch(id){if(!id||watched.has(id))return;watched.add(id);send({proposal_open_contract:1,contract_id:id,subscribe:1}).catch(()=>watched.delete(id))}
+
+/* qué permite el mercado (multiplicadores disponibles) */
+async function loadCF(){const sym=symNow();if(!sym||cfInfo[sym]||!ws)return;cfInfo[sym]={loading:true};
+  try{const r=await send({contracts_for:sym});const av=((r.contracts_for||{}).available)||[];
+    const mul=av.filter(a=>/^MULT(UP|DOWN)$/.test(a.contract_type));const rng=[];mul.forEach(a=>(a.multiplier_range||[]).forEach(v=>{if(!rng.includes(+v))rng.push(+v)}));rng.sort((a,b)=>a-b);
+    cfInfo[sym]={mult:mul.length>0,range:rng,types:av.map(a=>a.contract_type)}}
+  catch(e){cfInfo[sym]={err:e.message}}
+  render()}
+
+/* ---------- operar ---------- */
+function symNow(){try{return(O.cur()||{}).sym||""}catch(e){return""}}
+function buy(dir,ok){
+  if(busy)return;const sym=symNow();const stake=+cfg.stake;
+  if(!(stake>0)){toast("Escribe el monto");return}
+  if(!acc.demo&&cfg.confirmReal&&!ok){confirmAsk=dir;render();return}
+  confirmAsk=null;busy=true;render();
+  const ci=cfInfo[sym]||{};const mult=+cfg.mult||(ci.range&&ci.range[0])||10;
+  const lo={};if(+cfg.tp>0)lo.take_profit=+cfg.tp;if(+cfg.sl>0)lo.stop_loss=+cfg.sl;
+  const parameters={amount:stake,basis:"stake",contract_type:dir==="up"?"MULTUP":"MULTDOWN",currency:cur,multiplier:mult,underlying_symbol:sym};
+  if(Object.keys(lo).length)parameters.limit_order=lo;
+  send({buy:"1",price:stake,parameters}).then(r=>{busy=false;if(r.buy)watch(r.buy.contract_id);render()}).catch(e=>{busy=false;toast(e.message);render()})}
+function sell(id){const c=contracts[id];if(c)c._closing=true;render();
+  send({sell:+id,price:0}).then(r=>{toast(`Cerrada · ${money((r.sell||{}).sold_for,cur)}`)}).catch(e=>{if(c)c._closing=false;toast(e.message);render()})}
+function onPoc(p){const id=String(p.contract_id);const old=contracts[id]||{};contracts[id]=Object.assign(old,p);
+  if(+p.is_sold===1||p.status==="sold"||p.status==="won"||p.status==="lost"){
+    const pr=+p.profit;if(!old._done){old._done=true;toast(`${pr>=0?"Ganaste":"Perdiste"} ${money(Math.abs(pr),cur)} · ${p.underlying_symbol||""}`)}
+    setTimeout(()=>{delete contracts[id];syncLines();render()},4000)}
+  syncLinesSoon();paintPos()}
+
+/* ---------- línea de entrada en el gráfico ---------- */
+let lineMap={},lineT=null;
+function regLine(){const KC=window.klinecharts;if(!KC||regLine.done)return;regLine.done=true;
+  KC.registerOverlay({name:"eagTradeLine",totalStep:2,lock:true,needDefaultPointFigure:false,needDefaultXAxisFigure:false,needDefaultYAxisFigure:false,
+    createPointFigures:({overlay,coordinates,bounding})=>{const c=coordinates[0];if(!c)return[];const e=overlay.extendData||{};
+      return[{type:"line",ignoreEvent:true,attrs:{coordinates:[{x:0,y:c.y},{x:bounding.width,y:c.y}]},styles:{style:"dashed",dashedValue:[6,4],color:e.col,size:1.2}},
+        {type:"text",ignoreEvent:true,attrs:{x:8,y:c.y-3,text:e.txt||"",align:"left",baseline:"bottom"},styles:{color:"#fff",size:12,weight:"700",backgroundColor:e.col,borderColor:e.col,paddingLeft:7,paddingRight:7,paddingTop:4,paddingBottom:4,borderRadius:4}}]},
+    createYAxisFigures:({overlay,coordinates,bounding,yAxis})=>{const c=coordinates[0];if(!c)return[];const e=overlay.extendData||{};const z=yAxis&&yAxis.isFromZero&&yAxis.isFromZero();
+      return[{type:"text",ignoreEvent:true,attrs:{x:z?0:bounding.width,y:c.y,text:e.ax||"",align:z?"left":"right",baseline:"middle"},styles:{color:"#fff",size:11,backgroundColor:e.col,borderColor:e.col,paddingLeft:4,paddingRight:4,paddingTop:3,paddingBottom:3,borderRadius:2}}]}})}
+function chartNow(){try{return O.chart()}catch(e){return null}}
+function clearLines(){Object.values(lineMap).forEach(l=>{try{l.chart.removeOverlay(l.id)}catch(e){}});lineMap={}}
+const syncLinesSoon=()=>{if(lineT)return;lineT=setTimeout(()=>{lineT=null;syncLines()},250)};
+function syncLines(){regLine();const ch=chartNow(),sym=symNow();
+  Object.keys(lineMap).forEach(id=>{const l=lineMap[id],c=contracts[id];if(!c||l.chart!==ch||c.underlying_symbol!==sym||+c.is_sold===1){try{l.chart.removeOverlay(l.id)}catch(e){}delete lineMap[id]}});
+  if(!ch)return;
+  Object.values(contracts).forEach(c=>{const id=String(c.contract_id);if(c.underlying_symbol!==sym||+c.is_sold===1||c.entry_spot==null)return;
+    const up=c.contract_type==="MULTUP",pr=+c.profit,col=pr>=0?"#089981":"#f23645";
+    const txt=`${up?"▲ Sube":"▼ Baja"} x${c.multiplier||""} · ${money(c.buy_price,cur)} · ${pr>=0?"+":""}${money(pr,cur)}`;
+    const ex={col,txt,ax:(+c.entry_spot).toString()};
+    let l=lineMap[id];if(l&&!ch.getOverlayById(l.id))l=null;
+    if(!l){try{const oid=ch.createOverlay({name:"eagTradeLine",lock:true,zLevel:5,points:[{timestamp:(c.entry_spot_time||c.date_start||0)*1000,value:+c.entry_spot}],extendData:ex});if(oid)lineMap[id]={chart:ch,id:oid}}catch(e){}}
+    else{try{ch.overrideOverlay({id:l.id,extendData:ex})}catch(e){}}})}
+
+/* ---------- panel ---------- */
+let stateMsg="";
+function setState(t){stateMsg=t;render()}
+function toast(t){try{O&&O.toast?O.toast(t):console.log(t)}catch(e){}}
+function open(){if(!panel){panel=document.createElement("div");panel.className="trd";document.body.appendChild(panel);drag()}
+  panel.hidden=false;render();if(tok()&&!ws&&!accounts.length)loadAccounts();else if(ws)loadCF()}
+function close(){if(panel)panel.hidden=true}
+function drag(){let st=null;panel.addEventListener("pointerdown",e=>{const h=e.target.closest(".trd-h");if(!h||e.target.closest("button,select"))return;const r=panel.getBoundingClientRect();st={x:e.clientX-r.left,y:e.clientY-r.top};h.setPointerCapture(e.pointerId)});
+  panel.addEventListener("pointermove",e=>{if(!st)return;panel.style.left=Math.max(4,Math.min(innerWidth-panel.offsetWidth-4,e.clientX-st.x))+"px";panel.style.top=Math.max(4,Math.min(innerHeight-60,e.clientY-st.y))+"px";panel.style.right="auto"});
+  panel.addEventListener("pointerup",()=>{st=null})}
+function paintTop(){if(!panel||panel.hidden)return;const b=panel.querySelector("[data-bal]");if(b)b.textContent=cfg.hide?"••••••":money(bal,cur)}
+function paintPos(){if(!panel||panel.hidden)return;const box=panel.querySelector(".trd-pos");if(!box)return;
+  const L=Object.values(contracts).sort((a,b)=>(b.date_start||0)-(a.date_start||0));
+  const tot=L.filter(c=>+c.is_sold!==1).reduce((s,c)=>s+(+c.profit||0),0);
+  box.innerHTML=L.length?`<div class="trd-ph"><b>Abiertas (${L.filter(c=>+c.is_sold!==1).length})</b><span class="${tot>=0?"t-up":"t-dn"}">${tot>=0?"+":""}${money(tot,cur)}</span>${L.filter(c=>+c.is_sold!==1&&+c.is_valid_to_sell===1).length>1?`<button class="trd-x" data-closeall>Cerrar todas</button>`:""}</div>`+
+    L.map(c=>{const pr=+c.profit,up=c.contract_type==="MULTUP",sold=+c.is_sold===1;return`<div class="trd-row${sold?" sold":""}">
+      <span class="trd-d ${up?"t-up":"t-dn"}">${up?"▲":"▼"}</span><span class="trd-s"><b>${esc(c.underlying_symbol||"")}</b><small>x${esc(c.multiplier||"")} · ${money(c.buy_price,cur)}${c.limit_order&&c.limit_order.take_profit?` · TP ${money(c.limit_order.take_profit.order_amount,cur)}`:""}${c.limit_order&&c.limit_order.stop_loss?` · SL ${money(c.limit_order.stop_loss.order_amount,cur)}`:""}</small></span>
+      <span class="trd-p ${pr>=0?"t-up":"t-dn"}">${pr>=0?"+":""}${money(pr,cur)}</span>
+      ${sold?`<span class="trd-done">${pr>=0?"Ganada":"Perdida"}</span>`:`<button class="trd-x" data-sell="${esc(c.contract_id)}" ${c._closing||+c.is_valid_to_sell!==1?"disabled":""}>${c._closing?"…":"Cerrar"}</button>`}</div>`}).join(""):`<div class="trd-empty">Sin operaciones abiertas</div>`;
+  box.querySelectorAll("[data-sell]").forEach(b=>b.onclick=()=>sell(b.dataset.sell));
+  const ca=box.querySelector("[data-closeall]");ca&&(ca.onclick=()=>Object.values(contracts).forEach(c=>{if(+c.is_sold!==1&&+c.is_valid_to_sell===1)sell(c.contract_id)}))}
+function render(){if(!panel||panel.hidden)return;const t=tok(),sym=symNow(),ci=cfInfo[sym]||{};
+  const head=`<div class="trd-h"><b>Operar</b><span class="trd-tag">Deriv · solo admin</span><span class="sp"></span>
+    ${t?`<button class="trd-ic" data-hide title="${cfg.hide?"Mostrar saldo":"Ocultar saldo (para lives)"}">${cfg.hide?"🙈":"👁"}</button>`:""}<button class="trd-ic" data-close title="Cerrar panel">×</button></div>`;
+  if(!t){panel.innerHTML=head+`<div class="trd-b"><p class="trd-help">Conecta tu cuenta de Deriv para comprar y vender desde el gráfico. Inicias sesión en la página de Deriv; aquí nunca se escribe tu contraseña.</p>
+    ${lastErr?`<div class="trd-err">${esc(lastErr)}</div>`:""}
+    ${canLogin()?`<button class="trd-go" data-login>Conectar con Deriv</button>`:`<div class="trd-err">Para conectar, abre los charts en <b>charts.elartegrafico.com</b>.${APP_ID?"":" Falta el App ID de Deriv en la configuración."}</div>`}
+    <p class="trd-fine">Usa primero la cuenta <b>demo</b> para probar. Operar tiene riesgo: puedes perder lo que inviertes.</p></div>`;bind();return}
+  const accSel=accounts.length?`<select data-acc>${accounts.map(a=>`<option value="${esc(a.id)}"${acc&&a.id===acc.id?" selected":""}>${a.demo?"Demo":"Real"} · ${esc(a.id)}</option>`).join("")}</select>`:"";
+  const real=acc&&!acc.demo;
+  const mults=(ci.range&&ci.range.length?ci.range:[10,20,50,100,200]);if(!mults.includes(+cfg.mult))cfg.mult=mults[0];
+  panel.innerHTML=head+`<div class="trd-b">
+    <div class="trd-acc ${real?"real":"demo"}">${accSel}<span class="trd-bal"><small>Saldo</small><b data-bal>${cfg.hide?"••••••":money(bal,cur)}</b></span></div>
+    ${real?`<div class="trd-warn">Cuenta REAL: es dinero de verdad.</div>`:""}
+    ${stateMsg?`<div class="trd-state">${esc(stateMsg)}</div>`:""}${lastErr?`<div class="trd-err">${esc(lastErr)}</div>`:""}
+    <div class="trd-sym"><b>${esc(sym||"—")}</b><span>Multiplicador</span></div>
+    ${ci.mult===false?`<div class="trd-err">${esc(sym)} no permite multiplicadores por la API de Deriv.</div>`:""}
+    <label class="trd-f"><span>Monto (${esc(cur)})</span><input data-k="stake" type="number" min="0" step="0.5" inputmode="decimal" value="${esc(cfg.stake)}"></label>
+    <div class="trd-chips">${[1,5,10,25,50].map(v=>`<button data-st="${v}" class="${+cfg.stake===v?"on":""}">${v}</button>`).join("")}</div>
+    <label class="trd-f"><span>Multiplicador</span><select data-k="mult">${mults.map(v=>`<option value="${v}"${+cfg.mult===v?" selected":""}>x${v}</option>`).join("")}</select></label>
+    <div class="trd-two"><label class="trd-f"><span>Take profit $ <small>(opcional)</small></span><input data-k="tp" type="number" min="0" step="0.5" inputmode="decimal" value="${esc(cfg.tp)}" placeholder="—"></label>
+      <label class="trd-f"><span>Stop loss $ <small>(opcional)</small></span><input data-k="sl" type="number" min="0" step="0.5" inputmode="decimal" value="${esc(cfg.sl)}" placeholder="—"></label></div>
+    ${confirmAsk?`<div class="trd-conf"><p>¿Abrir <b>${confirmAsk==="up"?"▲ Sube":"▼ Baja"}</b> por <b>${money(cfg.stake,cur)}</b> en cuenta REAL?</p><div><button class="trd-x" data-cno>Cancelar</button><button class="trd-go t-${confirmAsk}" data-cyes>Sí, abrir</button></div></div>`:
+    `<div class="trd-bt"><button class="trd-buy t-up" data-buy="up" ${busy||!ws||ci.mult===false?"disabled":""}>▲ Sube</button><button class="trd-buy t-dn" data-buy="dn" ${busy||!ws||ci.mult===false?"disabled":""}>▼ Baja</button></div>`}
+    <div class="trd-pos"></div>
+    <div class="trd-ft">${real?`<label class="trd-ck"><input type="checkbox" data-confirm ${cfg.confirmReal?"checked":""}> Confirmar cada operación en real</label>`:""}<button class="trd-lnk" data-logout>Desconectar Deriv</button></div></div>`;
+  bind();paintPos()}
+function bind(){const q=s=>panel.querySelector(s),qa=s=>panel.querySelectorAll(s);
+  q("[data-close]").onclick=close;const h=q("[data-hide]");h&&(h.onclick=()=>{cfg.hide=!cfg.hide;saveCfg();render()});
+  const lg=q("[data-login]");lg&&(lg.onclick=login);
+  const lo=q("[data-logout]");lo&&(lo.onclick=logout);
+  const as=q("[data-acc]");as&&(as.onchange=()=>{acc=accounts.find(a=>a.id===as.value)||acc;ls.set(LS_ACC,acc.id);bal=acc.bal;cur=acc.cur||"USD";contracts={};watched.clear();clearLines();confirmAsk=null;connect()});
+  qa("[data-k]").forEach(i=>{i.oninput=i.onchange=()=>{cfg[i.dataset.k]=i.value;saveCfg();if(i.dataset.k==="stake")qa("[data-st]").forEach(b=>b.classList.toggle("on",+b.dataset.st===+i.value))}});
+  qa("[data-st]").forEach(b=>b.onclick=()=>{cfg.stake=+b.dataset.st;saveCfg();render()});
+  qa("[data-buy]").forEach(b=>b.onclick=()=>buy(b.dataset.buy));
+  const cy=q("[data-cyes]");cy&&(cy.onclick=()=>{const d=confirmAsk;confirmAsk=null;buy(d,true)});
+  const cn=q("[data-cno]");cn&&(cn.onclick=()=>{confirmAsk=null;render()});
+  const ck=q("[data-confirm]");ck&&(ck.onchange=()=>{cfg.confirmReal=ck.checked;saveCfg()})}
+
+/* al cambiar de mercado o de gráfico activo */
+function onChange(){if(ws)loadCF();syncLines();render()}
+
+window.EAGTrade={
+  async init(o){O=o;const had=await handleCallback();if(had)open();
+    else if(tok()&&ls.get(LS_ACC,null)!=null&&o.autoConnect)loadAccounts()},
+  open,close,onChange,
+  _test:{parseAccounts,onPoc,contracts:()=>contracts}};
+})();
