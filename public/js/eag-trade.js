@@ -20,14 +20,20 @@ let O=null;            /* opciones que pasa charts-app */
 let panel=null,ws=null,wsTimer=null,pingT=null,reqN=1,pending={},accounts=[],acc=null,bal=null,cur="USD";
 let contracts={},cfInfo={},busy=false,confirmAsk=null,lastErr="";
 const HAD_CFG=ls.get(LS_CFG,null)!=null;
-const cfg=Object.assign({broker:"dv",mode:"lote",lot:0.2,stake:1,mult:0,tp:"",sl:"",hide:false,confirmReal:true,oneClick:false},ls.get(LS_CFG,{}));
+const cfg=Object.assign({autoMult:true,broker:"dv",mode:"lote",lot:0.2,stake:1,mult:0,tp:"",sl:"",hide:false,confirmReal:true,oneClick:false},ls.get(LS_CFG,{}));
 /* Lotes como en MT5: en Boom/Crash 1 lote = 1 USD por punto. Deriv solo deja operar multiplicadores por API,
    así que el lote se convierte en una operación con multiplicador que gana o pierde lo MISMO por punto:
    ganancia ≈ monto × multiplicador × (movimiento / precio de entrada)  →  monto = lote × precio ÷ multiplicador */
 const lastPrice=()=>{try{const L=O.chart().getDataList();return L.length?+L[L.length-1].close:0}catch(e){return 0}};
 const multsOf=sym=>{const ci=cfInfo[sym]||{};return ci.range&&ci.range.length?ci.range:[10,20,50,100,200]};
-const multNow=sym=>{const m=multsOf(sym);return m.includes(+cfg.mult)?+cfg.mult:m[0]};
-const stakeFor=(lot,sym)=>{const px=lastPrice(),m=multNow(sym);if(!(px>0)||!(m>0)||!(lot>0))return 0;return Math.ceil(lot*px/m*100)/100};
+/* Para parecerse a MT5: en lotes, el multiplicador se elige solo = el MÁS BAJO que alcance con tu saldo.
+   Así el margen es lo más grande posible y la operación aguanta más puntos en contra antes del cierre automático de Deriv
+   (en MT5 lo que te sostiene es el saldo de la cuenta; aquí es el margen). La ganancia por punto no cambia. */
+const stakeAt=(lot,m)=>{const px=lastPrice();if(!(px>0)||!(m>0)||!(lot>0))return 0;return Math.ceil(lot*px/m*100)/100};
+const autoPick=(sym,skip)=>{const ms=multsOf(sym).filter(m=>!(skip&&skip.includes(m))),b=+bal;if(!ms.length)return multsOf(sym)[0];
+  if(!(b>0))return ms[ms.length-1];for(const m of ms){if(stakeAt(+cfg.lot,m)<=b)return m}return ms[ms.length-1]};
+const multNow=(sym,skip)=>{if(cfg.mode==="lote"&&cfg.autoMult)return autoPick(sym,skip);const m=multsOf(sym);return m.includes(+cfg.mult)?+cfg.mult:m[0]};
+const stakeFor=(lot,sym,m)=>stakeAt(lot,m||multNow(sym));
 const lotsOf=c=>{const e=+c.entry_spot,b=+c.buy_price,m=+c.multiplier;return e>0&&m>0?b*m/e:0};
 const fmtLot=v=>(Math.round((+v||0)*100)/100).toFixed(2);   /* como MT5: 0.20, 1.00 */
 const saveCfg=()=>ls.set(LS_CFG,cfg);
@@ -118,11 +124,17 @@ function buy(dir,ok){
   if(!(stake>0)){toast(cfg.mode==="lote"?"Escribe el lote":"Escribe el monto");return}
   if(!acc.demo&&cfg.confirmReal&&!cfg.oneClick&&!ok){confirmAsk=dir;render();return}
   confirmAsk=null;busy=true;render();
-  const mult=multNow(sym);
   const lo={};if(+cfg.tp>0)lo.take_profit=+cfg.tp;if(+cfg.sl>0)lo.stop_loss=+cfg.sl;
-  const parameters={amount:stake,basis:"stake",contract_type:dir==="up"?"MULTUP":"MULTDOWN",currency:cur,multiplier:mult,underlying_symbol:sym};
-  if(Object.keys(lo).length)parameters.limit_order=lo;
-  send({buy:"1",price:stake,parameters}).then(r=>{busy=false;if(r.buy)watch(r.buy.contract_id);render()}).catch(e=>{busy=false;toast(e.message);render()})}
+  const auto=cfg.mode==="lote"&&cfg.autoMult,tried=[];
+  const go=()=>{const mult=multNow(sym,tried),st=cfg.mode==="lote"?stakeFor(+cfg.lot,sym,mult):+cfg.stake;
+    const L=Object.assign({},lo);if(L.stop_loss&&L.stop_loss>st)delete L.stop_loss; /* Deriv no acepta un SL mayor que el margen */
+    const parameters={amount:st,basis:"stake",contract_type:dir==="up"?"MULTUP":"MULTDOWN",currency:cur,multiplier:mult,underlying_symbol:sym};
+    if(Object.keys(L).length)parameters.limit_order=L;
+    send({buy:"1",price:st,parameters}).then(r=>{busy=false;if(r.buy)watch(r.buy.contract_id);if(lo.stop_loss&&!L.stop_loss)toast(`El SL de ${money(lo.stop_loss,cur)} es mayor que el margen (${money(st,cur)}): quedó sin SL y se cierra sola al perder el margen.`);render()})
+      .catch(e=>{/* si Deriv no acepta ese monto (máximo/mínimo del mercado), prueba con el siguiente multiplicador */
+        if(auto&&/max|máx|min|mín|stake|monto|amount|exceed|supera/i.test(e.message||"")&&tried.length<4){tried.push(mult);const nx=multNow(sym,tried);if(nx!==mult)return go()}
+        busy=false;toast(e.message);render()})};
+  go()}
 function sell(id){const c=contracts[id];if(c)c._closing=true;render();
   send({sell:+id,price:0}).then(r=>{toast(`Cerrada · ${money((r.sell||{}).sold_for,cur)}`)}).catch(e=>{if(c)c._closing=false;toast(e.message);render()})}
 function onPoc(p){const id=String(p.contract_id);const old=contracts[id]||{};contracts[id]=Object.assign(old,p);
@@ -272,17 +284,33 @@ function render(){if(!panel||panel.hidden)return;const t=tok(),sym=symNow(),ci=c
     `<label class="trd-f"><span>Monto (${esc(cur)})</span><input data-k="stake" type="number" min="0" step="0.5" inputmode="decimal" value="${esc(cfg.stake)}"></label>
     <div class="trd-chips">${[1,5,10,25,50].map(v=>`<button data-st="${v}" class="${+cfg.stake===v?"on":""}">${v}</button>`).join("")}</div>`}
     <details class="trd-adv"${lotMode?"":" open"}><summary>${lotMode?"Margen y cierre automático":"Multiplicador"}</summary>
-      <label class="trd-f"><span>Multiplicador <small>(más alto = menos margen, pero se cierra sola con menos puntos en contra)</small></span><select data-k="mult">${mults.map(v=>`<option value="${v}"${mN===v?" selected":""}>x${v}</option>`).join("")}</select></label></details>
-    <div class="trd-two"><label class="trd-f"><span>Take profit $ <small>(opcional)</small></span><input data-k="tp" type="number" min="0" step="0.5" inputmode="decimal" value="${esc(cfg.tp)}" placeholder="—"></label>
-      <label class="trd-f"><span>Stop loss $ <small>(opcional)</small></span><input data-k="sl" type="number" min="0" step="0.5" inputmode="decimal" value="${esc(cfg.sl)}" placeholder="—"></label></div>
+      ${lotMode?`<label class="trd-ck"><input type="checkbox" data-auto ${cfg.autoMult?"checked":""}> Multiplicador automático (como MT5: el más bajo que alcance con tu saldo, para aguantar más)</label>`:""}
+      <label class="trd-f"><span>Multiplicador <small>(más alto = menos margen, pero se cierra sola con menos puntos en contra)</small></span><select data-k="mult" ${lotMode&&cfg.autoMult?"disabled":""}>${mults.map(v=>`<option value="${v}"${mN===v?" selected":""}>x${v}</option>`).join("")}</select></label></details>
+    <div class="trd-two"><label class="trd-f"><span>Take profit $ <small data-pts="tp">(opcional)</small></span><input data-k="tp" type="number" min="0" step="0.5" inputmode="decimal" value="${esc(cfg.tp)}" placeholder="—"></label>
+      <label class="trd-f"><span>Stop loss $ <small data-pts="sl">(opcional)</small></span><input data-k="sl" type="number" min="0" step="0.5" inputmode="decimal" value="${esc(cfg.sl)}" placeholder="—"></label></div>
+    <div class="trd-warn" data-slw hidden></div>
     ${confirmAsk?`<div class="trd-conf"><p>¿Abrir <b>${confirmAsk==="up"?"▲ Compra":"▼ Venta"}</b> ${lotMode?`de <b>${esc(fmtLot(+cfg.lot))} lotes</b> (margen ${money(stakeFor(+cfg.lot,sym),cur)})`:`por <b>${money(cfg.stake,cur)}</b>`} en cuenta REAL?</p><div><button class="trd-x" data-cno>Cancelar</button><button class="trd-go t-${confirmAsk}" data-cyes>Sí, abrir</button></div></div>`:
     `<div class="trd-bt"><button class="trd-buy t-up" data-buy="up" ${busy||!ws||ci.mult===false?"disabled":""}>▲ ${lotMode?"Comprar "+esc(fmtLot(+cfg.lot||0)):"Sube"}</button><button class="trd-buy t-dn" data-buy="dn" ${busy||!ws||ci.mult===false?"disabled":""}>▼ ${lotMode?"Vender "+esc(fmtLot(+cfg.lot||0)):"Baja"}</button></div>`}
     <div class="trd-pos"></div>
     <div class="trd-ft">${real?`<label class="trd-ck"><input type="checkbox" data-confirm ${cfg.confirmReal?"checked":""}> Confirmar cada operación en real</label>`:""}<button class="trd-lnk" data-logout>Desconectar Deriv</button></div></div>`;
   bind();paintPos();paintMg()}
 /* margen del lote y a cuántos puntos se cierra sola (se actualiza con el precio) */
-function paintMg(){if(!panel||panel.hidden)return;const el=panel.querySelector("[data-mg]");if(!el)return;const sym=symNow(),px=lastPrice(),m=multNow(sym),st=stakeFor(+cfg.lot,sym);
-  el.innerHTML=px>0?`Margen <b>${money(st,cur)}</b> · x${m} · se cierra sola si va <b>~${(px/m).toFixed(px/m<10?2:1)} pts</b> en contra`:"Esperando precio…"}
+function paintMg(){if(!panel||panel.hidden)return;const sym=symNow(),px=lastPrice(),lotMode=cfg.mode==="lote",m=multNow(sym),lot=+cfg.lot||0;
+  const st=lotMode?stakeFor(lot,sym,m):+cfg.stake||0,ppt=lotMode?lot:(px>0?st*m/px:0); /* US$ por punto */
+  const el=panel.querySelector("[data-mg]");
+  if(el){const room=px>0?px/m:0,f=v=>v.toFixed(v<10?2:v<100?1:0),poor=+bal>0&&st>+bal;
+    el.innerHTML=px>0?`<div>Margen <b>${money(st,cur)}</b> · x${m}${cfg.autoMult?" <i>auto</i>":""}</div>
+      <div>Aguanta <b>~${f(room)} pts</b> en contra antes del cierre automático de Deriv</div>
+      ${comm[sym+"|"+m]!=null?`<div>Comisión al abrir ≈ <b>${money(comm[sym+"|"+m]*st,cur)}</b></div>`:""}
+      ${poor?`<div class="trd-bad">Tu saldo no alcanza para este lote ni con el multiplicador más alto. Baja el lote.</div>`:""}`:"Esperando precio…";
+    if(px>0&&!poor)askComm(sym,m,st)}
+  /* TP y SL en puntos (como en MT5) */
+  ["tp","sl"].forEach(k=>{const e=panel.querySelector(`[data-pts="${k}"]`);if(!e)return;const v=+cfg[k];e.textContent=v>0&&ppt>0?`= ${(v/ppt).toFixed(v/ppt<10?2:1)} pts`:"(opcional)"});
+  const w=panel.querySelector("[data-slw]");if(w){const bad=+cfg.sl>0&&st>0&&+cfg.sl>st;w.hidden=!bad;if(bad)w.textContent=`El SL (${money(+cfg.sl,cur)}) es mayor que el margen (${money(st,cur)}): Deriv cerraría la operación antes de llegar a tu SL. ${lotMode?(cfg.autoMult?"Baja el SL o súbele al lote.":"Baja el SL o usa un multiplicador más bajo."):"Súbele al monto o baja el SL."}`}}
+/* comisión de Deriv: se pregunta una vez sin comprar (proposal) y se guarda como % del margen por mercado y multiplicador */
+const comm={};let commT=0,commK="";
+function askComm(sym,m,st){const k=sym+"|"+m;if(!ws||!(st>0)||comm[k]!==undefined||k===commK)return;clearTimeout(commT);commT=setTimeout(()=>{commK=k;
+  send({proposal:1,amount:st,basis:"stake",contract_type:"MULTUP",currency:cur,multiplier:m,underlying_symbol:sym}).then(r=>{const c=r.proposal&&r.proposal.commission;comm[k]=c!=null&&st>0?+c/st:null}).catch(()=>{comm[k]=null}).finally(()=>{commK=""})},700)}
 setInterval(paintMg,1000);
 /* atajos de un clic (solo con el panel abierto y "Un clic" activo) */
 addEventListener("keydown",e=>{if(!panel||panel.hidden||cfg.broker==="ct"||!cfg.oneClick||!e.shiftKey||e.ctrlKey||e.metaKey||e.altKey)return;const t=e.target;if(t&&t.closest&&t.closest("input,textarea,select,[contenteditable]"))return;
@@ -296,7 +324,8 @@ function bind(){const q=s=>panel.querySelector(s),qa=s=>panel.querySelectorAll(s
   const as=q("[data-acc]");as&&(as.onchange=()=>{acc=accounts.find(a=>a.id===as.value)||acc;ls.set(LS_ACC,acc.id);bal=acc.bal;cur=acc.cur||"USD";contracts={};watched.clear();clearLines();confirmAsk=null;connect()});
   qa("[data-k]").forEach(i=>{i.oninput=i.onchange=()=>{cfg[i.dataset.k]=i.value;saveCfg();if(i.dataset.k==="stake")qa("[data-st]").forEach(b=>b.classList.toggle("on",+b.dataset.st===+i.value));
     if(i.dataset.k==="lot"){qa("[data-lt]").forEach(b=>b.classList.toggle("on",+b.dataset.lt===+i.value));const l=fmtLot(+i.value||0);const u=q('[data-buy="up"]'),d=q('[data-buy="dn"]');u&&(u.textContent="▲ Comprar "+l);d&&(d.textContent="▼ Vender "+l)}
-    if(i.dataset.k==="lot"||i.dataset.k==="mult")paintMg()}});
+    if(["lot","mult","tp","sl","stake"].includes(i.dataset.k))paintMg()}});
+  const au=q("[data-auto]");au&&(au.onchange=()=>{cfg.autoMult=au.checked;saveCfg();render()});
   qa("[data-st]").forEach(b=>b.onclick=()=>{cfg.stake=+b.dataset.st;saveCfg();render()});
   qa("[data-lt]").forEach(b=>b.onclick=()=>{cfg.lot=+b.dataset.lt;saveCfg();render()});
   qa("[data-mode]").forEach(b=>b.onclick=()=>{cfg.mode=b.dataset.mode;saveCfg();render()});
