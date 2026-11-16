@@ -69,6 +69,8 @@ function SupabaseAPI(url,key){
     profile(){return prof},
     async loadProfile(){if(!sess||!sess.user){prof=null;return null}const r=await sel("profiles",`&id=eq.${sess.user.id}`);prof=r&&r[0]||null;if(prof)prof.email=sess.user.email;return prof},
     isPremium(){return isPrem(prof)},isAdmin(){return !!prof&&prof.role==="admin"&&!prof.banned},
+    /* token de la sesión (para que el servidor confirme que eres admin, p. ej. al conectar cTrader) */
+    async accessToken(){if(sess&&sess.expires_at&&sess.expires_at*1000<Date.now()+60000)await refresh();return sess&&sess.access_token||null},
     /* EAG Charts: dibujos y diseño guardados en la cuenta */
     async chartState(){if(!sess||!sess.user)return null;const r=await sel("chart_state",`&user_id=eq.${sess.user.id}`);return r&&r[0]||null},
     async saveChartState(data){if(!sess||!sess.user)return null;return ups("chart_state",{user_id:sess.user.id,data,updated_at:new Date().toISOString()})},
@@ -237,7 +239,7 @@ function LocalAPI(){
     user(){const u=db.users.find(x=>x.id===uid);return u?{id:u.id,email:u.email}:null},
     profile(){const p=me();if(p){const u=db.users.find(x=>x.id===uid);p.email=u&&u.email}return p},
     async loadProfile(){return this.profile()},
-    isPremium(){return isPrem(me())},isAdmin(){return adm()},
+    isPremium(){return isPrem(me())},isAdmin(){return adm()},async accessToken(){return null},
     async chartState(){return null},async saveChartState(){return null},
     async chartAlerts(){return(db.calerts||[]).filter(x=>x.user_id===uid)},
     async saveChartAlert(a){db.calerts=db.calerts||[];const r=Object.assign({id:a.id||uuid(),created_at:now(),active:true},a,{user_id:uid});db.calerts=db.calerts.filter(x=>x.id!==r.id).concat(r);save();return r},

@@ -18,7 +18,7 @@ const rnd=n=>{const a=new Uint8Array(n);crypto.getRandomValues(a);return b64u(a)
 let O=null;            /* opciones que pasa charts-app */
 let panel=null,ws=null,wsTimer=null,pingT=null,reqN=1,pending={},accounts=[],acc=null,bal=null,cur="USD";
 let contracts={},cfInfo={},busy=false,confirmAsk=null,lastErr="";
-const cfg=Object.assign({mode:"lote",lot:0.2,stake:1,mult:0,tp:"",sl:"",hide:false,confirmReal:true,oneClick:false},ls.get(LS_CFG,{}));
+const cfg=Object.assign({broker:"dv",mode:"lote",lot:0.2,stake:1,mult:0,tp:"",sl:"",hide:false,confirmReal:true,oneClick:false},ls.get(LS_CFG,{}));
 /* Lotes como en MT5: en Boom/Crash 1 lote = 1 USD por punto. Deriv solo deja operar multiplicadores por API,
    así que el lote se convierte en una operación con multiplicador que gana o pierde lo MISMO por punto:
    ganancia ≈ monto × multiplicador × (movimiento / precio de entrada)  →  monto = lote × precio ÷ multiplicador */
@@ -151,18 +151,35 @@ const kindAt=(c,P)=>{const above=P>+c.entry_spot;return isUp(c)?(above?"tp":"sl"
 const lvl=(c,kind)=>{const lo=c.limit_order||{},o=kind==="tp"?lo.take_profit:lo.stop_loss;if(!o)return null;
   const amt=Math.abs(+(o.order_amount!=null?o.order_amount:o));if(!(amt>0))return null;const v=o.value!=null&&isFinite(+o.value)?+o.value:priceFor(c,amt,kind);return{amt,price:v}};
 const decs=c=>{const s=String(c.entry_spot||"");return s.includes(".")?s.split(".")[1].length:2};
-function want(c){const out=[];const pr=+c.profit,lt=lotsOf(c);
-  out.push({k:"e",price:+c.entry_spot,ex:{col:pr>=0?GREEN:RED,solid:true,txt:`${isUp(c)?"▲ Compra":"▼ Venta"} ${lt?fmtLot(lt)+" lotes":"x"+(c.multiplier||"")} · ${pr>=0?"+":""}${money(pr,cur)}`,ax:(+c.entry_spot).toFixed(decs(c))}});
-  ["tp","sl"].forEach(k=>{if(drag&&drag.cid===String(c.contract_id)&&(drag.from===k))return;const L=lvl(c,k);if(!L)return;
-    out.push({k,price:L.price,ex:{col:k==="tp"?GREEN:RED,right:true,txt:`${k==="tp"?"TP":"SL"} ${k==="tp"?"+":"-"}${money(L.amt,cur)}`,ax:L.price.toFixed(decs(c))}})});
-  if(drag&&drag.cid===String(c.contract_id)&&drag.price!=null){const k=kindAt(c,drag.price),amt=Math.abs(pnlAt(c,drag.price));
-    out.push({k:"drag",price:drag.price,ex:{col:k==="tp"?GREEN:RED,right:true,txt:`${k==="tp"?"TP":"SL"} ${k==="tp"?"+":"-"}${money(amt,cur)}  · suelta para fijar`,ax:drag.price.toFixed(decs(c))}})}
+/* ---------- brokers: cada uno entrega sus posiciones con el mismo formato ----------
+   pos = {key, sym, up, entry, tp, sl, pnl, label, t, dec, edit:true}  ·  setLevel(key, "tp"|"sl", precio|null)  ·  preview(pos, kind, precio) */
+const BROKERS={};
+function derivPositions(){return Object.values(contracts).filter(c=>+c.is_sold!==1&&c.entry_spot!=null).map(c=>{const pr=+c.profit,lt=lotsOf(c),T=lvl(c,"tp"),S=lvl(c,"sl");
+  return{key:"dv:"+c.contract_id,sym:c.underlying_symbol,up:isUp(c),entry:+c.entry_spot,tp:T?T.price:null,sl:S?S.price:null,tpTxt:T?`TP +${money(T.amt,cur)}`:"",slTxt:S?`SL -${money(S.amt,cur)}`:"",
+    pnl:pr,label:`${isUp(c)?"▲ Compra":"▼ Venta"} ${lt?fmtLot(lt)+" lotes":"x"+(c.multiplier||"")} · ${pr>=0?"+":""}${money(pr,cur)}`,t:(c.entry_spot_time||c.date_start||0)*1000,dec:decs(c),c}})}
+BROKERS.dv={positions:()=>ws?derivPositions():[],
+  preview:(p,kind,P)=>`${kind==="tp"?"TP +":"SL -"}${money(Math.abs(pnlAt(p.c,P)),cur)}`,
+  setLevel:(p,kind,P,from)=>{const c=p.c;
+    if(P==null){setLimit(c,kind,null);return}
+    let amt=Math.abs(pnlAt(c,P));if(kind==="sl"&&amt>+c.buy_price){amt=+c.buy_price;toast("El stop loss no puede ser mayor al margen: se dejó en "+money(amt,cur))}
+    const lo=c.limit_order=Object.assign({},c.limit_order||{});lo[kind==="tp"?"take_profit":"stop_loss"]={order_amount:amt,value:String(P)};
+    if(from&&from!=="e"&&from!==kind){setLimit(c,from,null);delete lo[from==="tp"?"take_profit":"stop_loss"]}
+    setLimit(c,kind,amt);paintPos()}};
+const allPositions=()=>{const out=[];Object.values(BROKERS).forEach(b=>{try{out.push(...b.positions())}catch(e){}});return out};
+const brokerOf=key=>BROKERS[String(key).split(":")[0]];
+function want(p){const out=[];const G=p.pnl>=0?GREEN:RED;
+  out.push({k:"e",price:p.entry,ex:{col:G,solid:true,txt:p.label,ax:p.entry.toFixed(p.dec)}});
+  ["tp","sl"].forEach(k=>{if(drag&&drag.key===p.key&&drag.from===k)return;const v=p[k];if(v==null)return;
+    out.push({k,price:v,ex:{col:k==="tp"?GREEN:RED,right:true,txt:p[k+"Txt"]||k.toUpperCase(),ax:(+v).toFixed(p.dec)}})});
+  if(drag&&drag.key===p.key&&drag.price!=null){const k=kindOf(p,drag.price);const b=brokerOf(p.key);
+    out.push({k:"drag",price:drag.price,ex:{col:k==="tp"?GREEN:RED,right:true,txt:`${b.preview(p,k,drag.price)}  · suelta para fijar`,ax:drag.price.toFixed(p.dec)}})}
   return out}
+const kindOf=(p,P)=>(P>p.entry)===p.up?"tp":"sl";
 function syncLines(){regLine();const ch=chartNow(),sym=symNow();const keep={};
-  if(ch)Object.values(contracts).forEach(c=>{const id=String(c.contract_id);if(c.underlying_symbol!==sym||+c.is_sold===1||c.entry_spot==null)return;
-    want(c).forEach(w=>{const key=id+":"+w.k;keep[key]=1;let l=lineMap[key];if(l&&(l.chart!==ch||!ch.getOverlayById(l.id))){try{l.chart.removeOverlay(l.id)}catch(e){}l=null}
-      const pt={timestamp:(c.entry_spot_time||c.date_start||0)*1000,value:w.price};
-      if(!l){try{const oid=ch.createOverlay({name:"eagTradeLine",lock:true,zLevel:w.k==="drag"?7:w.k==="e"?6:5,points:[pt],extendData:w.ex});if(oid)lineMap[key]={chart:ch,id:oid,price:w.price,cid:id,k:w.k}}catch(e){}}
+  if(ch)allPositions().forEach(p=>{if(p.sym!==sym)return;
+    want(p).forEach(w=>{const key=p.key+"|"+w.k;keep[key]=1;let l=lineMap[key];if(l&&(l.chart!==ch||!ch.getOverlayById(l.id))){try{l.chart.removeOverlay(l.id)}catch(e){}l=null}
+      const pt={timestamp:p.t||Date.now(),value:w.price};
+      if(!l){try{const oid=ch.createOverlay({name:"eagTradeLine",lock:true,zLevel:w.k==="drag"?7:w.k==="e"?6:5,points:[pt],extendData:w.ex});if(oid)lineMap[key]={chart:ch,id:oid,price:w.price,pk:p.key,k:w.k}}catch(e){}}
       else{try{ch.overrideOverlay({id:l.id,points:[pt],extendData:w.ex});l.price=w.price}catch(e){}}})});
   Object.keys(lineMap).forEach(key=>{if(!keep[key]){const l=lineMap[key];try{l.chart.removeOverlay(l.id)}catch(e){}delete lineMap[key]}})}
 
@@ -176,27 +193,23 @@ function hitLine(clientY,tol){const dom=paneDom();if(!dom)return null;const r=do
 let lastHit={key:"",t:0};
 function setLimit(c,kind,amt){const id=+c.contract_id;const lo={};lo[kind==="tp"?"take_profit":"stop_loss"]=amt==null?null:Math.round(amt*100)/100;
   return send({contract_update:1,contract_id:id,limit_order:lo}).then(()=>toast(amt==null?`${kind==="tp"?"Take profit":"Stop loss"} quitado`:`${kind==="tp"?"Take profit":"Stop loss"}: ${money(amt,cur)}`)).catch(e=>toast(e.message))}
-function startDrag(e,cy,touch){if(!ws||!panelReady())return;const dom=paneDom();if(!dom)return;const t=e.target;if(!dom.contains(t)&&!(t&&t.tagName==="CANVAS"&&dom.parentNode&&dom.parentNode.contains(t)))return;
+const posByKey=k=>allPositions().find(p=>p.key===k);
+function startDrag(e,cy,touch){if(!Object.keys(lineMap).length)return;const dom=paneDom();if(!dom)return;const t=e.target;if(!dom.contains(t)&&!(t&&t.tagName==="CANVAS"&&dom.parentNode&&dom.parentNode.contains(t)))return;
   const r=dom.getBoundingClientRect();if(e.clientX!=null&&(e.clientX<r.left||e.clientX>r.right))return;
-  const l=hitLine(cy,touch?14:7);if(!l)return;const c=contracts[l.cid];if(!c||+c.is_sold===1)return;
+  const l=hitLine(cy,touch?14:7);if(!l)return;const p=posByKey(l.pk);if(!p)return;
   e.preventDefault();e.stopPropagation();e.stopImmediatePropagation&&e.stopImmediatePropagation();
-  const key=l.cid+":"+l.k,now=Date.now();
-  if(l.k!=="e"&&lastHit.key===key&&now-lastHit.t<380){lastHit={key:"",t:0};setLimit(c,l.k,null);return}   /* doble clic: quitar */
+  const key=l.pk+"|"+l.k,now=Date.now();
+  if(l.k!=="e"&&lastHit.key===key&&now-lastHit.t<380){lastHit={key:"",t:0};brokerOf(p.key).setLevel(p,l.k,null);return}   /* doble clic: quitar */
   lastHit={key,t:now};
-  drag={cid:l.cid,from:l.k,y0:cy,moved:false,price:null};document.documentElement.classList.add("trd-dragging")}
+  drag={key:p.key,from:l.k,y0:cy,moved:false,price:null};document.documentElement.classList.add("trd-dragging")}
 function moveDrag(cy){if(!drag)return;if(!drag.moved&&Math.abs(cy-drag.y0)<4)return;drag.moved=true;const dom=paneDom();if(!dom)return;
   drag.price=yToPrice(cy-dom.getBoundingClientRect().top);syncLines()}
 let dragJustEnded=false;
 function endDrag(){if(!drag)return;const d=drag;drag=null;dragJustEnded=true;setTimeout(()=>dragJustEnded=false,60);document.documentElement.classList.remove("trd-dragging");
-  const c=contracts[d.cid];if(!c||!d.moved||d.price==null){syncLines();return}
-  const ey=priceToY(+c.entry_spot),py=priceToY(d.price);
-  if(ey!=null&&py!=null&&Math.abs(ey-py)<6){if(d.from!=="e")setLimit(c,d.from,null);syncLines();return}   /* soltó sobre la entrada: quitar */
-  const k=kindAt(c,d.price);let amt=Math.abs(pnlAt(c,d.price));
-  if(k==="sl"&&amt>+c.buy_price){amt=+c.buy_price;toast("El stop loss no puede ser mayor al margen: se dejó en "+money(amt,cur))}
-  const lo=c.limit_order=Object.assign({},c.limit_order||{});lo[k==="tp"?"take_profit":"stop_loss"]={order_amount:amt,value:String(d.price)};   /* se ve al instante */
-  if(d.from!=="e"&&d.from!==k){setLimit(c,d.from,null);delete lo[d.from==="tp"?"take_profit":"stop_loss"]}
-  setLimit(c,k,amt);syncLines();paintPos()}
-const panelReady=()=>!!tok();
+  const p=posByKey(d.key);if(!p||!d.moved||d.price==null){syncLines();return}const b=brokerOf(p.key);
+  const ey=priceToY(p.entry),py=priceToY(d.price);
+  if(ey!=null&&py!=null&&Math.abs(ey-py)<6){if(d.from!=="e")b.setLevel(p,d.from,null);syncLines();return}   /* soltó sobre la entrada: quitar */
+  b.setLevel(p,kindOf(p,d.price),d.price,d.from);syncLines()}
 /* se usa pointerdown (llega antes que mousedown/touchstart): así el gráfico no se mueve mientras arrastras el TP/SL */
 const stopAll=e=>{if(drag){e.preventDefault();e.stopPropagation();e.stopImmediatePropagation&&e.stopImmediatePropagation()}};
 document.addEventListener("pointerdown",e=>{if(e.pointerType==="mouse"&&e.button!==0)return;startDrag(e,e.clientY,e.pointerType!=="mouse")},true);
@@ -214,7 +227,7 @@ let stateMsg="";
 function setState(t){stateMsg=t;render()}
 function toast(t){try{O&&O.toast?O.toast(t):console.log(t)}catch(e){}}
 function open(){if(!panel){panel=document.createElement("div");panel.className="trd";document.body.appendChild(panel);dragPanel()}
-  panel.hidden=false;render();if(tok()&&!ws&&!accounts.length)loadAccounts();else if(ws)loadCF()}
+  panel.hidden=false;render();if(cfg.broker==="ct"&&window.EAGCT){window.EAGCT.onOpen();return}if(tok()&&!ws&&!accounts.length)loadAccounts();else if(ws)loadCF()}
 function close(){if(panel)panel.hidden=true}
 function dragPanel(){let st=null;panel.addEventListener("pointerdown",e=>{const h=e.target.closest(".trd-h");if(!h||e.target.closest("button,select"))return;const r=panel.getBoundingClientRect();st={x:e.clientX-r.left,y:e.clientY-r.top};h.setPointerCapture(e.pointerId)});
   panel.addEventListener("pointermove",e=>{if(!st)return;panel.style.left=Math.max(4,Math.min(innerWidth-panel.offsetWidth-4,e.clientX-st.x))+"px";panel.style.top=Math.max(4,Math.min(innerHeight-60,e.clientY-st.y))+"px";panel.style.right="auto"});
@@ -231,8 +244,11 @@ function paintPos(){if(!panel||panel.hidden)return;const box=panel.querySelector
   box.querySelectorAll("[data-sell]").forEach(b=>b.onclick=()=>sell(b.dataset.sell));
   const ca=box.querySelector("[data-closeall]");ca&&(ca.onclick=()=>Object.values(contracts).forEach(c=>{if(+c.is_sold!==1&&+c.is_valid_to_sell===1)sell(c.contract_id)}))}
 function render(){if(!panel||panel.hidden)return;const t=tok(),sym=symNow(),ci=cfInfo[sym]||{};
-  const head=`<div class="trd-h"><b>Operar</b><span class="trd-tag">Deriv · solo admin</span><span class="sp"></span>
-    ${t?`<button class="trd-ic" data-hide title="${cfg.hide?"Mostrar saldo":"Ocultar saldo (para lives)"}">${cfg.hide?"🙈":"👁"}</button>`:""}<button class="trd-ic" data-close title="Cerrar panel">×</button></div>`;
+  const CT=window.EAGCT,isCT=CT&&cfg.broker==="ct";
+  const head=`<div class="trd-h"><b>Operar</b><span class="trd-tag">solo admin</span><span class="sp"></span>
+    <button class="trd-ic" data-hide title="${cfg.hide?"Mostrar saldo":"Ocultar saldo (para lives)"}">${cfg.hide?"🙈":"👁"}</button><button class="trd-ic" data-close title="Cerrar panel">×</button></div>
+    ${CT?`<div class="trd-brk"><button data-brk="ct" class="${isCT?"on":""}">cTrader · Lotes</button><button data-brk="dv" class="${isCT?"":"on"}">Deriv · Opciones</button></div>`:""}`;
+  if(isCT){panel.innerHTML=head+`<div class="trd-b" data-ctb></div>`;bindHead();CT.render(panel.querySelector("[data-ctb]"));return}
   if(!t){panel.innerHTML=head+`<div class="trd-b"><p class="trd-help">Conecta tu cuenta de Deriv para comprar y vender desde el gráfico. Inicias sesión en la página de Deriv; aquí nunca se escribe tu contraseña.</p>
     ${lastErr?`<div class="trd-err">${esc(lastErr)}</div>`:""}
     ${canLogin()?`<button class="trd-go" data-login>Conectar con Deriv</button>`:`<div class="trd-err">Para conectar, abre los charts en <b>charts.elartegrafico.com</b>.${APP_ID?"":" Falta el App ID de Deriv en la configuración."}</div>`}
@@ -266,10 +282,12 @@ function paintMg(){if(!panel||panel.hidden)return;const el=panel.querySelector("
   el.innerHTML=px>0?`Margen <b>${money(st,cur)}</b> · x${m} · se cierra sola si va <b>~${(px/m).toFixed(px/m<10?2:1)} pts</b> en contra`:"Esperando precio…"}
 setInterval(paintMg,1000);
 /* atajos de un clic (solo con el panel abierto y "Un clic" activo) */
-addEventListener("keydown",e=>{if(!panel||panel.hidden||!cfg.oneClick||!e.shiftKey||e.ctrlKey||e.metaKey||e.altKey)return;const t=e.target;if(t&&t.closest&&t.closest("input,textarea,select,[contenteditable]"))return;
+addEventListener("keydown",e=>{if(!panel||panel.hidden||cfg.broker==="ct"||!cfg.oneClick||!e.shiftKey||e.ctrlKey||e.metaKey||e.altKey)return;const t=e.target;if(t&&t.closest&&t.closest("input,textarea,select,[contenteditable]"))return;
   const k=e.key.toLowerCase();if(k==="b"){e.preventDefault();buy("up",true)}else if(k==="s"){e.preventDefault();buy("dn",true)}});
-function bind(){const q=s=>panel.querySelector(s),qa=s=>panel.querySelectorAll(s);
+function bindHead(){const q=s=>panel.querySelector(s);
   q("[data-close]").onclick=close;const h=q("[data-hide]");h&&(h.onclick=()=>{cfg.hide=!cfg.hide;saveCfg();render()});
+  panel.querySelectorAll("[data-brk]").forEach(b=>b.onclick=()=>{cfg.broker=b.dataset.brk;saveCfg();confirmAsk=null;render();if(cfg.broker==="dv"&&tok()&&!ws&&!accounts.length)loadAccounts()})}
+function bind(){const q=s=>panel.querySelector(s),qa=s=>panel.querySelectorAll(s);bindHead();
   const lg=q("[data-login]");lg&&(lg.onclick=login);
   const lo=q("[data-logout]");lo&&(lo.onclick=logout);
   const as=q("[data-acc]");as&&(as.onchange=()=>{acc=accounts.find(a=>a.id===as.value)||acc;ls.set(LS_ACC,acc.id);bal=acc.bal;cur=acc.cur||"USD";contracts={};watched.clear();clearLines();confirmAsk=null;connect()});
@@ -288,9 +306,14 @@ function bind(){const q=s=>panel.querySelector(s),qa=s=>panel.querySelectorAll(s
 /* al cambiar de mercado o de gráfico activo */
 function onChange(){if(ws)loadCF();syncLines();render()}
 
+/* lo que comparte el panel con otros brokers (cTrader vive en eag-ctrader.js) */
+const SHARED={get O(){return O},cfg,saveCfg,toast,money,esc,fmtLot,symNow,chart:chartNow,lastPrice,syncLinesSoon,render:()=>render(),isOpen:()=>!!panel&&!panel.hidden,
+  addBroker:(id,b)=>{BROKERS[id]=b},paintLines:()=>syncLines()};
 window.EAGTrade={
-  async init(o){O=o;const had=await handleCallback();if(had)open();
-    else if(tok()&&ls.get(LS_ACC,null)!=null&&o.autoConnect)loadAccounts()},
-  open,close,onChange,
-  _test:{parseAccounts,onPoc,contracts:()=>contracts,lines:()=>lineMap,hit:y=>hitLine(y,7),py:v=>priceToY(v),dragS:()=>drag}};
+  async init(o){O=o;const CT=window.EAGCT;if(CT)CT.init(SHARED);
+    const ctHad=CT?await CT.handleCallback():false;if(ctHad){cfg.broker="ct";saveCfg();open();return}
+    const had=await handleCallback();if(had){cfg.broker="dv";saveCfg();open();return}
+    if(tok()&&ls.get(LS_ACC,null)!=null&&o.autoConnect)loadAccounts();if(CT&&o.autoConnect)CT.autoConnect()},
+  open,close,onChange:()=>{onChange();window.EAGCT&&window.EAGCT.onChange()},
+  _test:{parseAccounts,onPoc,contracts:()=>contracts,lines:()=>lineMap,dragS:()=>drag}};
 })();

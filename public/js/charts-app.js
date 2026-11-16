@@ -650,7 +650,7 @@ function start(){
     $("#prob").onclick=e=>{e.stopPropagation();window.EAGPro.open(proAccess("prac").ok||!proAccess("replay").ok?"prac":"replay")}}else $("#prob").hidden=true;
   /* Operar con Deriv: solo administradores (para los lives) */
   if(window.EAGTrade&&API.isAdmin()){const tb=$("#trb");tb.hidden=false;
-    window.EAGTrade.init({toast,cur:()=>{try{const p=panes[active];return{sym:p.kc.getSymbol().ticker,tf:p.kc.getPeriod().text}}catch(e){return{}}},chart:()=>{try{return panes[active].kc.chart}catch(e){return null}},autoConnect:true});
+    window.EAGTrade.init({toast,syms:()=>SYMS,cur:()=>{try{const p=panes[active],s=p.kc.getSymbol();return{sym:s.ticker,name:s.name||s.shortName,tf:p.kc.getPeriod().text}}catch(e){return{}}},chart:()=>{try{return panes[active].kc.chart}catch(e){return null}},autoConnect:true});
     tb.onclick=e=>{e.stopPropagation();window.EAGTrade.open()}}
   /* botón Instalar app: visible si no está instalada y el navegador lo permite (o en iPhone, con instrucciones) */
   const ib=$("#instb");
