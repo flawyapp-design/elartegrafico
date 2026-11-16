@@ -1,4 +1,4 @@
-/* EAG Charts · Operar con Deriv (solo administradores)
+/* EAG Charts · Operar con Deriv (multiplicadores, para todos; cTrader solo para el admin)
    - Inicia sesión con Deriv (OAuth con PKCE). El código se canjea en /api/deriv (servidor), como pide Deriv.
    - El token queda solo en este navegador (localStorage) hasta que vence o tocas "Desconectar".
    - Opera multiplicadores (Sube = MULTUP / Baja = MULTDOWN) con monto, multiplicador, take profit y stop loss.
@@ -18,6 +18,7 @@ const rnd=n=>{const a=new Uint8Array(n);crypto.getRandomValues(a);return b64u(a)
 let O=null;            /* opciones que pasa charts-app */
 let panel=null,ws=null,wsTimer=null,pingT=null,reqN=1,pending={},accounts=[],acc=null,bal=null,cur="USD";
 let contracts={},cfInfo={},busy=false,confirmAsk=null,lastErr="";
+const HAD_CFG=ls.get(LS_CFG,null)!=null;
 const cfg=Object.assign({broker:"dv",mode:"lote",lot:0.2,stake:1,mult:0,tp:"",sl:"",hide:false,confirmReal:true,oneClick:false},ls.get(LS_CFG,{}));
 /* Lotes como en MT5: en Boom/Crash 1 lote = 1 USD por punto. Deriv solo deja operar multiplicadores por API,
    así que el lote se convierte en una operación con multiplicador que gana o pierde lo MISMO por punto:
@@ -245,7 +246,7 @@ function paintPos(){if(!panel||panel.hidden)return;const box=panel.querySelector
   const ca=box.querySelector("[data-closeall]");ca&&(ca.onclick=()=>Object.values(contracts).forEach(c=>{if(+c.is_sold!==1&&+c.is_valid_to_sell===1)sell(c.contract_id)}))}
 function render(){if(!panel||panel.hidden)return;const t=tok(),sym=symNow(),ci=cfInfo[sym]||{};
   const CT=window.EAGCT,isCT=CT&&cfg.broker==="ct";
-  const head=`<div class="trd-h"><b>Operar</b><span class="trd-tag">solo admin</span><span class="sp"></span>
+  const head=`<div class="trd-h"><b>Operar</b><span class="trd-tag">${O&&O.admin?"admin":"Deriv · Multiplicadores"}</span><span class="sp"></span>
     <button class="trd-ic" data-hide title="${cfg.hide?"Mostrar saldo":"Ocultar saldo (para lives)"}">${cfg.hide?"🙈":"👁"}</button><button class="trd-ic" data-close title="Cerrar panel">×</button></div>
     ${CT?`<div class="trd-brk"><button data-brk="ct" class="${isCT?"on":""}">cTrader · Lotes</button><button data-brk="dv" class="${isCT?"":"on"}">Deriv · Opciones</button></div>`:""}`;
   if(isCT){panel.innerHTML=head+`<div class="trd-b" data-ctb></div>`;bindHead();CT.render(panel.querySelector("[data-ctb]"));return}
@@ -310,7 +311,10 @@ function onChange(){if(ws)loadCF();syncLines();render()}
 const SHARED={get O(){return O},cfg,saveCfg,toast,money,esc,fmtLot,symNow,chart:chartNow,lastPrice,syncLinesSoon,render:()=>render(),isOpen:()=>!!panel&&!panel.hidden,
   addBroker:(id,b)=>{BROKERS[id]=b},paintLines:()=>syncLines()};
 window.EAGTrade={
-  async init(o){O=o;const CT=window.EAGCT;if(CT)CT.init(SHARED);
+  async init(o){O=o;const CT=o.admin?window.EAGCT:null;
+    /* para el público: solo Deriv (multiplicadores) y, la primera vez, en modo monto */
+    if(!o.admin){try{delete window.EAGCT}catch(e){window.EAGCT=undefined}if(cfg.broker!=="dv"||!HAD_CFG){cfg.broker="dv";if(!HAD_CFG)cfg.mode="monto";saveCfg()}}
+    if(CT)CT.init(SHARED);
     const ctHad=CT?await CT.handleCallback():false;if(ctHad){cfg.broker="ct";saveCfg();open();return}
     const had=await handleCallback();if(had){cfg.broker="dv";saveCfg();open();return}
     if(tok()&&ls.get(LS_ACC,null)!=null&&o.autoConnect)loadAccounts();if(CT&&o.autoConnect)CT.autoConnect()},

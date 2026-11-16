@@ -183,7 +183,7 @@ function start(){
       <button class="btn ic inst" id="instb" data-inst title="Instalar EAG Charts como app" hidden><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg><span class="t">Instalar app</span></button>
       <button class="btn ic" id="alb" title="Alertas de precio"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/></svg><span class="t">Alertas</span><em class="badge" id="alc" hidden></em></button>
       <button class="btn ic" id="cfgb" title="Configuración: apariencia, barras, marca de agua, alertas y atajos"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg><span class="t">Configuración</span></button>
-      <button class="btn ic trb" id="trb" title="Operar con tu cuenta de Deriv (solo administradores)" hidden><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m7 15 5-5 5 5"/><path d="M4 20h16"/></svg><span class="t">Operar</span></button>
+      <button class="btn ic trb" id="trb" title="Operar con tu cuenta de Deriv (multiplicadores)" hidden><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m7 15 5-5 5 5"/><path d="M4 20h16"/></svg><span class="t">Operar</span></button>
       <button class="btn ic" id="wlb" title="Lista de mercados">${ICON.list}<span class="t">Mercados</span></button>
       <button class="btn ic fsb" id="fsb" title="Pantalla completa (toda la plataforma)" hidden><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
     </header>
@@ -438,7 +438,7 @@ function start(){
   }
   const curSym=i=>{try{return panes[i].kc.getSymbol().ticker}catch(e){return null}};
   function setActive(i){active=i;panes.forEach((p,j)=>p.el.classList.toggle("act",j===i&&visible()>1));paintList();paintTabs();tradeKick()}
-  const tradeKick=()=>{try{window.EAGTrade&&API.isAdmin()&&setTimeout(()=>window.EAGTrade.onChange(),350)}catch(e){}};
+  const tradeKick=()=>{try{window.EAGTrade&&setTimeout(()=>window.EAGTrade.onChange(),350)}catch(e){}};
   const visible=()=>(LAYS.find(l=>l[0]===lay)||LAYS[0])[1];
   let lay=SAVE.layout&&LAYS.some(l=>l[0]===SAVE.layout)?SAVE.layout:"mtf";   /* por defecto abre en Multitemporalidad (la novedad) */
   function setLayout(k){
@@ -686,9 +686,9 @@ function start(){
         const pp=tf?PERIODS.find(x=>x.text===tf):null;try{p.kc.setSymbol(findInfo(s),pp||undefined);if(pp&&p.kc.getPeriod().text!==pp.text)p.kc.setPeriod(pp)}catch(e){}
         SAVE.panes[active]=Object.assign({},SAVE.panes[active],{s},pp?{p:pp.text}:{});save();setTimeout(()=>{try{if(MTFS[active])buildMTF(active);paintList();paintTabs();afterTF()}catch(e){}},80)}})}
   else{const cb=$("#clb");cb&&(cb.hidden=true)}
-  /* Operar con Deriv: solo administradores (para los lives) */
-  if(window.EAGTrade&&API.isAdmin()){const tb=$("#trb");tb.hidden=false;
-    window.EAGTrade.init({toast,syms:()=>SYMS,cur:()=>{try{const p=panes[active],s=p.kc.getSymbol();return{sym:s.ticker,name:s.name||s.shortName,tf:p.kc.getPeriod().text}}catch(e){return{}}},chart:()=>{try{return panes[active].kc.chart}catch(e){return null}},autoConnect:true});
+  /* Operar con Deriv (multiplicadores) para todos; cTrader solo el admin */
+  if(window.EAGTrade){const tb=$("#trb");tb.hidden=false;tb.title="Operar con tu cuenta de Deriv (multiplicadores) desde el gráfico";
+    window.EAGTrade.init({admin:API.isAdmin(),toast,syms:()=>SYMS,cur:()=>{try{const p=panes[active],s=p.kc.getSymbol();return{sym:s.ticker,name:s.name||s.shortName,tf:p.kc.getPeriod().text}}catch(e){return{}}},chart:()=>{try{return panes[active].kc.chart}catch(e){return null}},autoConnect:true});
     tb.onclick=e=>{e.stopPropagation();window.EAGTrade.open()}}
   /* botón Instalar app: visible si no está instalada y el navegador lo permite (o en iPhone, con instrucciones) */
   const ib=$("#instb");
