@@ -7,6 +7,7 @@
 "use strict";
 const APP_ID=(window.AG_CONFIG||{}).DERIV_OAUTH_APP_ID||"";
 const BRIDGE="/api/deriv";
+const REG_URL="https://t.deriv.link?t=ZX9736UCRTEQ"; /* link de socio de El Arte Gráfico */
 const LS_TOK="eag_dv_tok",LS_ACC="eag_dv_acc",LS_CFG="eag_dv_cfg",SS_PKCE="eag_dv_pkce";
 const OK_HOSTS=["charts.elartegrafico.com","elartegrafico.com","www.elartegrafico.com"];
 const ls={get:(k,d)=>{try{const v=localStorage.getItem(k);return v==null?d:JSON.parse(v)}catch(e){return d}},set:(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}},del:k=>{try{localStorage.removeItem(k)}catch(e){}}};
@@ -253,6 +254,7 @@ function render(){if(!panel||panel.hidden)return;const t=tok(),sym=symNow(),ci=c
   if(!t){panel.innerHTML=head+`<div class="trd-b"><p class="trd-help">Conecta tu cuenta de Deriv para comprar y vender desde el gráfico. Inicias sesión en la página de Deriv; aquí nunca se escribe tu contraseña.</p>
     ${lastErr?`<div class="trd-err">${esc(lastErr)}</div>`:""}
     ${canLogin()?`<button class="trd-go" data-login>Conectar con Deriv</button>`:`<div class="trd-err">Para conectar, abre los charts en <b>charts.elartegrafico.com</b>.${APP_ID?"":" Falta el App ID de Deriv en la configuración."}</div>`}
+    <a class="trd-reg" href="${REG_URL}" target="_blank" rel="noopener">¿No tienes cuenta de Deriv? <b>Créala gratis aquí</b> →</a>
     <p class="trd-fine">Usa primero la cuenta <b>demo</b> para probar. Operar tiene riesgo: puedes perder lo que inviertes.</p></div>`;bind();return}
   const accSel=accounts.length?`<select data-acc>${accounts.map(a=>`<option value="${esc(a.id)}"${acc&&a.id===acc.id?" selected":""}>${a.demo?"Demo":"Real"} · ${esc(a.id)}</option>`).join("")}</select>`:"";
   const real=acc&&!acc.demo;
