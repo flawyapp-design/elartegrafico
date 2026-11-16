@@ -104,11 +104,19 @@ const gate=(h1,p,btns)=>{app.innerHTML=`<div class="gate"><img src="assets/logo_
   if(!API.user())return gate("EAG Charts","Gráficos en vivo de Boom y Crash, sintéticos, forex y más, con herramientas de análisis. Ingresa con tu cuenta de El Arte Gráfico.",`<a class="btn gold" href="${MAIN}#entrar">Ingresar</a><a class="btn" href="${MAIN}#registro">Crear cuenta</a>`);
   /* prueba gratis de 3 días para todos los registrados (empieza la primera vez que abren EAG Charts) */
   /* EAG Charts viene con los planes Plata, Oro y Diamond (por el mismo tiempo del plan). Cobre y cuentas gratis: prueba de 3 días */
+  /* VERSIÓN GRATIS: los registrados sin plan Plata/Oro/Diamond (y sin prueba activa) usan EAG Charts básico.
+     Se puede apagar en Admin → EAG Charts ("Charts gratis para registrados"). */
+  let SITE0={};try{SITE0=(API.site?await API.site():{})||{}}catch(e){SITE0={}}
+  window.__site0=SITE0;const freeOn=SITE0.chartFree!==false;
   if(!chartsPlan()){
     let t=null;try{t=API.chartTrial?await API.chartTrial():null}catch(e){t=null}
+    if(freeOn&&(!t||!t.ends_at||new Date(t.ends_at).getTime()<=Date.now())){
+      if(t&&t.ends_at&&!t.has_feedback&&!localStorage.getItem("eag_fb_skip")){trialEndedFree(t);return}
+      window.__free=true}
+    else{
     if(!t||!t.ends_at)return gate("Incluido en Plata, Oro y Diamond","EAG Charts viene con los planes Plata, Oro y Diamond, por el mismo tiempo de tu plan (Diamond, de por vida). Activa uno de esos planes y vuelve a esta página.",`<a class="btn gold" href="${MAIN}#premium">Ver planes</a><a class="btn" href="${ACAD}">Ir a la academia</a>`);
     if(new Date(t.ends_at).getTime()<=Date.now())return trialEnded(t);
-    window.__trial=t}
+    window.__trial=t}}
   /* traer lo guardado en la cuenta si es más nuevo que lo de este navegador */
   try{if(API.chartState){const r=await API.chartState();const lt=+(localStorage.getItem("eag_sync_ts")||0);
     if(r&&r.data&&new Date(r.updated_at).getTime()>lt+1000){const d=r.data;if(d.prefs){Object.keys(SAVE).forEach(k=>delete SAVE[k]);Object.assign(SAVE,d.prefs);localStorage.setItem(LS,JSON.stringify(SAVE))}
@@ -131,8 +139,24 @@ function trialEnded(t){
   app.innerHTML=`<div class="gate fbgate"><img src="assets/logo_circle.webp" alt=""><h1>Terminó tu prueba de 3 días</h1><p>Antes de seguir, ayúdanos a mejorar: ¿cómo te pareció EAG Charts?</p>${fbForm()}<div class="row">${plans}</div></div>`;
   wireFb(app,()=>gate("¡Gracias!","Tus recomendaciones nos llegan directo. Estamos mejorando EAG Charts con lo que nos dicen. Para seguir usándolo, activa un plan Plata, Oro o Diamond.",plans))}
 
+function trialEndedFree(t){
+  app.innerHTML=`<div class="gate fbgate"><img src="assets/logo_circle.webp" alt=""><h1>Terminó tu prueba completa</h1><p>Puedes seguir usando <b>EAG Charts gratis</b> (con multitemporalidad y varios mercados) o activar Plata, Oro o Diamond para tenerlo todo. Antes, ¿cómo te pareció?</p>${fbForm()}
+    <div class="row"><button class="btn" data-free>Seguir con la versión gratis</button><a class="btn gold" href="${MAIN}#premium">Ver planes</a></div></div>`;
+  const go=()=>{try{localStorage.setItem("eag_fb_skip","1")}catch(e){}window.__free=true;start()};
+  app.querySelector("[data-free]").onclick=go;wireFb(app,go)}
 function start(){
   const KP=window.klinechartspro,KC=window.klinecharts;
+  /* ---------- versión gratis ---------- */
+  const FREE=!!window.__free,S0=window.__site0||{};
+  const FREE_IND=S0.chartFreeInd!=null&&S0.chartFreeInd!==""?Math.max(0,+S0.chartFreeInd||0):2;
+  const FREE_TOOLS=new Set(["segment","rayLine","straightLine","horizontalStraightLine","horizontalRayLine","horizontalSegment","verticalStraightLine","priceLine","eagZone","eagRect","eagText","eagNote","eagMeasure"]);
+  const PLAN_URL=MAIN+"#premium";
+  function upsell(what){if(!FREE)return;let m=document.querySelector(".upsell");if(m)m.remove();m=document.createElement("div");m.className="upsell";
+    m.innerHTML=`<div class="ups-card" role="dialog" aria-modal="true"><div class="ups-ic">🔒</div><h3>${esc(what)}</h3><p class="ups-sub">Disponible en EAG Charts completo: planes Plata, Oro y Diamond</p>
+      <p>Estás usando la <b>versión gratis</b>: multitemporalidad, varios gráficos y mercados, líneas y zonas, y ${FREE_IND} indicador${FREE_IND===1?"":"es"}. Con <b>Plata, Oro o Diamond</b> tienes todas las herramientas (Fibonacci, zonas de compra/venta, posiciones, patrones y ondas), indicadores sin límite, alertas al celular, y el Replay y la Práctica.</p>
+      <div class="row"><button class="btn" data-x>Seguir gratis</button><a class="btn gold" href="${PLAN_URL}">Ver planes</a></div></div>`;
+    document.body.appendChild(m);const cl=()=>m.remove();m.onclick=e=>{if(e.target===m)cl()};m.querySelector("[data-x]").onclick=cl}
+  window.__upsell=upsell;
   try{KP.loadLocales("es-ES",ES)}catch(e){}
   try{KC.registerLocale&&KC.registerLocale("es-ES",ES_CORE)}catch(e){}
   const prof=API.profile()||{};
@@ -153,6 +177,7 @@ function start(){
       <span class="st" id="st"><i></i><span>Conectando…</span></span>
       <span class="grow"></span>
       <span class="who">${esc(prof.username||"")}</span>
+      ${window.__free?`<a class="btn ic freeb" href="${MAIN}#premium" title="Estás en la versión gratis. Mejora a Plata, Oro o Diamond para tenerlo todo"><span class="pi">⭐</span><span class="t">Gratis · Mejorar</span></a>`:""}
       <button class="btn ic prob" id="prob" title="Estudio: Replay del mercado y Práctica guiada (Premium)"><span class="pi">🎓</span><span class="t">Estudio</span><em>PRO</em></button>
       <button class="btn ic inst" id="instb" data-inst title="Instalar EAG Charts como app" hidden><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg><span class="t">Instalar app</span></button>
       <button class="btn ic" id="alb" title="Alertas de precio"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/></svg><span class="t">Alertas</span><em class="badge" id="alc" hidden></em></button>
@@ -355,7 +380,7 @@ function start(){
   const BGS=["#060b1a","#0b0c0e","#000000","#131722","#0d1512","#15121b","#ffffff","#faf8f3","#f3f5f8"];
   function applyCfg(){const c=CF();
     document.documentElement.classList.toggle("light",light());document.documentElement.classList.toggle("eag",eagT());appw.classList.toggle("h-wm",!c.wm);
-    const de=document.documentElement;de.dataset.wm=(c.wmMode==="brand"||!c.wm)?"brand":"both";de.style.setProperty("--wmo",Math.max(6,+c.wmOp||10)/100);de.style.setProperty("--wms",(+c.wmSize||100)/100);
+    const de=document.documentElement;de.dataset.wm=(c.wmMode==="brand"||!c.wm)?"brand":"both";de.style.setProperty("--wmo",Math.max(FREE?16:6,+c.wmOp||10)/100);de.style.setProperty("--wms",(+c.wmSize||100)/100);
     de.style.setProperty("--wmc",c.wmColor==="auto"?(light()?"#15171c":"#ffffff"):c.wmColor);
     document.documentElement.style.setProperty("--chartbg",c.bg||defBg());
     const tc=document.querySelector('meta[name="theme-color"]');tc&&tc.setAttribute("content",defBg());
@@ -387,12 +412,15 @@ function start(){
     pop.querySelectorAll("[data-r]").forEach(i=>{i.oninput=()=>{SAVE.cfg[i.dataset.r]=+i.value;i.nextElementSibling.textContent=i.value+"%";applyCfg()};i.onchange=()=>save()});
     pop.querySelector('[data-a="reset"]').onclick=()=>{SAVE.cfg=Object.assign({},CDEF);save();applyCfg();openCfg(anchor)};
     pop.dataset.for="cfg";showPop(anchor,"right")}
+  /* versión gratis: si traía más indicadores de la prueba, se quedan los primeros */
+  function trimInd(d){if(!d)return d;const main=(d.main||[]).slice(0,FREE_IND),left=Math.max(0,FREE_IND-main.length),sub=(d.sub||[]).slice(0,left);return Object.assign({},d,{main,sub})}
   function makePane(i){
     const el=document.createElement("div");el.className="pane";el.innerHTML='<div class="kc"></div>';grid.appendChild(el);
     const sv=SAVE.panes[i]||{},sym=sv.s||DEF[i%DEF.length],per=perOf(sv.p||(i===0?"5m":"1m"));
     const p={el,kc:null};
     const kc=window.EAGWidget({container:el.firstChild,symbol:findInfo(sym),period:per,datafeed:Datafeed(),theme:CF().theme,timezone:TZ,
-      indicators:sv.ind,magnet:SAVE.magnet,lastTools:SAVE.lastTools,
+      indicators:FREE?trimInd(sv.ind):sv.ind,magnet:SAVE.magnet,lastTools:SAVE.lastTools,
+      toolAllowed:FREE?(n=>FREE_TOOLS.has(n)):null,maxIndicators:FREE?FREE_IND:null,alertsAllowed:FREE?(()=>false):null,onLocked:(k,what)=>upsell(what),
       getFavTF:()=>SAVE.tfFav,
       onPickTF:t=>{kc.setPeriod(perOf(t));afterTF()},
       onTFClick:a=>{setActive(i);pop.hidden||pop.dataset.for!=="tf"?openTF(p,a):closePop()},
@@ -636,7 +664,7 @@ function start(){
       try{loadAlerts()}catch(e){}},300)});
 
   $("#cfgb").onclick=e=>{e.stopPropagation();openSettings()};
-  $("#alb").onclick=e=>{e.stopPropagation();openSettings("alertas")};
+  $("#alb").onclick=e=>{e.stopPropagation();if(FREE)return upsell("Las alertas de precio");openSettings("alertas")};
   /* ---------- Estudio (Replay + Práctica): Premium; el admin puede incluirlo en la prueba de 3 días ---------- */
   let SITE={};try{API.site&&API.site().then(d=>{SITE=d||{}}).catch(()=>{})}catch(e){}
   /* Replay: desde Oro. Práctica guiada: solo Diamond. El admin puede abrir ambos en la prueba. */

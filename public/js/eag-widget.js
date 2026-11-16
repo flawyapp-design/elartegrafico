@@ -558,7 +558,7 @@ window.EAGWidget=function(o){
   }
   function openToolMenu(g,anchor){closeMenu();menu=document.createElement("div");menu.className="wmenu";
     const favs=(o.getToolFav&&o.getToolFav())||[];
-    menu.innerHTML=`<div class="mt">${esc(g.t)}</div>`+g.items.map(([k,t])=>k==="-"?`<div class="msec">${esc(t)}</div>`:`<button data-k="${k}" class="${(lastTool[g.g]||g.items[0][0])===k?"on":""}">${tsvg(k,20)}<span>${esc(t)}</span><i class="tst${favs.includes(k)?" on":""}" data-fav="${k}" title="${favs.includes(k)?"Quitar de la barra de favoritos":"Agregar a la barra de favoritos"}">${favs.includes(k)?"★":"☆"}</i></button>`).join("");
+    menu.innerHTML=`<div class="mt">${esc(g.t)}</div>`+g.items.map(([k,t])=>k==="-"?`<div class="msec">${esc(t)}</div>`:`<button data-k="${k}" class="${(lastTool[g.g]||g.items[0][0])===k?"on":""}${toolOK(k)?"":" lk"}">${tsvg(k,20)}<span>${esc(t)}${toolOK(k)?"":' <em class="lkb">🔒 Plata</em>'}</span><i class="tst${favs.includes(k)?" on":""}" data-fav="${k}" title="${favs.includes(k)?"Quitar de la barra de favoritos":"Agregar a la barra de favoritos"}">${favs.includes(k)?"★":"☆"}</i></button>`).join("");
     document.body.appendChild(menu);const r=anchor.getBoundingClientRect();menu.style.left=(r.right+6)+"px";menu.style.top=Math.min(r.top,innerHeight-menu.offsetHeight-8)+"px";
     menu.querySelectorAll("[data-fav]").forEach(f=>f.addEventListener("click",e=>{e.stopPropagation();o.onToolFav&&o.onToolFav(f.dataset.fav);const on=((o.getToolFav&&o.getToolFav())||[]).includes(f.dataset.fav);f.classList.toggle("on",on);f.textContent=on?"★":"☆"},true));
     menu.querySelectorAll("button").forEach(b=>b.onclick=()=>{lastTool[g.g]=b.dataset.k;o.onLastTools&&o.onLastTools(lastTool);closeMenu();stopBrush();paintDbar();startTool(b.dataset.k)})}
@@ -590,7 +590,8 @@ window.EAGWidget=function(o){
     const k=scrollLock+"|"+zoomLock;if(k===panLocked)return;panLocked=k;
     try{chart.setScrollEnabled(!scrollLock);chart.setZoomEnabled(!zoomLock)}catch(e){}chartEl.classList.toggle("locked",scrollLock)}
   function cancelDraw(){if(drawingId){try{chart.removeOverlay(drawingId)}catch(e){}ovs.delete(drawingId);drawingId=null}dbar.querySelectorAll(".dt").forEach(b=>b.classList.remove("act"));syncPan()}
-  function startTool(name){if(name==="eagBrush"){startBrush();const bb=dbar.querySelector('.dt[data-k="eagBrush"]');bb&&bb.classList.add("act");return}cancelDraw();
+  const toolOK=n=>!o.toolAllowed||o.toolAllowed(n);
+  function startTool(name){if(!toolOK(name)){cancelDraw();o.onLocked&&o.onLocked("tool",TNAME[name]||name);return}if(name==="eagBrush"){startBrush();const bb=dbar.querySelector('.dt[data-k="eagBrush"]');bb&&bb.classList.add("act");return}cancelDraw();
     const ts=(o.getToolStyle&&o.getToolStyle(name))||{};
     const ex=Object.assign(name==="eagText"?{text:"Texto"}:name==="eagNote"?{text:"Nota"}:{},ts.ex||{});
     const id=makeOverlay({name,extendData:Object.keys(ex).length?ex:undefined,styles:ts.styles||undefined},true);if(!id)return;drawingId=id;syncPan();
@@ -679,7 +680,7 @@ window.EAGWidget=function(o){
     /* recordar el estilo para los próximos dibujos de esta herramienta */
     if(o.onToolStyle){const ex={};const e2=v.extendData||{};["color","size","up","dn"].forEach(k=>{if(e2[k]!=null)ex[k]=e2[k]});o.onToolStyle(v.name,{styles:v.styles||null,ex})}}
   const alertable=v=>/^(horizontalStraightLine|horizontalRayLine|horizontalSegment|priceLine|eagZone|eagRect|eagBuyZone|eagSellZone|rect|segment|rayLine|straightLine)$/.test(v.name)&&v.points&&v.points.length;
-  function alertFrom(id){const v=ovs.get(id);if(!v||!o.onCreateAlert)return;const ps=v.points.map(p=>p.value),pp=sym.pricePrecision||3,r=x=>+(+x).toFixed(pp);
+  function alertFrom(id){if(o.alertsAllowed&&!o.alertsAllowed()){o.onLocked&&o.onLocked("alert","Alertas de precio");return}const v=ovs.get(id);if(!v||!o.onCreateAlert)return;const ps=v.points.map(p=>p.value),pp=sym.pricePrecision||3,r=x=>+(+x).toFixed(pp);
     const zone=/^(eagZone|eagRect|eagBuyZone|eagSellZone|rect)$/.test(v.name)&&ps.length>1;
     /* para líneas inclinadas se usa el precio del punto más reciente */
     const price=zone?Math.max(...ps):(/^(segment|rayLine|straightLine)$/.test(v.name)?ps[ps.length-1]:ps[0]);
@@ -838,6 +839,9 @@ window.EAGWidget=function(o){
 
   /* ---------- indicadores ---------- */
   function addInd(name,where,silent){const params=ind.params[name];
+    const already=where==="main"?ind.main.includes(name):!!ind.sub[name];
+    if(!already&&o.maxIndicators!=null){const n=ind.main.length+Object.keys(ind.sub).length;const mx=typeof o.maxIndicators==="function"?o.maxIndicators():o.maxIndicators;
+      if(mx!=null&&n>=mx){if(!silent)o.onLocked&&o.onLocked("ind",`Más de ${mx} indicador${mx===1?"":"es"}`);return false}}
     if(where==="main"){if(!ind.main.includes(name))ind.main.push(name);chart.createIndicator(params?{name,calcParams:params}:name,true,{id:"candle_pane"})}
     else{if(ind.sub[name])return;const pid=chart.createIndicator(params?{name,calcParams:params}:name,false,{height:110,dragEnabled:true});ind.sub[name]=pid}
     if(!silent)o.onIndicators&&o.onIndicators(dump())}
