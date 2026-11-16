@@ -129,37 +129,94 @@ function onPoc(p){const id=String(p.contract_id);const old=contracts[id]||{};con
     setTimeout(()=>{delete contracts[id];syncLines();render()},4000)}
   syncLinesSoon();paintPos()}
 
-/* ---------- línea de entrada en el gráfico ---------- */
-let lineMap={},lineT=null;
+/* ---------- líneas en el gráfico: entrada, TP y SL (se arrastran como en MT5) ---------- */
+let lineMap={},lineT=null,drag=null;
+const GREEN="#089981",RED="#f23645",BLUE="#2962ff";
 function regLine(){const KC=window.klinecharts;if(!KC||regLine.done)return;regLine.done=true;
   KC.registerOverlay({name:"eagTradeLine",totalStep:2,lock:true,needDefaultPointFigure:false,needDefaultXAxisFigure:false,needDefaultYAxisFigure:false,
     createPointFigures:({overlay,coordinates,bounding})=>{const c=coordinates[0];if(!c)return[];const e=overlay.extendData||{};
-      return[{type:"line",ignoreEvent:true,attrs:{coordinates:[{x:0,y:c.y},{x:bounding.width,y:c.y}]},styles:{style:"dashed",dashedValue:[6,4],color:e.col,size:1.2}},
-        {type:"text",ignoreEvent:true,attrs:{x:8,y:c.y-3,text:e.txt||"",align:"left",baseline:"bottom"},styles:{color:"#fff",size:12,weight:"700",backgroundColor:e.col,borderColor:e.col,paddingLeft:7,paddingRight:7,paddingTop:4,paddingBottom:4,borderRadius:4}}]},
+      return[{type:"line",ignoreEvent:true,attrs:{coordinates:[{x:0,y:c.y},{x:bounding.width,y:c.y}]},styles:{style:e.solid?"solid":"dashed",dashedValue:[6,4],color:e.col,size:e.solid?1.6:1.2}},
+        {type:"text",ignoreEvent:true,attrs:{x:e.right?Math.round(bounding.width*.56):8,y:c.y-3,text:e.txt||"",align:e.right?"center":"left",baseline:"bottom"},styles:{color:"#fff",size:12,weight:"700",backgroundColor:e.col,borderColor:e.col,paddingLeft:7,paddingRight:7,paddingTop:4,paddingBottom:4,borderRadius:4}}]},
     createYAxisFigures:({overlay,coordinates,bounding,yAxis})=>{const c=coordinates[0];if(!c)return[];const e=overlay.extendData||{};const z=yAxis&&yAxis.isFromZero&&yAxis.isFromZero();
       return[{type:"text",ignoreEvent:true,attrs:{x:z?0:bounding.width,y:c.y,text:e.ax||"",align:z?"left":"right",baseline:"middle"},styles:{color:"#fff",size:11,backgroundColor:e.col,borderColor:e.col,paddingLeft:4,paddingRight:4,paddingTop:3,paddingBottom:3,borderRadius:2}}]}})}
 function chartNow(){try{return O.chart()}catch(e){return null}}
 function clearLines(){Object.values(lineMap).forEach(l=>{try{l.chart.removeOverlay(l.id)}catch(e){}});lineMap={}}
 const syncLinesSoon=()=>{if(lineT)return;lineT=setTimeout(()=>{lineT=null;syncLines()},250)};
-function syncLines(){regLine();const ch=chartNow(),sym=symNow();
-  Object.keys(lineMap).forEach(id=>{const l=lineMap[id],c=contracts[id];if(!c||l.chart!==ch||c.underlying_symbol!==sym||+c.is_sold===1){try{l.chart.removeOverlay(l.id)}catch(e){}delete lineMap[id]}});
-  if(!ch)return;
-  Object.values(contracts).forEach(c=>{const id=String(c.contract_id);if(c.underlying_symbol!==sym||+c.is_sold===1||c.entry_spot==null)return;
-    const up=c.contract_type==="MULTUP",pr=+c.profit,col=pr>=0?"#089981":"#f23645";
-    const lt=lotsOf(c);const txt=`${up?"▲ Compra":"▼ Venta"} ${lt?fmtLot(lt)+" lotes":"x"+(c.multiplier||"")} · ${pr>=0?"+":""}${money(pr,cur)}`;
-    const ex={col,txt,ax:(+c.entry_spot).toString()};
-    let l=lineMap[id];if(l&&!ch.getOverlayById(l.id))l=null;
-    if(!l){try{const oid=ch.createOverlay({name:"eagTradeLine",lock:true,zLevel:5,points:[{timestamp:(c.entry_spot_time||c.date_start||0)*1000,value:+c.entry_spot}],extendData:ex});if(oid)lineMap[id]={chart:ch,id:oid}}catch(e){}}
-    else{try{ch.overrideOverlay({id:l.id,extendData:ex})}catch(e){}}})}
+/* matemática del multiplicador: ganancia al precio P */
+const isUp=c=>c.contract_type==="MULTUP";
+const pnlAt=(c,P)=>{const e=+c.entry_spot,k=(+c.buy_price)*(+c.multiplier)/e;return isUp(c)?k*(P-e):k*(e-P)};
+const priceFor=(c,amt,kind)=>{const e=+c.entry_spot,k=(+c.buy_price)*(+c.multiplier)/e;const d=amt/k;   /* puntos */
+  const sign=(kind==="tp")===isUp(c)?1:-1;return e+sign*d};
+const kindAt=(c,P)=>{const above=P>+c.entry_spot;return isUp(c)?(above?"tp":"sl"):(above?"sl":"tp")};
+const lvl=(c,kind)=>{const lo=c.limit_order||{},o=kind==="tp"?lo.take_profit:lo.stop_loss;if(!o)return null;
+  const amt=Math.abs(+(o.order_amount!=null?o.order_amount:o));if(!(amt>0))return null;const v=o.value!=null&&isFinite(+o.value)?+o.value:priceFor(c,amt,kind);return{amt,price:v}};
+const decs=c=>{const s=String(c.entry_spot||"");return s.includes(".")?s.split(".")[1].length:2};
+function want(c){const out=[];const pr=+c.profit,lt=lotsOf(c);
+  out.push({k:"e",price:+c.entry_spot,ex:{col:pr>=0?GREEN:RED,solid:true,txt:`${isUp(c)?"▲ Compra":"▼ Venta"} ${lt?fmtLot(lt)+" lotes":"x"+(c.multiplier||"")} · ${pr>=0?"+":""}${money(pr,cur)}`,ax:(+c.entry_spot).toFixed(decs(c))}});
+  ["tp","sl"].forEach(k=>{if(drag&&drag.cid===String(c.contract_id)&&(drag.from===k))return;const L=lvl(c,k);if(!L)return;
+    out.push({k,price:L.price,ex:{col:k==="tp"?GREEN:RED,right:true,txt:`${k==="tp"?"TP":"SL"} ${k==="tp"?"+":"-"}${money(L.amt,cur)}`,ax:L.price.toFixed(decs(c))}})});
+  if(drag&&drag.cid===String(c.contract_id)&&drag.price!=null){const k=kindAt(c,drag.price),amt=Math.abs(pnlAt(c,drag.price));
+    out.push({k:"drag",price:drag.price,ex:{col:k==="tp"?GREEN:RED,right:true,txt:`${k==="tp"?"TP":"SL"} ${k==="tp"?"+":"-"}${money(amt,cur)}  · suelta para fijar`,ax:drag.price.toFixed(decs(c))}})}
+  return out}
+function syncLines(){regLine();const ch=chartNow(),sym=symNow();const keep={};
+  if(ch)Object.values(contracts).forEach(c=>{const id=String(c.contract_id);if(c.underlying_symbol!==sym||+c.is_sold===1||c.entry_spot==null)return;
+    want(c).forEach(w=>{const key=id+":"+w.k;keep[key]=1;let l=lineMap[key];if(l&&(l.chart!==ch||!ch.getOverlayById(l.id))){try{l.chart.removeOverlay(l.id)}catch(e){}l=null}
+      const pt={timestamp:(c.entry_spot_time||c.date_start||0)*1000,value:w.price};
+      if(!l){try{const oid=ch.createOverlay({name:"eagTradeLine",lock:true,zLevel:w.k==="drag"?7:w.k==="e"?6:5,points:[pt],extendData:w.ex});if(oid)lineMap[key]={chart:ch,id:oid,price:w.price,cid:id,k:w.k}}catch(e){}}
+      else{try{ch.overrideOverlay({id:l.id,points:[pt],extendData:w.ex});l.price=w.price}catch(e){}}})});
+  Object.keys(lineMap).forEach(key=>{if(!keep[key]){const l=lineMap[key];try{l.chart.removeOverlay(l.id)}catch(e){}delete lineMap[key]}})}
+
+/* arrastrar: desde la entrada crea TP o SL (según el lado); desde TP/SL lo mueve; soltar sobre la entrada o doble clic lo quita */
+function paneDom(){const ch=chartNow();try{return ch&&ch.getDom("candle_pane","main")}catch(e){return null}}
+function yToPrice(y){const ch=chartNow();try{let p=ch.convertFromPixel([{x:10,y}],{paneId:"candle_pane"});if(Array.isArray(p))p=p[0];const v=p&&+p.value;return isFinite(v)?v:null}catch(e){return null}}
+function priceToY(v){const ch=chartNow();try{const p=ch.convertToPixel({value:v},{paneId:"candle_pane"});return p&&p.y}catch(e){return null}}
+function hitLine(clientY,tol){const dom=paneDom();if(!dom)return null;const r=dom.getBoundingClientRect(),y=clientY-r.top;let best=null;
+  Object.values(lineMap).forEach(l=>{if(l.k==="drag")return;const ly=priceToY(l.price);if(ly==null)return;const d=Math.abs(ly-y);if(d<=tol&&(!best||d<best.d||(d===best.d&&l.k!=="e")))best={d,l}});
+  return best&&best.l}
+let lastHit={key:"",t:0};
+function setLimit(c,kind,amt){const id=+c.contract_id;const lo={};lo[kind==="tp"?"take_profit":"stop_loss"]=amt==null?null:Math.round(amt*100)/100;
+  return send({contract_update:1,contract_id:id,limit_order:lo}).then(()=>toast(amt==null?`${kind==="tp"?"Take profit":"Stop loss"} quitado`:`${kind==="tp"?"Take profit":"Stop loss"}: ${money(amt,cur)}`)).catch(e=>toast(e.message))}
+function startDrag(e,cy,touch){if(!ws||!panelReady())return;const dom=paneDom();if(!dom)return;const t=e.target;if(!dom.contains(t)&&!(t&&t.tagName==="CANVAS"&&dom.parentNode&&dom.parentNode.contains(t)))return;
+  const r=dom.getBoundingClientRect();if(e.clientX!=null&&(e.clientX<r.left||e.clientX>r.right))return;
+  const l=hitLine(cy,touch?14:7);if(!l)return;const c=contracts[l.cid];if(!c||+c.is_sold===1)return;
+  e.preventDefault();e.stopPropagation();e.stopImmediatePropagation&&e.stopImmediatePropagation();
+  const key=l.cid+":"+l.k,now=Date.now();
+  if(l.k!=="e"&&lastHit.key===key&&now-lastHit.t<380){lastHit={key:"",t:0};setLimit(c,l.k,null);return}   /* doble clic: quitar */
+  lastHit={key,t:now};
+  drag={cid:l.cid,from:l.k,y0:cy,moved:false,price:null};document.documentElement.classList.add("trd-dragging")}
+function moveDrag(cy){if(!drag)return;if(!drag.moved&&Math.abs(cy-drag.y0)<4)return;drag.moved=true;const dom=paneDom();if(!dom)return;
+  drag.price=yToPrice(cy-dom.getBoundingClientRect().top);syncLines()}
+let dragJustEnded=false;
+function endDrag(){if(!drag)return;const d=drag;drag=null;dragJustEnded=true;setTimeout(()=>dragJustEnded=false,60);document.documentElement.classList.remove("trd-dragging");
+  const c=contracts[d.cid];if(!c||!d.moved||d.price==null){syncLines();return}
+  const ey=priceToY(+c.entry_spot),py=priceToY(d.price);
+  if(ey!=null&&py!=null&&Math.abs(ey-py)<6){if(d.from!=="e")setLimit(c,d.from,null);syncLines();return}   /* soltó sobre la entrada: quitar */
+  const k=kindAt(c,d.price);let amt=Math.abs(pnlAt(c,d.price));
+  if(k==="sl"&&amt>+c.buy_price){amt=+c.buy_price;toast("El stop loss no puede ser mayor al margen: se dejó en "+money(amt,cur))}
+  const lo=c.limit_order=Object.assign({},c.limit_order||{});lo[k==="tp"?"take_profit":"stop_loss"]={order_amount:amt,value:String(d.price)};   /* se ve al instante */
+  if(d.from!=="e"&&d.from!==k){setLimit(c,d.from,null);delete lo[d.from==="tp"?"take_profit":"stop_loss"]}
+  setLimit(c,k,amt);syncLines();paintPos()}
+const panelReady=()=>!!tok();
+/* se usa pointerdown (llega antes que mousedown/touchstart): así el gráfico no se mueve mientras arrastras el TP/SL */
+const stopAll=e=>{if(drag){e.preventDefault();e.stopPropagation();e.stopImmediatePropagation&&e.stopImmediatePropagation()}};
+document.addEventListener("pointerdown",e=>{if(e.pointerType==="mouse"&&e.button!==0)return;startDrag(e,e.clientY,e.pointerType!=="mouse")},true);
+["mousedown","touchstart"].forEach(t=>document.addEventListener(t,stopAll,{capture:true,passive:false}));
+document.addEventListener("pointermove",e=>{if(drag){moveDrag(e.clientY);stopAll(e);return}
+  if(e.pointerType!=="mouse")return;const dom=paneDom();if(!dom||!Object.keys(lineMap).length)return;const r=dom.getBoundingClientRect();
+  const inside=e.clientX>=r.left&&e.clientX<=r.right&&e.clientY>=r.top&&e.clientY<=r.bottom;dom.classList.toggle("trd-hov",inside&&!!hitLine(e.clientY,7))},true);
+["mousemove","touchmove"].forEach(t=>document.addEventListener(t,stopAll,{capture:true,passive:false}));
+document.addEventListener("pointerup",e=>{if(drag){stopAll(e);endDrag()}},true);
+document.addEventListener("pointercancel",()=>{if(drag)endDrag()},true);
+["mouseup","touchend"].forEach(t=>document.addEventListener(t,e=>{if(dragJustEnded){e.stopPropagation();e.stopImmediatePropagation&&e.stopImmediatePropagation()}},true));
 
 /* ---------- panel ---------- */
 let stateMsg="";
 function setState(t){stateMsg=t;render()}
 function toast(t){try{O&&O.toast?O.toast(t):console.log(t)}catch(e){}}
-function open(){if(!panel){panel=document.createElement("div");panel.className="trd";document.body.appendChild(panel);drag()}
+function open(){if(!panel){panel=document.createElement("div");panel.className="trd";document.body.appendChild(panel);dragPanel()}
   panel.hidden=false;render();if(tok()&&!ws&&!accounts.length)loadAccounts();else if(ws)loadCF()}
 function close(){if(panel)panel.hidden=true}
-function drag(){let st=null;panel.addEventListener("pointerdown",e=>{const h=e.target.closest(".trd-h");if(!h||e.target.closest("button,select"))return;const r=panel.getBoundingClientRect();st={x:e.clientX-r.left,y:e.clientY-r.top};h.setPointerCapture(e.pointerId)});
+function dragPanel(){let st=null;panel.addEventListener("pointerdown",e=>{const h=e.target.closest(".trd-h");if(!h||e.target.closest("button,select"))return;const r=panel.getBoundingClientRect();st={x:e.clientX-r.left,y:e.clientY-r.top};h.setPointerCapture(e.pointerId)});
   panel.addEventListener("pointermove",e=>{if(!st)return;panel.style.left=Math.max(4,Math.min(innerWidth-panel.offsetWidth-4,e.clientX-st.x))+"px";panel.style.top=Math.max(4,Math.min(innerHeight-60,e.clientY-st.y))+"px";panel.style.right="auto"});
   panel.addEventListener("pointerup",()=>{st=null})}
 function paintTop(){if(!panel||panel.hidden)return;const b=panel.querySelector("[data-bal]");if(b)b.textContent=cfg.hide?"••••••":money(bal,cur)}
@@ -235,5 +292,5 @@ window.EAGTrade={
   async init(o){O=o;const had=await handleCallback();if(had)open();
     else if(tok()&&ls.get(LS_ACC,null)!=null&&o.autoConnect)loadAccounts()},
   open,close,onChange,
-  _test:{parseAccounts,onPoc,contracts:()=>contracts}};
+  _test:{parseAccounts,onPoc,contracts:()=>contracts,lines:()=>lineMap,hit:y=>hitLine(y,7),py:v=>priceToY(v),dragS:()=>drag}};
 })();
