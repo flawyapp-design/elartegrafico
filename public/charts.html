@@ -574,6 +574,14 @@ html,body{overscroll-behavior:none}.dbar{overscroll-behavior:contain;touch-actio
 .mtfrow.pstrip{position:absolute;left:0;right:0;bottom:0;height:var(--pmh,140px);padding:6px;gap:6px;background:var(--bg);border-top:1px solid var(--line);z-index:2}
 .mtfrow.pstrip .mini{padding:6px 6px 3px;border-radius:10px}.mtfrow.pstrip .mh b{font-size:12.5px}.mtfrow.pstrip .mh .mp{font-size:10px}
 .wb.wmtf.on{color:var(--gold2)!important;background:var(--gbg)!important}
+
+/* barra superior limpia: botones solo con ícono (el nombre sale al pasar el mouse); Estudio y "Mejorar" conservan su texto */
+.top .btn.ic:not(#prob):not(.freeb) .t{display:none}
+.top .btn.ic:not(#prob):not(.freeb){width:34px!important;height:34px;padding:0!important;justify-content:center;border-color:transparent;background:transparent}
+.top .btn.ic:not(#prob):not(.freeb):hover{background:var(--card2);border-color:var(--line2)}
+.top .btn.ic.trb{color:#0bb594!important}.top .btn.ic.clb.on,.top .btn.ic.clb.tx{background:var(--card)}
+.top .who{display:none}
+.top #prob{height:34px}
 </style>
 </head>
 <body>
