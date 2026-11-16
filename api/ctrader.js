@@ -1,3 +1,4 @@
+/* v2 */
 /* Puente con cTrader Open API (Spotware) para el panel "Operar" de EAG Charts. SOLO administradores.
    - Comprueba en Supabase que quien pide es admin (con el token de su sesión).
    - Guarda en secreto el Client Secret: viene de la variable de entorno CTRADER_CLIENT_SECRET de Vercel (nunca está en el código).
