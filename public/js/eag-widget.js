@@ -61,18 +61,18 @@ function registerAll(){
       createPointFigures:({coordinates,bounding})=>coordinates.length?[L1({x:0,y:coordinates[0].y},{x:bounding.width,y:coordinates[0].y})]:[]},H));
     KC.registerOverlay(Object.assign({name:"horizontalRayLine",totalStep:3,
       createPointFigures:({coordinates,bounding})=>{if(!coordinates.length)return[];const e={x:0,y:coordinates[0].y};if(!coordinates[1]||coordinates[0].x<coordinates[1].x)e.x=bounding.width;return[L1(coordinates[0],e)]},
-      performEventPressedMove:sameY,performEventMoveForDrawing:({currentStep,points,performPoint})=>{if(currentStep===2&&points[0])points[0].value=performPoint.value}},H));
+      performEventPressedMove:sameY,performEventMoveForDrawing:({currentStep,points,performPoint})=>{if(currentStep===2&&points[0])performPoint.value=points[0].value}},H));
     KC.registerOverlay(Object.assign({name:"horizontalSegment",totalStep:3,
       createPointFigures:({coordinates})=>coordinates.length===2?[L1(coordinates[0],coordinates[1])]:[],
-      performEventPressedMove:sameY,performEventMoveForDrawing:({currentStep,points,performPoint})=>{if(currentStep===2&&points[0])points[0].value=performPoint.value}},H));
+      performEventPressedMove:sameY,performEventMoveForDrawing:({currentStep,points,performPoint})=>{if(currentStep===2&&points[0])performPoint.value=points[0].value}},H));
     KC.registerOverlay(Object.assign({name:"verticalStraightLine",totalStep:2,
       createPointFigures:({coordinates,bounding})=>coordinates.length?[L1({x:coordinates[0].x,y:0},{x:coordinates[0].x,y:bounding.height})]:[]},V));
     KC.registerOverlay(Object.assign({name:"verticalRayLine",totalStep:3,
       createPointFigures:({coordinates,bounding})=>{if(!coordinates.length)return[];const e={x:coordinates[0].x,y:0};if(!coordinates[1]||coordinates[0].y<coordinates[1].y)e.y=bounding.height;return[L1(coordinates[0],e)]},
-      performEventPressedMove:sameX,performEventMoveForDrawing:({currentStep,points,performPoint})=>{if(currentStep===2&&points[0]){points[0].timestamp=performPoint.timestamp;points[0].dataIndex=performPoint.dataIndex}}},V));
+      performEventPressedMove:sameX,performEventMoveForDrawing:({currentStep,points,performPoint})=>{if(currentStep===2&&points[0]){performPoint.timestamp=points[0].timestamp;performPoint.dataIndex=points[0].dataIndex}}},V));
     KC.registerOverlay(Object.assign({name:"verticalSegment",totalStep:3,
       createPointFigures:({coordinates})=>coordinates.length===2?[L1(coordinates[0],coordinates[1])]:[],
-      performEventPressedMove:sameX,performEventMoveForDrawing:({currentStep,points,performPoint})=>{if(currentStep===2&&points[0]){points[0].timestamp=performPoint.timestamp;points[0].dataIndex=performPoint.dataIndex}}},V));
+      performEventPressedMove:sameX,performEventMoveForDrawing:({currentStep,points,performPoint})=>{if(currentStep===2&&points[0]){performPoint.timestamp=points[0].timestamp;performPoint.dataIndex=points[0].dataIndex}}},V));
   }catch(e){console.warn("etiquetas de líneas",e)}
   const fmt=(v,p)=>(+v).toFixed(p);
   /* Posición larga/corta: entrada, stop y objetivo con relación riesgo/beneficio */
@@ -149,6 +149,12 @@ function registerAll(){
   KC.registerOverlay({name:"eagText",totalStep:2,needDefaultPointFigure:false,needDefaultXAxisFigure:true,needDefaultYAxisFigure:true,
     createPointFigures:({overlay,coordinates})=>{const c=coordinates[0];if(!c)return[];const ex=overlay.extendData||{};
       return[{type:"text",attrs:{x:c.x,y:c.y,text:ex.text||"Texto",align:"left",baseline:"middle"},styles:{color:ex.color||GOLD,size:ex.size||14,backgroundColor:ex.bg||"transparent",borderSize:0,paddingLeft:4,paddingRight:4,paddingTop:2,paddingBottom:2,borderRadius:3}}]}});
+  /* Nota con flecha: un cuadro con tu texto y una flecha que apunta al precio/vela que marcaste */
+  KC.registerOverlay({name:"eagNote",totalStep:2,needDefaultPointFigure:true,needDefaultXAxisFigure:true,needDefaultYAxisFigure:true,
+    createPointFigures:({overlay,coordinates})=>{const c=coordinates[0];if(!c)return[];const ex=overlay.extendData||{},col=ex.color||GOLD,up=c.y>70,ty=up?c.y-40:c.y+40;
+      return[{type:"line",attrs:{coordinates:[{x:c.x,y:up?c.y-28:c.y+28},{x:c.x,y:up?c.y-7:c.y+7}]},styles:{color:col,size:1.5}},
+        {type:"polygon",attrs:{coordinates:up?[{x:c.x,y:c.y-3},{x:c.x-4.5,y:c.y-10},{x:c.x+4.5,y:c.y-10}]:[{x:c.x,y:c.y+3},{x:c.x-4.5,y:c.y+10},{x:c.x+4.5,y:c.y+10}]},styles:{style:"fill",color:col}},
+        {type:"text",attrs:{x:c.x,y:ty,text:ex.text||"Nota",align:"center",baseline:"middle"},styles:{color:ex.tc||"#fff",size:ex.size||12,weight:"600",backgroundColor:col,borderColor:col,borderSize:1,paddingLeft:8,paddingRight:8,paddingTop:5,paddingBottom:5,borderRadius:6}}]}});
   /* Zona: rectángulo que se extiende a la derecha (ideal para zonas de oferta y demanda) */
   /* ===== Cajas con 8 puntos (4 esquinas + 4 a la mitad de cada lado) ===== */
   /* orden: 0 sup-izq · 1 sup-der · 2 inf-der · 3 inf-izq · 4 mitad arriba · 5 mitad derecha · 6 mitad abajo · 7 mitad izquierda */
@@ -224,14 +230,13 @@ function registerAll(){
 
 /* ===================== Catálogo ===================== */
 const TOOLS=[
-  {g:"lines",t:"Líneas",items:[["segment","Línea de tendencia"],["rayLine","Rayo"],["straightLine","Línea extendida"],["arrow","Flecha"],["horizontalStraightLine","Línea horizontal"],["horizontalRayLine","Rayo horizontal"],["horizontalSegment","Segmento horizontal"],["verticalStraightLine","Línea vertical"],["priceLine","Línea de precio"]]},
-  {g:"chan",t:"Canales",items:[["parallelStraightLine","Canal paralelo"],["priceChannelLine","Canal de precio"]]},
-  {g:"fib",t:"Fibonacci y Gann",items:[["fibonacciLine","Retroceso de Fibonacci"],["fibonacciExtension","Extensión de Fibonacci"],["fibonacciSegment","Segmentos de Fibonacci"],["fibonacciSpeedResistanceFan","Abanico de Fibonacci"],["fibonacciCircle","Círculos de Fibonacci"],["fibonacciSpiral","Espiral de Fibonacci"],["gannBox","Caja de Gann"]]},
-  {g:"shape",t:"Formas y zonas",items:[["eagBuyZone","Zona de compra (verde arriba, roja abajo)"],["eagSellZone","Zona de venta (roja arriba, verde abajo)"],["eagZone","Zona (se extiende a la derecha)"],["eagRect","Rectángulo"],["circle","Círculo"],["triangle","Triángulo"],["parallelogram","Paralelogramo"]]},
+  {g:"lines",t:"Líneas y canales",items:[["segment","Línea de tendencia"],["rayLine","Rayo"],["straightLine","Línea extendida"],["arrow","Flecha"],["horizontalStraightLine","Línea horizontal"],["horizontalRayLine","Rayo horizontal"],["horizontalSegment","Segmento horizontal"],["verticalStraightLine","Línea vertical"],["priceLine","Línea de precio"],["-","Canales"],["parallelStraightLine","Canal paralelo"],["priceChannelLine","Canal de precio"]]},
+    {g:"fib",t:"Fibonacci y Gann",items:[["fibonacciLine","Retroceso de Fibonacci"],["fibonacciExtension","Extensión de Fibonacci"],["fibonacciSegment","Segmentos de Fibonacci"],["fibonacciSpeedResistanceFan","Abanico de Fibonacci"],["fibonacciCircle","Círculos de Fibonacci"],["fibonacciSpiral","Espiral de Fibonacci"],["gannBox","Caja de Gann"]]},
+  {g:"shape",t:"Formas, zonas y pincel",items:[["eagBuyZone","Zona de compra (verde arriba, roja abajo)"],["eagSellZone","Zona de venta (roja arriba, verde abajo)"],["eagZone","Zona (se extiende a la derecha)"],["eagRect","Rectángulo"],["circle","Círculo"],["triangle","Triángulo"],["parallelogram","Paralelogramo"],["-","A mano alzada"],["eagBrush","Pincel (dibujo libre)"]]},
   {g:"pat",t:"Patrones y ondas",items:[["xabcd","Patrón XABCD"],["abcd","Patrón ABCD"],["threeWaves","Tres ondas"],["fiveWaves","Cinco ondas (Elliott)"],["eightWaves","Ocho ondas"],["anyWaves","Ondas libres"]]},
   {g:"pos",t:"Posición y medición",items:[["eagLong","Posición larga (compra)"],["eagShort","Posición corta (venta)"],["eagMeasure","Regla: medir puntos, %, velas y tiempo"]]},
-  {g:"txt",t:"Texto y notas",items:[["eagText","Texto"],["simpleAnnotation","Nota con flecha"],["simpleTag","Etiqueta de precio"]]}];
-const TNAME={eagPosition:"Posición (antigua)",eagBrush:"Pincel (dibujo libre)"};TOOLS.forEach(g=>g.items.forEach(([k,t])=>TNAME[k]=t));
+  {g:"txt",t:"Texto y notas",items:[["eagText","Texto"],["eagNote","Nota con flecha"]]}];
+const TNAME={eagPosition:"Posición (antigua)",eagBrush:"Pincel (dibujo libre)",simpleAnnotation:"Nota (antigua)",simpleTag:"Etiqueta (antigua)"};TOOLS.forEach(g=>g.items.forEach(([k,t])=>{if(k!=="-")TNAME[k]=t}));
 const IC={
   lines:'<path d="M4 20 20 4"/><circle cx="4" cy="20" r="1.6"/><circle cx="20" cy="4" r="1.6"/>',
   chan:'<path d="M3 15 15 3M9 21 21 9"/>',
@@ -303,6 +308,7 @@ const TI={
   eagBuyZone:'<path d="M2 7h20" stroke="#089981" stroke-width="2.2"/><path d="M2 17h20" stroke="#f23645" stroke-width="2.2"/><rect x="6" y="7" width="12" height="10" fill="#b46cff" opacity=".3" stroke="none"/>',
   eagSellZone:'<path d="M2 7h20" stroke="#f23645" stroke-width="2.2"/><path d="M2 17h20" stroke="#089981" stroke-width="2.2"/><rect x="6" y="7" width="12" height="10" fill="#b46cff" opacity=".3" stroke="none"/>',
   eagBrush:'<path d="M3 21c3 0 5-1.5 5-4a2.5 2.5 0 0 0-5 0"/><path d="M8 17 20 5a2.1 2.1 0 0 0-3-3L5 14"/>',
+  eagNote:'<rect x="3" y="3" width="18" height="10" rx="2.5"/><path d="M12 13v6"/><path d="m9.5 17.5 2.5 3 2.5-3"/>',
   simpleAnnotation:'<rect x="3" y="3" width="18" height="10" rx="2"/><path d="M12 13v8"/>'+P(12,21),
   simpleTag:'<path d="M3 12h7"/><path d="M10 7h9l2 5-2 5h-9z"/>'};
 const tsvg=(k,s=18)=>`<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${TI[k]||""}</svg>`;
@@ -324,7 +330,7 @@ function themeStyles(light,eag){
     candle:{tooltip:{text:{color:tx,size:11}},priceMark:{high:{color:tx},low:{color:tx}}},indicator:{tooltip:{text:{color:tx,size:11}}},
     overlay:{line:{color:GOLD,size:1},point:{color:light?"#ffffff":eag?"#060b1a":"#0b0c0e",borderColor:GOLD,borderSize:1.5,radius:4.5,activeColor:GOLD,activeBorderColor:hexA(GOLD,.28),activeBorderSize:5,activeRadius:5},
       rect:{color:hexA(GOLD,.12),borderColor:GOLD},polygon:{color:hexA(GOLD,.12),borderColor:GOLD},circle:{color:hexA(GOLD,.12),borderColor:GOLD},arc:{color:GOLD},
-      text:{color:GOLD},rectText:{color:"#16120a",backgroundColor:GOLD,borderColor:GOLD}}};
+      text:{color:GOLD,backgroundColor:"rgba(0,0,0,0)",borderColor:"rgba(0,0,0,0)",borderSize:0,paddingLeft:2,paddingRight:2,paddingTop:1,paddingBottom:1},rectText:{color:"#16120a",backgroundColor:GOLD,borderColor:GOLD}}};
 }
 const deep=(a,b)=>{for(const k in b){if(b[k]&&typeof b[k]==="object"&&!Array.isArray(b[k])){a[k]=deep(a[k]&&typeof a[k]==="object"?a[k]:{},b[k])}else a[k]=b[k]}return a};
 
@@ -446,6 +452,12 @@ window.EAGWidget=function(o){
   function cdKick(ms){cdUntil=Math.max(cdUntil,Date.now()+(ms||700));if(cdLoop)return;cdLoop=true;const f=()=>{placeCdl();if(Date.now()<cdUntil&&root.isConnected)requestAnimationFrame(f);else cdLoop=false};requestAnimationFrame(f)}
   ["pointerdown","pointermove","wheel","touchmove"].forEach(ev=>chartEl.addEventListener(ev,e=>{if(ev==="pointermove"&&!e.buttons&&e.pointerType==="mouse")return;cdKick()},{passive:true,capture:true}));
 
+  /* clics rápidos al dibujar: el motor tomaba un 2º clic hecho antes de medio segundo (aunque fuera en otro lugar)
+     como intento de doble clic y se lo "tragaba": ese punto no se marcaba. Si el clic es en otro lugar, se cuenta como clic nuevo. */
+  {let lastDn=null;chartEl.addEventListener("mousedown",e=>{if(e.button!==0)return;const n=Date.now();
+    if(lastDn&&n-lastDn.t<520&&Math.abs(e.clientX-lastDn.x)+Math.abs(e.clientY-lastDn.y)>=5){
+      try{const se=chart._chartEvent&&chart._chartEvent._event;se&&se._resetClickTimeout&&se._resetClickTimeout()}catch(err){}}
+    lastDn={x:e.clientX,y:e.clientY,t:n}},true)}
   /* estirar la regla de precios arrastrando arriba/abajo (mouse y dedo).
      El motor original escalaba según la altura absoluta del mouse en la pantalla (cerca del borde "se frenaba")
      y se detenía si el mouse se salía un poco de la regla. Aquí: proporcional al movimiento, suave, y sigue aunque salgas de la regla.
@@ -511,8 +523,8 @@ window.EAGWidget=function(o){
   dbar.addEventListener("scroll",()=>requestAnimationFrame(dbarFade),{passive:true});addEventListener("resize",()=>setTimeout(dbarFade,100));
   try{new ResizeObserver(()=>dbarFade()).observe(dbar)}catch(e){}try{new MutationObserver(()=>setTimeout(dbarFade,0)).observe(dbar,{childList:true})}catch(e){}
   function paintDbar(){
-    dbar.innerHTML=`<div class="dmini"><button class="dt dtf" title="Temporalidad (todas)"><b>${esc(per.text)}</b></button><button class="dt" data-mi="sym" title="Cambiar mercado">${svg("list",17)}</button><button class="dt" data-mi="ind" title="Indicadores">${svg("fx",17)}</button><i class="dsep"></i></div><button class="dt" data-k="cross" title="Cursor (cancelar dibujo)">${svg("cross",21)}</button><button class="dt" data-k="eagMeasure" title="Regla: medir puntos (también Shift + clic)">${tsvg("eagMeasure",22)}</button><button class="dt${brushOn?" act":""}" data-b="1" title="Pincel: dibuja o escribe a mano sobre el gráfico">${tsvg("eagBrush",22)}</button><i class="dsep"></i>`+
-      TOOLS.map(g=>{const cur=lastTool[g.g]||g.items[0][0];return`<div class="dg" data-g="${g.g}"><button class="dt" data-k="${cur}" title="${esc(TNAME[cur])} · doble clic: ver todas">${tsvg(cur,22)}</button><button class="more" title="${esc(g.t)}">${svg("caret",9)}</button></div>`}).join("")+
+    dbar.innerHTML=`<div class="dmini"><button class="dt dtf" title="Temporalidad (todas)"><b>${esc(per.text)}</b></button><button class="dt" data-mi="sym" title="Cambiar mercado">${svg("list",17)}</button><button class="dt" data-mi="ind" title="Indicadores">${svg("fx",17)}</button><i class="dsep"></i></div><button class="dt" data-k="cross" title="Cursor (cancelar dibujo)">${svg("cross",21)}</button><i class="dsep"></i>`+
+      TOOLS.map(g=>{const cur=lastTool[g.g]||g.items[0][0];return`<div class="dg" data-g="${g.g}"><button class="dt${cur==="eagBrush"&&brushOn?" act":""}" data-k="${cur}" title="${esc(TNAME[cur])} · doble clic: ver todas">${tsvg(cur,22)}</button><button class="more" title="${esc(g.t)}">${svg("caret",9)}</button></div>`}).join("")+
       `<i class="dsep"></i><button class="dt tg${magnet!=="normal"?" on":""}" data-x="magnet" title="${magnet==="strong_magnet"?"Imán fuerte":magnet==="weak_magnet"?"Imán débil":"Imán apagado"}">${svg("magnet",21)}<em>${magnet==="strong_magnet"?"F":magnet==="weak_magnet"?"D":""}</em></button>
       <button class="dt tg${locked?" on":""}" data-x="lock" title="${locked?"Desbloquear dibujos":"Bloquear todos los dibujos"}">${svg(locked?"lock":"unlock",21)}</button>
       <button class="dt tg${hidden?" on":""}" data-x="hide" title="${hidden?"Mostrar dibujos":"Ocultar todos los dibujos"}">${svg(hidden?"eyeoff":"eye",21)}</button>
@@ -521,8 +533,7 @@ window.EAGWidget=function(o){
     dbar.querySelector(".dtf").onclick=e=>{e.stopPropagation();o.onTFClick&&o.onTFClick(e.currentTarget)};
     dbar.querySelector('[data-mi="sym"]').onclick=e=>{e.stopPropagation();o.onSymbolClick&&o.onSymbolClick(e.currentTarget)};
     dbar.querySelector('[data-mi="ind"]').onclick=e=>{e.stopPropagation();openInd()};
-    dbar.querySelectorAll(".dt[data-k]").forEach(b=>b.onclick=()=>{stopBrush();b.dataset.k==="cross"?cancelDraw():startTool(b.dataset.k)});
-    dbar.querySelector('[data-b]').onclick=()=>brushOn?stopBrush():startBrush();
+    dbar.querySelectorAll(".dt[data-k]").forEach(b=>b.onclick=()=>{if(b.dataset.k==="eagBrush"&&brushOn){stopBrush();return}stopBrush();b.dataset.k==="cross"?cancelDraw():startTool(b.dataset.k)});
     /* doble clic sobre un grupo: abre la lista completa */
     /* doble clic o doble toque (también en celular) */
     dbar.querySelectorAll(".dg>.dt").forEach(b=>{let lt=0;b.addEventListener("click",e=>{const n=Date.now();if(n-lt<380){e.stopImmediatePropagation();e.preventDefault();lt=0;cancelDraw();const g=TOOLS.find(x=>x.g===b.parentNode.dataset.g);openToolMenu(g,b.parentNode)}else lt=n},true)});
@@ -547,10 +558,10 @@ window.EAGWidget=function(o){
   }
   function openToolMenu(g,anchor){closeMenu();menu=document.createElement("div");menu.className="wmenu";
     const favs=(o.getToolFav&&o.getToolFav())||[];
-    menu.innerHTML=`<div class="mt">${esc(g.t)}</div>`+g.items.map(([k,t])=>`<button data-k="${k}" class="${(lastTool[g.g]||g.items[0][0])===k?"on":""}">${tsvg(k,20)}<span>${esc(t)}</span><i class="tst${favs.includes(k)?" on":""}" data-fav="${k}" title="${favs.includes(k)?"Quitar de la barra de favoritos":"Agregar a la barra de favoritos"}">${favs.includes(k)?"★":"☆"}</i></button>`).join("");
+    menu.innerHTML=`<div class="mt">${esc(g.t)}</div>`+g.items.map(([k,t])=>k==="-"?`<div class="msec">${esc(t)}</div>`:`<button data-k="${k}" class="${(lastTool[g.g]||g.items[0][0])===k?"on":""}">${tsvg(k,20)}<span>${esc(t)}</span><i class="tst${favs.includes(k)?" on":""}" data-fav="${k}" title="${favs.includes(k)?"Quitar de la barra de favoritos":"Agregar a la barra de favoritos"}">${favs.includes(k)?"★":"☆"}</i></button>`).join("");
     document.body.appendChild(menu);const r=anchor.getBoundingClientRect();menu.style.left=(r.right+6)+"px";menu.style.top=Math.min(r.top,innerHeight-menu.offsetHeight-8)+"px";
     menu.querySelectorAll("[data-fav]").forEach(f=>f.addEventListener("click",e=>{e.stopPropagation();o.onToolFav&&o.onToolFav(f.dataset.fav);const on=((o.getToolFav&&o.getToolFav())||[]).includes(f.dataset.fav);f.classList.toggle("on",on);f.textContent=on?"★":"☆"},true));
-    menu.querySelectorAll("button").forEach(b=>b.onclick=()=>{lastTool[g.g]=b.dataset.k;o.onLastTools&&o.onLastTools(lastTool);closeMenu();paintDbar();startTool(b.dataset.k)})}
+    menu.querySelectorAll("button").forEach(b=>b.onclick=()=>{lastTool[g.g]=b.dataset.k;o.onLastTools&&o.onLastTools(lastTool);closeMenu();stopBrush();paintDbar();startTool(b.dataset.k)})}
   let drawingId=null;
   /* ---------- pincel ---------- */
   let brushOn=false,brushEl=null;
@@ -569,7 +580,7 @@ window.EAGWidget=function(o){
       if(points.length<2)return;const bs2=((o.getToolStyle&&o.getToolStyle("eagBrush"))||{}).ex||{};const id=makeOverlay({name:"eagBrush",points,extendData:{color:bs2.color||GOLD,size:bs2.size||2}},false);if(id){const v=ovs.get(id);v.done=true;v.points=points;persist()}};
     brushEl.oncontextmenu=e=>{e.preventDefault();stopBrush()};
     dbar.querySelector("[data-b]")&&dbar.querySelector("[data-b]").classList.add("act");o.onToast&&o.onToast("✏️ Pincel activo: dibuja o escribe sobre el gráfico. Esc o clic derecho para salir.")}
-  function stopBrush(){if(!brushOn)return;brushOn=false;setTimeout(syncPan,0);if(brushEl){brushEl.remove();brushEl=null}const b=dbar.querySelector("[data-b]");b&&b.classList.remove("act")}
+  function stopBrush(){if(!brushOn)return;brushOn=false;setTimeout(syncPan,0);if(brushEl){brushEl.remove();brushEl=null}const b=dbar.querySelector('.dt[data-k="eagBrush"]');b&&b.classList.remove("act")}
   /* celular: mientras dibujas o tienes un dibujo seleccionado, el gráfico no se mueve (así se coloca mejor con el dedo).
      PC (mouse): como en los charts de Deriv, un dibujo seleccionado NO bloquea el gráfico: se puede arrastrar y hacer zoom
      con la rueda; el dibujo se mueve solo si lo agarras a él. Mientras dibujas, la rueda sigue haciendo zoom. */
@@ -579,9 +590,9 @@ window.EAGWidget=function(o){
     const k=scrollLock+"|"+zoomLock;if(k===panLocked)return;panLocked=k;
     try{chart.setScrollEnabled(!scrollLock);chart.setZoomEnabled(!zoomLock)}catch(e){}chartEl.classList.toggle("locked",scrollLock)}
   function cancelDraw(){if(drawingId){try{chart.removeOverlay(drawingId)}catch(e){}ovs.delete(drawingId);drawingId=null}dbar.querySelectorAll(".dt").forEach(b=>b.classList.remove("act"));syncPan()}
-  function startTool(name){cancelDraw();
+  function startTool(name){if(name==="eagBrush"){startBrush();const bb=dbar.querySelector('.dt[data-k="eagBrush"]');bb&&bb.classList.add("act");return}cancelDraw();
     const ts=(o.getToolStyle&&o.getToolStyle(name))||{};
-    const ex=Object.assign(name==="eagText"?{text:"Texto"}:{},ts.ex||{});
+    const ex=Object.assign(name==="eagText"?{text:"Texto"}:name==="eagNote"?{text:"Nota"}:{},ts.ex||{});
     const id=makeOverlay({name,extendData:Object.keys(ex).length?ex:undefined,styles:ts.styles||undefined},true);if(!id)return;drawingId=id;syncPan();
     dbar.querySelectorAll(".dt[data-k]").forEach(b=>b.classList.toggle("act",b.dataset.k===name))}
   /* puntos para mover (como Deriv/TradingView): del color de cada dibujo */
@@ -595,7 +606,7 @@ window.EAGWidget=function(o){
       onDrawEnd:e=>{drawingId=null;dbar.querySelectorAll(".dt").forEach(b=>b.classList.remove("act"));setTimeout(syncPan,0);
         if((e.overlay.name==="eagLong"||e.overlay.name==="eagShort")&&e.overlay.points.length<3)autoPos(e.overlay);
         if(BOX.test(e.overlay.name)&&e.overlay.points.length<8&&e.overlay.points.length>=2){const ps=e.overlay.points;chart.overrideOverlay({id:e.overlay.id,points:boxPts({timestamp:tsOf(ps[0]),dataIndex:ps[0].dataIndex,value:ps[0].value},{timestamp:tsOf(ps[1]),dataIndex:ps[1].dataIndex,value:ps[1].value})})}
-        capture(chart.getOverlayById(e.overlay.id)||e.overlay);if(e.overlay.name==="eagText")setTimeout(()=>editText(e.overlay.id),30);return false},
+        capture(chart.getOverlayById(e.overlay.id)||e.overlay);if(e.overlay.name==="eagText"||e.overlay.name==="eagNote")setTimeout(()=>editText(e.overlay.id),30);return false},
       onPressedMoveStart:()=>{movingOv=true;chartEl.classList.add("ovdrag");return false},
       onPressedMoveEnd:e=>{movingOv=false;chartEl.classList.remove("ovdrag");capture(e.overlay);return false},
       onMouseEnter:()=>{chartEl.classList.add("ovh");return false},onMouseLeave:()=>{chartEl.classList.remove("ovh");return false},
@@ -681,7 +692,7 @@ window.EAGWidget=function(o){
     sbar.innerHTML=`<span class="sn">${tsvg(v.name,16)}${esc(TNAME[v.name]||v.name)}</span><label class="cc" title="Color"><i style="background:${c.color}"></i><input type="color" value="${/^#/.test(c.color)?c.color.slice(0,7):GOLD}"></label>
       ${/^eag(Position|Long|Short)$/.test(v.name)?"":`<select title="Grosor">${[1,2,3,4].map(n=>`<option value="${n}" ${+c.size===n?"selected":""}>${n}px</option>`).join("")}</select>
       <select title="Tipo de línea"><option value="solid" ${c.dash==="solid"?"selected":""}>━ Sólida</option><option value="dash" ${c.dash==="dash"?"selected":""}>╍ Guiones</option><option value="dot" ${c.dash==="dot"?"selected":""}>┈ Puntos</option></select>`}
-      ${v.name==="eagText"||v.name==="eagZone"?`<button data-a="txt" title="Editar texto">Aa</button>`:""}
+      ${v.name==="eagText"||v.name==="eagNote"||v.name==="eagZone"?`<button data-a="txt" title="Editar texto">Aa</button>`:""}
       ${alertable(v)?`<button data-a="alert" title="Crear alerta en este nivel">🔔</button>`:""}<button data-a="lock" title="${v.lock?"Desbloquear":"Bloquear"}">${svg(v.lock?"lock":"unlock",16)}</button><button data-a="dup" title="Duplicar">${svg("copy",16)}</button><button data-a="del" title="Eliminar (Supr)">${svg("trash",16)}</button><button data-a="cfg" title="Configurar este dibujo">${svg("gear",16)}</button>`;
     sbar.hidden=false;
     sbar.querySelector("input[type=color]").oninput=e=>{sbar.querySelector(".cc i").style.background=e.target.value};
@@ -695,7 +706,7 @@ window.EAGWidget=function(o){
   function openCtx(id,e,panel){const prev=menu&&menu.classList.contains("panel")?{x:menu.offsetLeft,y:menu.offsetTop}:null;closeMenu();const v=ovs.get(id);if(!v)return;selId=id;showStyleBar(id);const c=curStyle(id);
     const again=()=>openCtx(id,e,panel);
     menu=document.createElement("div");menu.className="wmenu ctx"+(panel?" panel":"");
-    const isTxt=v.name==="eagText"||v.name==="eagZone"||v.name==="eagRect";
+    const isTxt=v.name==="eagText"||v.name==="eagNote"||v.name==="eagZone"||v.name==="eagRect";
     menu.innerHTML=(panel?`<div class="ph2"><span class="mti">${tsvg(v.name,16)}<b>${esc(TNAME[v.name]||v.name)}</b></span><button class="px" title="Cerrar">×</button></div>`:`<div class="mt mti">${tsvg(v.name,15)}${esc(TNAME[v.name]||v.name)}</div>`)+
       (panel&&isTxt?`<div class="ml">Texto</div><div class="mrow"><input class="ptxt" maxlength="80" value="${esc((v.extendData||{}).text||"")}" placeholder="Escribe aquí"></div>`:"")+`
       <div class="mrow">${COLORS.map(k=>`<button class="sw${c.color===k?" on":""}" data-c="${k}" style="background:${k}" title="${k}"></button>`).join("")}<label class="sw pick" title="Otro color">+<input type="color" value="${/^#/.test(c.color)?c.color.slice(0,7):GOLD}"></label></div>
@@ -729,7 +740,7 @@ window.EAGWidget=function(o){
     const box=document.createElement("div");box.className="wtxt";box.innerHTML=`<input type="text" maxlength="80" value="${esc((v.extendData||{}).text||"")}" placeholder="Escribe y presiona Enter">`;
     chartEl.appendChild(box);box.style.left=Math.max(4,Math.min(px.x,chartEl.clientWidth-230))+"px";box.style.top=Math.max(4,px.y-16)+"px";
     const inp=box.querySelector("input");inp.focus();inp.select();
-    let fin=false;const done=ok=>{if(fin||!box.isConnected)return;fin=true;if(ok){v.extendData=Object.assign({},v.extendData||{},{text:inp.value.trim()||(v.name==="eagText"?"Texto":"")});chart.overrideOverlay({id,extendData:v.extendData});persist()}box.remove()};
+    let fin=false;const done=ok=>{if(fin||!box.isConnected)return;fin=true;if(ok){v.extendData=Object.assign({},v.extendData||{},{text:inp.value.trim()||(v.name==="eagText"?"Texto":v.name==="eagNote"?"Nota":"")});chart.overrideOverlay({id,extendData:v.extendData});persist()}box.remove()};
     inp.onkeydown=e=>{e.stopPropagation();if(e.key==="Enter")done(true);if(e.key==="Escape")done(false)};inp.onblur=()=>done(true)}
   root.tabIndex=-1;
   root.addEventListener("keydown",e=>{if((e.key==="Delete"||e.key==="Backspace")&&selId&&!/input|select|textarea/i.test(e.target.tagName)){removeOv(selId);selId=null}if(e.key==="Escape"){cancelDraw();closeMenu();stopBrush()}});
