@@ -18,7 +18,16 @@ const rnd=n=>{const a=new Uint8Array(n);crypto.getRandomValues(a);return b64u(a)
 let O=null;            /* opciones que pasa charts-app */
 let panel=null,ws=null,wsTimer=null,pingT=null,reqN=1,pending={},accounts=[],acc=null,bal=null,cur="USD";
 let contracts={},cfInfo={},busy=false,confirmAsk=null,lastErr="";
-const cfg=Object.assign({stake:1,mult:0,tp:"",sl:"",hide:false,confirmReal:true},ls.get(LS_CFG,{}));
+const cfg=Object.assign({mode:"lote",lot:0.2,stake:1,mult:0,tp:"",sl:"",hide:false,confirmReal:true,oneClick:false},ls.get(LS_CFG,{}));
+/* Lotes como en MT5: en Boom/Crash 1 lote = 1 USD por punto. Deriv solo deja operar multiplicadores por API,
+   así que el lote se convierte en una operación con multiplicador que gana o pierde lo MISMO por punto:
+   ganancia ≈ monto × multiplicador × (movimiento / precio de entrada)  →  monto = lote × precio ÷ multiplicador */
+const lastPrice=()=>{try{const L=O.chart().getDataList();return L.length?+L[L.length-1].close:0}catch(e){return 0}};
+const multsOf=sym=>{const ci=cfInfo[sym]||{};return ci.range&&ci.range.length?ci.range:[10,20,50,100,200]};
+const multNow=sym=>{const m=multsOf(sym);return m.includes(+cfg.mult)?+cfg.mult:m[0]};
+const stakeFor=(lot,sym)=>{const px=lastPrice(),m=multNow(sym);if(!(px>0)||!(m>0)||!(lot>0))return 0;return Math.ceil(lot*px/m*100)/100};
+const lotsOf=c=>{const e=+c.entry_spot,b=+c.buy_price,m=+c.multiplier;return e>0&&m>0?b*m/e:0};
+const fmtLot=v=>(Math.round((+v||0)*100)/100).toFixed(2);   /* como MT5: 0.20, 1.00 */
 const saveCfg=()=>ls.set(LS_CFG,cfg);
 
 /* ---------- token ---------- */
@@ -103,11 +112,11 @@ async function loadCF(){const sym=symNow();if(!sym||cfInfo[sym]||!ws)return;cfIn
 /* ---------- operar ---------- */
 function symNow(){try{return(O.cur()||{}).sym||""}catch(e){return""}}
 function buy(dir,ok){
-  if(busy)return;const sym=symNow();const stake=+cfg.stake;
-  if(!(stake>0)){toast("Escribe el monto");return}
-  if(!acc.demo&&cfg.confirmReal&&!ok){confirmAsk=dir;render();return}
+  if(busy||!ws)return;const sym=symNow();const stake=cfg.mode==="lote"?stakeFor(+cfg.lot,sym):+cfg.stake;
+  if(!(stake>0)){toast(cfg.mode==="lote"?"Escribe el lote":"Escribe el monto");return}
+  if(!acc.demo&&cfg.confirmReal&&!cfg.oneClick&&!ok){confirmAsk=dir;render();return}
   confirmAsk=null;busy=true;render();
-  const ci=cfInfo[sym]||{};const mult=+cfg.mult||(ci.range&&ci.range[0])||10;
+  const mult=multNow(sym);
   const lo={};if(+cfg.tp>0)lo.take_profit=+cfg.tp;if(+cfg.sl>0)lo.stop_loss=+cfg.sl;
   const parameters={amount:stake,basis:"stake",contract_type:dir==="up"?"MULTUP":"MULTDOWN",currency:cur,multiplier:mult,underlying_symbol:sym};
   if(Object.keys(lo).length)parameters.limit_order=lo;
@@ -137,7 +146,7 @@ function syncLines(){regLine();const ch=chartNow(),sym=symNow();
   if(!ch)return;
   Object.values(contracts).forEach(c=>{const id=String(c.contract_id);if(c.underlying_symbol!==sym||+c.is_sold===1||c.entry_spot==null)return;
     const up=c.contract_type==="MULTUP",pr=+c.profit,col=pr>=0?"#089981":"#f23645";
-    const txt=`${up?"▲ Sube":"▼ Baja"} x${c.multiplier||""} · ${money(c.buy_price,cur)} · ${pr>=0?"+":""}${money(pr,cur)}`;
+    const lt=lotsOf(c);const txt=`${up?"▲ Compra":"▼ Venta"} ${lt?fmtLot(lt)+" lotes":"x"+(c.multiplier||"")} · ${pr>=0?"+":""}${money(pr,cur)}`;
     const ex={col,txt,ax:(+c.entry_spot).toString()};
     let l=lineMap[id];if(l&&!ch.getOverlayById(l.id))l=null;
     if(!l){try{const oid=ch.createOverlay({name:"eagTradeLine",lock:true,zLevel:5,points:[{timestamp:(c.entry_spot_time||c.date_start||0)*1000,value:+c.entry_spot}],extendData:ex});if(oid)lineMap[id]={chart:ch,id:oid}}catch(e){}}
@@ -159,7 +168,7 @@ function paintPos(){if(!panel||panel.hidden)return;const box=panel.querySelector
   const tot=L.filter(c=>+c.is_sold!==1).reduce((s,c)=>s+(+c.profit||0),0);
   box.innerHTML=L.length?`<div class="trd-ph"><b>Abiertas (${L.filter(c=>+c.is_sold!==1).length})</b><span class="${tot>=0?"t-up":"t-dn"}">${tot>=0?"+":""}${money(tot,cur)}</span>${L.filter(c=>+c.is_sold!==1&&+c.is_valid_to_sell===1).length>1?`<button class="trd-x" data-closeall>Cerrar todas</button>`:""}</div>`+
     L.map(c=>{const pr=+c.profit,up=c.contract_type==="MULTUP",sold=+c.is_sold===1;return`<div class="trd-row${sold?" sold":""}">
-      <span class="trd-d ${up?"t-up":"t-dn"}">${up?"▲":"▼"}</span><span class="trd-s"><b>${esc(c.underlying_symbol||"")}</b><small>x${esc(c.multiplier||"")} · ${money(c.buy_price,cur)}${c.limit_order&&c.limit_order.take_profit?` · TP ${money(c.limit_order.take_profit.order_amount,cur)}`:""}${c.limit_order&&c.limit_order.stop_loss?` · SL ${money(c.limit_order.stop_loss.order_amount,cur)}`:""}</small></span>
+      <span class="trd-d ${up?"t-up":"t-dn"}">${up?"▲":"▼"}</span><span class="trd-s"><b>${esc(c.underlying_symbol||"")}</b><small>${lotsOf(c)?esc(fmtLot(lotsOf(c)))+" lotes · ":""}x${esc(c.multiplier||"")} · ${money(c.buy_price,cur)}${c.limit_order&&c.limit_order.take_profit?` · TP ${money(c.limit_order.take_profit.order_amount,cur)}`:""}${c.limit_order&&c.limit_order.stop_loss?` · SL ${money(c.limit_order.stop_loss.order_amount,cur)}`:""}</small></span>
       <span class="trd-p ${pr>=0?"t-up":"t-dn"}">${pr>=0?"+":""}${money(pr,cur)}</span>
       ${sold?`<span class="trd-done">${pr>=0?"Ganada":"Perdida"}</span>`:`<button class="trd-x" data-sell="${esc(c.contract_id)}" ${c._closing||+c.is_valid_to_sell!==1?"disabled":""}>${c._closing?"…":"Cerrar"}</button>`}</div>`}).join(""):`<div class="trd-empty">Sin operaciones abiertas</div>`;
   box.querySelectorAll("[data-sell]").forEach(b=>b.onclick=()=>sell(b.dataset.sell));
@@ -173,30 +182,47 @@ function render(){if(!panel||panel.hidden)return;const t=tok(),sym=symNow(),ci=c
     <p class="trd-fine">Usa primero la cuenta <b>demo</b> para probar. Operar tiene riesgo: puedes perder lo que inviertes.</p></div>`;bind();return}
   const accSel=accounts.length?`<select data-acc>${accounts.map(a=>`<option value="${esc(a.id)}"${acc&&a.id===acc.id?" selected":""}>${a.demo?"Demo":"Real"} · ${esc(a.id)}</option>`).join("")}</select>`:"";
   const real=acc&&!acc.demo;
-  const mults=(ci.range&&ci.range.length?ci.range:[10,20,50,100,200]);if(!mults.includes(+cfg.mult))cfg.mult=mults[0];
+  const mults=multsOf(sym),mN=multNow(sym),lotMode=cfg.mode==="lote";
   panel.innerHTML=head+`<div class="trd-b">
     <div class="trd-acc ${real?"real":"demo"}">${accSel}<span class="trd-bal"><small>Saldo</small><b data-bal>${cfg.hide?"••••••":money(bal,cur)}</b></span></div>
     ${real?`<div class="trd-warn">Cuenta REAL: es dinero de verdad.</div>`:""}
     ${stateMsg?`<div class="trd-state">${esc(stateMsg)}</div>`:""}${lastErr?`<div class="trd-err">${esc(lastErr)}</div>`:""}
-    <div class="trd-sym"><b>${esc(sym||"—")}</b><span>Multiplicador</span></div>
+    <div class="trd-sym"><b>${esc(sym||"—")}</b><button class="trd-1c${cfg.oneClick?" on":""}" data-oneclick title="Un clic: compra o vende al instante, sin confirmación. Atajos: Shift+B compra · Shift+S vende">⚡ Un clic ${cfg.oneClick?"ON":"OFF"}</button></div>
+    <div class="trd-mode"><button data-mode="lote" class="${lotMode?"on":""}">Lotes</button><button data-mode="monto" class="${lotMode?"":"on"}">Monto $</button></div>
     ${ci.mult===false?`<div class="trd-err">${esc(sym)} no permite multiplicadores por la API de Deriv.</div>`:""}
-    <label class="trd-f"><span>Monto (${esc(cur)})</span><input data-k="stake" type="number" min="0" step="0.5" inputmode="decimal" value="${esc(cfg.stake)}"></label>
-    <div class="trd-chips">${[1,5,10,25,50].map(v=>`<button data-st="${v}" class="${+cfg.stake===v?"on":""}">${v}</button>`).join("")}</div>
-    <label class="trd-f"><span>Multiplicador</span><select data-k="mult">${mults.map(v=>`<option value="${v}"${+cfg.mult===v?" selected":""}>x${v}</option>`).join("")}</select></label>
+    ${lotMode?`<label class="trd-f"><span>Lote <small>(1 lote = 1 USD por punto, como en MT5)</small></span><input data-k="lot" type="number" min="0.01" step="0.01" inputmode="decimal" value="${esc(cfg.lot)}"></label>
+    <div class="trd-chips">${[0.2,0.5,1,2,5].map(v=>`<button data-lt="${v}" class="${+cfg.lot===v?"on":""}">${v}</button>`).join("")}</div>
+    <div class="trd-mg" data-mg></div>`:
+    `<label class="trd-f"><span>Monto (${esc(cur)})</span><input data-k="stake" type="number" min="0" step="0.5" inputmode="decimal" value="${esc(cfg.stake)}"></label>
+    <div class="trd-chips">${[1,5,10,25,50].map(v=>`<button data-st="${v}" class="${+cfg.stake===v?"on":""}">${v}</button>`).join("")}</div>`}
+    <details class="trd-adv"${lotMode?"":" open"}><summary>${lotMode?"Margen y cierre automático":"Multiplicador"}</summary>
+      <label class="trd-f"><span>Multiplicador <small>(más alto = menos margen, pero se cierra sola con menos puntos en contra)</small></span><select data-k="mult">${mults.map(v=>`<option value="${v}"${mN===v?" selected":""}>x${v}</option>`).join("")}</select></label></details>
     <div class="trd-two"><label class="trd-f"><span>Take profit $ <small>(opcional)</small></span><input data-k="tp" type="number" min="0" step="0.5" inputmode="decimal" value="${esc(cfg.tp)}" placeholder="—"></label>
       <label class="trd-f"><span>Stop loss $ <small>(opcional)</small></span><input data-k="sl" type="number" min="0" step="0.5" inputmode="decimal" value="${esc(cfg.sl)}" placeholder="—"></label></div>
-    ${confirmAsk?`<div class="trd-conf"><p>¿Abrir <b>${confirmAsk==="up"?"▲ Sube":"▼ Baja"}</b> por <b>${money(cfg.stake,cur)}</b> en cuenta REAL?</p><div><button class="trd-x" data-cno>Cancelar</button><button class="trd-go t-${confirmAsk}" data-cyes>Sí, abrir</button></div></div>`:
-    `<div class="trd-bt"><button class="trd-buy t-up" data-buy="up" ${busy||!ws||ci.mult===false?"disabled":""}>▲ Sube</button><button class="trd-buy t-dn" data-buy="dn" ${busy||!ws||ci.mult===false?"disabled":""}>▼ Baja</button></div>`}
+    ${confirmAsk?`<div class="trd-conf"><p>¿Abrir <b>${confirmAsk==="up"?"▲ Compra":"▼ Venta"}</b> ${lotMode?`de <b>${esc(fmtLot(+cfg.lot))} lotes</b> (margen ${money(stakeFor(+cfg.lot,sym),cur)})`:`por <b>${money(cfg.stake,cur)}</b>`} en cuenta REAL?</p><div><button class="trd-x" data-cno>Cancelar</button><button class="trd-go t-${confirmAsk}" data-cyes>Sí, abrir</button></div></div>`:
+    `<div class="trd-bt"><button class="trd-buy t-up" data-buy="up" ${busy||!ws||ci.mult===false?"disabled":""}>▲ ${lotMode?"Comprar "+esc(fmtLot(+cfg.lot||0)):"Sube"}</button><button class="trd-buy t-dn" data-buy="dn" ${busy||!ws||ci.mult===false?"disabled":""}>▼ ${lotMode?"Vender "+esc(fmtLot(+cfg.lot||0)):"Baja"}</button></div>`}
     <div class="trd-pos"></div>
     <div class="trd-ft">${real?`<label class="trd-ck"><input type="checkbox" data-confirm ${cfg.confirmReal?"checked":""}> Confirmar cada operación en real</label>`:""}<button class="trd-lnk" data-logout>Desconectar Deriv</button></div></div>`;
-  bind();paintPos()}
+  bind();paintPos();paintMg()}
+/* margen del lote y a cuántos puntos se cierra sola (se actualiza con el precio) */
+function paintMg(){if(!panel||panel.hidden)return;const el=panel.querySelector("[data-mg]");if(!el)return;const sym=symNow(),px=lastPrice(),m=multNow(sym),st=stakeFor(+cfg.lot,sym);
+  el.innerHTML=px>0?`Margen <b>${money(st,cur)}</b> · x${m} · se cierra sola si va <b>~${(px/m).toFixed(px/m<10?2:1)} pts</b> en contra`:"Esperando precio…"}
+setInterval(paintMg,1000);
+/* atajos de un clic (solo con el panel abierto y "Un clic" activo) */
+addEventListener("keydown",e=>{if(!panel||panel.hidden||!cfg.oneClick||!e.shiftKey||e.ctrlKey||e.metaKey||e.altKey)return;const t=e.target;if(t&&t.closest&&t.closest("input,textarea,select,[contenteditable]"))return;
+  const k=e.key.toLowerCase();if(k==="b"){e.preventDefault();buy("up",true)}else if(k==="s"){e.preventDefault();buy("dn",true)}});
 function bind(){const q=s=>panel.querySelector(s),qa=s=>panel.querySelectorAll(s);
   q("[data-close]").onclick=close;const h=q("[data-hide]");h&&(h.onclick=()=>{cfg.hide=!cfg.hide;saveCfg();render()});
   const lg=q("[data-login]");lg&&(lg.onclick=login);
   const lo=q("[data-logout]");lo&&(lo.onclick=logout);
   const as=q("[data-acc]");as&&(as.onchange=()=>{acc=accounts.find(a=>a.id===as.value)||acc;ls.set(LS_ACC,acc.id);bal=acc.bal;cur=acc.cur||"USD";contracts={};watched.clear();clearLines();confirmAsk=null;connect()});
-  qa("[data-k]").forEach(i=>{i.oninput=i.onchange=()=>{cfg[i.dataset.k]=i.value;saveCfg();if(i.dataset.k==="stake")qa("[data-st]").forEach(b=>b.classList.toggle("on",+b.dataset.st===+i.value))}});
+  qa("[data-k]").forEach(i=>{i.oninput=i.onchange=()=>{cfg[i.dataset.k]=i.value;saveCfg();if(i.dataset.k==="stake")qa("[data-st]").forEach(b=>b.classList.toggle("on",+b.dataset.st===+i.value));
+    if(i.dataset.k==="lot"){qa("[data-lt]").forEach(b=>b.classList.toggle("on",+b.dataset.lt===+i.value));const l=fmtLot(+i.value||0);const u=q('[data-buy="up"]'),d=q('[data-buy="dn"]');u&&(u.textContent="▲ Comprar "+l);d&&(d.textContent="▼ Vender "+l)}
+    if(i.dataset.k==="lot"||i.dataset.k==="mult")paintMg()}});
   qa("[data-st]").forEach(b=>b.onclick=()=>{cfg.stake=+b.dataset.st;saveCfg();render()});
+  qa("[data-lt]").forEach(b=>b.onclick=()=>{cfg.lot=+b.dataset.lt;saveCfg();render()});
+  qa("[data-mode]").forEach(b=>b.onclick=()=>{cfg.mode=b.dataset.mode;saveCfg();render()});
+  const oc=q("[data-oneclick]");oc&&(oc.onclick=()=>{cfg.oneClick=!cfg.oneClick;saveCfg();confirmAsk=null;render();toast(cfg.oneClick?"Un clic activado: las órdenes se envían al instante":"Un clic desactivado")});
   qa("[data-buy]").forEach(b=>b.onclick=()=>buy(b.dataset.buy));
   const cy=q("[data-cyes]");cy&&(cy.onclick=()=>{const d=confirmAsk;confirmAsk=null;buy(d,true)});
   const cn=q("[data-cno]");cn&&(cn.onclick=()=>{confirmAsk=null;render()});
