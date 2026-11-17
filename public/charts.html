@@ -608,6 +608,14 @@ html,body{overscroll-behavior:none}.dbar{overscroll-behavior:contain;touch-actio
 .ctfnew{display:flex;gap:6px;padding:6px 12px 4px}.ctfnew input{width:64px;background:var(--bg);border:1px solid var(--line2);border-radius:8px;padding:6px 8px;color:var(--fg);font-size:13px}
 .ctfnew select{flex:1;background:var(--bg);border:1px solid var(--line2);border-radius:8px;padding:6px;color:var(--fg);font-size:13px}.ctfnew button{border:1px solid var(--gold);background:var(--gbg);color:var(--gold2);border-radius:8px;padding:6px 10px;font-weight:600;cursor:pointer;font-size:12.5px}
 .tfr .ctfx{margin-left:2px;color:var(--mut)}
+
+/* pestañas de mercados abajo (como MT5) */
+.app.ftbot .center{grid-template-rows:minmax(0,1fr) auto}
+.app.ftbot .ftw{border-bottom:0;border-top:1px solid var(--line)}
+.app.ftbot .grid.mtf{grid-template-rows:minmax(0,1fr) auto var(--mtfh,168px)!important}
+.app.ftbot .grid.mtf>.ftw{margin-top:8px}
+.app.h-ft.ftbot .grid.mtf{grid-template-rows:minmax(0,1fr) var(--mtfh,168px)!important}
+.seg.mini2{padding:0;margin:0;min-width:150px}
 </style>
 </head>
 <body>

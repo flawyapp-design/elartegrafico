@@ -419,6 +419,13 @@ function start(){
   const DEF=["BOOM1000","CRASH1000","BOOM500","CRASH500","BOOM300N","CRASH300N"];
   SAVE.panes=Array.isArray(SAVE.panes)?SAVE.panes:[];
   const grid=$("#grid"),panes=[];let active=0;
+  /* pestañas de mercados arriba o abajo (como MT5); en Multi-TF van justo encima de la multitemporalidad */
+  function placeFt(){const ftw=$(".ftw"),center=$(".center");if(!ftw||!center)return;const bot=SAVE.ftPos==="bottom";appw.classList.toggle("ftbot",bot);
+    const mr=grid.classList.contains("mtf")?grid.querySelector(":scope>.mtfrow"):null;
+    if(bot&&mr){if(ftw.parentNode!==grid||ftw.nextElementSibling!==mr)grid.insertBefore(ftw,mr)}
+    else if(bot){if(ftw.parentNode!==center||center.lastElementChild!==ftw)center.appendChild(ftw)}
+    else if(ftw.parentNode!==center||center.firstElementChild!==ftw)center.insertBefore(ftw,center.firstElementChild)}
+  new MutationObserver(()=>placeFt()).observe(grid,{childList:true});setTimeout(placeFt,0);
   const UP="#089981",DN="#f23645",NC="#9da1aa";
   /* ---------- ajustes del gráfico (tema, fondo, cuadrícula, velas…) ---------- */
   const CDEF={theme:"light",bg:"",grid:true,dec:"auto",font:11,wmMode:"both",wmOp:10,wmSize:100,wmColor:"auto",up:UP,dn:DN,type:"candle_solid",last:true,hl:true,cross:true,wm:true,axis:true,cd:"mtf",ticks:true,spk:true};
@@ -824,6 +831,7 @@ function start(){
     if(cat==="barras")return`<h3>Barras y paneles</h3><p class="shelp">Activa solo lo que usas. Todo se guarda en tu cuenta.</p>
       ${PARTS.map(([k,t])=>row(t,PDESC[k]||"",tog(`data-h="${k}"`,!SAVE.hide[k]))).join("")}
       <div class="slabel">Posición</div>${row("Lista de mercados a la izquierda","",tog('data-o="wlLeft"',SAVE.wlLeft))}${row("Barra de dibujo a la derecha","",tog('data-o="dbRight"',SAVE.dbRight))}
+      ${row("Pestañas de mercados","Arriba (como ahora) o abajo, como en MT5: en la vista Multi-TF quedan justo encima de la multitemporalidad.",`<div class="seg mini2"><button data-ftp="top" class="${SAVE.ftPos!=="bottom"?"on":""}">Arriba</button><button data-ftp="bottom" class="${SAVE.ftPos==="bottom"?"on":""}">Abajo</button></div>`)}
       <p class="shelp">Arrastra los bordes para cambiar tamaños (lista, multitemporalidad y división entre gráficos) y arrastra pestañas y favoritos para ordenarlos.</p>
       <div class="sbtns"><button class="btn sm" data-a="clean">${allHidden()?"Mostrar todo":"Modo limpio (solo gráfico)"}</button><button class="btn sm" data-a="rs">Restablecer tamaños</button></div>`;
     if(cat==="alertas"){const act=ALERTS.filter(a=>a.active),old=ALERTS.filter(a=>!a.active).slice(0,10),pp=a=>(bySym[a.symbol]?prec(bySym[a.symbol].pip):3);
@@ -874,6 +882,7 @@ function start(){
     ov.querySelectorAll("[data-wc]").forEach(b=>b.onclick=()=>set("wmColor",b.dataset.wc));
     ov.querySelectorAll("[data-r]").forEach(i=>{i.oninput=()=>{SAVE.cfg[i.dataset.r]=+i.value;i.nextElementSibling.textContent=i.value+"%";applyCfg()};i.onchange=()=>save()});
     ov.querySelectorAll("input[data-h]").forEach(i=>i.onchange=()=>{SAVE.hide[i.dataset.h]=!i.checked;save();applyHide();re()});
+    ov.querySelectorAll("[data-ftp]").forEach(b=>b.onclick=()=>{SAVE.ftPos=b.dataset.ftp;save();placeFt();relayout();re()});
     ov.querySelectorAll("input[data-o]").forEach(i=>i.onchange=()=>{SAVE[i.dataset.o]=i.checked;save();applyLayoutPrefs();re()});
     const cl=ov.querySelector('[data-a="clean"]');cl&&(cl.onclick=()=>{const all=!allHidden();PARTS.forEach(([k])=>SAVE.hide[k]=all);save();applyHide();ov.remove();if(all)toast("Modo limpio · toca <b>Mostrar barras</b> o presiona <b>Esc</b> para volver")});
     const rs=ov.querySelector('[data-a="rs"]');rs&&(rs.onclick=()=>{delete SAVE.wlw;delete SAVE.mtfh;SAVE.split={c:.5,r:.5};save();applyLayoutPrefs();toast("Tamaños restablecidos")});
