@@ -358,7 +358,8 @@ window.EAGWidget=function(o){
   let magnet=o.magnet||"normal",locked=false,hidden=false;
 
   /* ---------- datos ---------- */
-  const msOf=p=>p.multiplier*({minute:6e4,hour:36e5,day:864e5,week:6048e5}[p.timespan]||6e4);
+  const msOf=p=>p.multiplier*({tick:1e3,minute:6e4,hour:36e5,day:864e5,week:6048e5}[p.timespan]||6e4);
+  const isTk=()=>per&&per.timespan==="tick";
   let noMore=false;
   /* escala de precios automática otra vez (si se estiró a mano, al cambiar de mercado quedaba congelada) */
   function autoScale(){try{const ax=chart._candlePane&&chart._candlePane.getAxisComponent();if(ax){ax._autoCalcTickFlag=true;chart.adjustPaneViewport(false,true,true,true)}}catch(e){}}
@@ -390,8 +391,8 @@ window.EAGWidget=function(o){
   function paintBar(){
     $(".wsym b").textContent=sym.shortName||sym.name||sym.ticker;
     $(".wtf b").textContent=per.text;$(".wm-s").textContent=`${sym.name||sym.ticker}, ${per.text}`;const dtf=dbar.querySelector(".dtf b");if(dtf)dtf.textContent=per.text;
-    const favs=(o.getFavTF&&o.getFavTF())||[];
-    $(".wfav").innerHTML=favs.map(t=>`<button class="wp${t===per.text?" on":""}" data-t="${t}">${t}</button>`).join("");
+    const favs=((o.ticksOn&&o.ticksOn())?["Ticks"]:[]).concat((o.getFavTF&&o.getFavTF())||[]);
+    $(".wfav").innerHTML=favs.map(t=>`<button class="wp${t===per.text?" on":""}${t==="Ticks"?" wtk":""}" data-t="${t}"${t==="Ticks"?' title="Gráfico de ticks: cada movimiento del precio, como en MT5"':""}>${t}</button>`).join("");
     $(".wfav").querySelectorAll("button").forEach(b=>b.onclick=()=>o.onPickTF&&o.onPickTF(b.dataset.t))}
   $(".wsym").onclick=e=>{e.stopPropagation();o.onSymbolClick&&o.onSymbolClick()};
   $(".wtf").onclick=e=>{e.stopPropagation();o.onTFClick&&o.onTFClick($(".wtf"))};
@@ -414,7 +415,7 @@ window.EAGWidget=function(o){
   const two=n=>String(n).padStart(2,"0"),cdEl=$(".wcd"),clkEl=$(".wclk");
   const tick=()=>{if(!root.isConnected)return clearInterval(clkT);const now=Date.now(),bog=new Date(now-5*36e5);
     clkEl.textContent=`${two(bog.getUTCHours())}:${two(bog.getUTCMinutes())}:${two(bog.getUTCSeconds())} (UTC-5)`;
-    const L=chart.getDataList(),last=L[L.length-1];if(last){const left=Math.max(0,last.timestamp+msOf(per)-now),s2=Math.floor(left/1000),h=Math.floor(s2/3600),m=Math.floor(s2%3600/60);
+    const L=chart.getDataList(),last=L[L.length-1];if(last&&isTk()){cdEl.textContent="Ticks en vivo";cdEl.classList.remove("soon")}else if(last){const left=Math.max(0,last.timestamp+msOf(per)-now),s2=Math.floor(left/1000),h=Math.floor(s2/3600),m=Math.floor(s2%3600/60);
       cdEl.textContent=`Cierra en ${h?h+":"+two(m):m}:${two(s2%60)}`;cdEl.classList.toggle("soon",left<10000)}};
   const clkT=setInterval(tick,1000);tick();
   /* cuenta regresiva del cierre de vela. Dos modos (Configuración → Gráfico):
@@ -424,7 +425,7 @@ window.EAGWidget=function(o){
   const cdl=document.createElement("div");cdl.className="wcdl";chartEl.appendChild(cdl);
   const cdc=document.createElement("div");cdc.className="wcdc";cdc.innerHTML='<b></b><span></span>';chartEl.appendChild(cdc);
   const cdcN=cdc.firstChild,cdcT=cdc.lastChild;
-  const cdMode=()=>{const m=o.getCdMode&&o.getCdMode();return m==="regla"||m==="vela"?m:"off"};  /* "mtf" (por defecto): el reloj va en cada mini de la multitemporalidad, no en el gráfico grande */
+  const cdMode=()=>{if(isTk())return"off";const m=o.getCdMode&&o.getCdMode();return m==="regla"||m==="vela"?m:"off"};  /* "mtf" (por defecto): el reloj va en cada mini de la multitemporalidad, no en el gráfico grande */
   /* espacio libre a la derecha de la última vela para que el contador no tape velas (como el "desplazamiento" de MT5) */
   /* OJO: setOffsetRightDistance mueve la vista al tiempo real, así que SOLO se llama al cargar el mercado o al cambiar el modo/la letra
      (antes se llamaba en cada cuadro y al hacer zoom con la rueda el gráfico se iba para un lado) */
@@ -906,6 +907,9 @@ window.EAGWidget=function(o){
   function applyStyles(){const f=fz(),t={size:f},B=11,tb={size:B};axW=axWidth(f);chart.setStyles(deep(deep(themeStyles(theme==="light",theme==="eag"),extra),{yAxis:{type:axisType,tickText:t,size:axW},xAxis:{tickText:tb,size:"auto"},
     crosshair:{horizontal:{text:t},vertical:{text:tb}},indicator:{tooltip:{text:{size:B}}},overlay:{text:{size:B+1},rectText:{size:B}},
     candle:{priceMark:{last:{text:{size:f,show:false}},high:{textSize:10},low:{textSize:10}},tooltip:{showRule:"always",showType:"standard",custom:legend(),text:{size:B+1,marginLeft:10,marginTop:8,marginRight:10}}}}));
+    /* gráfico de ticks: línea (cada punto es un tick) */
+    if(isTk()){const lc="#2962ff";chart.setStyles({candle:{type:"area",area:{lineSize:1.6,lineColor:lc,smooth:false,value:"close",backgroundColor:[{offset:0,color:"rgba(41,98,255,0.16)"},{offset:1,color:"rgba(41,98,255,0.01)"}]},
+      priceMark:{high:{show:false},low:{show:false}},tooltip:{showRule:"none"}}})}
     cdl.style.fontSize=(f-0.5)+"px";cdc.style.fontSize=Math.min(f,13)+"px";AXF=f;ensureLp();if(ready&&offR!=null&&offF!==f){offF=f;fixOffR()}offF=f;placeCdl()}
   /* decimales del precio: automático o los que elija el usuario */
   const dec=()=>{const d=o.getDecimals&&o.getDecimals();return d==null||d==="auto"?(sym.pricePrecision||3):+d};
@@ -919,7 +923,7 @@ window.EAGWidget=function(o){
 
   return{chart,el:root,startTool:n=>{stopBrush();startTool(n)},stopBrush:()=>stopBrush(),startBrush:()=>startBrush(),undo,redo,renderAlerts,cancelDraw:()=>cancelDraw(),
     getSymbol:()=>sym,setSymbol(s,p){if(!s||(sym&&s.ticker===sym.ticker&&s.pricePrecision===sym.pricePrecision))return;sym=s;if(p&&p.text)per=p;loadData();try{paintBar()}catch(e){}},
-    getPeriod:()=>per,setPeriod(p){if(!p||p.text===per.text)return;per=p;loadData()},
+    getPeriod:()=>per,getData:()=>chart.getDataList(),setPeriod(p){if(!p||p.text===per.text)return;per=p;loadData()},
     getTheme:()=>theme,setTheme(t){theme=t;applyStyles()},
     setStyles(s){extra=s||{};applyStyles()},setDecimals(){applyDec();applyStyles()},
     refreshBar:paintBar,

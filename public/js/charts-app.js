@@ -44,7 +44,10 @@ const PERIODS=[
   {multiplier:1,timespan:"hour",text:"1H"},{multiplier:2,timespan:"hour",text:"2H"},{multiplier:4,timespan:"hour",text:"4H"},{multiplier:8,timespan:"hour",text:"8H"},
   {multiplier:1,timespan:"day",text:"1D"}];
 const gran=p=>p.multiplier*({minute:60,hour:3600,day:86400,week:604800}[p.timespan]||60);
-const perOf=t=>PERIODS.find(p=>p.text===t)||PERIODS[0];
+/* gráfico de ticks: cada movimiento del precio (como el gráfico de ticks de MT5) */
+const TICK={multiplier:1,timespan:"tick",text:"Ticks"};
+const perFind=t=>t==="Ticks"?TICK:PERIODS.find(p=>p.text===t)||null;
+const perOf=t=>perFind(t)||PERIODS[0];
 
 /* ===================== Datos de Deriv (WebSocket) ===================== */
 const APPID=CFG.DERIV_APP_ID||1089;
@@ -219,19 +222,35 @@ function start(){
     h.set(who,cb)}
   function hubOff(k,who){const h=hub.get(k);if(!h)return;h.delete(who);if(!h.size){hub.delete(k);feed.unsub("c:"+k)}}
   const toK=c=>({timestamp:c.epoch*1000,open:+c.open,high:+c.high,low:+c.low,close:+c.close,volume:0});
+  /* ticks en vivo compartidos: una sola suscripción por mercado para la lista de mercados y los gráficos de ticks
+     (Deriv no deja suscribirse dos veces al mismo mercado en la misma conexión) */
+  const TKL=new Map(),TKW=new Set();
+  const tickHandler=s=>m=>{if(!m.tick)return;if(TKW.has(s)){const prev=last[s];last[s]=+m.tick.quote;if(prev!=null)dir[s]=last[s]>prev?"up":last[s]<prev?"dn":dir[s];onPrice(s)}
+    const L=TKL.get(s);L&&L.forEach(f=>{try{f(m.tick)}catch(e){}})};
+  const tickEnsure=s=>{if(!feed.has("tick:"+s))feed.sub("tick:"+s,{ticks:s},tickHandler(s),()=>{})};
+  const tickDrop=s=>{if(!TKW.has(s)&&!(TKL.get(s)&&TKL.get(s).size))feed.unsub("tick:"+s)};
+  function tickOn(s,who,cb){let L=TKL.get(s);if(!L){L=new Map();TKL.set(s,L)}L.set(who,cb);tickEnsure(s)}
+  function tickOff(s,who){const L=TKL.get(s);if(L){L.delete(who);if(!L.size)TKL.delete(s)}tickDrop(s)}
+  /* los ticks llegan con la hora en segundos: si hay varios en el mismo segundo se separan 1 ms para que no se pisen */
+  const tickList=(P,T,prev)=>{const out=[];let pv=prev||0;for(let i=0;i<P.length;i++){let t=(+T[i])*1000;if(t<=pv)t=pv+1;pv=t;const v=+P[i];out.push({timestamp:t,open:v,high:v,low:v,close:v,volume:0})}return out};
   let paneSeq=0;
   function Datafeed(){
-    const me="p"+(++paneSeq)+":";
+    const me="p"+(++paneSeq)+":";let tkLast=0;
     return{
       async searchSymbols(q){await ready;q=String(q||"").trim().toLowerCase();
         return SYMS.filter(s=>!q||s.symbol.toLowerCase().includes(q)||String(s.display_name).toLowerCase().includes(q)).sort((a,b)=>tabOf(a).localeCompare(tabOf(b))||bcOrder(a)-bcOrder(b)).slice(0,200).map(info)},
       async getHistoryKLineData(sym,period,from,to){
+        if(period&&period.timespan==="tick"){const live=to>=Date.now()-3000;
+          try{const m=await feed.ask(Object.assign({ticks_history:sym.ticker,style:"ticks",count:1000},live?{end:"latest"}:{end:Math.floor(to/1000)}));const h=m.history||{};
+            const L=tickList(h.prices||[],h.times||[]);if(live&&L.length)tkLast=L[L.length-1].timestamp;return L}
+          catch(e){console.warn("[EAG] ticks",sym.ticker,e.message);return[]}}
         const g=gran(period),end=Math.floor(Math.min(to,Date.now())/1000),start=Math.max(1,Math.floor(from/1000));
         if(end<=start)return[];
         try{const m=await feed.ask({ticks_history:sym.ticker,style:"candles",granularity:g,start,end,count:5000,adjust_start_time:1});return(m.candles||[]).map(toK)}
         catch(e){console.warn("[EAG] historial",sym.ticker,e.message);return[]}},
-      subscribe(sym,period,cb){hubOn(sym.ticker+":"+gran(period),me,sym.ticker,gran(period),cb)},
-      unsubscribe(sym,period){hubOff(sym.ticker+":"+gran(period),me)}
+      subscribe(sym,period,cb){if(period&&period.timespan==="tick"){tickOn(sym.ticker,me,t=>{let ts=(+t.epoch)*1000;if(ts<=tkLast)ts=tkLast+1;tkLast=ts;const v=+t.quote;cb({timestamp:ts,open:v,high:v,low:v,close:v,volume:0})});return}
+        hubOn(sym.ticker+":"+gran(period),me,sym.ticker,gran(period),cb)},
+      unsubscribe(sym,period){if(period&&period.timespan==="tick"){tickOff(sym.ticker,me);return}hubOff(sym.ticker+":"+gran(period),me)}
     }
   }
 
@@ -350,7 +369,7 @@ function start(){
   function openTF(pane,anchor){
     const cur=(()=>{try{return pane.kc.getPeriod().text}catch(e){return""}})();
     const grp=[["Minutos","minute"],["Horas","hour"],["Días","day"]];
-    pop.innerHTML=grp.map(([g,ts])=>`<div class="ph">${g}</div>`+PERIODS.filter(p=>p.timespan===ts).map(p=>`<div class="tfr${p.text===cur?" on":""}" data-t="${p.text}"><span>${tfName(p)}</span><button class="st2${SAVE.tfFav.includes(p.text)?" on":""}" data-f="${p.text}" title="${SAVE.tfFav.includes(p.text)?"Quitar de favoritas":"Agregar a favoritas"}">${SAVE.tfFav.includes(p.text)?"★":"☆"}</button></div>`).join("")).join("")
+    pop.innerHTML=(CF().ticks!==false?`<div class="ph">Ticks</div><div class="tfr${cur==="Ticks"?" on":""}" data-t="Ticks"><span>Gráfico de ticks</span></div>`:"")+grp.map(([g,ts])=>`<div class="ph">${g}</div>`+PERIODS.filter(p=>p.timespan===ts).map(p=>`<div class="tfr${p.text===cur?" on":""}" data-t="${p.text}"><span>${tfName(p)}</span><button class="st2${SAVE.tfFav.includes(p.text)?" on":""}" data-f="${p.text}" title="${SAVE.tfFav.includes(p.text)?"Quitar de favoritas":"Agregar a favoritas"}">${SAVE.tfFav.includes(p.text)?"★":"☆"}</button></div>`).join("")).join("")
       +`<div class="pnote">Las ★ favoritas salen en la barra y en Multitemporalidad.</div>`;
     pop.querySelectorAll(".tfr").forEach(r=>r.onclick=e=>{
       const f=e.target.closest("[data-f]");
@@ -366,7 +385,7 @@ function start(){
   const grid=$("#grid"),panes=[];let active=0;
   const UP="#089981",DN="#f23645",NC="#9da1aa";
   /* ---------- ajustes del gráfico (tema, fondo, cuadrícula, velas…) ---------- */
-  const CDEF={theme:"light",bg:"",grid:true,dec:"auto",font:11,wmMode:"both",wmOp:10,wmSize:100,wmColor:"auto",up:UP,dn:DN,type:"candle_solid",last:true,hl:true,cross:true,wm:true,axis:true,cd:"mtf"};
+  const CDEF={theme:"light",bg:"",grid:true,dec:"auto",font:11,wmMode:"both",wmOp:10,wmSize:100,wmColor:"auto",up:UP,dn:DN,type:"candle_solid",last:true,hl:true,cross:true,wm:true,axis:true,cd:"mtf",ticks:true,spk:true};
   SAVE.cfg=Object.assign({},CDEF,SAVE.cfg||{});
   /* el reloj de cierre de vela ahora va por defecto en la multitemporalidad (cada temporalidad con su tiempo) */
   if(SAVE.cfg.cdV!==2){SAVE.cfg.cd="mtf";SAVE.cfg.cdV=2}
@@ -386,7 +405,9 @@ function start(){
     document.documentElement.style.setProperty("--chartbg",c.bg||defBg());
     const tc=document.querySelector('meta[name="theme-color"]');tc&&tc.setAttribute("content",defBg());
     panes.forEach(p=>{try{if(p.kc.getTheme()!==c.theme)p.kc.setTheme(c.theme)}catch(e){}setTimeout(()=>{try{p.kc.setStyles(styFor());p.kc.setDecimals()}catch(e){}},40)});
-    Object.values(MTFS).forEach(M=>M.minis.forEach(m=>{try{m.c.setStyles({candle:{bar:barOf()}})}catch(e){}}))}
+    Object.values(MTFS).forEach(M=>M.minis.forEach(m=>{try{m.c.setStyles({candle:{bar:barOf()}})}catch(e){}}));
+    if(c.ticks===false)panes.forEach((p,i)=>{try{if(p.kc.getPeriod().timespan==="tick"){p.kc.setPeriod(perOf("1m"));SAVE.panes[i]=Object.assign({},SAVE.panes[i],{p:"1m"})}}catch(e){}});
+    try{decorateAll()}catch(e){}window.__spkPaint&&window.__spkPaint()}
   function openCfg(anchor){const c=CF();
     const tg=(k,t)=>`<label class="sw"><input type="checkbox" data-k="${k}" ${c[k]?"checked":""}><i></i><span>${t}</span></label>`;
     const TYPES=[["candle_solid","Velas"],["candle_stroke","Huecas"],["ohlc","Barras"],["area","Área"]];
@@ -422,7 +443,7 @@ function start(){
     const kc=window.EAGWidget({container:el.firstChild,symbol:findInfo(sym),period:per,datafeed:Datafeed(),theme:CF().theme,timezone:TZ,
       indicators:FREE?trimInd(sv.ind):sv.ind,magnet:SAVE.magnet,lastTools:SAVE.lastTools,
       toolAllowed:FREE?(n=>FREE_TOOLS.has(n)):null,maxIndicators:FREE?FREE_IND:null,alertsAllowed:FREE?(()=>false):null,onLocked:(k,what)=>upsell(what),
-      getFavTF:()=>SAVE.tfFav,
+      getFavTF:()=>SAVE.tfFav,ticksOn:()=>CF().ticks!==false,
       onPickTF:t=>{kc.setPeriod(perOf(t));afterTF()},
       onTFClick:a=>{setActive(i);pop.hidden||pop.dataset.for!=="tf"?openTF(p,a):closePop()},
       onSymbolClick:anc=>{setActive(i);const a=anc&&anc.nodeType?anc:el.querySelector(".wsym");pop.hidden||pop.dataset.for!=="sym"?openSymPicker(p,a):closePop()},
@@ -456,7 +477,7 @@ function start(){
   function setSym(s){const p=panes[active];if(!p)return;tradeKick();
     const targets=[active];
     /* cada mercado recuerda su propia temporalidad: al volver a él se abre en la última que usaste */
-    const tf=(SAVE.symTF||{})[s],pp=tf?PERIODS.find(x=>x.text===tf):null;
+    const tf=(SAVE.symTF||{})[s],pp=tf?perFind(tf):null;
     targets.forEach(j=>{panes[j].kc.setSymbol(findInfo(s),pp);SAVE.panes[j]=Object.assign({},SAVE.panes[j],{s},pp?{p:pp.text}:{})});save();if(pp)setTimeout(()=>{try{afterTF()}catch(e){}},80);
     setTimeout(()=>{if(MTFS[active])buildMTF(active);paintList();paintTabs()},60)}
 
@@ -608,9 +629,9 @@ function start(){
     if(!pop.hidden&&pop.dataset.for==="sym"){const pr=pop.querySelector(`.spr[data-s="${CSS.escape(s)}"]`);if(pr){const x=bySym[s]||{},c=chg(s);pr.querySelector(".p").textContent=fmt(last[s],x);const ce=pr.querySelector(".c");ce.className="c "+(c==null?"":c>=0?"up":"dn");ce.textContent=c==null?"":(c>=0?"+":"")+c.toFixed(2)+"%"}}}
   function watch(){clearTimeout(wt);wt=setTimeout(()=>{
     const want=new Set(SAVE.fav.concat(shown.slice(0,20),shownPick||[]));
-    watching.forEach(s=>{if(!want.has(s)){feed.unsub("tick:"+s);watching.delete(s)}});
+    watching.forEach(s=>{if(!want.has(s)){watching.delete(s);TKW.delete(s);tickDrop(s)}});
     want.forEach(s=>{if(watching.has(s))return;watching.add(s);
-      feed.sub("tick:"+s,{ticks:s},m=>{if(m.tick){const prev=last[s];last[s]=+m.tick.quote;if(prev!=null)dir[s]=last[s]>prev?"up":last[s]<prev?"dn":dir[s];onPrice(s)}},()=>{});
+      TKW.add(s);tickEnsure(s);
       if(dayOpen[s]==null)feed.ask({ticks_history:s,style:"candles",granularity:86400,end:"latest",count:1}).then(m=>{const c=(m.candles||[])[0];if(c){dayOpen[s]=+c.open;if(last[s]==null)last[s]=+c.close;onPrice(s)}}).catch(()=>{});
     })},250)}
 
@@ -677,13 +698,15 @@ function start(){
       get up(){return CF().up||"#089981"},get dn(){return CF().dn||"#f23645"},
       cur:()=>{try{const p=panes[active];return{sym:p.kc.getSymbol().ticker,tf:p.kc.getPeriod().text}}catch(e){return{}}}});
     $("#prob").onclick=e=>{e.stopPropagation();window.EAGPro.open(proAccess("prac").ok||!proAccess("replay").ok?"prac":"replay")}}else $("#prob").hidden=true;
+  /* contador de spikes en el gráfico de ticks (Boom y Crash) */
+  window.EAGSpikes&&window.EAGSpikes.init({panes:()=>panes.slice(0,visible()),toast,on:()=>CF().ticks!==false&&CF().spk!==false,setOff:()=>{SAVE.cfg.spk=false;save()}});
   /* Modo Clase (en vivo) y Zonas del profe */
   if(window.EAGClase&&API.liveGet){
     window.EAGClase.init({API,toast,SAVE,save,btn:$("#clb"),host:main,planUrl:PLAN_URL,
       isAdmin:()=>API.isAdmin(),rank:planRank,trialPro:()=>!!(window.__trial&&SITE.chartProTrial),
       panes:()=>panes.slice(0,visible()),active:()=>active,
       follow:(s,tf)=>{if(!s)return;if(!bySym[s]&&SYMS.length>20){toast("Ese mercado no está disponible ahora.");return}const p=panes[active];if(!p)return;
-        const pp=tf?PERIODS.find(x=>x.text===tf):null;try{p.kc.setSymbol(findInfo(s),pp||undefined);if(pp&&p.kc.getPeriod().text!==pp.text)p.kc.setPeriod(pp)}catch(e){}
+        const pp=tf?perFind(tf):null;try{p.kc.setSymbol(findInfo(s),pp||undefined);if(pp&&p.kc.getPeriod().text!==pp.text)p.kc.setPeriod(pp)}catch(e){}
         SAVE.panes[active]=Object.assign({},SAVE.panes[active],{s},pp?{p:pp.text}:{});save();setTimeout(()=>{try{if(MTFS[active])buildMTF(active);paintList();paintTabs();afterTF()}catch(e){}},80)}})}
   else{const cb=$("#clb");cb&&(cb.hidden=true)}
   /* Operar con Deriv (multiplicadores) para todos; cTrader solo el admin */
@@ -747,7 +770,8 @@ function start(){
       <div class="seg">${[[11,"Normal"],[13,"Mediana"],[15,"Grande"],[18,"Muy grande"]].map(([v,t])=>`<button data-fz="${v}" class="${+c.font===v?"on":""}">${t}</button>`).join("")}</div>
       <div class="slabel">Contador de cierre de vela</div><p class="shelp">"En Multi-TF": cada temporalidad de la multitemporalidad muestra lo que le falta a su vela. "Junto a la vela" es como en MT5: al lado de la última vela del gráfico grande, con el nombre del mercado.</p>
       <div class="seg">${[["mtf","En Multi-TF"],["vela","Junto a la vela"],["regla","En la regla"],["off","Oculto"]].map(([v,t])=>`<button data-cd="${v}" class="${(c.cd||"mtf")===v?"on":""}">${t}</button>`).join("")}</div>
-      <div class="slabel">Mostrar</div>`+[["grid","Cuadrícula","Líneas de fondo para ubicar precios y horas."],["axis","Ejes de precio y hora","La escala de precios a la derecha y las horas abajo."],["last","Línea del último precio","Línea punteada y etiqueta con el precio actual."],["hl","Máximo y mínimo visibles","Marca el precio más alto y más bajo de lo que estás viendo."],["cross","Cruz del cursor","Líneas que siguen al mouse con precio y hora exactos."]].map(([k,t,d])=>row(t,d,tog(`data-k="${k}"`,c[k]))).join("");
+      <div class="slabel">Mostrar</div>`+[["grid","Cuadrícula","Líneas de fondo para ubicar precios y horas."],["axis","Ejes de precio y hora","La escala de precios a la derecha y las horas abajo."],["last","Línea del último precio","Línea punteada y etiqueta con el precio actual."],["hl","Máximo y mínimo visibles","Marca el precio más alto y más bajo de lo que estás viendo."],["cross","Cruz del cursor","Líneas que siguen al mouse con precio y hora exactos."]].map(([k,t,d])=>row(t,d,tog(`data-k="${k}"`,c[k]))).join("")
+      +`<div class="slabel">Gráfico de ticks</div>`+[["ticks","Botón «Ticks»","Gráfico donde cada punto es un movimiento del precio, como el gráfico de ticks de MT5."],["spk","Contador de spikes (Boom y Crash)","En el gráfico de ticks: cuántos ticks van desde el último spike y la estadística. Es estadística, no predicción."]].map(([k,t,d])=>row(t,d,tog(`data-k="${k}"`,c[k]!==false))).join("");
     if(cat==="marca")return`<h3>Marca de agua</h3><p class="shelp">Ideal para tus lives: se ve el mercado, la temporalidad y tu marca de fondo.</p>
       ${row("Mostrar mercado y temporalidad","La marca EL ARTE GRÁFICO siempre se ve; esto quita o pone el nombre del mercado.",tog('data-k="wm"',c.wm))}
       <div class="sgrp"><div class="slabel">Qué mostrar</div><div class="seg">${[["both","Marca y mercado"],["brand","Solo marca"]].map(([v,t])=>`<button data-wm="${v}" class="${c.wmMode===v?"on":""}">${t}</button>`).join("")}</div>
