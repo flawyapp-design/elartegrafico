@@ -397,7 +397,7 @@ window.EAGWidget=function(o){
     XF=xfNow();RAW=list.slice();
     chart.applyNewData(viewOf(list),list.length>0&&XF!=="renko");autoScale();ready=true;applyStyles();offR=null;fixOffR(true);
     o.datafeed.subscribe(sym,per,d=>{if(g===gen){liveUpdate(d);cdKick(120)}});subKey={s:sym,p:per};
-    restoreDrawings();azKey="";setTimeout(refreshAuto,50);
+    restoreDrawings();azKey=null;setTimeout(refreshAuto,50);
   }
   chart.setLoadDataCallback(async({type,data,callback})=>{
     if(type!=="forward"||!data){callback([],false);return}
@@ -981,7 +981,7 @@ window.EAGWidget=function(o){
     reloadDrawings(){if(ready)restoreDrawings()},
     reloadData(){loadData()},
     drawings(){return sym?JSON.parse(JSON.stringify(loadD()[sym.ticker]||[])):[]},
-    setGuest,importDrawings,refreshAuto(){azKey="";refreshAuto()},
+    setGuest,importDrawings,refreshAuto(){azKey=null;refreshAuto()},
     repaint(){applyStyles()}}
 };
 })();
