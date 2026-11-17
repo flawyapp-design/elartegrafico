@@ -231,6 +231,7 @@ function viewBar(){let b=$("#viewBar");const v=viewAs();if(!v){if(b)b.remove();d
 window.AGVIEW=v=>{setViewAs(v);viewBar();renderNav();location.hash="#inicio";route()};
 function renderNav(){sideState();viewBar();document.body.classList.toggle("is-acad",!!ACAD);
   let r=(location.hash||"#inicio").slice(1).split("-")[0];if(r==="noticias"||r==="nota")r="comunidad";
+  const ra=(location.hash||"").slice(1).split("-").slice(1).join("-");
   const rw=rewardsOn()||admin();
   const u=API.user(),p=API.profile();const lv=levelOf((S.prog&&S.prog.xp)||0);
   /* ¿en qué parte estás? Inicio (comunidad) · Academia · EAG Charts */
@@ -242,23 +243,25 @@ function renderNav(){sideState();viewBar();document.body.classList.toggle("is-ac
   if(sec==="main"){
     G.push(["Comunidad",[it(toMain("inicio"),"Inicio","home",r==="inicio"),it(toMain("comunidad"),"Noticias","news",r==="comunidad"),it(toMain("opiniones"),"Opiniones","star",r==="opiniones"),it(toMain("mercados"),"Mercados","chart",r==="mercados")]]);
     if(rw)G.push(["Juega y gana",[it(toMain("retos"),"Retos diarios","bolt",r==="retos"),it(toMain("ranking"),"Ranking","trophy",r==="ranking")].concat(u&&p?[it(toMain("puntos"),"Saldo y puntos","card",r==="puntos")]:[])]);
-    if(u&&p)G.push(["Tu cuenta",[it(toMain("oro"),"Sala Oro","crown",r==="oro"),it(toMain("mensajes"),"Mensajes","msg",r==="mensajes",{badge:S.dm&&S.dm.unread}),it(toMain("perfil"),"Configuración","gear",r==="perfil")]]);
+    if(u&&p)G.push(["Tu cuenta",[it(toMain("oro"),"Sala Oro","crown",r==="oro"),it(toMain("mensajes"),"Mensajes","msg",r==="mensajes",{badge:S.dm&&S.dm.unread})]]);
   }else if(sec==="acad"){
     if(ACAD&&u&&p&&!(closedAcad()&&!admin())){
       G.push(["Aprender",[it("#inicio","Mi panel","home",r==="inicio"),it("#academia","Temario","acad",["academia","modulo","leccion"].includes(r)),it("#practica","Práctica","chart",r==="practica")]]);
       G.push(["Tu avance",[it("#logros","Logros","medal",r==="logros"),it("#progreso","Progreso","layers",r==="progreso")].concat(premium()?[]:[it("#prueba","Prueba gratis","play",r==="prueba")])]);
-      G.push(["Más",[it("#presentacion-precios","Planes y precios","crown",false),it("#presentacion","Presentación","news",r==="presentacion"),it("#perfil","Configuración","gear",r==="perfil")]]);
+      G.push(["Más",[it("#presentacion-precios","Planes y precios","crown",false),it("#presentacion","Presentación","news",r==="presentacion")]]);
     }else{
-      G.push(["Academia",[it(toAcad("presentacion"),"Presentación","acad",r==="presentacion"),it(toAcad("presentacion-precios"),"Planes y precios","crown",r==="premium"),it(toMain("probar"),"Probar una gráfica","play",r==="probar")]
-        .concat(u&&p?(ACAD?[]:[it(toAcad("inicio"),"Entrar a la academia","site",false,{gold:1})]):[it(toMain("registro"),"Crear cuenta gratis","users",false,{gold:1}),it(toMain("entrar-academia"),"Ingresar","gear",false)])]);
+      const pa=k=>toAcad("presentacion"+(k?"-"+k:"")),on=k=>r==="presentacion"&&(ra||"")===k;
+      G.push(["Academia",[it(pa(""),"Presentación","acad",on("")),it(pa("aprende"),"Qué vas a aprender","bolt",on("aprende")),it(pa("profe"),"Quién te enseña","users",on("profe")),it(pa("temario"),"Temario","layers",on("temario")),it(pa("precios"),"Planes y precios","crown",on("precios")||r==="premium"),it(pa("faq"),"Preguntas frecuentes","news",on("faq"))]]);
+      G.push(["Pruébala",[it(toMain("probar"),"Probar una gráfica","play",r==="probar")].concat(u&&p&&!ACAD&&!(closedAcad()&&!admin())?[it(toAcad("inicio"),"Entrar a mi panel","site",false,{gold:1})]:[])]);
     }
   }else{
-    G.push(["EAG Charts",[it(toMain("charts"),"Presentación","chart",r==="charts"),it("https://charts.elartegrafico.com","Abrir EAG Charts","site",false,{ext:1,gold:1}),it(toAcad("presentacion-precios"),"Planes y precios","crown",false)]]);
+    const pc=k=>toMain("charts"+(k?"-"+k:"")),onc=k=>r==="charts"&&(ra||"")===k;
+    G.push(["EAG Charts",[it(pc(""),"Presentación","chart",onc("")),it(pc("funciones"),"Funciones","layers",onc("funciones")),it(pc("planes"),"Gratis vs. completo","crown",onc("planes")),it(pc("empezar"),"Cómo empezar","play",onc("empezar")),it(pc("faq"),"Preguntas frecuentes","news",onc("faq"))]]);
+    G.push(["Usar",[it("https://charts.elartegrafico.com","Abrir EAG Charts","site",false,{ext:1,gold:1})]]);
   }
   /* las tres partes, como la lista "Siguiendo" de Kick */
-  const PL=[["main","El Arte Gráfico","Comunidad gratis",toMain("inicio"),"home"],["acad","Academia","Método Boom y Crash",acadHref,"acad"],["charts","EAG Charts","Gráficos en vivo",toMain("charts"),"chart"]];
-  const navHTML=G.map(([h,items])=>`<div class="ngrp"><span>${h}</span></div>`+items.map(x=>`<a href="${esc(x.href)}" class="nit${x.on?" on":""}${x.gold?" ngold":""}" data-tip="${esc(x.t)}"${x.on?' aria-current="page"':""}${x.ext?' target="_blank" rel="noopener"':""}><span class="mi">${ico(x.ic,21)}</span><span class="nt">${x.t}</span>${x.ext?'<i class="nx">↗</i>':""}${x.badge?`<em class="nbadge">${x.badge}</em>`:""}</a>`).join("")).join("")
-    +`<div class="ngrp"><span>Secciones</span></div>`+PL.map(([k,t,d,h,ic])=>`<a href="${esc(h)}" class="npl${sec===k?" here":""}" data-tip="${esc(t)}"><span class="npl-i pl-${k}">${ico(ic,18)}</span><span class="npl-t"><b>${t}</b><small>${d}</small></span>${sec===k?'<i class="npl-dot" title="Estás aquí"></i>':k==="charts"?'<em class="npl-new">Nuevo</em>':""}</a>`).join("");
+  const PL=[["main","El Arte Gráfico","Comunidad gratis",toMain("inicio"),"home"],["acad","Academia","Trading paso a paso",acadHref,"acad"],["charts","EAG Charts","Gráficos en vivo",toMain("charts"),"chart"]];
+  const navHTML=G.map(([h,items])=>`<div class="ngrp"><span>${h}</span></div>`+items.map(x=>`<a href="${esc(x.href)}" class="nit${x.on?" on":""}${x.gold?" ngold":""}" data-tip="${esc(x.t)}"${x.on?' aria-current="page"':""}${x.ext?' target="_blank" rel="noopener"':""}><span class="mi">${ico(x.ic,21)}</span><span class="nt">${x.t}</span>${x.ext?'<i class="nx">↗</i>':""}${x.badge?`<em class="nbadge">${x.badge}</em>`:""}</a>`).join("")).join("");
   const mus=u&&p?`<div class="mnav-user"><a class="mnu-me" href="${toMain("perfil")}">${avatar(p,40)}<span><b>${esc(p.username)}</b><small>${esc(lv.name)} · ${S.prog?S.prog.xp:0} pts</small></span>${premium()?premTag(myPlan()):""}</a>
       <div class="mnu-links">${premium()?"":`<a href="${toMain("premium")}">${ico("crown",18)}Hazte premium</a>`}${admin()?`<a href="${toMain("admin")}">${ico("news",18)}Administración</a>`:""}<button type="button" id="logout2">Cerrar sesión</button></div></div>`
     :`<div class="mnav-user"><div class="mnu-links two"><a class="btn ghost" href="${toMain("entrar")}">Ingresar</a><a class="btn gold" href="${toMain("registro")}">Crear cuenta</a></div></div>`;
@@ -267,12 +270,14 @@ function renderNav(){sideState();viewBar();document.body.classList.toggle("is-ac
   ts.innerHTML=PL.map(([k,t,d,h,ic])=>`<a class="tsw-${k}${sec===k?" on":""}" href="${esc(h)}"${sec===k?' aria-current="true"':""}>${ico(ic,16)}<span>${k==="main"?"Inicio":k==="charts"?'<i class="tl-l">EAG </i>Charts':t}</span>${k==="charts"?'<i class="tsw-new" aria-hidden="true"></i>':""}</a>`).join("");
   /* barra inferior tipo app (celular) */
   const TB=sec==="acad"&&ACAD&&u&&p?[["inicio","home","Panel"],["academia","acad","Temario"],["practica","chart","Práctica"],["progreso","layers","Progreso"]]
-    :sec==="acad"?[["presentacion","acad","Academia"],["@precios","crown","Planes"],["probar","play","Probar"],["@main","home","Inicio"]]
-    :sec==="charts"?[["charts","chart","Charts"],["@charts","site","Abrir"],["@precios","crown","Planes"],["inicio","home","Inicio"]]
+    :sec==="acad"?[["@pres","acad","Academia"],["@ptem","layers","Temario"],["@precios","crown","Planes"],["probar","play","Probar"]]
+    :sec==="charts"?[["@ch","chart","Charts"],["@chf","layers","Funciones"],["@chp","crown","Planes"],["@charts","site","Abrir"]]
     :(rw?[["inicio","home","Inicio"],["retos","bolt","Retos"],["ranking","trophy","Ranking"],["comunidad","news","Noticias"]]:[["inicio","home","Inicio"],["comunidad","news","Noticias"],["opiniones","star","Opiniones"],["mercados","chart","Mercados"]]);
-  const tbH=k=>k==="@acad"?toAcad("inicio"):k==="@precios"?toAcad("presentacion-precios"):k==="@main"?toMain("inicio"):k==="@charts"?"https://charts.elartegrafico.com":(ACAD&&MAIN_R.has(k)||(!ACAD&&ACAD_R.has(k))||k==="premium"&&ACAD?link(ACAD_R.has(k)?"academia":"main",k):"#"+k);
+  const TBX={"@pres":toAcad("presentacion"),"@ptem":toAcad("presentacion-temario"),"@ch":toMain("charts"),"@chf":toMain("charts-funciones"),"@chp":toMain("charts-planes")};
+  const tbOn=k=>k==="@pres"?r==="presentacion"&&!ra:k==="@ptem"?r==="presentacion"&&ra==="temario":k==="@precios"?(r==="presentacion"&&ra==="precios")||r==="premium":k==="@ch"?r==="charts"&&!ra:k==="@chf"?r==="charts"&&ra==="funciones":k==="@chp"?r==="charts"&&ra==="planes":r===k;
+  const tbH=k=>TBX[k]?TBX[k]:k==="@acad"?toAcad("inicio"):k==="@precios"?toAcad("presentacion-precios"):k==="@main"?toMain("inicio"):k==="@charts"?"https://charts.elartegrafico.com":(ACAD&&MAIN_R.has(k)||(!ACAD&&ACAD_R.has(k))||k==="premium"&&ACAD?link(ACAD_R.has(k)?"academia":"main",k):"#"+k);
   let tb=$("#tabbar");if(!tb){tb=document.createElement("nav");tb.id="tabbar";tb.className="tabbar";tb.setAttribute("aria-label","Accesos rápidos");document.body.appendChild(tb)}
-  tb.innerHTML=TB.map(([k,ic,t])=>`<a href="${tbH(k)}" class="${r===k?"on":""}"${k==="@charts"?' target="_blank" rel="noopener"':""}>${ico(ic,22)}<span>${t}</span></a>`).join("")+`<button type="button" id="tbMore" aria-label="Más opciones">${u&&p?avatar(p,26):ico("layers",22)}<span>${u&&p?"Más":"Menú"}</span>${S.dm&&S.dm.unread?`<em class="nbadge tb-dot">${S.dm.unread}</em>`:""}</button>`;
+  tb.innerHTML=TB.map(([k,ic,t])=>`<a href="${tbH(k)}" class="${tbOn(k)?"on":""}"${k==="@charts"?' target="_blank" rel="noopener"':""}>${ico(ic,22)}<span>${t}</span></a>`).join("")+`<button type="button" id="tbMore" aria-label="Más opciones">${u&&p?avatar(p,26):ico("menu",22)}<span>${u&&p?"Más":"Menú"}</span>${S.dm&&S.dm.unread?`<em class="nbadge tb-dot">${S.dm.unread}</em>`:""}</button>`;
   $("#tbMore").onclick=e=>{e.stopPropagation();const o=$("#nav").classList.toggle("open");document.body.classList.toggle("sheet-open",o);$("#menuBtn").setAttribute("aria-expanded",String(o))};
   if(!window.__sheetClose){window.__sheetClose=1;document.addEventListener("click",e=>{const n=$("#nav");if(!n||!n.classList.contains("open")||!document.body.classList.contains("sheet-open"))return;
     if(e.target.closest&&e.target.closest("#sideHide,#tbMore"))return;
@@ -285,12 +290,9 @@ function renderNav(){sideState();viewBar();document.body.classList.toggle("is-ac
         <div class="dm-lv"><div class="dm-lvr"><span>${premium()?premTag(myPlan()):myCourseTags()||'<span class="tag">Cuenta gratis</span>'}${p.affiliate?affTag():""}<span class="dim">${esc(lv.name)}</span></span><b class="mono">${S.prog?S.prog.xp:0} pts</b></div>
           <div class="bar"><i style="width:${lv.to?Math.round(100*(((S.prog&&S.prog.xp)||0)-lv.from)/(lv.to-lv.from)):100}%"></i></div></div>
         <div class="dm-items">
-          <a href="${ACAD?"#perfil":"#perfil"}">${ico("gear",18)}<span>Configuración</span></a>
-          <a href="${ACAD?"#perfil-progreso":"#perfil-progreso"}">${ico("chart",18)}<span>Mi progreso</span></a>
-          ${rewardsOn()||admin()?`<a href="${toMain("puntos")}">${ico("card",18)}<span>Saldo y puntos</span></a><a href="${toMain("ranking")}">${ico("trophy",18)}<span>Ranking de retos</span></a>`:""}
-          ${!admin()?`<a href="${toMain("mensajes")}">${ico("chat",18)}<span>Mensajes</span>${S.dm&&S.dm.unread?`<em class="nbadge">${S.dm.unread}</em>`:""}</a>`:""}
-          <a href="${toAcad("progreso")}">${ico("layers",18)}<span>Tabla de progreso</span></a>
-          ${premium()?"":`<a href="${toMain("premium")}" class="dm-gold">${ico("crown",18)}<span>Hazte premium</span></a>`}
+          <a href="${toMain("perfil")}">${ico("gear",18)}<span>Configuración</span></a>
+          <a href="${toMain("perfil-progreso")}">${ico("layers",18)}<span>Mi progreso y certificados</span></a>
+          ${premium()?`<a href="${toAcad("presentacion-precios")}">${ico("crown",18)}<span>Mi plan</span></a>`:`<a href="${toAcad("presentacion-precios")}" class="dm-gold">${ico("crown",18)}<span>Hazte premium</span></a>`}
           ${isStandalone()?"":`<button type="button" id="ddInst">${ico("play",18)}<span>Instalar la app</span></button>`}
           ${admin()?`<a href="${toMain("admin")}">${ico("news",18)}<span>Administración</span></a>`:""}
         </div>
@@ -316,8 +318,10 @@ function renderFoot(){const s=S.site;
 let sid;try{sid=sessionStorage.getItem("ag_sid")||Math.random().toString(36).slice(2,12);sessionStorage.setItem("ag_sid",sid)}catch(e){sid=Math.random().toString(36).slice(2,12)}
 const ROUTES={};
 function route(keep){if(/^#admin/.test(location.hash)&&API.isAdmin()){let v="";try{v=sessionStorage.getItem("ag_view_as")}catch(e){}if(v){setViewAs("");viewBar();renderNav()}}
-  clear();$("#nav").classList.remove("open");document.body.classList.remove("sheet-open");const h=(location.hash||"#inicio").slice(1)||"inicio";if(keep!==true)window.scrollTo(0,0);
+  clear();$("#nav").classList.remove("open");document.body.classList.remove("sheet-open");const h=(location.hash||"#inicio").slice(1)||"inicio";
   const [k,...rest]=h.split("-");const arg=rest.join("-");
+  const samePg=(k==="presentacion"&&app.dataset.pg==="pres")||(k==="charts"&&app.dataset.pg==="charts");if(!samePg)app.dataset.pg="";
+  if(keep!==true&&!samePg)window.scrollTo(0,0);
   if(!ACAD&&ACAD_R.has(k)){location.href=toAcad(h);return}
   if(ACAD&&MAIN_R.has(k)){location.href=toMain(h);return}
   if(ACAD&&!logged()&&!["nueva","ranking","presentacion","premium","inicio"].includes(k)){location.replace(toMain("entrar-academia"));return}
@@ -547,11 +551,11 @@ function demoChart(host){if(!host)return;
 }
 function aboutBlock(host){if(!host)return;const s=S.site;if(s.aboutHide){host.remove();return}
   const name=s.aboutName||s.name||"El Arte Gráfico";
-  const items=s.aboutItems&&s.aboutItems.length?s.aboutItems:["Método propio para Boom y Crash, con reglas claras","Estructura, zonas, entradas y gestión: lo mismo que ves en mis videos","Práctica en gráficas reales, no solo teoría"];
+  const items=s.aboutItems&&s.aboutItems.length?s.aboutItems:["Método propio con reglas claras: sintéticos, forex y metales","Estructura, zonas, entradas y gestión: lo mismo que ves en mis videos","Práctica en gráficas reales, no solo teoría"];
   const tk=s.aboutTiktok||"https://www.tiktok.com/@el_arte_grafico";
   host.innerHTML=`<div class="about"><div class="about-ph${s.aboutPhoto?" foto":""}"><img src="${esc(s.aboutPhoto||s.logoFullUrl||"assets/logo_circle.webp")}" alt="${esc(name)}" loading="lazy"></div>
     <div class="about-t"><span class="eyebrow">${esc(s.aboutTitle||"Quién te enseña")}</span><h2>${esc(name)}</h2>
-      <p class="muted">${esc(s.aboutText||"Soy el creador de El Arte Gráfico. En TikTok comparto mis análisis de Boom y Crash; aquí enseño el método completo, paso a paso: cómo leo la estructura, cómo encuentro mis zonas, cómo y cuándo entro, dónde pongo el stop loss y cómo gestiono el riesgo. Sin promesas de dinero fácil: reglas claras y mucha práctica.")}</p>
+      <p class="muted">${esc(s.aboutText||"Soy el creador de El Arte Gráfico. En TikTok comparto mis análisis de sintéticos y forex; aquí enseño el método completo, paso a paso: cómo leo la estructura, cómo encuentro mis zonas, cómo y cuándo entro, dónde pongo el stop loss y cómo gestiono el riesgo. Sin promesas de dinero fácil: reglas claras y mucha práctica.")}</p>
       <ul class="checks">${items.map(i=>`<li>${esc(i)}</li>`).join("")}</ul>
       ${(s.aboutStats||[]).length?`<div class="cstats">${s.aboutStats.map(c=>`<div><b class="mono">${esc(c.v)}</b><span>${esc(c.t)}</span></div>`).join("")}</div>`:""}
       <div class="row"><a class="btn ghost btn-ic" href="${esc(tk)}" target="_blank" rel="noopener">${ICON_TT}<span>Verme en TikTok</span></a></div></div></div>`}
@@ -652,6 +656,7 @@ function faqBlock(host){if(!host)return;const f=(S.site.faq||[]).length?S.site.f
 
 /* ---------- inicio para quien ya ingresó (panel personal) ---------- */
 const IC={
+  menu:'<path d="M4 7h16M4 12h16M4 17h16"/>',
   acad:'<path d="M3 9l9-5 9 5-9 5-9-5z"/><path d="M7 11.5V16c0 1.2 2.2 2.5 5 2.5s5-1.3 5-2.5v-4.5"/>',
   chart:'<path d="M4 19V5"/><path d="M4 19h16"/><path d="M8 15l3-4 3 2 4-6"/>',
   trophy:'<path d="M8 4h8v4a4 4 0 0 1-8 0V4z"/><path d="M8 6H5a3 3 0 0 0 3 4M16 6h3a3 3 0 0 1-3 4"/><path d="M12 12v4M9 20h6M10 16h4"/>',
@@ -703,10 +708,9 @@ async function memberHome(){
   </section>
   ${admin()?"":`<a class="mh-dm${S.dm&&S.dm.unread?" new":""}" href="${toMain("mensajes")}"><span class="mh-dm-i">${ico("chat",24)}${S.dm&&S.dm.unread?`<em class="nbadge">${S.dm.unread}</em>`:""}</span>
     <span><b>${S.dm&&S.dm.unread?`Tienes ${S.dm.unread>1?S.dm.unread+" mensajes nuevos":"un mensaje nuevo"}`:"Tus mensajes"}</b><small>${S.dm&&S.dm.unread?"El Arte Gráfico te escribió. Toca para leer y responder.":"Aquí te escribimos si necesitamos algo de ti (tu ID de Deriv, un pago, una duda). Te llega notificación."}</small></span><i>${S.dm&&S.dm.unread?"Leer":"Abrir"} →</i></a>`}
-  <section class="mh-tiles">${tiles.map(([k,t,d,h,ext])=>`<a class="mt" href="${esc(h)}"${ext?' target="_blank" rel="noopener"':""}><span class="mt-i">${ico(k)}</span><b>${t}</b><span class="dim">${d}</span></a>`).join("")}</section>
   <section class="sx"><div class="sx-h sm"><span class="eyebrow">Tus espacios</span><h2>Academia y EAG Charts</h2></div>
     <div class="doors two">
-      <div class="door door-acad"><span class="door-k">${ico("acad",18)}Academia</span><h3>${cerr?"La academia abre muy pronto":prem?(nx?esc(nx.title):"Terminaste las lecciones publicadas"):"El método completo para Boom y Crash"}</h3>
+      <div class="door door-acad"><span class="door-k">${ico("acad",18)}Academia</span><h3>${cerr?"La academia abre muy pronto":prem?(nx?esc(nx.title):"Terminaste las lecciones publicadas"):"Aprende a operar con método"}</h3>
         <p>${cerr?"Te avisaremos cuando abra. Tu cuenta ya quedó lista.":prem?(dias!=null&&dias<3650?`Tu plan: te quedan ${dias} día${dias===1?"":"s"}.`:"Tienes acceso completo."):inTrial()?`Prueba gratis activa: te quedan ${trialLeft()} día${trialLeft()===1?"":"s"}.`:`Tienes ${demo} de 5 gráficas de prueba.`}</p>
         ${cerr?"":`<div class="door-bar"><div class="mh-bl"><span>Avance</span><b class="mono">${pas} de ${total} lecciones · ${apct}%</b></div><div class="bar"><i style="width:${apct}%"></i></div></div>`}
         <div class="row">${acadCta}</div></div>
@@ -718,8 +722,7 @@ async function memberHome(){
     <div class="mh-side">
       <div class="panel"><div class="sec-h"><h3>${rwOn?"Ranking de retos":"Tabla de progreso"}</h3><a href="${rwOn?"#ranking":toAcad("progreso")}">Completo</a></div><div id="mhRk" class="muted">Cargando…</div></div>
     </div>
-  </section>
-  ${promoBlock()}`;
+  </section>`;
   appCard($("#appCard"));
   postsVis().then(ps=>{const h=$("#mhNews");if(!h)return;h.innerHTML=ps.slice(0,4).map(x=>`<a class="mn" href="#nota-${esc(x.id)}">${x.image_url?`<span class="mn-img" style="background-image:url('${esc(x.image_url)}')"></span>`:`<span class="mn-img none">${ico("news",20)}</span>`}<span class="mn-t"><span class="dim">${fmtDate(x.created_at)} · ${esc(x.category||"Noticia")}</span><b>${esc(x.title)}</b></span></a>`).join("")||'<div class="muted">Pronto publicaremos novedades.</div>'}).catch(()=>{const h=$("#mhNews");if(h)h.innerHTML='<div class="muted">No se pudieron cargar las novedades.</div>'});
   (rewardsOn()||admin()?API.rewardsBoard("mes").then(r=>r.map(x=>Object.assign(x,{v:x.points+" pts"}))):API.progressBoard().then(r=>r.map(x=>Object.assign(x,{v:x.lessons+" lecc."})))).then(r=>{const h=$("#mhRk");if(!h)return;const k=r.findIndex(x=>x.is_me);if($("#mhPos"))$("#mhPos").textContent=k>=0?`Vas en el puesto #${k+1}`:"Juega para aparecer";
@@ -849,18 +852,18 @@ const WHEEL=[["+50 XP","#2a3f7a"],["+100 XP","#1a2c66"],["Medalla","#7a5a12"],["
 const MEDALS={trebol:["☘️","Trébol de la suerte"],herradura:["🧲","Herradura"],estrella:["⭐","Estrella fugaz"],cometa:["☄️","Cometa"],diamante:["💎","Diamante"]};
 const bogotaDay=()=>new Date(Date.now()-5*3600e3).toISOString().slice(0,10);
 ROUTES.oro=async arg=>{if(!logged()){location.hash="#entrar";return}
-  if(planRank()<3){app.innerHTML=`<section class="oro-hero locked"><div class="oro-crown">👑</div><span class="eyebrow">Exclusivo Oro y Diamond</span><h1>Sala Oro</h1><p class="muted">La parte privada de El Arte Gráfico para los suscriptores Oro y Diamond.</p>
-      <div class="oro-perks"><div><b>💬 Chat privado</b><span>La sala de chat de los traders Oro y Diamond: comparte tus gráficas, pregunta y aprende con los demás.</span></div><div><b>🔴 En vivo privado</b><span>Lives solo para Oro: dudas, análisis y operativa en directo, con la grabación después.</span></div><div><b>📈 Operativas</b><span>Las operaciones que comparto: zona, entrada, stop y cómo terminó.</span></div><div><b>💎 ¿Quieres todo?</b><span>Con Diamond tienes la Sala Oro, todos los cursos y todas las publicaciones exclusivas.</span></div><div><b>🚀 Acceso anticipado</b><span>Los cursos y módulos nuevos, antes que nadie.</span></div></div>
+  if(planRank()<3){app.innerHTML=`<section class="oro-hero locked"><div class="oro-crown">${ico("crown",34)}</div><span class="eyebrow">Exclusivo Oro y Diamond</span><h1>Sala Oro</h1><p class="muted">La parte privada de El Arte Gráfico para los suscriptores Oro y Diamond.</p>
+      <div class="oro-perks"><div><b>${ico("chat",18)}Chat privado</b><span>La sala de chat de los traders Oro y Diamond: comparte tus gráficas, pregunta y aprende con los demás.</span></div><div><b>${ico("play",18)}En vivo privado</b><span>Lives solo para Oro: dudas, análisis y operativa en directo, con la grabación después.</span></div><div><b>${ico("chart",18)}Operativas</b><span>Las operaciones que comparto: zona, entrada, stop y cómo terminó.</span></div><div><b>💎 ¿Quieres todo?</b><span>Con Diamond tienes la Sala Oro, todos los cursos y todas las publicaciones exclusivas.</span></div><div><b>🚀 Acceso anticipado</b><span>Los cursos y módulos nuevos, antes que nadie.</span></div></div>
       <div class="row" style="justify-content:center"><a class="btn gold" href="#premium">Ver planes Oro y Diamond</a></div></section>`;return}
-  const tabs=`<div class="seg oro-seg"><a class="${arg==="chat"?"":"on"}" href="#oro">🔴 Lives y operativas</a><a class="${arg==="chat"?"on":""}" href="#oro-chat">💬 Chat</a></div>`;
+  const tabs=`<div class="seg oro-seg"><a class="${arg==="chat"?"":"on"}" href="#oro">${ico("play",16)}Lives y operativas</a><a class="${arg==="chat"?"on":""}" href="#oro-chat">${ico("chat",16)}Chat</a></div>`;
   if(arg==="chat")return roomView(tabs);
-  app.innerHTML=`<section class="oro-hero"><div class="oro-crown">👑</div><span class="eyebrow">Oro y Diamond</span><h1>Sala Oro</h1><p class="muted">Lives privados, operativas y el chat de la sala.</p></section>${tabs}
+  app.innerHTML=`<section class="oro-hero"><div class="oro-crown">${ico("crown",34)}</div><span class="eyebrow">Oro y Diamond</span><h1>Sala Oro</h1><p class="muted">Lives privados, operativas y el chat de la sala.</p></section>${tabs}
     <section class="sec oro-grid">${false?`<div class="panel wheel-box"><h2>🎡 Ruleta del día</h2><p class="muted" id="whTxt">Un giro gratis cada día. Siempre ganas algo.</p>
       <div class="wheel-wrap"><div class="wheel-ptr">▼</div><svg id="wheel" viewBox="-110 -110 220 220" aria-hidden="true">${WHEEL.map(([t,c],i)=>{const a0=(i*60-90)*Math.PI/180,a1=((i+1)*60-90)*Math.PI/180,am=((i+.5)*60-90)*Math.PI/180;
         return `<path d="M0 0 L${100*Math.cos(a0)} ${100*Math.sin(a0)} A100 100 0 0 1 ${100*Math.cos(a1)} ${100*Math.sin(a1)} Z" fill="${c}" stroke="#d8b062" stroke-width="1.5"/><text x="${62*Math.cos(am)}" y="${62*Math.sin(am)}" fill="#fff" font-size="11" font-weight="800" text-anchor="middle" dominant-baseline="middle" transform="rotate(${i*60+30} ${62*Math.cos(am)} ${62*Math.sin(am)})">${t}</text>`}).join("")}<circle r="16" fill="#d8b062"/><text y="1" font-size="14" text-anchor="middle" dominant-baseline="middle">👑</text></svg></div>
       <button class="btn gold" id="whGo">Girar</button><div id="whMed" class="wh-med"></div></div>`:""}
-      <div class="panel"><h2>🔴 En vivo</h2><div id="oroLive" class="muted">Cargando…</div></div></section>
-    <section class="sec"><div class="sec-h"><h2>📈 Operativas</h2></div><div id="oroOps" class="posts muted">Cargando…</div></section>
+      <div class="panel"><h2 class="h-ic"><i class="live"></i>En vivo</h2><div id="oroLive" class="muted">Cargando…</div></div></section>
+    <section class="sec"><div class="sec-h"><h2 class="h-ic">${ico("chart",22)}Operativas</h2></div><div id="oroOps" class="posts muted">Cargando…</div></section>
     <section class="sec"><div class="sec-h"><h2>Más de la Sala Oro</h2></div><div id="oroMore" class="posts muted">Cargando…</div></section>`;
   postsVis().then(L=>{const oro=L.filter(p=>p.min_plan==="oro"),cat=c=>p=>String(p.category||"").toLowerCase().includes(c);
     const live=oro.filter(cat("vivo")),ops=oro.filter(cat("operativ")),more=oro.filter(p=>!cat("vivo")(p)&&!cat("operativ")(p));
@@ -1073,9 +1076,9 @@ async function mainHome(){
   const base=(S.courses||[]).filter(c=>c.base&&c.status!=="borrador");
   app.innerHTML=`<div id="appCard"></div>${launchBox()}
   <section class="hx hx-main">
-    <div class="hx-t"><span class="hx-k"><i class="live"></i>Comunidad gratis · Boom y Crash</span>
+    <div class="hx-t"><span class="hx-k"><i class="live"></i>Comunidad gratis · Trading</span>
       <h1>Trading con método, <em>en comunidad.</em></h1>
-      <p class="hx-lead">${nm} es la casa de los traders de índices sintéticos: análisis diarios, retos con premios, ranking y un Discord activo. Entras gratis y creces a tu ritmo.</p>
+      <p class="hx-lead">${nm} es la casa de los traders de sintéticos, forex y metales: análisis diarios, retos con premios, ranking y un Discord activo. Entras gratis y creces a tu ritmo.</p>
       <div class="row hx-cta"><a class="btn gold big" href="#registro">Crear cuenta gratis</a>${s.discordUrl?`<a class="btn big btn-ic" href="${esc(s.discordUrl)}" target="_blank" rel="noopener">${ICON_CHAT}<span>Unirme al Discord</span></a>`:`<a class="btn big" href="#comunidad">Ver publicaciones</a>`}</div>
       <div class="hx-ticks"><span>${ICK}Sin tarjeta</span><span>${ICK}${base.length?"Curso Fundamentos gratis":"Retos y ranking gratis"}</span><span>${ICK}PC y celular</span></div></div>
     <div class="hx-v" aria-label="Hoy en la comunidad">
@@ -1094,13 +1097,13 @@ async function mainHome(){
     <div class="disc-main"><span class="eyebrow">Discord</span><h2 id="sx-disc">${esc(s.discordTitle||DISC.title)}</h2><p class="muted">${esc(s.discordText||DISC.text)}</p>
       <ul class="checks">${dItems.map(i=>`<li>${esc(i)}</li>`).join("")}</ul>
       <div class="cstats" id="cstats">${(s.communityStats||[]).map(c=>`<div><b class="mono">${esc(c.v)}</b><span>${esc(c.t)}</span></div>`).join("")}</div>
-      <div class="row">${s.discordUrl?`<a class="btn gold btn-ic" href="${esc(s.discordUrl)}" target="_blank" rel="noopener">${ICON_CHAT}<span>Unirme al Discord</span></a>`:'<span class="pill">El enlace al Discord se publicará pronto</span>'}<a class="btn" href="#comunidad">Ver publicaciones</a></div></div>
+      <div class="row">${s.discordUrl?`<a class="btn gold btn-ic" href="${esc(s.discordUrl)}" target="_blank" rel="noopener">${ICON_CHAT}<span>Unirme al Discord</span></a>`:'<span class="pill">El enlace al Discord se publicará pronto</span>'}</div></div>
     <div class="disc-news"><div class="sec-h"><h3>Opiniones de la comunidad</h3><a href="#opiniones">Ver todas</a></div><div id="revs"></div></div>
   </div></section>
 
   <section class="sx" aria-labelledby="sx-more"><div class="sx-h"><span class="eyebrow">Cuando quieras ir más lejos</span><h2 id="sx-more">Dos partes más, cada una con su espacio</h2><p>Con la misma cuenta entras a todo. Cada una tiene su propia página para que sepas exactamente qué incluye.</p></div>
     <div class="doors">
-      <a class="door door-acad" href="${toAcad("inicio")}"><span class="door-k">${ico("acad",18)}Academia</span><h3>El método completo para Boom y Crash</h3><p>Lecciones cortas, ejercicios en gráficas reales, repetición vela por vela y certificado. Con plan o comprando el curso.</p>
+      <a class="door door-acad" href="${toAcad("inicio")}"><span class="door-k">${ico("acad",18)}Academia</span><h3>Aprende a operar con método</h3><p>Sintéticos, forex, metales y más: lecciones cortas, ejercicios en gráficas reales, repetición vela por vela y certificado.</p>
         <ul>${["Ruta paso a paso","Práctica con gráficas reales","Quién te enseña y temario"].map(t=>`<li>${ICK}${t}</li>`).join("")}</ul>
         <div class="door-mock" aria-hidden="true">${((S.modules||[]).filter(m=>m.status!=="borrador").slice(0,4).map(m=>m.title).concat(["Estructura del mercado","Zonas y fractales","Entradas y stop loss","Gestión del riesgo"])).slice(0,4).map((t,i)=>`<div class="dm-r${i<2?" ok":i===2?" now":""}"><span>${String(i+1).padStart(2,"0")}</span><b>${esc(t)}</b><i>${i<2?"✓":i===2?"▶":"🔒"}</i></div>`).join("")}</div><span class="door-go">Conocer la academia <i>→</i></span></a>
       <a class="door door-charts" href="#charts"><span class="door-k">${ico("chart",18)}EAG Charts</span><h3>Una plataforma de análisis profesional</h3><p>Gráficos en vivo de Deriv con ticks, alertas al celular, replay y zonas con el lote calculado. Gratis para empezar.</p>
@@ -1117,17 +1120,16 @@ async function mainHome(){
 }
 
 /* ---------- presentación de la academia (vive dentro de la academia) ---------- */
-ROUTES.presentacion=arg=>{const s=S.site,u=logged()&&API.profile(),cerr=closedAcad()&&!admin(),pb=pathBlock();
+ROUTES.presentacion=arg=>{if(secJump("pres","ac-",arg))return;const s=S.site,u=logged()&&API.profile(),cerr=closedAcad()&&!admin(),pb=pathBlock();
   app.innerHTML=`<div id="appCard"></div>
   <section class="hx hx-acad">
     <div class="hx-t"><span class="hx-k">${ico("acad",16)}Academia ${esc(s.name||"El Arte Gráfico")}</span>
-      <h1>El método completo para <em>Boom y Crash.</em></h1>
-      <p class="hx-lead">Aprende a leer la estructura, marcar zonas, entrar con stop loss y gestionar el riesgo. Lecciones cortas, ejercicios en gráficas reales y repetición vela por vela para ver qué habría pasado con tu operación.</p>
+      <h1>Aprende a operar <em>con método.</em></h1>
+      <p class="hx-lead">Sintéticos, forex, metales y más: aprende a leer la estructura, marcar zonas, entrar con stop loss y gestionar el riesgo. Lecciones cortas, ejercicios en gráficas reales y repetición vela por vela para ver qué habría pasado con tu operación.</p>
       <div class="row hx-cta">${u?(cerr?'<span class="pill">La academia abre muy pronto</span>':`<a class="btn gold big" href="#inicio">Ir a mi panel</a>`):`<a class="btn gold big" href="#ac-precios" data-go="ac-precios">Ver planes</a>`}<a class="btn big" href="${toMain("probar")}">▶ Probar una gráfica gratis</a></div>
       <div class="hx-ticks"><span>${ICK}Clases en video</span><span>${ICK}Ejercicios con gráficas reales</span><span>${ICK}Certificado</span></div></div>
     <div class="hx-v"><div class="demo-wrap"><div class="demo-card" id="demo" aria-label="Así se practica en la academia"></div></div></div>
   </section>
-  <nav class="subnav" aria-label="En esta página">${(pb?[["ac-ruta","La ruta"]]:[]).concat([["ac-aprende","Qué aprendes"],["ac-profe","Quién te enseña"],["ac-temario","Temario"],["ac-precios","Planes y precios"],["ac-faq","Preguntas"]]).map(([k,t])=>`<a href="#${k}" data-go="${k}">${t}</a>`).join("")}</nav>
   ${pb?`<section class="sx" id="ac-ruta">${pb}</section>`:""}
   <section class="sx" id="ac-aprende"><div class="sx-h"><span class="eyebrow">Qué vas a aprender</span><h2>Las bases de una operación con reglas</h2></div><div class="cards" id="cards"></div></section>
   <section class="sx" id="ac-profe"><div id="about"></div></section>
@@ -1139,13 +1141,16 @@ ROUTES.presentacion=arg=>{const s=S.site,u=logged()&&API.profile(),cerr=closedAc
   goLinks();demoChart($("#demo"));aboutBlock($("#about"));temarioBlock($("#tmp"));pricingBlock($("#ac-precios"));faqBlock($("#faq"));appCard($("#appCard"));
   $("#cards").innerHTML=(s.cards||[]).map((c,i)=>`<div class="card"><span class="k">${String(i+1).padStart(2,"0")}</span><h3>${esc(c.title)}</h3><p>${esc(c.text)}</p></div>`).join("");
   API.publicReviews().then(r=>{if($("#revs"))$("#revs").innerHTML=reviewsHTML(r.slice(0,3),true)}).catch(()=>{});
-  if(arg)setTimeout(()=>{const t=document.getElementById("ac-"+arg);if(t)t.scrollIntoView({block:"start"})},250);
+  app.dataset.pg="pres";if(arg)setTimeout(()=>{const t=document.getElementById("ac-"+arg);if(t)t.scrollIntoView({block:"start"})},250);
 };
+/* en las presentaciones, el menú lateral lleva a cada parte sin recargar la página */
+function secJump(pg,pre,arg){if(app.dataset.pg!==pg||!$("#"+pre+"ruta,#"+pre+"aprende,#"+pre+"funciones"))return false;
+  if(!arg){window.scrollTo({top:0,behavior:"smooth"});return true}const t=document.getElementById(pre+arg);if(!t)return false;t.scrollIntoView({behavior:"smooth",block:"start"});return true}
 function goLinks(){app.querySelectorAll("[data-go]").forEach(b=>b.addEventListener("click",e=>{e.preventDefault();const t=document.getElementById(b.dataset.go);if(t)t.scrollIntoView({behavior:"smooth",block:"start"})}))}
 
 /* ---------- presentación de EAG Charts ---------- */
 const CH_URL="https://charts.elartegrafico.com";
-ROUTES.charts=()=>{const fi=+((S.site||{}).chartFreeInd!=null&&S.site.chartFreeInd!==""?S.site.chartFreeInd:2)||0;
+ROUTES.charts=arg=>{if(secJump("charts","ch-",arg))return;const fi=+((S.site||{}).chartFreeInd!=null&&S.site.chartFreeInd!==""?S.site.chartFreeInd:2)||0;
   const G=[
     ["chart","Gráficos","Lee el precio como quieras",["Velas, Heikin Ashi, Renko y gráfico de ticks","De ticks a 1 día, y tus propias temporalidades (por ejemplo 2m o 12H)","Hasta 6 gráficos a la vez en una sola pantalla","Pestañas de mercados tipo MT5, arriba o abajo"]],
     ["layers","Multitemporalidad","Todas las temporalidades de un vistazo",["Debajo del gráfico: 1m, 5m, 15m, 1H, 4H y 1D al mismo tiempo","Cada una con su contador de cierre de vela","Tocas una y se vuelve el gráfico grande","Datos en vivo de Deriv: Boom, Crash, sintéticos, forex, cripto y más"]],
@@ -1168,7 +1173,6 @@ ROUTES.charts=()=>{const fi=+((S.site||{}).chartFreeInd!=null&&S.site.chartFreeI
   </section>
   <section class="shot" aria-label="Así se ve EAG Charts"><div class="shot-pc"><div class="shot-bar"><i></i><i></i><i></i><span>charts.elartegrafico.com</span></div><img src="assets/charts-shot-pc.webp" alt="EAG Charts en computador: gráfico de Boom 1000 con multitemporalidad debajo" width="1440" height="860"></div>
     <div class="shot-cel"><img src="assets/charts-shot-cel.webp" alt="EAG Charts en el celular" width="390" height="844" loading="lazy"></div></section>
-  <nav class="subnav" aria-label="En esta página">${[["ch-funciones","Funciones"],["ch-planes","Gratis vs. completo"],["ch-empezar","Cómo empezar"],["ch-faq","Preguntas"]].map(([k,t])=>`<a href="#${k}" data-go="${k}">${t}</a>`).join("")}</nav>
   <section class="sx" id="ch-funciones"><div class="sx-h"><span class="eyebrow">Funciones</span><h2>Todo lo que tiene EAG Charts</h2><p>Organizado por lo que vas a hacer: mirar el mercado, analizar, calcular tu riesgo, recibir avisos, practicar y operar.</p></div>
     <div class="cf-grid">${G.map(([i,t,d,L])=>`<article class="cf"><div class="cf-h"><span class="fx-i">${ico(i,22)}</span><div><h3>${t}</h3><span>${d}</span></div></div><ul>${L.map(x=>`<li>${ICK}${x}</li>`).join("")}</ul></article>`).join("")}</div></section>
   <section class="sx" id="ch-planes"><div class="sx-h"><span class="eyebrow">Gratis vs. completo</span><h2>Empieza gratis, desbloquea todo con un plan</h2><p>EAG Charts completo viene incluido en los planes Plata, Oro y Diamond, junto con la academia.</p></div>
@@ -1179,7 +1183,7 @@ ROUTES.charts=()=>{const fi=+((S.site||{}).chartFreeInd!=null&&S.site.chartFreeI
     <ol class="steps3">${[["Abre EAG Charts","Entra a charts.elartegrafico.com desde el PC o el celular. Puedes instalarlo como app."],["Entra con tu cuenta","La misma cuenta de El Arte Gráfico. Así se guardan tus dibujos, alertas y ajustes."],["Elige tu mercado","Busca Boom, Crash o el que operes, marca tus zonas y deja que te avise."]].map(([t,d],i)=>`<li><span class="st-n">${i+1}</span><h3>${t}</h3><p>${d}</p></li>`).join("")}</ol></section>
   <section class="sx" id="ch-faq"><div class="sx-h"><span class="eyebrow">Preguntas frecuentes</span><h2>Sobre EAG Charts</h2></div><div class="faq">${[["¿Es gratis?",`Sí. La versión gratis tiene gráficos en vivo, multitemporalidad, varios mercados, ticks, la calculadora de lote y ${fi} indicador${fi===1?"":"es"}. Con un plan Plata, Oro o Diamond tienes todo lo demás.`],["¿De dónde salen los datos?","Directamente de Deriv, en tiempo real. Son los mismos precios que ves en tu plataforma."],["¿Funciona en el celular?","Sí. Está pensado para el celular también y puedes instalarlo como app desde el navegador."],["¿Puedo operar desde EAG Charts?","Sí, con multiplicadores de Deriv: conectas tu cuenta (real o demo) y abres o cierras operaciones desde el gráfico. Siempre bajo tu responsabilidad."],["¿Es asesoría financiera?","No. Es una herramienta de análisis con fines educativos. Operar tiene alto riesgo."]].map(([q,a])=>`<details class="fq"><summary>${q}</summary><p class="muted">${a}</p></details>`).join("")}</div></section>
   <section class="cta-band"><div class="pb final"><div><span class="eyebrow">EAG Charts</span><h2>Ábrelo y míralo tú mismo</h2><p class="muted" style="max-width:60ch;margin-top:8px">No necesitas instalar nada. Entra con tu cuenta de El Arte Gráfico y empieza gratis.</p></div><div class="row"><a class="btn gold" href="${CH_URL}" target="_blank" rel="noopener">Abrir EAG Charts</a><a class="btn" href="${toAcad("presentacion-precios")}">Ver planes</a></div></div></section>`;
-  goLinks();
+  goLinks();app.dataset.pg="charts";if(arg)setTimeout(()=>{const t=document.getElementById("ch-"+arg);if(t)t.scrollIntoView({block:"start"})},200);
 };
 
 /* ---------- panel de la academia ---------- */
@@ -1207,7 +1211,6 @@ async function academyHome(){
     <div class="mh-mini"><span><b class="mono">${g.practice.n}</b> ejercicios</span><span><b class="mono">${acc}%</b> aciertos</span><span><b class="mono">${g.streak||0}</b> días seguidos</span></div>
   </section>
   ${tri?trialCard():""}
-  <section class="mh-tiles">${tiles.map(([k,t,d,h])=>`<a class="mt" href="${esc(h)}"><span class="mt-i">${ico2(k)}</span><b>${t}</b><span class="dim">${d}</span></a>`).join("")}</section>
   ${premium()?(m=>m?fbCard(m):"")(S.modules.find(needFb)):""}
   <div id="appCard"></div>
   ${achStrip()}
@@ -1268,7 +1271,7 @@ function mediaVideo(u,poster){u=String(u||"").trim();if(!/^https:\/\//.test(u))r
 /* texto plano para resúmenes: sin #, *, guiones de lista ni enlaces en markdown */
 const plainText=t=>String(t||"").replace(/!?\[([^\]]*)\]\([^)]*\)/g,"$1").replace(/^\s{0,3}(#{1,6}|[-*+]|\d+\.)\s+/gm,"").replace(/[*_`>]{1,3}/g,"").replace(/\n{2,}/g,"\n").trim();
 const postCard=p=>`<a class="post${p.image_url||p.video_url?"":" noimg"}" href="#nota-${esc(p.id)}">${p.image_url?`<div class="thumb" style="background-image:url('${esc(p.image_url)}')">${p.video_url?'<span class="vplay" aria-label="Video">▶</span>':""}</div>`:p.video_url?'<div class="thumb vthumb"><span class="vplay" aria-label="Video">▶</span></div>':""}<div style="display:grid;gap:6px;align-content:start;min-width:0"><div class="row"><span class="tag">${esc(p.category||"Noticia")}</span>${p.pinned?'<span class="tag pub">Fijado</span>':""}${p.min_plan==="oro"?'<span class="tag t-oro">👑 Sala Oro</span>':p.min_plan==="plata"?'<span class="tag t-plata">Plata y Oro</span>':p.premium_only?'<span class="tag">Suscriptores</span>':""}<span class="dim" style="font-size:13px">${fmtDate(p.created_at)}</span></div><h3>${esc(p.title)}</h3><p class="muted clamp">${esc(plainText(p.body).slice(0,220))}</p></div></a>`;
-function reviewsHTML(list,compact){if(!list.length)return `<div class="empty">Todavía no hay opiniones publicadas.${logged()?'<a class="btn sm" href="#opiniones">Escribir la primera</a>':""}</div>`;
+function reviewsHTML(list,compact){if(!list.length)return `<div class="empty">Todavía no hay opiniones publicadas.${logged()&&!/^#opiniones/.test(location.hash)?'<a class="btn sm" href="#opiniones">Escribir la primera</a>':""}</div>`;
   return `<div class="revs ${compact?"compact":""}">${list.map(r=>`<figure class="rev"><div class="stars" aria-label="${r.rating} de 5">${stars(r.rating)}</div><blockquote>${esc(r.body||"")}</blockquote><figcaption>${avatar(r,30)}<b>${uL(r.username)}</b>${r.premium?'<span class="tag pub">Premium</span>':""}<span class="dim">${fmtDate(r.created_at)}</span></figcaption></figure>`).join("")}</div>`}
 
 /* ---------- prueba gratis ---------- */
@@ -1526,14 +1529,20 @@ ROUTES.nota=async id=>{app.innerHTML='<div class="muted">Cargando…</div>';let 
   else if(!p.allow_comments)$("#cf").innerHTML='<div class="dim">Los comentarios están cerrados en esta publicación.</div>';
 };
 ROUTES.opiniones=async()=>{
-  app.innerHTML=`<div class="pagehead"><span class="eyebrow">Opiniones</span><h1>Opiniones de los alumnos</h1><div id="avg" class="muted"></div></div><div id="mine"></div><div id="rl"></div>`;
-  try{const st=await API.publicStats();$("#avg").innerHTML=st.reviews?`<span class="stars big">${stars(st.rating)}</span> <b class="mono">${st.rating.toFixed(1)}</b> de 5 · ${st.reviews} opiniones`:"Aún no hay opiniones publicadas."}catch(e){}
-  try{$("#rl").innerHTML=reviewsHTML(await API.publicReviews(),false)}catch(e){}
-  if(!logged()){$("#mine").innerHTML=`<div class="note"><a href="#entrar">Ingresa</a> para dejar tu opinión.</div>`;return}
+  app.innerHTML=`<div class="pagehead"><span class="eyebrow">Comunidad</span><h1>Opiniones de los alumnos</h1><p class="muted">Lo que dicen quienes estudian con nosotros. Cada opinión la escribe un alumno con su cuenta y la revisamos antes de publicarla.</p></div>
+  <div class="op-lay"><div class="op-main"><div id="rl"><div class="muted">Cargando…</div></div></div>
+    <aside class="op-side"><div class="panel op-sum" id="avg"><div class="muted">Cargando…</div></div><div id="mine"></div></aside></div>`;
+  let L=[];try{L=await API.publicReviews()}catch(e){}
+  const n=L.length,avg=n?L.reduce((a,x)=>a+(+x.rating||0),0)/n:0;
+  $("#avg").innerHTML=n?`<span class="op-k">Calificación general</span><div class="op-big"><b class="mono">${avg.toFixed(1)}</b><span><span class="stars big">${stars(avg)}</span><small>${n} opinión${n===1?"":"es"}</small></span></div>
+    <div class="op-dist">${[5,4,3,2,1].map(k=>{const c=L.filter(x=>Math.round(+x.rating)===k).length;return `<div><span>${k} ★</span><div class="bar"><i style="width:${Math.round(100*c/n)}%"></i></div><small class="mono">${c}</small></div>`}).join("")}</div>`
+    :"";if(!n)$("#avg").remove();
+  $("#rl").innerHTML=reviewsHTML(L,false);
+  if(!logged()){$("#mine").innerHTML=`<div class="panel op-form"><h3>¿Eres alumno?</h3><p class="muted">Ingresa con tu cuenta para dejar tu opinión.</p><a class="btn gold" href="#entrar">Ingresar</a></div>`;return}
   let m=null;try{m=await API.myReview()}catch(e){}let rating=m?m.rating:0;
-  $("#mine").innerHTML=`<div class="panel"><h3>${m?"Tu opinión":"Califica la academia"}</h3>${m&&!m.approved?'<span class="pill">En revisión: se publicará cuando sea aprobada</span>':m?'<span class="pill ok">Publicada</span>':""}
+  $("#mine").innerHTML=`<div class="panel op-form"><div class="op-fh"><h3>${m?"Tu opinión":"Califica la academia"}</h3>${m&&!m.approved?'<span class="pill">En revisión</span>':m?'<span class="pill ok">Publicada</span>':""}</div>
     <form class="form" id="rf"><div class="rate" role="radiogroup" aria-label="Calificación">${[1,2,3,4,5].map(n=>`<button type="button" role="radio" aria-checked="${n===rating}" data-r="${n}" aria-label="${n} estrellas">★</button>`).join("")}</div>
-    <label for="rb">Comentario<textarea id="rb" maxlength="1500" placeholder="¿Qué te ha parecido la academia?">${esc(m?m.body:"")}</textarea></label><div class="row"><button class="btn gold" id="rg">${m?"Actualizar opinión":"Enviar opinión"}</button></div></form></div>`;
+    <label for="rb">Comentario<textarea id="rb" maxlength="1500" rows="5" placeholder="¿Qué te ha parecido la academia?">${esc(m?m.body:"")}</textarea></label><button class="btn gold" id="rg">${m?"Actualizar opinión":"Enviar opinión"}</button></form></div>`;
   const paint=()=>$$("[data-r]").forEach(b=>{b.classList.toggle("on",+b.dataset.r<=rating);b.setAttribute("aria-checked",String(+b.dataset.r===rating))});paint();
   $$("[data-r]").forEach(b=>b.onclick=()=>{rating=+b.dataset.r;paint()});
   $("#rf").onsubmit=async e=>{e.preventDefault();if(!rating)return toast("Elige de 1 a 5 estrellas");try{busy($("#rg"),true);await API.saveReview(rating,$("#rb").value.trim());pop({icon:"star",kicker:"¡Gracias por tu opinión!",title:"Quedó en revisión",text:"La publicamos apenas la revisemos."});ROUTES.opiniones()}catch(x){toast(x.message)}finally{busy($("#rg"),false)}};
@@ -1548,7 +1557,7 @@ const podio=(r,val=x=>x.xp+" pts")=>r.length<3?"":`<div class="podio">${[1,0,2].
 ROUTES.perfil=arg=>{if(!logged()){location.hash="#entrar";return}setTimeout(async()=>{const h=$("#myCerts");if(!h||!API.myCertificates)return;let L=[];try{L=await API.myCertificates()}catch(e){}h.innerHTML=(L.length?`<div class="panel cert-list"><h3>🎓 Mis certificados</h3>${L.map(c=>`<a class="item" href="${toMain("certificado-"+c.code)}"><span class="txt"><b>${esc(c.course_title)}</b><span class="mono dim">${esc(c.code)} · ${fmtDate(c.issued_at)}</span></span><span class="pill gold">Ver</span></a>`).join("")}</div>`:"")+certCta()},400);setTimeout(()=>{const t={progreso:"cfgProg",app:"cfgApp",seguridad:"cfgSeg"}[arg];if(t&&$("#"+t))$("#"+t).scrollIntoView({behavior:"smooth",block:"start"})},150);const p=API.profile()||{},g=S.prog,lv=levelOf(g.xp);const pct=lv.to?Math.round(100*(g.xp-lv.from)/(lv.to-lv.from)):100;
   app.innerHTML=`<div class="phead"><div class="phead-av">${avatar(p,96)}</div><div style="display:grid;gap:6px;min-width:0"><span class="eyebrow">Configuración</span><h1>${esc(p.username||"")}</h1>
       <p class="muted">${esc(p.email||"")} · ${premium()?`Premium${p.premium_until&&new Date(p.premium_until).getFullYear()<2090?` hasta ${fmtDate(p.premium_until)}`:""}`:"Cuenta gratis"}${p.country?` · ${flag(p.country)} ${esc(p.country)}`:""}</p>${p.bio?`<p>${esc(p.bio)}</p>`:""}</div></div>
-    <nav class="cfgnav" aria-label="Secciones">${[["cfgPerfil","Perfil"],["cfgApp","App y notificaciones"],["cfgProg","Mi progreso"],["cfgSeg","Seguridad"]].map(([i,t])=>`<button type="button" data-cfg="${i}">${t}</button>`).join("")}</nav>
+    <div class="cfg-lay"><nav class="cfgnav" aria-label="Secciones">${[["cfgPerfil","Perfil","users"],["cfgApp","App y notificaciones","bell"],["cfgProg","Mi progreso","layers"],["cfgSeg","Seguridad","gear"]].map(([i,t,ic],k)=>`<button type="button" data-cfg="${i}"${k?"":' class="on"'}>${ico(ic,18)}<span>${t}</span></button>`).join("")}</nav><div class="cfg-body">
     <section class="sec" id="cfgPerfil"><h2>Perfil</h2><form class="panel form" id="af">
       <div class="avedit"><div id="avPrev">${avatar(p,112)}</div><div style="display:grid;gap:8px"><b>Foto de perfil</b><span class="muted" style="font-size:14px">JPG, PNG o WebP. Se recorta en cuadrado y se ve en el ranking, los comentarios y las opiniones.</span>
         <div class="row"><label class="btn sm" for="avF" style="cursor:pointer">Cambiar foto</label><input id="avF" type="file" accept="image/jpeg,image/png,image/webp" hidden>${p.avatar_url?'<button type="button" class="btn sm ghost" id="avX">Quitar foto</button>':""}</div></div></div>
@@ -1560,9 +1569,9 @@ ROUTES.perfil=arg=>{if(!logged()){location.hash="#entrar";return}setTimeout(asyn
     <div class="lvl"><div class="medal">${lv.i+1}</div><div style="display:grid;gap:8px;min-width:0"><h2>${esc(lv.name)}</h2><div class="bar"><i style="width:${pct}%"></i></div><div class="muted mono">${g.xp} pts${lv.to?` · faltan ${lv.to-g.xp} para el siguiente nivel`:""}</div></div></div>
     <div class="kv" style="margin-top:14px"><div><b>${Object.values(g.done).filter(d=>d.passed).length}</b><span>lecciones aprobadas</span></div><div><b>${g.practice.n}</b><span>ejercicios resueltos</span></div><div><b>${g.practice.n?Math.round(100*g.practice.ok/g.practice.n):0}%</b><span>aciertos</span></div><div><b>${g.streak||0}</b><span>días seguidos</span></div></div></section>
     <section class="sec"><div class="sec-h"><h2>Logros</h2><a href="${toAcad("logros")}">Ver todos</a></div>${(L=>`<div class="ach-show big">${L.filter(a=>a.on).map(a=>`<span title="${esc(a.t)}">${medal(a,48)}</span>`).join("")||'<span class="muted">Aún no tienes medallas.</span>'}</div><p class="muted">${L.filter(a=>a.on).length} de ${L.length} logros de la academia.</p>`)(acadAch())}</section>
-    <section class="sec" id="cfgSeg"><h2>Seguridad</h2><div class="panel"><form class="form" id="pf" style="max-width:420px"><label for="np">Cambiar contraseña<input id="np" type="password" minlength="8" autocomplete="new-password"></label><button class="btn" id="npg">Guardar contraseña</button></form></div></section>`;
+    <section class="sec" id="cfgSeg"><h2>Seguridad</h2><div class="panel"><form class="form" id="pf" style="max-width:420px"><label for="np">Cambiar contraseña<input id="np" type="password" minlength="8" autocomplete="new-password"></label><button class="btn" id="npg">Guardar contraseña</button></form></div></section></div></div>`;
   appSettings($("#appSet"));
-  $$("[data-cfg]").forEach(b=>b.onclick=()=>{const t=$("#"+b.dataset.cfg);if(t)t.scrollIntoView({behavior:"smooth",block:"start"})});
+  $$("[data-cfg]").forEach(b=>b.onclick=()=>{$$("[data-cfg]").forEach(x=>x.classList.toggle("on",x===b));const t=$("#"+b.dataset.cfg);if(t)t.scrollIntoView({behavior:"smooth",block:"start"})});
   let av=p.avatar_url||"";const bn=()=>$("#aBn").textContent=`${$("#aB").value.length}/160`;bn();$("#aB").oninput=bn;
   $("#avF").onchange=async e=>{const f=e.target.files[0];if(!f)return;if(!/^image\/(jpeg|png|webp)$/.test(f.type))return toast("Usa una imagen JPG, PNG o WebP");if(f.size>12*1024*1024)return toast("La imagen es muy pesada (máx. 12 MB)");
     try{toast("Subiendo foto…");const b=await squareImage(f);av=await API.uploadAvatar(b);$("#avPrev").innerHTML=avatar({username:p.username,avatar_url:av},112);await API.updateMyProfile({avatar_url:av,bio:$("#aB").value.trim(),country:$("#aC").value});renderNav();toast("Foto actualizada")}catch(x){toast(x.message||"No se pudo subir la foto")}};
