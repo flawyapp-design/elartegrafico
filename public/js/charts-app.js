@@ -46,7 +46,11 @@ const PERIODS=[
 const gran=p=>p.multiplier*({minute:60,hour:3600,day:86400,week:604800}[p.timespan]||60);
 /* gráfico de ticks: cada movimiento del precio (como el gráfico de ticks de MT5) */
 const TICK={multiplier:1,timespan:"tick",text:"Ticks"};
-const perFind=t=>t==="Ticks"?TICK:PERIODS.find(p=>p.text===t)||null;
+/* temporalidades personalizadas ("7m", "3H", "2D"): Deriv no las da, se arman juntando velas más pequeñas */
+const STDG=[60,120,180,300,600,900,1800,3600,7200,14400,28800,86400];
+const ctfParse=t=>{const m=String(t||"").match(/^(\d+)(m|H|D)$/);if(!m)return null;const n=+m[1],u=m[2];if(!(n>0))return null;
+  const g=n*(u==="m"?60:u==="H"?3600:86400);if(g<60||g>7*86400)return null;return{multiplier:n,timespan:u==="m"?"minute":u==="H"?"hour":"day",text:t,custom:true}};
+const perFind=t=>t==="Ticks"?TICK:PERIODS.find(p=>p.text===t)||ctfParse(t);
 const perOf=t=>perFind(t)||PERIODS[0];
 
 /* ===================== Datos de Deriv (WebSocket) ===================== */
@@ -216,12 +220,34 @@ function start(){
   const short=s=>String((bySym[s]||{}).display_name||s).replace(/ Index$/,"");
 
   const hub=new Map();
-  function hubOn(k,who,sym,g,cb){let h=hub.get(k);
+  const AGG=new Map();
+  function hubOn(k,who,sym,g,cb){
+    if(!STDG.includes(g)){let A=AGG.get(k);
+      if(!A){const b=baseOf(g),ms=g*1000;A={subs:new Map(),parts:new Map(),bk:0,who:"agg:"+k};AGG.set(k,A);
+        const emit=()=>{const L=[...A.parts.values()].sort((x,y)=>x.timestamp-y.timestamp);if(!L.length)return;const d=aggr(L,g)[0];A.subs.forEach(f=>{try{f(d)}catch(e){}})};
+        const add=c=>{const bk=Math.floor(c.timestamp/ms)*ms;if(bk!==A.bk){if(bk<A.bk)return;A.bk=bk;A.parts.clear()}A.parts.set(c.timestamp,c)};
+        /* se cargan las velas pequeñas que ya van en la vela grande actual, para que el máximo y el mínimo salgan bien */
+        feed.ask({ticks_history:sym,style:"candles",granularity:b,end:"latest",count:g/b+1}).then(m=>{(m.candles||[]).map(toK).forEach(add);emit()}).catch(()=>{});
+        hubOn(sym+":"+b,A.who,sym,b,c=>{add(c);emit()})}
+      A.subs.set(who,cb);return}
+    let h=hub.get(k);
     if(!h){h=new Map();hub.set(k,h);feed.sub("c:"+k,{ticks_history:sym,style:"candles",granularity:g,end:"latest",count:1},m=>{
       const o=m.ohlc;if(!o)return;const d={timestamp:(+o.open_time)*1000,open:+o.open,high:+o.high,low:+o.low,close:+o.close,volume:0};hub.get(k)&&hub.get(k).forEach(f=>{try{f(d)}catch(e){}})},()=>{})}
     h.set(who,cb)}
-  function hubOff(k,who){const h=hub.get(k);if(!h)return;h.delete(who);if(!h.size){hub.delete(k);feed.unsub("c:"+k)}}
+  function hubOff(k,who){const A=AGG.get(k);if(A){A.subs.delete(who);if(!A.subs.size){AGG.delete(k);const sym=k.split(":")[0],g=+k.split(":")[1];hubOff(sym+":"+baseOf(g),A.who)}return}
+    const h=hub.get(k);if(!h)return;h.delete(who);if(!h.size){hub.delete(k);feed.unsub("c:"+k)}}
   const toK=c=>({timestamp:c.epoch*1000,open:+c.open,high:+c.high,low:+c.low,close:+c.close,volume:0});
+  /* ---------- velas de cualquier temporalidad (las personalizadas se arman con la estándar más grande que la divida) ---------- */
+  const baseOf=g=>{if(STDG.includes(g))return g;let b=60;STDG.forEach(s=>{if(s<g&&g%s===0)b=s});return b};
+  const aggr=(L,g)=>{const ms=g*1000,out=[];let cur=null;L.forEach(c=>{const b=Math.floor(c.timestamp/ms)*ms;
+    if(!cur||cur.timestamp!==b){cur={timestamp:b,open:c.open,high:c.high,low:c.low,close:c.close,volume:0};out.push(cur)}else{cur.high=Math.max(cur.high,c.high);cur.low=Math.min(cur.low,c.low);cur.close=c.close}});return out};
+  /* count velas de g que terminan en end ("latest" o segundos) */
+  async function getCandles(sym,g,end,count){
+    if(STDG.includes(g)){const m=await feed.ask({ticks_history:sym,style:"candles",granularity:g,end,count:Math.min(count,1000)});return(m.candles||[]).map(toK)}
+    const b=baseOf(g),k=g/b,need=Math.min(count*k+k,8000);let out=[],e=end,guard=0;
+    while(out.length<need&&guard++<10){const m=await feed.ask({ticks_history:sym,style:"candles",granularity:b,end:e,count:Math.min(1000,need-out.length)});
+      const L=(m.candles||[]).map(toK);if(!L.length)break;out=L.concat(out);e=Math.floor(L[0].timestamp/1000)-1;if(L.length<Math.min(1000,need))break}
+    const A=aggr(out,g);return A.slice(-count)}
   /* ticks en vivo compartidos: una sola suscripción por mercado para la lista de mercados y los gráficos de ticks
      (Deriv no deja suscribirse dos veces al mismo mercado en la misma conexión) */
   const TKL=new Map(),TKW=new Set();
@@ -246,6 +272,7 @@ function start(){
           catch(e){console.warn("[EAG] ticks",sym.ticker,e.message);return[]}}
         const g=gran(period),end=Math.floor(Math.min(to,Date.now())/1000),start=Math.max(1,Math.floor(from/1000));
         if(end<=start)return[];
+        if(!STDG.includes(g)){try{return await getCandles(sym.ticker,g,to>=Date.now()-1000?"latest":end,Math.min(990,Math.ceil((end-start)/g)))}catch(e){console.warn("[EAG] historial",sym.ticker,e.message);return[]}}
         try{const m=await feed.ask({ticks_history:sym.ticker,style:"candles",granularity:g,start,end,count:5000,adjust_start_time:1});return(m.candles||[]).map(toK)}
         catch(e){console.warn("[EAG] historial",sym.ticker,e.message);return[]}},
       subscribe(sym,period,cb){if(period&&period.timespan==="tick"){tickOn(sym.ticker,me,t=>{let ts=(+t.epoch)*1000;if(ts<=tkLast)ts=tkLast+1;tkLast=ts;const v=+t.quote;cb({timestamp:ts,open:v,high:v,low:v,close:v,volume:0})});return}
@@ -365,12 +392,21 @@ function start(){
   SAVE.tfFav=Array.isArray(SAVE.tfFav)&&SAVE.tfFav.length?SAVE.tfFav:["1m","5m","15m","1H","4H","1D"];
   const TFN={minute:["minuto","minutos"],hour:["hora","horas"],day:["día","días"]};
   const tfName=p=>p.multiplier+" "+TFN[p.timespan][p.multiplier>1?1:0];
-  const tfOrder=t=>PERIODS.findIndex(p=>p.text===t);
+  const tfOrder=t=>{const p=perFind(t);return p?gran(p):9e9};
   function openTF(pane,anchor){
     const cur=(()=>{try{return pane.kc.getPeriod().text}catch(e){return""}})();
     const grp=[["Minutos","minute"],["Horas","hour"],["Días","day"]];
     pop.innerHTML=(CF().ticks!==false?`<div class="ph">Ticks</div><div class="tfr${cur==="Ticks"?" on":""}" data-t="Ticks"><span>Gráfico de ticks</span></div>`:"")+grp.map(([g,ts])=>`<div class="ph">${g}</div>`+PERIODS.filter(p=>p.timespan===ts).map(p=>`<div class="tfr${p.text===cur?" on":""}" data-t="${p.text}"><span>${tfName(p)}</span><button class="st2${SAVE.tfFav.includes(p.text)?" on":""}" data-f="${p.text}" title="${SAVE.tfFav.includes(p.text)?"Quitar de favoritas":"Agregar a favoritas"}">${SAVE.tfFav.includes(p.text)?"★":"☆"}</button></div>`).join("")).join("")
-      +`<div class="pnote">Las ★ favoritas salen en la barra y en Multitemporalidad.</div>`;
+      +`<div class="ph">Personalizadas</div>`+(SAVE.ctf||[]).map(ctfParse).filter(Boolean).map(p=>`<div class="tfr${p.text===cur?" on":""}" data-t="${p.text}"><span>${tfName(p)}</span><button class="st2${SAVE.tfFav.includes(p.text)?" on":""}" data-f="${p.text}" title="${SAVE.tfFav.includes(p.text)?"Quitar de favoritas":"Agregar a favoritas"}">${SAVE.tfFav.includes(p.text)?"★":"☆"}</button><button class="st2 ctfx" data-cx="${p.text}" title="Borrar">×</button></div>`).join("")
+      +`<div class="ctfnew"><input type="number" min="1" step="1" data-cn placeholder="Ej: 7"><select data-cu><option value="m">minutos</option><option value="H">horas</option><option value="D">días</option></select><button data-cadd>Crear</button></div>`
+      +`<div class="pnote">Las ★ favoritas salen en la barra y en Multitemporalidad. Las personalizadas se arman juntando velas más pequeñas.</div>`;
+    pop.querySelectorAll("[data-cx]").forEach(b=>b.onclick=e=>{e.stopPropagation();const t=b.dataset.cx;SAVE.ctf=(SAVE.ctf||[]).filter(x=>x!==t);SAVE.tfFav=SAVE.tfFav.filter(x=>x!==t);
+      panes.forEach((p,i)=>{try{if(p.kc.getPeriod().text===t){p.kc.setPeriod(perOf("5m"));SAVE.panes[i]=Object.assign({},SAVE.panes[i],{p:"5m"})}}catch(x){}});save();decorateAll();Object.values(MTFS).forEach(M=>buildMTF(M.pi));openTF(pane,anchor)});
+    const cadd=pop.querySelector("[data-cadd]");cadd&&(cadd.onclick=e=>{e.stopPropagation();const n=parseInt(pop.querySelector("[data-cn]").value,10),u=pop.querySelector("[data-cu]").value;
+      if(!(n>0))return toast("Escribe un número");const t=n+u,pp=ctfParse(t);if(!pp)return toast("Debe estar entre 1 minuto y 7 días");
+      if(PERIODS.some(x=>gran(x)===gran(pp)))return toast(`Esa ya existe: ${PERIODS.find(x=>gran(x)===gran(pp)).text}`);
+      SAVE.ctf=Array.from(new Set((SAVE.ctf||[]).concat(t))).sort((a,b)=>tfOrder(a)-tfOrder(b));save();try{pane.kc.setPeriod(pp)}catch(x){}closePop();afterTF();toast(`Temporalidad <b>${t}</b> creada. Tócale ☆ para tenerla en la barra.`)});
+    pop.querySelectorAll(".ctfnew input,.ctfnew select").forEach(x=>{x.onclick=e=>e.stopPropagation();x.onkeydown=e=>{if(e.key==="Enter")cadd.click()}});
     pop.querySelectorAll(".tfr").forEach(r=>r.onclick=e=>{
       const f=e.target.closest("[data-f]");
       if(f){const t=f.dataset.f;SAVE.tfFav=SAVE.tfFav.includes(t)?SAVE.tfFav.filter(x=>x!==t):SAVE.tfFav.concat(t).sort((a,b)=>tfOrder(a)-tfOrder(b));save();decorateAll();Object.values(MTFS).forEach(M=>buildMTF(M.pi));openTF(pane,anchor);return}
@@ -517,9 +553,8 @@ function start(){
       /* más pasado: 300 velas, y si arrastras a la izquierda carga más */
       let miniNoMore=false;
       try{c.setLoadDataCallback(async({type,data,callback})=>{if(type!=="forward"||!data||miniNoMore){callback([],false);return}
-        try{const r2=await feed.ask({ticks_history:sym.ticker,style:"candles",granularity:g,end:Math.floor((data.timestamp-1)/1000),count:300});
-          const L2=(r2.candles||[]).map(toK).filter(k=>k.timestamp<data.timestamp);if(!L2.length)miniNoMore=true;callback(L2,L2.length>0)}catch(e){callback([],false)}})}catch(e){}
-      feed.ask({ticks_history:sym.ticker,style:"candles",granularity:g,end:"latest",count:300}).then(r=>{if(MTFS[pi]!==M)return;const L=(r.candles||[]).map(toK);c.applyNewData(L,true);fit(m);m.live(L[L.length-1])}).catch(()=>{});
+        try{const L2=(await getCandles(sym.ticker,g,Math.floor((data.timestamp-1)/1000),300)).filter(k=>k.timestamp<data.timestamp);if(!L2.length)miniNoMore=true;callback(L2,L2.length>0)}catch(e){callback([],false)}})}catch(e){}
+      getCandles(sym.ticker,g,"latest",300).then(L=>{if(MTFS[pi]!==M)return;c.applyNewData(L,true);fit(m);m.live(L[L.length-1])}).catch(()=>{});
       const mp=box.querySelector(".mp");
       const live=d=>{if(!d)return;const ch=(d.close-d.open)/d.open*100;mp.innerHTML=`${(+d.close).toFixed(sym.pricePrecision||3)} <i class="${ch>=0?"up":"dn"}">${ch>=0?"▲":"▼"}${Math.abs(ch).toFixed(2)}%</i>`;
 };
@@ -646,7 +681,7 @@ function start(){
   const KEYS={KeyB:"__brush",KeyT:"segment",KeyH:"horizontalStraightLine",KeyJ:"horizontalRayLine",KeyV:"verticalStraightLine",KeyF:"fibonacciLine",KeyR:"rect",KeyZ:"eagZone",KeyL:"eagLong",KeyS:"eagShort",KeyM:"eagMeasure",KeyX:"eagText",KeyC:"parallelStraightLine"};
   const tfBox=document.createElement("div");tfBox.className="tfbox";tfBox.hidden=true;appw.appendChild(tfBox);let tfBuf="",tfT=null;
   function tfParse(b){const m=b.trim().toLowerCase().match(/^(\d+)\s*([mhd])?$/);if(!m)return null;let n=+m[1],u=m[2]||"m";
-    if(u==="m"&&n>=60&&n%60===0){n/=60;u="h"}if(u==="h"&&n===24){n=1;u="d"}const t=u==="m"?n+"m":u==="h"?n+"H":n+"D";return PERIODS.find(p=>p.text===t)||null}
+    if(u==="m"&&n>=60&&n%60===0){n/=60;u="h"}if(u==="h"&&n===24){n=1;u="d"}const t=u==="m"?n+"m":u==="h"?n+"H":n+"D";return perFind(t)}
   function tfShow(){tfBox.innerHTML=`<span>Temporalidad</span><b>${esc(tfBuf)}</b><em>${tfParse(tfBuf)?"Enter para aplicar":"1–30 (min), 1h, 2h, 4h, 8h, 1d"}</em>`;tfBox.hidden=false;clearTimeout(tfT);tfT=setTimeout(()=>{tfBox.hidden=true;tfBuf=""},4000)}
   addEventListener("keydown",e=>{const t=e.target;if(t&&t.closest&&t.closest("input,textarea,select,[contenteditable]"))return;const p=panes[active];if(!p||!p.kc)return;
     const mod=e.ctrlKey||e.metaKey;
