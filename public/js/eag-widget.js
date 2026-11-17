@@ -397,7 +397,7 @@ window.EAGWidget=function(o){
     XF=xfNow();RAW=list.slice();
     chart.applyNewData(viewOf(list),list.length>0&&XF!=="renko");autoScale();ready=true;applyStyles();offR=null;fixOffR(true);
     o.datafeed.subscribe(sym,per,d=>{if(g===gen){liveUpdate(d);cdKick(120)}});subKey={s:sym,p:per};
-    restoreDrawings();
+    restoreDrawings();azKey="";setTimeout(refreshAuto,50);
   }
   chart.setLoadDataCallback(async({type,data,callback})=>{
     if(type!=="forward"||!data){callback([],false);return}
@@ -657,7 +657,29 @@ window.EAGWidget=function(o){
       let pts=d.points;if(BOX.test(d.name)&&pts.length===2)pts=boxPts(pts[0],pts[1]).map(p=>({timestamp:p.timestamp,value:p.value}));
       try{const id=chart.createOverlay({name:d.name,points:pts,styles:withPt(d),extendData:d.extendData,lock:true,visible:!hidden,onRightClick:()=>true,onDoubleClick:()=>true,onPressedMoveStart:()=>true});
         if(id){guestIds.push(id);OVSYM.set(id,sym&&sym.ticker)}}catch(e){}}))}
-  function setGuest(layers){guest=layers||{};paintGuest()}
+  function setGuest(layers){const a=guest.auto;guest=layers||{};if(a&&!guest.auto)guest.auto=a;paintGuest()}
+  /* ---------- zonas automáticas de soporte y resistencia ----------
+     Busca giros (máximos y mínimos locales), junta los que están a casi el mismo precio y marca como zona
+     los niveles donde el precio rebotó 2 o más veces. Las más fuertes: hasta 3 arriba (resistencias) y 3 abajo (soportes). */
+  function autoZones(L){L=L.slice(-600);const n=L.length,k=5;if(n<40)return[];
+    const rg=L.map(c=>c.high-c.low).filter(v=>v>0).sort((a,b)=>a-b),last=L[n-1].close;
+    const tol=Math.max((rg[Math.floor(rg.length/2)]||0)*1.2,Math.abs(last)*0.0002);
+    const piv=[];for(let i=k;i<n-k;i++){let hi=true,lo=true;for(let j=i-k;j<=i+k;j++){if(L[j].high>L[i].high)hi=false;if(L[j].low<L[i].low)lo=false}
+      if(hi)piv.push({v:L[i].high,i});if(lo)piv.push({v:L[i].low,i})}
+    piv.sort((a,b)=>a.v-b.v);const cl=[];piv.forEach(p=>{const c=cl[cl.length-1];if(c&&p.v-c.sum/c.n<=tol){c.sum+=p.v;c.n++;c.ps.push(p)}else cl.push({sum:p.v,n:1,ps:[p]})});
+    const Z=cl.filter(c=>c.n>=2).map(c=>{const vs=c.ps.map(p=>p.v),mid=c.sum/c.n,th=Math.max(Math.max(...vs)-Math.min(...vs),tol*0.6);
+      const ix=c.ps.map(p=>p.i).sort((a,b)=>a-b),lastI=ix[ix.length-1],first=ix[Math.max(0,ix.length-2)]; /* empieza en el penúltimo toque: la etiqueta queda a la vista */return{top:mid+th/2,bot:mid-th/2,mid,n:c.n,first,score:c.n+lastI/n*1.5}});
+    const pick=arr=>arr.sort((a,b)=>b.score-a.score).slice(0,3);
+    const R2=pick(Z.filter(z=>z.bot>last)),S=pick(Z.filter(z=>z.top<last));
+    const mk=(z,res)=>({name:"eagZone",points:[{timestamp:L[z.first].timestamp,value:z.top},{timestamp:L[n-1].timestamp,value:z.bot}],
+      extendData:{color:res?"#f23645":"#089981",fill:res?"rgba(242,54,69,.09)":"rgba(8,153,129,.09)",text:`${res?"Resistencia":"Soporte"} · ${z.n} toques`,size:1}});
+    return R2.map(z=>mk(z,true)).concat(S.map(z=>mk(z,false)))}
+  let azKey="";
+  function refreshAuto(){const on=!!(o.autoZones&&o.autoZones())&&!isTk()&&XF!=="renko";let arr=[];
+    if(on&&ready){try{arr=autoZones(XF==="ha"?RAW:chart.getDataList())}catch(e){arr=[]}}
+    const k=on?JSON.stringify(arr.map(z=>[z.points[0].value.toFixed(4),z.points[1].value.toFixed(4),z.extendData.text])):"";if(k===azKey)return;azKey=k;
+    if(on)guest.auto=arr;else delete guest.auto;paintGuest()}
+  setInterval(()=>{if(root.isConnected)refreshAuto()},15000);
   /* copiar dibujos de otro (el profe) a los míos: se pueden deshacer */
   function importDrawings(arr){if(!sym||!Array.isArray(arr)||!arr.length)return 0;const all=loadD(),mine=all[sym.ticker]||[];
     const add=arr.filter(d=>d&&d.name&&Array.isArray(d.points)&&d.points.every(p=>p&&p.timestamp)).map(d=>Object.assign(JSON.parse(JSON.stringify(d)),{lock:false}));if(!add.length)return 0;
@@ -959,7 +981,7 @@ window.EAGWidget=function(o){
     reloadDrawings(){if(ready)restoreDrawings()},
     reloadData(){loadData()},
     drawings(){return sym?JSON.parse(JSON.stringify(loadD()[sym.ticker]||[])):[]},
-    setGuest,importDrawings,
+    setGuest,importDrawings,refreshAuto(){azKey="";refreshAuto()},
     repaint(){applyStyles()}}
 };
 })();

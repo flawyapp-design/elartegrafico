@@ -446,7 +446,7 @@ function start(){
     panes.forEach(p=>{try{if(p.kc.getTheme()!==c.theme)p.kc.setTheme(c.theme)}catch(e){}setTimeout(()=>{try{p.kc.setStyles(styFor());p.kc.setDecimals()}catch(e){}},40)});
     Object.values(MTFS).forEach(M=>M.minis.forEach(m=>{try{m.c.setStyles({candle:{bar:barOf()}})}catch(e){}}));
     if(c.ticks===false)panes.forEach((p,i)=>{try{if(p.kc.getPeriod().timespan==="tick"){p.kc.setPeriod(perOf("1m"));SAVE.panes[i]=Object.assign({},SAVE.panes[i],{p:"1m"})}}catch(e){}});
-    try{decorateAll()}catch(e){}window.__spkPaint&&window.__spkPaint();
+    try{decorateAll()}catch(e){}window.__spkPaint&&window.__spkPaint();panes.forEach(p=>{try{p.kc.refreshAuto()}catch(e){}});
     const xk=c.type+"|"+(c.type==="renko"?(+c.rbox||0):"");if(xk!==lastXk){const first=lastXk==null;lastXk=xk;if(!first)panes.forEach(p=>{try{p.kc.reloadData()}catch(e){}})}}
   function openCfg(anchor){const c=CF();
     const tg=(k,t)=>`<label class="sw"><input type="checkbox" data-k="${k}" ${c[k]?"checked":""}><i></i><span>${t}</span></label>`;
@@ -483,7 +483,7 @@ function start(){
     const kc=window.EAGWidget({container:el.firstChild,symbol:findInfo(sym),period:per,datafeed:Datafeed(),theme:CF().theme,timezone:TZ,
       indicators:FREE?trimInd(sv.ind):sv.ind,magnet:SAVE.magnet,lastTools:SAVE.lastTools,
       toolAllowed:FREE?(n=>FREE_TOOLS.has(n)):null,maxIndicators:FREE?FREE_IND:null,alertsAllowed:FREE?(()=>false):null,onLocked:(k,what)=>upsell(what),
-      getFavTF:()=>SAVE.tfFav,getXform:()=>CF().type==="ha"||CF().type==="renko"?CF().type:"",getRenkoBox:()=>+CF().rbox||0,ticksOn:()=>CF().ticks!==false,
+      getFavTF:()=>SAVE.tfFav,getXform:()=>CF().type==="ha"||CF().type==="renko"?CF().type:"",getRenkoBox:()=>+CF().rbox||0,autoZones:()=>!!CF().az&&!FREE,ticksOn:()=>CF().ticks!==false,
       onPickTF:t=>{kc.setPeriod(perOf(t));afterTF()},
       onTFClick:a=>{setActive(i);pop.hidden||pop.dataset.for!=="tf"?openTF(p,a):closePop()},
       onSymbolClick:anc=>{setActive(i);const a=anc&&anc.nodeType?anc:el.querySelector(".wsym");pop.hidden||pop.dataset.for!=="sym"?openSymPicker(p,a):closePop()},
@@ -813,6 +813,7 @@ function start(){
       <div class="slabel">Contador de cierre de vela</div><p class="shelp">"En Multi-TF": cada temporalidad de la multitemporalidad muestra lo que le falta a su vela. "Junto a la vela" es como en MT5: al lado de la última vela del gráfico grande, con el nombre del mercado.</p>
       <div class="seg">${[["mtf","En Multi-TF"],["vela","Junto a la vela"],["regla","En la regla"],["off","Oculto"]].map(([v,t])=>`<button data-cd="${v}" class="${(c.cd||"mtf")===v?"on":""}">${t}</button>`).join("")}</div>
       <div class="slabel">Mostrar</div>`+[["grid","Cuadrícula","Líneas de fondo para ubicar precios y horas."],["axis","Ejes de precio y hora","La escala de precios a la derecha y las horas abajo."],["last","Línea del último precio","Línea punteada y etiqueta con el precio actual."],["hl","Máximo y mínimo visibles","Marca el precio más alto y más bajo de lo que estás viendo."],["cross","Cruz del cursor","Líneas que siguen al mouse con precio y hora exactos."]].map(([k,t,d])=>row(t,d,tog(`data-k="${k}"`,c[k]))).join("")
+      +`<div class="slabel">Zonas automáticas</div>`+row("Soportes y resistencias automáticos"+(FREE?" 🔒":""),"Marca solas las zonas donde el precio rebotó 2 o más veces (hasta 3 arriba y 3 abajo). Se actualizan cada 15 segundos. Son una ayuda: confírmalas con tu análisis.",tog('data-k="az"',!!c.az&&!FREE))
       +`<div class="slabel">Gráfico de ticks</div>`+[["ticks","Botón «Ticks»","Gráfico donde cada punto es un movimiento del precio, como el gráfico de ticks de MT5."],["spk","Contador de spikes (Boom y Crash)","En el gráfico de ticks: cuántos ticks van desde el último spike y la estadística. Es estadística, no predicción."]].map(([k,t,d])=>row(t,d,tog(`data-k="${k}"`,c[k]!==false))).join("");
     if(cat==="marca")return`<h3>Marca de agua</h3><p class="shelp">Ideal para tus lives: se ve el mercado, la temporalidad y tu marca de fondo.</p>
       ${row("Mostrar mercado y temporalidad","La marca EL ARTE GRÁFICO siempre se ve; esto quita o pone el nombre del mercado.",tog('data-k="wm"',c.wm))}
@@ -865,7 +866,7 @@ function start(){
     ov.querySelectorAll("[data-ty]").forEach(b=>b.onclick=()=>set("type",b.dataset.ty));
     const rb=ov.querySelector("[data-rbox]");rb&&(rb.onchange=()=>{const v=parseFloat(String(rb.value).replace(",","."));set("rbox",isFinite(v)&&v>0?v:0)});
     ov.querySelectorAll("[data-col]").forEach(i=>i.onchange=()=>set(i.dataset.col,i.value));
-    ov.querySelectorAll("input[data-k]").forEach(i=>i.onchange=()=>set(i.dataset.k,i.checked));
+    ov.querySelectorAll("input[data-k]").forEach(i=>i.onchange=()=>{if(i.dataset.k==="az"&&FREE&&i.checked){i.checked=false;upsell("Zonas automáticas de soporte y resistencia");return}set(i.dataset.k,i.checked)});
     ov.querySelectorAll("[data-wm]").forEach(b=>b.onclick=()=>set("wmMode",b.dataset.wm));
     ov.querySelectorAll("[data-dec]").forEach(b=>b.onclick=()=>set("dec",b.dataset.dec==="auto"?"auto":+b.dataset.dec));
     ov.querySelectorAll("[data-cd]").forEach(b=>b.onclick=()=>set("cd",b.dataset.cd));
