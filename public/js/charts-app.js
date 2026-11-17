@@ -452,7 +452,7 @@ function start(){
       onTFClick:a=>{setActive(i);pop.hidden||pop.dataset.for!=="tf"?openTF(p,a):closePop()},
       onSymbolClick:anc=>{setActive(i);const a=anc&&anc.nodeType?anc:el.querySelector(".wsym");pop.hidden||pop.dataset.for!=="sym"?openSymPicker(p,a):closePop()},
       onSettings:()=>openSettings("apariencia"),getDecimals:()=>CF().dec,getFont:()=>CF().font,getCdMode:()=>CF().cd,
-      onFullReload:()=>fullReload(),getToolStyle:n=>(SAVE.toolStyles||{})[n],onToolStyle:(n,st)=>{SAVE.toolStyles=Object.assign({},SAVE.toolStyles,{[n]:st});save()},onReload:()=>{if(MTFS[i])buildMTF(i)},onToggleMtf:()=>{SAVE.panes[i]=Object.assign({},SAVE.panes[i],{mtf:!(SAVE.panes[i]||{}).mtf});save();syncStrips()},onToast:t=>toast(t),getAlerts:tk=>ALERTS.filter(a=>a.active&&a.symbol===tk),onCreateAlert:a=>alertDialog(a),
+      onFullReload:()=>fullReload(),getToolStyle:n=>(SAVE.toolStyles||{})[n],onToolStyle:(n,st)=>{SAVE.toolStyles=Object.assign({},SAVE.toolStyles,{[n]:st});save()},onReload:()=>{if(MTFS[i])buildMTF(i)},onToggleMtf:()=>{SAVE.panes[i]=Object.assign({},SAVE.panes[i],{mtf:!(SAVE.panes[i]||{}).mtf});save();syncStrips()},onToast:t=>toast(t),getAlerts:tk=>ALERTS.filter(a=>a.active&&a.symbol===tk&&a.price!=null&&["nivel","zona","cierre"].includes(a.kind)).map(a=>a.kind==="cierre"?Object.assign({},a,{kind:"nivel",note:`cierre ${a.cond==="abajo"?"↓":"↑"} ${tfTxt(a.tf)}${a.note?" · "+a.note:""}`}):a),onCreateAlert:a=>alertDialog(a),
       onIndicators:d=>{SAVE.panes[i]=Object.assign({},SAVE.panes[i],{ind:d});save()},
       onMagnet:m=>{SAVE.magnet=m;save()},getTfav:()=>!SAVE.hide.tf&&SAVE.toolFav.length>0,onTfav:()=>{if(!SAVE.toolFav.length){SAVE.hide.tf=false;save();applyHide();toast("Aún no tienes favoritas: abre una lista de herramientas (doble toque) y marca la ☆. Aparecen en la barra rápida.");return}SAVE.hide.tf=!SAVE.hide.tf;save();applyHide();panes.forEach(p=>{try{p.kc.refreshBar()}catch(e){}})},axisType:sv.ax,onAxisType:t=>{SAVE.panes[i]=Object.assign({},SAVE.panes[i],{ax:t});save()},getToolFav:()=>SAVE.toolFav,onToolFav:k=>{SAVE.toolFav=SAVE.toolFav.includes(k)?SAVE.toolFav.filter(x=>x!==k):SAVE.toolFav.concat(k);save();renderToolFav()},onLastTools:t=>{SAVE.lastTools=t;save()},
       onDrawingsChange:tk=>(window.__eagSync&&window.__eagSync(),window.EAGClase&&window.EAGClase.drawingsChanged(),panes).forEach(q2=>{if(q2!==p&&q2.kc&&q2.kc.getSymbol().ticker===tk)q2.kc.reloadDrawings()})});
@@ -743,7 +743,7 @@ function start(){
     ["marca","Marca de agua","Mercado y logo de fondo",SI('<path d="M4 7h16M4 12h10M4 17h7"/>')],
     ["barras","Barras y paneles","Qué se ve y dónde",SI('<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M9 9v11"/>')],
     ["riesgo","Calculadora de lote","Lote según tu riesgo",SI('<rect x="4" y="2" width="16" height="20" rx="2"/><path d="M8 6h8M8 11h2M14 11h2M8 15h2M14 15h2M8 19h8"/>')],
-    ["alertas","Alertas de precio","Aviso al celular",SI('<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/>')],
+    ["alertas","Alertas","Precio, RSI, medias, spikes",SI('<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/>')],
     ["atajos","Ayuda y atajos","Tutorial y teclado",SI('<rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10"/>')]];
   const PDESC={top:"Logo, distribución de gráficos, estado de conexión y botones principales.",pb:"Mercado, temporalidades favoritas, indicadores y captura de cada gráfico.",
     bb:"Rangos rápidos (1D, 5D, 1M…), reloj, cuenta regresiva y escala % / log.",db:"Herramientas de dibujo a la izquierda de cada gráfico.",tf:"Tus herramientas de dibujo favoritas en una barra que puedes mover.",
@@ -791,9 +791,9 @@ function start(){
       <p class="shelp">Arrastra los bordes para cambiar tamaños (lista, multitemporalidad y división entre gráficos) y arrastra pestañas y favoritos para ordenarlos.</p>
       <div class="sbtns"><button class="btn sm" data-a="clean">${allHidden()?"Mostrar todo":"Modo limpio (solo gráfico)"}</button><button class="btn sm" data-a="rs">Restablecer tamaños</button></div>`;
     if(cat==="alertas"){const act=ALERTS.filter(a=>a.active),old=ALERTS.filter(a=>!a.active).slice(0,10),pp=a=>(bySym[a.symbol]?prec(bySym[a.symbol].pip):3);
-      const li=a=>`<div class="arow${a.active?"":" done"}"><span class="adot"></span><div><b>${esc(a.symbol_name||a.symbol)}</b><p>${a.kind==="zona"?`Zona ${(+a.price2).toFixed(pp(a))} – ${(+a.price).toFixed(pp(a))}`:`Nivel ${(+a.price).toFixed(pp(a))}`}${a.note?" · "+esc(a.note):""}${a.active?"":` · se activó ${a.triggered_at?new Date(a.triggered_at).toLocaleString("es-CO",{timeZone:"America/Bogota",day:"numeric",month:"short",hour:"numeric",minute:"2-digit"}):""}`}</p></div>${a.active?"":`<button class="btn sm" data-re="${a.id}">Reactivar</button>`}<button class="x" data-del="${a.id}" title="Borrar">×</button></div>`;
-      return`<h3>Alertas de precio</h3><p class="shelp">Dibuja una línea horizontal, una zona o un rectángulo, haz <b>clic derecho → 🔔 Crear alerta</b> (o toca 🔔 en la barra del dibujo). Cuando el precio llegue te avisamos al celular, aunque tengas la página cerrada.</p>
-        <div class="sbtns"><button class="btn sm gold" data-a="newal">+ Alerta al precio actual</button></div>
+      const li=a=>`<div class="arow${a.active?"":" done"}"><span class="adot"></span><div><b>${esc(a.symbol_name||a.symbol)}</b><p>${alertDesc(a,pp(a))}${a.repeat?" · cada vez":""}${a.note?" · "+esc(a.note):""}${a.active?(a.repeat&&a.triggered_at?` · último aviso ${new Date(a.triggered_at).toLocaleString("es-CO",{timeZone:"America/Bogota",day:"numeric",month:"short",hour:"numeric",minute:"2-digit"})}`:""):` · se activó ${a.triggered_at?new Date(a.triggered_at).toLocaleString("es-CO",{timeZone:"America/Bogota",day:"numeric",month:"short",hour:"numeric",minute:"2-digit"}):""}`}</p></div>${a.active?"":`<button class="btn sm" data-re="${a.id}">Reactivar</button>`}<button class="x" data-del="${a.id}" title="Borrar">×</button></div>`;
+      return`<h3>Alertas</h3><p class="shelp">De <b>precio</b> (toca un nivel o entra a una zona) y <b>técnicas</b>: cierre de vela, RSI, cruce de medias y spikes en Boom y Crash. Te avisamos al celular, aunque tengas la página cerrada. También puedes dibujar una línea o zona y hacer <b>clic derecho → 🔔 Crear alerta</b>.</p>
+        <div class="sbtns"><button class="btn sm gold" data-a="newal">+ Nueva alerta</button></div>
         <div class="slabel">Activas (${act.length}/30)</div>${act.length?act.map(li).join(""):`<p class="shelp">No tienes alertas activas.</p>`}
         ${old.length?`<div class="slabel">Ya avisadas</div>${old.map(li).join("")}`:""}
         <p class="shelp">Las notificaciones llegan a los dispositivos donde las activaste en la academia (en iPhone, con la app agregada a la pantalla de inicio). Se revisan cada minuto.</p>`}
@@ -849,31 +849,79 @@ function start(){
     ov.querySelectorAll("[data-rv]").forEach(i=>i.oninput=()=>{const v=parseFloat(String(i.value).replace(",","."));SAVE.risk=Object.assign(RISK(),{[i.dataset.rv]:isFinite(v)&&v>=0?v:0});save();lotRepaint();
       const u=riskUsd(RISK()),inf=ov.querySelector("[data-rinfo]");if(inf)inf.innerHTML=u>0?`Arriesgas <b>US$ ${u.toFixed(2)}</b> por operación.`:"Escribe tu saldo y tu riesgo."});
     ov.querySelectorAll("[data-del]").forEach(b=>b.onclick=async()=>{try{await API.deleteChartAlert(b.dataset.del)}catch(e){}ALERTS=ALERTS.filter(a=>a.id!==b.dataset.del);paintAlerts();re()});
-    ov.querySelectorAll("[data-re]").forEach(b=>b.onclick=async()=>{const a=ALERTS.find(x=>x.id===b.dataset.re);if(!a)return;try{const r=await API.saveChartAlert({id:a.id,symbol:a.symbol,symbol_name:a.symbol_name,kind:a.kind,price:a.price,price2:a.price2,note:a.note,active:true});Object.assign(a,r||{},{active:true})}catch(e){toast(esc(e.message||"No se pudo reactivar"))}paintAlerts();re()})}
+    ov.querySelectorAll("[data-re]").forEach(b=>b.onclick=async()=>{const a=ALERTS.find(x=>x.id===b.dataset.re);if(!a)return;try{const r=await API.saveChartAlert(Object.assign({id:a.id,symbol:a.symbol,symbol_name:a.symbol_name,kind:a.kind,price:a.price,price2:a.price2,note:a.note,active:true},a.kind==="nivel"||a.kind==="zona"?{}:{tf:a.tf,cond:a.cond,params:a.params,repeat:a.repeat}));Object.assign(a,r||{},{active:true})}catch(e){toast(esc(e.message||"No se pudo reactivar"))}paintAlerts();re()})}
   addEventListener("keydown",e=>{if(e.key==="Escape"){const m=$(".smodal");if(m){m.remove();e.stopImmediatePropagation();return}const pn=document.querySelector(".wmenu.panel");if(pn){pn.remove();e.stopImmediatePropagation()}}},true);
 
   /* ======================= ALERTAS ======================= */
   let ALERTS=[];
   function paintAlerts(){const n=ALERTS.filter(a=>a.active).length,b=$("#alc");b.hidden=!n;b.textContent=n;panes.forEach(p=>{try{p.kc.renderAlerts()}catch(e){}})}
   async function loadAlerts(){try{ALERTS=(await API.chartAlerts())||[]}catch(e){ALERTS=[]}paintAlerts()}
+  /* temporalidades que acepta el revisor de alertas (las de Deriv) */
+  const ATF=[[60,"1m"],[300,"5m"],[900,"15m"],[1800,"30m"],[3600,"1H"],[14400,"4H"],[86400,"1D"]];
+  const tfTxt=g=>(ATF.find(x=>x[0]===+g)||[0,(+g/60)+"m"])[1];
+  const isBC=t=>/^(BOOM|CRASH)/.test(t||"");
+  /* descripción de una alerta (lista y notificaciones) */
+  function alertDesc(a,pp){const f=v=>v==null?"—":(+v).toFixed(pp),P=a.params||{};
+    if(a.kind==="zona")return`Zona ${f(a.price2)} – ${f(a.price)}`;
+    if(a.kind==="cierre")return`Vela de ${tfTxt(a.tf)} cierra ${a.cond==="abajo"?"debajo":"encima"} de ${f(a.price)}`;
+    if(a.kind==="rsi")return`RSI(${P.n||14}) en ${tfTxt(a.tf)} ${a.cond==="arriba"?"sube de":"baja de"} ${P.lv||30}`;
+    if(a.kind==="cruce")return`EMA ${P.f||9} cruza ${a.cond==="bajista"?"hacia abajo":"hacia arriba"} la EMA ${P.s||21} (${tfTxt(a.tf)})`;
+    if(a.kind==="spike")return`Spike${P.min>0?` de ${P.min} pts o más`:""}`;
+    return`Nivel ${f(a.price)}`}
   function alertDialog(a){let ov=document.createElement("div");ov.className="smodal";appw.appendChild(ov);ov.onclick=e=>{if(e.target===ov)ov.remove()};
-    const pp=bySym[a.symbol]?prec(bySym[a.symbol].pip):3;
+    const pp=bySym[a.symbol]?prec(bySym[a.symbol].pip):3,bc=isBC(a.symbol);
+    let pTf=60;try{const pr=panes[active].kc.getPeriod();const g=gran(pr);if(pr.timespan!=="tick"&&ATF.some(x=>x[0]===g))pTf=g}catch(e){}
+    let kind=a.kind||"nivel";if(kind==="spike"&&!bc)kind="nivel";
+    const TABS=[["precio","Precio"],["cierre","Cierre de vela"],["rsi","RSI"],["cruce","Cruce de medias"]].concat(bc?[["spike","Spike"]]:[]);
+    const tabOfK=k=>k==="nivel"||k==="zona"?"precio":k;
+    const tfSel=`<label class="af"><span>Temporalidad</span><select data-tf>${ATF.map(([g,t])=>`<option value="${g}"${g===pTf?" selected":""}>${t}</option>`).join("")}</select></label>`;
+    function body(t){
+      if(t==="precio")return`<div class="seg"><button data-k="nivel" class="${kind!=="zona"?"on":""}">Toca un nivel</button><button data-k="zona" class="${kind==="zona"?"on":""}">Entra a una zona</button></div>
+        <label class="af"><span class="lv">${kind==="zona"?"Precio de arriba":"Precio"}</span><input type="number" step="any" data-p1 value="${a.price!=null?a.price:""}"></label>
+        <label class="af z"${kind==="zona"?"":" hidden"}><span>Precio de abajo</span><input type="number" step="any" data-p2 value="${a.price2!=null?a.price2:""}"></label>`;
+      if(t==="cierre")return`<div class="seg"><button data-c="arriba" class="on">Cierra por encima</button><button data-c="abajo">Cierra por debajo</button></div>
+        <label class="af"><span>Precio</span><input type="number" step="any" data-p1 value="${a.price!=null?a.price:""}"></label>${tfSel}
+        <p class="shelp">Avisa cuando una vela de esa temporalidad <b>cierre</b> del otro lado del precio (no solo cuando lo toque con la mecha).</p>`;
+      if(t==="rsi")return`<div class="seg"><button data-c="abajo" class="on">Baja de</button><button data-c="arriba">Sube de</button></div>
+        <div class="af2"><label class="af"><span>Nivel</span><input type="number" step="1" min="1" max="99" data-lv value="30"></label><label class="af"><span>Periodo</span><input type="number" step="1" min="2" max="50" data-n value="14"></label></div>${tfSel}
+        <p class="shelp">Ej.: "baja de 30" = sobreventa, "sube de 70" = sobrecompra. Se mira al cierre de cada vela.</p>`;
+      if(t==="cruce")return`<div class="seg"><button data-c="alcista" class="on">Cruce alcista</button><button data-c="bajista">Cruce bajista</button></div>
+        <div class="af2"><label class="af"><span>Media rápida (EMA)</span><input type="number" step="1" min="2" max="200" data-f value="9"></label><label class="af"><span>Media lenta (EMA)</span><input type="number" step="1" min="3" max="400" data-s value="21"></label></div>${tfSel}
+        <p class="shelp">Alcista: la media rápida cruza hacia arriba a la lenta. Bajista: al revés. Se mira al cierre de cada vela.</p>`;
+      if(t==="spike")return`<label class="af"><span>Tamaño mínimo del spike (puntos)</span><input type="number" step="any" min="0" data-min placeholder="Automático"></label>
+        <p class="shelp">Te avisa cuando ${/^BOOM/.test(a.symbol)?"Boom suba":"Crash baje"} de golpe en una vela de 1 minuto. Vacío = automático (según el movimiento normal del mercado). Es un aviso de que ya pasó, no una predicción.</p>`;
+      return""}
+    const tab0=tabOfK(kind);
     ov.innerHTML=`<div class="abox" role="dialog"><div class="ah">🔔 Nueva alerta</div><p class="shelp">${esc(a.symbol_name||a.symbol)}</p>
-      <div class="seg"><button data-k="nivel" class="${a.kind!=="zona"?"on":""}">Cuando toque un nivel</button><button data-k="zona" class="${a.kind==="zona"?"on":""}">Cuando entre a una zona</button></div>
-      <label class="af"><span class="lv">${a.kind==="zona"?"Precio de arriba":"Precio"}</span><input type="number" step="any" data-p1 value="${a.price!=null?a.price:""}"></label>
-      <label class="af z"${a.kind==="zona"?"":" hidden"}><span>Precio de abajo</span><input type="number" step="any" data-p2 value="${a.price2!=null?a.price2:""}"></label>
-      <label class="af"><span>Nota (opcional)</span><input type="text" maxlength="120" data-n placeholder="Ej: zona de compra, esperar spike…"></label>
-      <p class="shelp">Te llegará una notificación al celular cuando el precio llegue. Se revisa cada minuto.</p>
+      <div class="atabs">${TABS.map(([k,t])=>`<button data-t="${k}" class="${k===tab0?"on":""}">${t}</button>`).join("")}</div>
+      <div data-body>${body(tab0)}</div>
+      <label class="af"><span>Nota (opcional)</span><input type="text" maxlength="120" data-n2 placeholder="Ej: zona de compra, esperar spike…"></label>
+      <label class="ack"${tab0==="precio"?" hidden":""}><input type="checkbox" data-rep ${tab0==="spike"?"checked":""}> Avisarme cada vez que pase (no solo la primera)</label>
+      <p class="shelp">Te llegará una notificación al celular. Se revisa cada minuto, aunque tengas la página cerrada.</p>
       <div class="sbtns"><button class="btn sm" data-a="x">Cancelar</button><button class="btn sm gold" data-a="ok">Crear alerta</button></div></div>`;
-    let kind=a.kind==="zona"?"zona":"nivel";
-    ov.querySelectorAll(".seg button").forEach(b=>b.onclick=()=>{kind=b.dataset.k;ov.querySelectorAll(".seg button").forEach(x=>x.classList.toggle("on",x===b));ov.querySelector(".af.z").hidden=kind!=="zona";ov.querySelector(".lv").textContent=kind==="zona"?"Precio de arriba":"Precio"});
+    let tab=tab0,cond=null;
+    const wire=()=>{const B=ov.querySelector("[data-body]");
+      B.querySelectorAll("[data-k]").forEach(b=>b.onclick=()=>{kind=b.dataset.k;B.querySelectorAll("[data-k]").forEach(x=>x.classList.toggle("on",x===b));B.querySelector(".af.z").hidden=kind!=="zona";B.querySelector(".lv").textContent=kind==="zona"?"Precio de arriba":"Precio"});
+      const cs=B.querySelectorAll("[data-c]");cond=cs.length?cs[0].dataset.c:null;cs.forEach(b=>b.onclick=()=>{cond=b.dataset.c;cs.forEach(x=>x.classList.toggle("on",x===b))})};
+    wire();
+    ov.querySelectorAll(".atabs [data-t]").forEach(b=>b.onclick=()=>{tab=b.dataset.t;if(tab==="precio")kind=kind==="zona"?"zona":"nivel";
+      ov.querySelectorAll(".atabs [data-t]").forEach(x=>x.classList.toggle("on",x===b));ov.querySelector("[data-body]").innerHTML=body(tab);wire();
+      const rp=ov.querySelector(".ack");rp.hidden=tab==="precio";rp.querySelector("input").checked=tab==="spike"});
     ov.querySelector('[data-a="x"]').onclick=()=>ov.remove();
-    ov.querySelector('[data-a="ok"]').onclick=async e=>{const p1=parseFloat(ov.querySelector("[data-p1]").value),p2=parseFloat(ov.querySelector("[data-p2]").value);
-      if(!isFinite(p1)||(kind==="zona"&&!isFinite(p2)))return toast("Escribe el precio");e.target.disabled=true;
-      try{const r=await API.saveChartAlert({symbol:a.symbol,symbol_name:a.symbol_name||a.symbol,kind,price:kind==="zona"?Math.max(p1,p2):p1,price2:kind==="zona"?Math.min(p1,p2):null,note:ov.querySelector("[data-n]").value.trim(),active:true});
-        ALERTS.unshift(r||{});paintAlerts();ov.remove();toast("🔔 Alerta creada. Te avisaremos al celular cuando el precio llegue.")}
-      catch(err){e.target.disabled=false;toast(esc(/Máximo/.test(err.message)?err.message:"No se pudo crear la alerta. Intenta de nuevo."))}};
-    setTimeout(()=>ov.querySelector("[data-p1]").focus(),30)}
+    const num=s=>{const e=ov.querySelector(s);return e?parseFloat(String(e.value).replace(",",".")):NaN};
+    ov.querySelector('[data-a="ok"]').onclick=async e=>{
+      const note=ov.querySelector("[data-n2]").value.trim(),rep=!!ov.querySelector("[data-rep]").checked,tfv=+((ov.querySelector("[data-tf]")||{}).value||60);
+      let row={symbol:a.symbol,symbol_name:a.symbol_name||a.symbol,note,active:true};
+      if(tab==="precio"){const p1=num("[data-p1]"),p2=num("[data-p2]");if(!isFinite(p1)||(kind==="zona"&&!isFinite(p2)))return toast("Escribe el precio");
+        Object.assign(row,{kind,price:kind==="zona"?Math.max(p1,p2):p1,price2:kind==="zona"?Math.min(p1,p2):null})}
+      else if(tab==="cierre"){const p1=num("[data-p1]");if(!isFinite(p1))return toast("Escribe el precio");Object.assign(row,{kind:"cierre",price:p1,tf:tfv,cond,repeat:rep})}
+      else if(tab==="rsi"){const lv=num("[data-lv]"),n=num("[data-n]");if(!(lv>0&&lv<100))return toast("El nivel del RSI va de 1 a 99");Object.assign(row,{kind:"rsi",price:null,tf:tfv,cond,repeat:rep,params:{lv,n:n>=2?Math.round(n):14}})}
+      else if(tab==="cruce"){const f=Math.round(num("[data-f]")),sl=Math.round(num("[data-s]"));if(!(f>=2&&sl>f))return toast("La media lenta debe ser mayor que la rápida");Object.assign(row,{kind:"cruce",price:null,tf:tfv,cond,repeat:rep,params:{f,s:sl}})}
+      else if(tab==="spike"){const mn=num("[data-min]");Object.assign(row,{kind:"spike",price:null,tf:60,repeat:rep,params:mn>0?{min:mn}:{}})}
+      e.target.disabled=true;
+      try{const r=await API.saveChartAlert(row);ALERTS.unshift(r||row);paintAlerts();ov.remove();toast("🔔 Alerta creada. Te avisaremos al celular.")}
+      catch(err){e.target.disabled=false;toast(esc(/Máximo/.test(err.message)?err.message:/kind_check|column|tf|params/.test(err.message||"")?"Las alertas técnicas aún no están activadas (falta correr charts_alertas_tecnicas.sql).":"No se pudo crear la alerta. Intenta de nuevo."))}};
+    setTimeout(()=>{const f=ov.querySelector("[data-p1]");f&&f.focus()},30)}
   loadAlerts();setInterval(()=>{if(!document.hidden)loadAlerts()},60000);
   /* chip de la prueba y opinión */
   function openFeedback(){let ov=document.createElement("div");ov.className="smodal";appw.appendChild(ov);ov.onclick=e=>{if(e.target===ov)ov.remove()};

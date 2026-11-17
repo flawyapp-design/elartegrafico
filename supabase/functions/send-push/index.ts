@@ -77,10 +77,89 @@ function derivRecent(symbols: string[]): Promise<Record<string, { epoch: number;
   });
 }
 
+// EAG Charts: velas de varios mercados y temporalidades (para las alertas técnicas)
+function derivCandles(reqs: { sym: string; g: number }[], count = 120): Promise<Record<string, { epoch: number; open: number; high: number; low: number; close: number }[]>> {
+  return new Promise((resolve) => {
+    const out: Record<string, any[]> = {};
+    let left = reqs.length, done = false;
+    if (!left) return resolve(out);
+    const finish = () => { if (done) return; done = true; try { ws.close(); } catch (_) { /* nada */ } resolve(out); };
+    const ws = new WebSocket("wss://api.derivws.com/trading/v1/options/ws/public");
+    const timer = setTimeout(finish, 12000);
+    ws.onopen = () => reqs.forEach((r, i) => ws.send(JSON.stringify({ ticks_history: r.sym, style: "candles", granularity: r.g, end: "latest", count, req_id: i + 1 })));
+    ws.onmessage = (e) => {
+      try {
+        const m = JSON.parse(String(e.data)); const i = (m.req_id || (m.echo_req && m.echo_req.req_id)) - 1;
+        if (i >= 0 && reqs[i]) out[reqs[i].sym + "|" + reqs[i].g] = (m.candles || []).map((c: any) => ({ epoch: +c.epoch, open: +c.open, high: +c.high, low: +c.low, close: +c.close }));
+      } catch (_) { /* nada */ }
+      if (--left <= 0) { clearTimeout(timer); finish(); }
+    };
+    ws.onerror = () => { clearTimeout(timer); finish(); };
+  });
+}
+function rsiSeries(cl: number[], n: number): (number | null)[] {
+  const out: (number | null)[] = cl.map(() => null); if (cl.length <= n) return out;
+  let g = 0, l = 0;
+  for (let i = 1; i <= n; i++) { const d = cl[i] - cl[i - 1]; if (d > 0) g += d; else l -= d; }
+  g /= n; l /= n; out[n] = l === 0 ? 100 : 100 - 100 / (1 + g / l);
+  for (let i = n + 1; i < cl.length; i++) { const d = cl[i] - cl[i - 1]; g = (g * (n - 1) + Math.max(d, 0)) / n; l = (l * (n - 1) + Math.max(-d, 0)) / n; out[i] = l === 0 ? 100 : 100 - 100 / (1 + g / l); }
+  return out;
+}
+function emaSeries(cl: number[], n: number): number[] { const k = 2 / (n + 1); const out: number[] = []; cl.forEach((v, i) => out.push(i ? v * k + out[i - 1] * (1 - k) : v)); return out; }
+const TFN: Record<number, string> = { 60: "1m", 120: "2m", 180: "3m", 300: "5m", 600: "10m", 900: "15m", 1800: "30m", 3600: "1H", 7200: "2H", 14400: "4H", 28800: "8H", 86400: "1D" };
+const fx = (v: number) => (Math.abs(v) >= 100 ? v.toFixed(2) : v.toFixed(3)).replace(/\.?0+$/, "");
+
+/* alertas técnicas: cierre de vela, RSI, cruce de medias y spike. Solo miran velas YA cerradas y posteriores a la última revisión. */
+async function techAlerts(keys: any, al: any[]) {
+  const now = Date.now(), nowIso = new Date().toISOString();
+  const need = new Map<string, { sym: string; g: number }>();
+  for (const a of al) { const g = a.kind === "spike" ? 60 : (Number(a.tf) || 60); need.set(a.symbol + "|" + g, { sym: a.symbol, g }); }
+  const data = await derivCandles([...need.values()].slice(0, 80), 150);
+  let sent = 0; const pending: string[] = [];
+  for (const a of al) {
+    const g = a.kind === "spike" ? 60 : (Number(a.tf) || 60), P = a.params || {};
+    const all = (data[a.symbol + "|" + g] || []).filter((c) => (c.epoch + g) * 1000 <= now);   // solo velas cerradas
+    const since = new Date(a.last_check).getTime();
+    const isNew = (c: { epoch: number }) => (c.epoch + g) * 1000 > since;
+    if (!all.length) { continue; }
+    const cl = all.map((c) => c.close), name = a.symbol_name || a.symbol, tfn = TFN[g] || (g / 60) + "m";
+    let hit: string | null = null;
+    if (a.kind === "cierre") {
+      const lv = Number(a.price), up = a.cond !== "abajo";
+      for (let i = 1; i < all.length && !hit; i++) if (isNew(all[i])) { const p0 = cl[i - 1], p1 = cl[i]; if (up ? (p0 <= lv && p1 > lv) : (p0 >= lv && p1 < lv)) hit = `vela de ${tfn} cerró ${up ? "por encima" : "por debajo"} de ${fx(lv)} (cierre ${fx(p1)})`; }
+    } else if (a.kind === "rsi") {
+      const n = Math.max(2, Math.min(50, Number(P.n) || 14)), lv = Number(P.lv) || 30, up = a.cond === "arriba", R = rsiSeries(cl, n);
+      for (let i = 1; i < all.length && !hit; i++) if (isNew(all[i]) && R[i] != null && R[i - 1] != null) { const r0 = R[i - 1]!, r1 = R[i]!; if (up ? (r0 <= lv && r1 > lv) : (r0 >= lv && r1 < lv)) hit = `RSI(${n}) en ${tfn} ${up ? "subió de" : "bajó de"} ${lv}: ahora ${r1.toFixed(1)}`; }
+    } else if (a.kind === "cruce") {
+      const f = Math.max(2, Number(P.f) || 9), sl = Math.max(f + 1, Number(P.s) || 21), up = a.cond !== "bajista", F = emaSeries(cl, f), S = emaSeries(cl, sl);
+      for (let i = Math.max(1, sl); i < all.length && !hit; i++) if (isNew(all[i])) { const d0 = F[i - 1] - S[i - 1], d1 = F[i] - S[i]; if (up ? (d0 <= 0 && d1 > 0) : (d0 >= 0 && d1 < 0)) hit = `la EMA ${f} cruzó ${up ? "hacia arriba" : "hacia abajo"} la EMA ${sl} en ${tfn}`; }
+    } else if (a.kind === "spike") {
+      const boom = /^BOOM/.test(a.symbol), rg = all.map((c) => c.high - c.low).sort((x, y) => x - y), med = rg[Math.floor(rg.length / 2)] || 0;
+      const min = Number(P.min) > 0 ? Number(P.min) : Math.max(med * 6, 1e-9);
+      for (let i = 0; i < all.length && !hit; i++) if (isNew(all[i])) { const c = all[i], sz = boom ? c.high - c.open : c.open - c.low; if (sz >= min) hit = `spike de ${boom ? "+" : "−"}${fx(sz)} puntos`; }
+    }
+    if (hit) {
+      const last = cl[cl.length - 1];
+      await db(`chart_alerts?id=eq.${a.id}`, { method: "PATCH", body: JSON.stringify(a.repeat ? { triggered_at: nowIso, triggered_price: last, last_check: nowIso } : { active: false, triggered_at: nowIso, triggered_price: last, last_check: nowIso }) });
+      sent += (await sendAll(keys, "todos", { title: `🔔 ${name}: ${hit}`.slice(0, 120), body: `${a.note ? a.note + " · " : ""}Precio ahora: ${fx(last)}. Toca para ver el gráfico.`, url: "https://charts.elartegrafico.com", tag: `alerta-${a.id}-${Math.floor(now / 60000)}` }, a.user_id)).sent;
+    } else pending.push(a.id);
+  }
+  for (let i = 0; i < pending.length; i += 150) {
+    const ids = pending.slice(i, i + 150).join(",");
+    await db(`chart_alerts?id=in.(${ids})`, { method: "PATCH", body: JSON.stringify({ last_check: nowIso }) });
+  }
+  return sent;
+}
+
 // EAG Charts: revisa las alertas activas y avisa al celular de cada alumno
 async function chartAlerts(keys: any) {
-  const al = await (await db("chart_alerts?active=eq.true&select=id,user_id,symbol,symbol_name,kind,price,price2,note,last_check&limit=2000")).json();
-  if (!Array.isArray(al) || !al.length) return 0;
+  const all = await (await db("chart_alerts?active=eq.true&select=*&limit=3000")).json();
+  if (!Array.isArray(all) || !all.length) return 0;
+  const tech = all.filter((a: any) => ["cierre", "rsi", "cruce", "spike"].includes(a.kind));
+  let techSent = 0;
+  try { if (tech.length) techSent = await techAlerts(keys, tech); } catch (_) { /* nada */ }
+  const al = all.filter((a: any) => a.kind === "nivel" || a.kind === "zona");
+  if (!al.length) return techSent;
   const syms = [...new Set(al.map((a: any) => a.symbol))].slice(0, 60) as string[];
   const data = await derivRecent(syms);
   let sent = 0;
@@ -105,7 +184,7 @@ async function chartAlerts(keys: any) {
     const ids = pending.slice(i, i + 150).join(",");
     await db(`chart_alerts?id=in.(${ids})`, { method: "PATCH", body: JSON.stringify({ last_check: nowIso }) });
   }
-  return sent;
+  return sent + techSent;
 }
 
 const hora = (t: string) => new Date(t).toLocaleTimeString("es-CO", { timeZone: "America/Bogota", hour: "numeric", minute: "2-digit" });
