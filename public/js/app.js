@@ -1534,7 +1534,7 @@ ROUTES.opiniones=async()=>{
     <aside class="op-side"><div class="panel op-sum" id="avg"><div class="muted">Cargando…</div></div><div id="mine"></div></aside></div>`;
   let L=[];try{L=await API.publicReviews()}catch(e){}
   const n=L.length,avg=n?L.reduce((a,x)=>a+(+x.rating||0),0)/n:0;
-  $("#avg").innerHTML=n?`<span class="op-k">Calificación general</span><div class="op-big"><b class="mono">${avg.toFixed(1)}</b><span><span class="stars big">${stars(avg)}</span><small>${n} opinión${n===1?"":"es"}</small></span></div>
+  $("#avg").innerHTML=n?`<span class="op-k">Calificación general</span><div class="op-big"><b>${avg.toFixed(1)}</b><span><span class="stars big">${stars(avg)}</span><small>${n} opinión${n===1?"":"es"}</small></span></div>
     <div class="op-dist">${[5,4,3,2,1].map(k=>{const c=L.filter(x=>Math.round(+x.rating)===k).length;return `<div><span>${k} ★</span><div class="bar"><i style="width:${Math.round(100*c/n)}%"></i></div><small class="mono">${c}</small></div>`}).join("")}</div>`
     :"";if(!n)$("#avg").remove();
   $("#rl").innerHTML=reviewsHTML(L,false);
