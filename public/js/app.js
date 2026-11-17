@@ -206,7 +206,7 @@ function closedView(){const s=S.site,p=API.profile()||{};
 /* ---------- modo claro / oscuro ---------- */
 function getTheme(){return document.documentElement.getAttribute("data-theme")==="light"?"light":"dark"}
 function setTheme(t){const r=document.documentElement;if(t==="light")r.setAttribute("data-theme","light");else r.removeAttribute("data-theme");
-  try{localStorage.setItem("ag_theme",t)}catch(e){}const m=document.querySelector('meta[name=theme-color]');if(m)m.setAttribute("content",t==="light"?"#f4f6fb":"#060b1a");
+  try{localStorage.setItem("ag_theme2",t)}catch(e){}const m=document.querySelector('meta[name=theme-color]');if(m)m.setAttribute("content",t==="light"?"#F6F4EF":"#060b1a");
   const b=$("#themeBtn");if(b){b.setAttribute("aria-label",t==="light"?"Cambiar a modo oscuro":"Cambiar a modo claro")}
   window.dispatchEvent(new Event("ag-theme"))}
 document.addEventListener("click",e=>{if(e.target.closest&&e.target.closest("#themeBtn"))setTheme(getTheme()==="light"?"dark":"light")});
@@ -1021,31 +1021,59 @@ function streakCard(r){const b=+(RW().streakBonus??50);const s=r.streak||0,left=
     <span class="muted">${r.played_today?"Ya jugaste hoy ✓ Vuelve mañana para no perderla.":"Juega el reto de hoy para "+(s?"mantener":"empezar")+" tu racha."}${b>0?` Cada 7 días seguidos ganas <b>+${b} pts</b> de bono${left<7&&s?` · te faltan ${left}`:""}.`:""}</span>
     <div class="stk-d">${days.map((on,i)=>`<i class="${on?"on":""}">${i+1}</i>`).join("")}</div></div></div>`}
 /* ---------- inicio del sitio principal ---------- */
+const ICK='<svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 7"/></svg>';
 async function mainHome(){
   if(logged()&&API.profile())return memberHome();
   const s=S.site,p=API.profile();
   const dItems=(s.discordItems&&s.discordItems.length?s.discordItems:DISC.items);
   app.innerHTML=`${logged()&&p?`<section class="welcome"><a class="welcome-av" href="#perfil" title="Configuración">${avatar(p,56)}</a><div style="flex:1;min-width:200px"><span class="eyebrow">Tu cuenta</span><h2>Hola, ${esc(p.username)}</h2><p class="muted">${closedAcad()&&!admin()?"Tu cuenta ya quedó creada. La academia abre muy pronto: te avisaremos por aquí y en la comunidad.":premium()?"Tienes acceso premium a toda la academia.":`Cuenta gratis · ${(S.courses||[]).some(c=>c.base)?"tienes el curso Fundamentos del trading completo y ":"tienes "}${Math.max(0,5-(p.demo_used||0))} de 5 gráficas de prueba en la academia.`}</p></div>${closedAcad()&&!admin()?'<span class="pill">Academia: próximamente</span>':`<a class="btn gold" href="${toAcad("inicio")}">Ir a la academia</a>`}</section>`:""}
   <div id="appCard"></div>${launchBox()}
-  <section class="hero2"><div id="hero"></div><div class="demo-wrap"><div class="demo-card" id="demo" aria-label="Así se practica en la academia"></div><a class="btn gold try-btn" href="#probar">▶ Pruébalo ahora, sin registrarte</a></div></section>
-  <section class="statband" id="stats"></section>
-  ${pathBlock()}
-  ${promoBlock()}
-  <section class="sec"><div class="sec-h"><div><span class="eyebrow">La academia</span><h2>Qué vas a aprender</h2></div><a href="${toAcad("inicio")}">Ir a la academia</a></div><div class="cards" id="cards"></div></section>
-  <section class="sec" id="about"></section>
-  <section class="sec"><div class="sec-h"><div><span class="eyebrow">Temario</span><h2>De cero al método completo</h2></div><a href="${toAcad("academia")}">Ver temario</a></div><div class="tmp" id="tmp"></div></section>
-  <section class="sec" id="precios"></section>
-  <section class="sec"><div class="disc">
-    <div class="disc-main"><span class="eyebrow">Comunidad</span><h2>${esc(s.discordTitle||DISC.title)}</h2><p class="muted">${esc(s.discordText||DISC.text)}</p>
+  <section class="lp-hero">
+    <div class="lp-hero-t"><span class="eyebrow">Boom y Crash · Índices sintéticos</span>
+      <h1>Aprende a leer el gráfico. Opera con método.</h1>
+      <p class="lp-lead">Una comunidad gratuita para empezar, una academia paso a paso y una plataforma de análisis profesional. Todo en ${esc(s.name||"El Arte Gráfico")}.</p>
+      <div class="row">${logged()?`<a class="btn gold" href="${toAcad("inicio")}">Ir a la academia</a>`:`<a class="btn gold" href="#registro">Crear cuenta gratis</a>`}<button type="button" class="btn" data-go="lp-acad">Conocer la academia</button></div>
+      <div class="lp-ticks"><span>${ICK}Sin tarjeta</span><span>${ICK}Curso Fundamentos gratis</span><span>${ICK}PC y celular</span></div></div>
+    <div class="demo-wrap"><div class="demo-card" id="demo" aria-label="Así se practica en la academia"></div><a class="btn try-btn" href="#probar">▶ Pruébalo ahora, sin registrarte</a></div>
+  </section>
+  <section class="lp-parts" aria-label="Las tres partes de El Arte Gráfico">
+    <button type="button" class="lp-part" data-go="lp-com"><span class="lp-pn">01</span><span class="lp-tag t-free">Gratis</span><h3>Comunidad</h3><p>Curso Fundamentos, retos diarios con premios, ranking, análisis y Discord. Solo necesitas tu cuenta.</p><span class="lp-more">Ver más →</span></button>
+    <button type="button" class="lp-part" data-go="lp-acad"><span class="lp-pn">02</span><span class="lp-tag t-acad">Con plan o curso</span><h3>Academia</h3><p>El método completo para Boom y Crash: estructura, zonas, entradas, stop loss y gestión del riesgo.</p><span class="lp-more">Ver más →</span></button>
+    <button type="button" class="lp-part" data-go="lp-charts"><span class="lp-pn">03</span><span class="lp-tag t-charts">Gratis y completo</span><h3>EAG Charts</h3><p>La plataforma de análisis: gráficos en vivo, ticks, alertas al celular y zonas con el lote calculado.</p><span class="lp-more">Ver más →</span></button>
+  </section>
+
+  <section class="lp-sec lp-white" id="lp-com"><div class="lp-in">
+    <div class="lp-head"><div class="lp-kick"><span class="eyebrow">01 · Comunidad</span><span class="lp-tag t-free">Gratis</span></div><h2>Empieza sin pagar nada.</h2><p class="lp-lead">Con tu cuenta gratuita tienes las bases del trading y un lugar para practicar todos los días junto a otros traders.</p></div>
+    <ul class="lp-checks">${["Curso Fundamentos del trading completo","Retos diarios con premios","Ranking, medallas y tu perfil","Análisis y noticias de la comunidad","Discord con más traders","EAG Charts gratis"].map(t=>`<li>${ICK}${t}</li>`).join("")}</ul>
+    ${promoBlock()}
+    <div class="disc">
+    <div class="disc-main"><span class="eyebrow">Discord</span><h2>${esc(s.discordTitle||DISC.title)}</h2><p class="muted">${esc(s.discordText||DISC.text)}</p>
       <ul class="checks">${dItems.map(i=>`<li>${esc(i)}</li>`).join("")}</ul>
       <div class="cstats" id="cstats">${(s.communityStats||[]).map(c=>`<div><b class="mono">${esc(c.v)}</b><span>${esc(c.t)}</span></div>`).join("")}</div>
       <div class="row">${s.discordUrl?`<a class="btn gold btn-ic" href="${esc(s.discordUrl)}" target="_blank" rel="noopener">${ICON_CHAT}<span>Unirme al Discord</span></a>`:'<span class="pill">El enlace al Discord se publicará pronto</span>'}<a class="btn ghost" href="#comunidad">Ver publicaciones</a></div></div>
     <div class="disc-news"><div class="sec-h"><h3>Últimas publicaciones</h3><a href="#comunidad">Ver todo</a></div><div id="newsMini" class="minis"><div class="muted">Cargando…</div></div></div>
+  </div></div></section>
+
+  <section class="lp-sec" id="lp-acad"><div class="lp-in">
+    <div class="lp-head"><div class="lp-kick"><span class="eyebrow">02 · Academia</span><span class="lp-tag t-acad">Con plan o curso</span></div><h2>El método completo para Boom y Crash.</h2><p class="lp-lead">Lecciones cortas, ejercicios en gráficas reales y repetición vela por vela para ver qué habría pasado con tu operación.</p></div>
+    ${pathBlock()}
+    <div class="sec"><div class="sec-h"><h3>Qué vas a aprender</h3><a href="${toAcad("inicio")}">Ir a la academia</a></div><div class="cards" id="cards"></div></div>
+    <div class="sec" id="about"></div>
+    <div class="sec"><div class="sec-h"><h3>Temario</h3><a href="${toAcad("academia")}">Ver temario completo</a></div><div class="tmp" id="tmp"></div></div>
   </div></section>
+
+  <section class="lp-sec lp-navy" id="lp-charts"><div class="lp-in">
+    <div class="lp-head"><div class="lp-kick"><span class="eyebrow">03 · EAG Charts</span><span class="lp-tag t-charts">Gratis y completo</span></div><h2>Una plataforma de análisis profesional.</h2><p class="lp-lead">Hecha para los sintéticos de Deriv: más funciones que un gráfico común y pensada para el método que aprendes en la academia. En PC y en el celular.</p></div>
+    <div class="lp-feats">${[["chart","Multitemporalidad","Un gráfico grande y, debajo, de 1m a 1D a la vez, cada uno con su contador de cierre."],["bolt","Ticks y spikes","Cada movimiento del precio y cuántos ticks van desde el último spike."],["layers","Zonas con lote calculado","Marca tu zona y te dice el lote exacto según el riesgo que elijas."],["bell","Alertas al celular","Precio, cierre de vela, RSI, cruce de medias y spikes."],["play","Replay","Vuelve a cualquier fecha y practica vela por vela."],["acad","Modo Clase","En los lives ves en tu gráfico lo mismo que dibuja el profe."]].map(([i,t,d])=>`<div class="lp-feat"><span class="lp-fi">${ico(i,22)}</span><h3>${t}</h3><p>${d}</p></div>`).join("")}</div>
+    <div class="lp-cbar"><div><b>Gratis: gráficos en vivo, multitemporalidad, varios mercados y 2 indicadores.</b><span>Desde Plata: todas las herramientas, indicadores sin límite y alertas.</span></div><div class="row"><a class="btn gold" href="https://charts.elartegrafico.com" target="_blank" rel="noopener">Abrir EAG Charts</a><button type="button" class="btn" data-go="precios">Ver planes</button></div></div>
+  </div></section>
+
+  <section class="sec" id="precios"></section>
   <section class="sec"><div class="sec-h"><div><span class="eyebrow">Opiniones</span><h2>Lo que dicen los alumnos</h2></div><a href="#opiniones">Ver todas</a></div><div id="revs"></div></section>
   <section class="sec"><div class="sec-h"><div><span class="eyebrow">Preguntas frecuentes</span><h2>Antes de empezar</h2></div></div><div class="faq" id="faq"></div></section>
   <section class="cta-band" id="premiumBand"></section>`;
-  API.slides("home").then(sl=>slider($("#hero"),sl,{emblem:false})).catch(()=>slider($("#hero"),[],{emblem:false}));statsBand();demoChart($("#demo"));aboutBlock($("#about"));temarioBlock($("#tmp"));pricingBlock($("#precios"));faqBlock($("#faq"));appCard($("#appCard"));
+  app.querySelectorAll("[data-go]").forEach(b=>b.addEventListener("click",e=>{e.preventDefault();const t=document.getElementById(b.dataset.go);if(t)t.scrollIntoView({behavior:"smooth",block:"start"})}));
+  demoChart($("#demo"));aboutBlock($("#about"));temarioBlock($("#tmp"));pricingBlock($("#precios"));faqBlock($("#faq"));appCard($("#appCard"));
   if(s.discordUrl)discordCounts(s.discordUrl).then(d=>{const h=$("#cstats");if(!h||!d||!d.members)return;
     h.querySelectorAll("[data-dc]").forEach(x=>x.remove());/* si el inicio se pinta dos veces, no se duplican */
     h.insertAdjacentHTML("afterbegin",`<div data-dc><b class="mono">${fmtN(d.members)}</b><span>miembros en Discord</span></div>${d.online?`<div data-dc><b class="mono"><i class="live"></i>${fmtN(d.online)}</b><span>conectados ahora</span></div>`:""}`)});
