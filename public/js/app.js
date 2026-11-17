@@ -41,8 +41,8 @@ function link(site,hash){hash=hash||"inicio";if(site===SITE)return"#"+hash;
   if(PROD){const base=HOST.replace(/^(www\.|academia\.)/,"");return"https://"+(site==="academia"?"academia.":"")+base+"/"+(vq?"?"+vq:"")+"#"+hash}
   return location.pathname+(site==="academia"?"?sitio=academia"+(vq?"&"+vq:""):(vq?"?"+vq:""))+"#"+hash}
 try{const q=new URLSearchParams(location.search),v=q.get("ver");if(q.has("ver")){if(v&&v!=="admin")sessionStorage.setItem("ag_view_as",v);else sessionStorage.removeItem("ag_view_as");q.delete("ver");const qs=q.toString();history.replaceState(null,"",location.pathname+(qs?"?"+qs:"")+location.hash)}}catch(e){}
-const ACAD_R=new Set(["academia","modulo","leccion","practica","prueba","progreso","logros"]);
-const MAIN_R=new Set(["certificado","probar","mensajes","oro","entrar","registro","recuperar","noticias","comunidad","nota","opiniones","mercados","legal","terminos","privacidad","retos","reto","ranking","puntos"]);
+const ACAD_R=new Set(["academia","modulo","leccion","practica","prueba","progreso","logros","presentacion"]);
+const MAIN_R=new Set(["certificado","probar","mensajes","oro","entrar","registro","recuperar","noticias","comunidad","nota","opiniones","mercados","legal","terminos","privacidad","retos","reto","ranking","puntos","charts","acad"]);
 const toAcad=h=>link("academia",h),toMain=h=>link("main",h);
 
 /* ---------- utilidades UI ---------- */
@@ -206,17 +206,23 @@ function closedView(){const s=S.site,p=API.profile()||{};
 /* ---------- modo claro / oscuro ---------- */
 function getTheme(){return document.documentElement.getAttribute("data-theme")==="light"?"light":"dark"}
 function setTheme(t){const r=document.documentElement;if(t==="light")r.setAttribute("data-theme","light");else r.removeAttribute("data-theme");
-  try{localStorage.setItem("ag_theme2",t)}catch(e){}const m=document.querySelector('meta[name=theme-color]');if(m)m.setAttribute("content",t==="light"?"#F6F4EF":"#060b1a");
-  const b=$("#themeBtn");if(b){b.setAttribute("aria-label",t==="light"?"Cambiar a modo oscuro":"Cambiar a modo claro")}
+  try{localStorage.setItem("ag_theme3",t)}catch(e){}const m=document.querySelector('meta[name=theme-color]');if(m)m.setAttribute("content",t==="light"?"#ffffff":"#060b1a");
+  const b=$("#themeBtn");if(b){b.setAttribute("aria-label",t==="light"?"Cambiar a azul noche":"Cambiar a blanco")}
   window.dispatchEvent(new Event("ag-theme"))}
 document.addEventListener("click",e=>{if(e.target.closest&&e.target.closest("#themeBtn"))setTheme(getTheme()==="light"?"dark":"light")});
-/* ojito: esconder / mostrar el menú lateral en computador */
-const EYE_ON='<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="3"/></svg>';
-const EYE_OFF='<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3l18 18"/><path d="M10.6 6.1A9.8 9.8 0 0 1 12 6c6 0 9.5 6 9.5 6a17 17 0 0 1-3.2 3.9M6.6 7.6A16.6 16.6 0 0 0 2.5 12S6 18.5 12 18.5c1.6 0 3-.4 4.2-1"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg>';
-function sideState(){let off=false;try{off=localStorage.getItem("ag_side_off")==="1"}catch(e){}document.body.classList.toggle("side-off",off);
-  let f=$("#sideShow");if(!f){f=document.createElement("button");f.id="sideShow";f.type="button";f.className="side-show";f.title="Mostrar menú";f.setAttribute("aria-label","Mostrar menú");f.innerHTML=EYE_ON;document.body.appendChild(f);
-    f.onclick=()=>{try{localStorage.setItem("ag_side_off","0")}catch(e){}sideState();window.dispatchEvent(new Event("resize"))}}}
-document.addEventListener("click",e=>{if(e.target.closest&&e.target.closest("#sideHide")){try{localStorage.setItem("ag_side_off","1")}catch(x){}sideState();window.dispatchEvent(new Event("resize"))}});
+/* menú lateral tipo Kick: se pliega a una barra de solo íconos (computador) */
+const isMini=()=>document.documentElement.classList.contains("side-mini");
+function sideState(){const b=$("#sideHide");if(b){const m=isMini();b.title=m?"Expandir menú":"Contraer menú";b.setAttribute("aria-label",b.title);b.setAttribute("aria-expanded",String(!m))}
+  const o=$("#sideShow");if(o)o.remove();document.body.classList.remove("side-off")}
+document.addEventListener("click",e=>{if(!(e.target.closest&&e.target.closest("#sideHide")))return;
+  if(matchMedia("(max-width:860px)").matches){const o=$("#nav").classList.toggle("open");document.body.classList.toggle("sheet-open",o);return}
+  const m=!isMini();document.documentElement.classList.toggle("side-mini",m);try{localStorage.setItem("ag_side_mini",m?"1":"0")}catch(x){}sideState();tipHide();setTimeout(()=>window.dispatchEvent(new Event("resize")),260)});
+/* globito con el nombre al pasar el mouse sobre un ícono del menú plegado */
+let tipEl=null;function tipHide(){if(tipEl)tipEl.hidden=true}
+document.addEventListener("mouseover",e=>{const a=e.target.closest&&e.target.closest("nav.main [data-tip]");if(!a||!isMini()||matchMedia("(max-width:860px)").matches){tipHide();return}
+  if(!tipEl){tipEl=document.createElement("div");tipEl.className="side-tip";tipEl.setAttribute("role","tooltip");document.body.appendChild(tipEl)}
+  const r=a.getBoundingClientRect();tipEl.textContent=a.dataset.tip;tipEl.hidden=false;tipEl.style.top=(r.top+r.height/2)+"px";tipEl.style.left=(r.right+12)+"px"});
+document.addEventListener("scroll",tipHide,true);
 function viewBar(){let b=$("#viewBar");const v=viewAs();if(!v){if(b)b.remove();document.body.classList.remove("viewing");return}
   if(!b){b=document.createElement("div");b.id="viewBar";b.className="view-bar";document.body.appendChild(b)}document.body.classList.add("viewing");
   b.innerHTML=`<span>👁 <b>Modo prueba:</b> así ve la página un</span><select aria-label="Ver como">${Object.entries(VIEWS).map(([k,t])=>`<option value="${k}"${k===v?" selected":""}>${t.replace("Alumno ","alumno ").replace("Suscriptor ","suscriptor ")}</option>`).join("")}</select><button type="button" class="btn sm gold" id="vbOut">Volver a admin</button>${S.site&&S.site.academyClosed?'<small class="vb-note">La academia sigue cerrada para los alumnos; aquí la ves abierta.</small>':""}`;
@@ -226,29 +232,53 @@ window.AGVIEW=v=>{setViewAs(v);viewBar();renderNav();location.hash="#inicio";rou
 function renderNav(){sideState();viewBar();document.body.classList.toggle("is-acad",!!ACAD);
   let r=(location.hash||"#inicio").slice(1).split("-")[0];if(r==="noticias"||r==="nota")r="comunidad";
   const rw=rewardsOn()||admin();
-  const L=ACAD?[["inicio","Mi panel"],["academia","Temario"],["practica","Práctica"],["logros","Logros"],["progreso","Progreso"]].concat(premium()?[]:[["prueba","Prueba gratis"]])
-             :[["inicio","Inicio"]].concat(rw?[["retos","Retos"],["ranking","Ranking"]]:[]).concat(logged()?[["oro","Sala Oro"],["mensajes","Mensajes"]]:[]).concat([["comunidad","Comunidad"],["opiniones","Opiniones"],["mercados","Mercados"],["premium","Premium"]]);
-  if(ACAD&&closedAcad()&&!admin())L.length=0;
   const u=API.user(),p=API.profile();const lv=levelOf((S.prog&&S.prog.xp)||0);
-  const other=ACAD?`<a class="navx" href="${toMain("inicio")}">El Arte Gráfico ↗</a>`:(u&&p?`<a class="btn sm gold navacad" href="${toAcad("inicio")}">Ir a la academia</a>`:"");
-  const NI={mensajes:"chat",oro:"crown",inicio:"home",comunidad:"chat",opiniones:"star",mercados:"chart",premium:"crown",academia:"acad",practica:"chart",ranking:"trophy",prueba:"play",retos:"bolt",progreso:"layers",puntos:"card",logros:"medal"};
-  const msw=`<div class="mnav-sw" role="group" aria-label="Elige sección"><a class="${ACAD?"":"on"}" href="${ACAD?toMain("inicio"):"#inicio"}"${ACAD?"":' aria-current="true"'}>${ico("home",20)}<span><b>El Arte Gráfico</b><small>Comunidad y noticias</small></span></a><a class="${ACAD?"on":""}" href="${ACAD?"#inicio":toAcad("inicio")}"${ACAD?' aria-current="true"':""}>${ico("acad",20)}<span><b>Academia</b><small>Lecciones y práctica</small></span></a><a class="sw-charts" href="https://charts.elartegrafico.com" target="_blank" rel="noopener">${ico("chart",20)}<span><b>EAG Charts</b><small>Gráficos en vivo</small></span><em>Nuevo</em></a></div>
-    <div class="mnav-here"><i></i>Estás en ${ACAD?"<b>la Academia</b>":"<b>El Arte Gráfico</b>"}</div>`;
-  const mus=u&&p?`<div class="mnav-user"><a class="mnu-me" href="#perfil">${avatar(p,40)}<span><b>${esc(p.username)}</b><small>${esc(lv.name)} · ${S.prog?S.prog.xp:0} pts</small></span>${premium()?premTag(myPlan()):""}</a>
-      <div class="mnu-links"><a href="#perfil">${ico("gear",18)}Configuración</a>${premium()?"":`<a href="${toMain("premium")}">${ico("crown",18)}Hazte premium</a>`}${admin()?`<a href="${toMain("admin")}">${ico("news",18)}Administración</a>`:""}<button type="button" id="logout2">Cerrar sesión</button></div></div>`
+  /* ¿en qué parte estás? Inicio (comunidad) · Academia · EAG Charts */
+  const sec=ACAD||["premium","probar","certificado"].includes(r)?"acad":r==="charts"?"charts":"main";
+  document.body.dataset.sec=sec;{const bs=$("#brandSub");if(bs)bs.textContent=sec==="acad"?"Academia":sec==="charts"?"EAG Charts":"Comunidad"}
+  const acadHref=toAcad("inicio");
+  const it=(href,t,ic,on,x={})=>({href,t,ic,on,...x});
+  const G=[];
+  if(sec==="main"){
+    G.push(["Comunidad",[it(toMain("inicio"),"Inicio","home",r==="inicio"),it(toMain("comunidad"),"Noticias","news",r==="comunidad"),it(toMain("opiniones"),"Opiniones","star",r==="opiniones"),it(toMain("mercados"),"Mercados","chart",r==="mercados")]]);
+    if(rw)G.push(["Juega y gana",[it(toMain("retos"),"Retos diarios","bolt",r==="retos"),it(toMain("ranking"),"Ranking","trophy",r==="ranking")].concat(u&&p?[it(toMain("puntos"),"Saldo y puntos","card",r==="puntos")]:[])]);
+    if(u&&p)G.push(["Tu cuenta",[it(toMain("oro"),"Sala Oro","crown",r==="oro"),it(toMain("mensajes"),"Mensajes","msg",r==="mensajes",{badge:S.dm&&S.dm.unread}),it(toMain("perfil"),"Configuración","gear",r==="perfil")]]);
+  }else if(sec==="acad"){
+    if(ACAD&&u&&p&&!(closedAcad()&&!admin())){
+      G.push(["Aprender",[it("#inicio","Mi panel","home",r==="inicio"),it("#academia","Temario","acad",["academia","modulo","leccion"].includes(r)),it("#practica","Práctica","chart",r==="practica")]]);
+      G.push(["Tu avance",[it("#logros","Logros","medal",r==="logros"),it("#progreso","Progreso","layers",r==="progreso")].concat(premium()?[]:[it("#prueba","Prueba gratis","play",r==="prueba")])]);
+      G.push(["Más",[it("#presentacion-precios","Planes y precios","crown",false),it("#presentacion","Presentación","news",r==="presentacion"),it("#perfil","Configuración","gear",r==="perfil")]]);
+    }else{
+      G.push(["Academia",[it(toAcad("presentacion"),"Presentación","acad",r==="presentacion"),it(toAcad("presentacion-precios"),"Planes y precios","crown",r==="premium"),it(toMain("probar"),"Probar una gráfica","play",r==="probar")]
+        .concat(u&&p?(ACAD?[]:[it(toAcad("inicio"),"Entrar a la academia","site",false,{gold:1})]):[it(toMain("registro"),"Crear cuenta gratis","users",false,{gold:1}),it(toMain("entrar-academia"),"Ingresar","gear",false)])]);
+    }
+  }else{
+    G.push(["EAG Charts",[it(toMain("charts"),"Presentación","chart",r==="charts"),it("https://charts.elartegrafico.com","Abrir EAG Charts","site",false,{ext:1,gold:1}),it(toAcad("presentacion-precios"),"Planes y precios","crown",false)]]);
+  }
+  /* las tres partes, como la lista "Siguiendo" de Kick */
+  const PL=[["main","El Arte Gráfico","Comunidad gratis",toMain("inicio"),"home"],["acad","Academia","Método Boom y Crash",acadHref,"acad"],["charts","EAG Charts","Gráficos en vivo",toMain("charts"),"chart"]];
+  const navHTML=G.map(([h,items])=>`<div class="ngrp"><span>${h}</span></div>`+items.map(x=>`<a href="${esc(x.href)}" class="nit${x.on?" on":""}${x.gold?" ngold":""}" data-tip="${esc(x.t)}"${x.on?' aria-current="page"':""}${x.ext?' target="_blank" rel="noopener"':""}><span class="mi">${ico(x.ic,21)}</span><span class="nt">${x.t}</span>${x.ext?'<i class="nx">↗</i>':""}${x.badge?`<em class="nbadge">${x.badge}</em>`:""}</a>`).join("")).join("")
+    +`<div class="ngrp"><span>Secciones</span></div>`+PL.map(([k,t,d,h,ic])=>`<a href="${esc(h)}" class="npl${sec===k?" here":""}" data-tip="${esc(t)}"><span class="npl-i pl-${k}">${ico(ic,18)}</span><span class="npl-t"><b>${t}</b><small>${d}</small></span>${sec===k?'<i class="npl-dot" title="Estás aquí"></i>':k==="charts"?'<em class="npl-new">Nuevo</em>':""}</a>`).join("");
+  const mus=u&&p?`<div class="mnav-user"><a class="mnu-me" href="${toMain("perfil")}">${avatar(p,40)}<span><b>${esc(p.username)}</b><small>${esc(lv.name)} · ${S.prog?S.prog.xp:0} pts</small></span>${premium()?premTag(myPlan()):""}</a>
+      <div class="mnu-links">${premium()?"":`<a href="${toMain("premium")}">${ico("crown",18)}Hazte premium</a>`}${admin()?`<a href="${toMain("admin")}">${ico("news",18)}Administración</a>`:""}<button type="button" id="logout2">Cerrar sesión</button></div></div>`
     :`<div class="mnav-user"><div class="mnu-links two"><a class="btn ghost" href="${toMain("entrar")}">Ingresar</a><a class="btn gold" href="${toMain("registro")}">Crear cuenta</a></div></div>`;
-  /* selector fijo arriba (celular): siempre se ve si estás en El Arte Gráfico o en la Academia */
-  let ts=$("#topSw");if(!ts){ts=document.createElement("div");ts.id="topSw";ts.className="top-sw";ts.setAttribute("role","group");ts.setAttribute("aria-label","Sección");const br=$(".top .brand");br.parentNode.insertBefore(ts,br.nextSibling)}
-  ts.innerHTML=`<a class="${ACAD?"":"on"}" href="${ACAD?toMain("inicio"):"#inicio"}"${ACAD?"":' aria-current="true"'}>${ico("home",16)}<span>Arte Gráfico</span></a><a class="${ACAD?"on":""}" href="${ACAD?"#inicio":toAcad("inicio")}"${ACAD?' aria-current="true"':""}>${ico("acad",16)}<span>Academia</span></a><a class="sw-charts" href="https://charts.elartegrafico.com" target="_blank" rel="noopener" title="EAG Charts: gráficos en vivo">${ico("chart",16)}<span>Charts</span></a>`;
+  /* pestañas arriba, como las de EAG Charts */
+  let ts=$("#topSw");if(!ts){ts=document.createElement("nav");ts.id="topSw";ts.className="top-sw";ts.setAttribute("aria-label","Secciones");const br=$(".top .brand");br.parentNode.insertBefore(ts,br.nextSibling)}
+  ts.innerHTML=PL.map(([k,t,d,h,ic])=>`<a class="tsw-${k}${sec===k?" on":""}" href="${esc(h)}"${sec===k?' aria-current="true"':""}>${ico(ic,16)}<span>${k==="main"?"Inicio":k==="charts"?'<i class="tl-l">EAG </i>Charts':t}</span>${k==="charts"?'<i class="tsw-new" aria-hidden="true"></i>':""}</a>`).join("");
   /* barra inferior tipo app (celular) */
-  const TB=ACAD?[["inicio","home","Panel"],["academia","acad","Temario"],["practica","chart","Práctica"],["progreso","layers","Progreso"]]
-    :(rw?[["inicio","home","Inicio"],["retos","bolt","Retos"],["@acad","acad","Academia"],["ranking","trophy","Ranking"]]:[["inicio","home","Inicio"],["comunidad","chat","Comunidad"],["@acad","acad","Academia"],["premium","crown","Premium"]]);
+  const TB=sec==="acad"&&ACAD&&u&&p?[["inicio","home","Panel"],["academia","acad","Temario"],["practica","chart","Práctica"],["progreso","layers","Progreso"]]
+    :sec==="acad"?[["presentacion","acad","Academia"],["@precios","crown","Planes"],["probar","play","Probar"],["@main","home","Inicio"]]
+    :sec==="charts"?[["charts","chart","Charts"],["@charts","site","Abrir"],["@precios","crown","Planes"],["inicio","home","Inicio"]]
+    :(rw?[["inicio","home","Inicio"],["retos","bolt","Retos"],["ranking","trophy","Ranking"],["comunidad","news","Noticias"]]:[["inicio","home","Inicio"],["comunidad","news","Noticias"],["opiniones","star","Opiniones"],["mercados","chart","Mercados"]]);
+  const tbH=k=>k==="@acad"?toAcad("inicio"):k==="@precios"?toAcad("presentacion-precios"):k==="@main"?toMain("inicio"):k==="@charts"?"https://charts.elartegrafico.com":(ACAD&&MAIN_R.has(k)||(!ACAD&&ACAD_R.has(k))||k==="premium"&&ACAD?link(ACAD_R.has(k)?"academia":"main",k):"#"+k);
   let tb=$("#tabbar");if(!tb){tb=document.createElement("nav");tb.id="tabbar";tb.className="tabbar";tb.setAttribute("aria-label","Accesos rápidos");document.body.appendChild(tb)}
-  tb.innerHTML=TB.map(([k,ic,t])=>`<a href="${k==="@acad"?toAcad("inicio"):"#"+k}" class="${r===k?"on":""}${k==="@acad"?" tb-acad":""}">${ico(ic,22)}<span>${t}</span></a>`).join("")+`<button type="button" id="tbMore" aria-label="Más opciones">${u&&p?avatar(p,26):ico("gear",22)}<span>${u&&p?"Más":"Menú"}</span>${S.dm&&S.dm.unread?`<em class="nbadge tb-dot">${S.dm.unread}</em>`:""}</button>`;
+  tb.innerHTML=TB.map(([k,ic,t])=>`<a href="${tbH(k)}" class="${r===k?"on":""}"${k==="@charts"?' target="_blank" rel="noopener"':""}>${ico(ic,22)}<span>${t}</span></a>`).join("")+`<button type="button" id="tbMore" aria-label="Más opciones">${u&&p?avatar(p,26):ico("layers",22)}<span>${u&&p?"Más":"Menú"}</span>${S.dm&&S.dm.unread?`<em class="nbadge tb-dot">${S.dm.unread}</em>`:""}</button>`;
   $("#tbMore").onclick=e=>{e.stopPropagation();const o=$("#nav").classList.toggle("open");document.body.classList.toggle("sheet-open",o);$("#menuBtn").setAttribute("aria-expanded",String(o))};
   if(!window.__sheetClose){window.__sheetClose=1;document.addEventListener("click",e=>{const n=$("#nav");if(!n||!n.classList.contains("open")||!document.body.classList.contains("sheet-open"))return;
+    if(e.target.closest&&e.target.closest("#sideHide,#tbMore"))return;
     if(!n.contains(e.target)||e.target.closest("a")){n.classList.remove("open");document.body.classList.remove("sheet-open")}})}
-  $("#nav").innerHTML=msw+L.map(([k,t])=>`<a href="#${k}" class="${r===k?"on":""}"><span class="mi">${ico(NI[k]||"news",20)}</span>${t}${k==="mensajes"&&S.dm&&S.dm.unread?`<em class="nbadge">${S.dm.unread}</em>`:""}</a>`).join("")+other+mus+
+  $("#nav").innerHTML=navHTML+mus;
+  $("#topUser").innerHTML=
     (u&&p?`<div class="dd" id="dd"><button aria-haspopup="true" aria-expanded="false" id="ddb">${avatar(p,28)}<span>${esc(p.username)}</span>${premium()?`<span class="prem-badge t-${myPlan()}">${(TIERS[myPlan()]||{n:"Premium"}).n}</span>`:ownedCourses().length?`<span class="prem-badge crs" style="--cc:${esc(ownedCourses()[0].color)}">Curso</span>`:""}</button>
       <div class="menu" hidden>
         <a class="dm-head" href="#perfil">${avatar(p,46)}<span class="dm-id"><b>${esc(p.username)} ${flag(p.country||"")}</b><small>${esc(p.email||"")}</small></span></a>
@@ -275,9 +305,9 @@ $("#menuBtn").onclick=()=>{const o=$("#nav").classList.toggle("open");$("#menuBt
 function renderFoot(){const s=S.site;
   $("#foot").innerHTML=`${s.discordUrl?`<div class="fjoin"><div><b>Únete a la comunidad</b><span class="muted">Análisis, dudas y avisos del método, junto a otros traders que operan con reglas.</span></div><a class="btn gold btn-ic" href="${esc(s.discordUrl)}" target="_blank" rel="noopener">${ICON_CHAT}<span>Entrar al Discord</span></a></div>`:""}
     <div class="fcols"><div class="fbrand"><img src="${esc(s.logoUrl||"assets/logo_mark.webp")}" alt=""><div><b>${esc(s.name||"El Arte Gráfico")}</b><span>${esc(s.tagline||"")}</span></div></div>
-    <div><h4>El Arte Gráfico</h4><a href="${toMain("inicio")}">Inicio</a><a href="${toMain("comunidad")}">Comunidad</a><a href="${toMain("opiniones")}">Opiniones</a>${s.discordUrl?`<a href="${esc(s.discordUrl)}" target="_blank" rel="noopener">Discord</a>`:""}</div>
-    <div><h4>Academia</h4><a href="${toAcad("inicio")}">Mi panel</a><a href="${toAcad("academia")}">Temario</a><a href="${toAcad("practica")}">Práctica</a><a href="#premium">Premium</a></div>
-    <div><h4>Mercados</h4><a href="${toMain("mercados")}">Sintéticos</a><a href="${toMain("mercados")}">Forex</a><a href="${toMain("mercados")}">Metales</a></div>
+    <div><h4>El Arte Gráfico</h4><a href="${toMain("inicio")}">Inicio</a><a href="${toMain("comunidad")}">Noticias</a><a href="${toMain("retos")}">Retos y ranking</a><a href="${toMain("opiniones")}">Opiniones</a>${s.discordUrl?`<a href="${esc(s.discordUrl)}" target="_blank" rel="noopener">Discord</a>`:""}</div>
+    <div><h4>Academia</h4><a href="${toAcad("presentacion")}">Presentación</a><a href="${toAcad("academia")}">Temario</a><a href="${toAcad("presentacion-precios")}">Planes y precios</a><a href="${toMain("probar")}">Probar una gráfica</a></div>
+    <div><h4>EAG Charts</h4><a href="${toMain("charts")}">Funciones</a><a href="https://charts.elartegrafico.com" target="_blank" rel="noopener">Abrir EAG Charts</a><a href="${toMain("mercados")}">Mercados</a></div>
     <div><h4>Contacto</h4>${s.contact?`<span class="sel">${esc(s.contact)}</span>`:'<span class="dim">Pronto</span>'}${(s.social||"").split(/\n/).filter(Boolean).map(l=>{const [t,u]=l.split("|").map(x=>x.trim());return u?`<a href="${esc(u)}" target="_blank" rel="noopener">${esc(t)}</a>`:""}).join("")}</div></div>
     <nav class="legal-links" aria-label="Legal">${(window.AG_LEGAL||[]).map(d=>`<a href="${toMain("legal-"+d.key)}">${esc(d.title)}</a>`).join("")}</nav>
     <p class="legal">${esc(s.legal||"Contenido educativo. Operar instrumentos financieros implica alto riesgo. No es asesoría financiera.")}</p>
@@ -290,9 +320,10 @@ function route(keep){if(/^#admin/.test(location.hash)&&API.isAdmin()){let v="";t
   const [k,...rest]=h.split("-");const arg=rest.join("-");
   if(!ACAD&&ACAD_R.has(k)){location.href=toAcad(h);return}
   if(ACAD&&MAIN_R.has(k)){location.href=toMain(h);return}
-  if(ACAD&&!logged()&&k!=="nueva"&&k!=="ranking"){location.replace(toMain("entrar-academia"));return}
+  if(ACAD&&!logged()&&!["nueva","ranking","presentacion","premium","inicio"].includes(k)){location.replace(toMain("entrar-academia"));return}
+  if(ACAD&&!logged()&&k==="inicio"){history.replaceState(null,"","#presentacion");return route(keep)}
   renderNav();
-  if(ACAD&&closedAcad()&&k!=="nueva"&&k!=="perfil"){if(!admin()){API.logView(sid,"academia/cerrada");closedView();return}
+  if(ACAD&&closedAcad()&&!["nueva","perfil","presentacion","premium"].includes(k)){if(!admin()){API.logView(sid,"academia/cerrada");closedView();return}
     $("#app").insertAdjacentHTML("beforebegin",'<div class="note admin-note" id="admNote">La academia está <b>cerrada para alumnos</b>: solo tú la ves. Ábrela desde Administración cuando el contenido esté listo.</div>')}
   API.logView(sid,((ACAD?"academia/":"")+h).slice(0,60));
   (ROUTES[k]||ROUTES.inicio)(arg);
@@ -458,6 +489,7 @@ function slider(host,slides,{emblem=true}={}){
    VISTAS PÚBLICAS
    ===================================================================== */
 ROUTES.inicio=()=>ACAD?academyHome():mainHome();
+ROUTES.acad=()=>{location.replace(toAcad("presentacion"))};
 const ICON_CHAT='<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20.5l1.4-4.6A8 8 0 1 1 21 12z"/><path d="M8.5 11h.01M12 11h.01M15.5 11h.01"/></svg>';
 function discordCode(u){const m=String(u||"").match(/(?:discord\.gg|discord(?:app)?\.com\/invite)\/([\w-]+)/i);return m?m[1]:null}
 let discCache=null;async function discordCounts(u){const c=discordCode(u);if(!c)return null;if(discCache)return discCache;
@@ -649,15 +681,15 @@ async function memberHome(){
   const total=S.lindex.length,pas=S.lindex.filter(l=>passedL(l.id)).length,apct=total?Math.round(100*pas/total):0;
   const nx=prem&&!cerr?nextLesson():null;const demo=Math.max(0,5-(p.demo_used||0));
   const dias=prem&&p.premium_until?Math.ceil((new Date(p.premium_until)-Date.now())/864e5):null;
-  const cta=cerr?`<span class="pill">La academia abre muy pronto</span>`
-    :prem?(nx?`<a class="btn gold btn-ic" href="${toAcad("leccion-"+nx.id)}">${ico("play",18)}<span>Continuar: ${esc(nx.title)}</span></a>`:`<a class="btn gold" href="${toAcad("practica")}">Ir a práctica</a>`)
-    :`<a class="btn gold btn-ic" href="https://charts.elartegrafico.com" target="_blank" rel="noopener">${ico("chart",18)}<span>Probar EAG Charts gratis</span></a><a class="btn ghost" href="${toAcad("prueba")}">Práctica con gráficas (${demo} de 5)</a><a class="btn ghost" href="#premium">Hazte premium</a>`;
+  const rwOn=rewardsOn()||admin();
+  const cta=(rwOn?`<a class="btn gold btn-ic" href="#retos">${ico("bolt",18)}<span>Jugar el reto del día</span></a>`:`<a class="btn gold btn-ic" href="#comunidad">${ico("news",18)}<span>Ver novedades</span></a>`)+(s.discordUrl?`<a class="btn btn-ic mh-ghost" href="${esc(s.discordUrl)}" target="_blank" rel="noopener">${ICON_CHAT}<span>Discord</span></a>`:"");
   const tiles=[
-    ["acad","Academia",cerr?"Abre muy pronto":prem?`${pas} de ${total} lecciones`:"Temario y prueba gratis",toAcad("inicio")],
-    ["chart","Práctica",prem?"Gráficas reales ilimitadas":`${demo} gráficas de prueba`,toAcad(prem?"practica":"prueba")],
-    ...(rewardsOn()||admin()?[["bolt","Reto del día","Gana puntos hoy","#retos"],["trophy","Ranking",`<span id="mhPos">Ver mi puesto</span>`,"#ranking"]]:[["layers","Mi progreso","Tabla de la academia",toAcad("progreso")],["news","Novedades","Publicaciones y avisos","#comunidad"]]),
-    ["chat","Comunidad",s.discordUrl?"Entrar al Discord":"Noticias y avisos",s.discordUrl||"#comunidad",!!s.discordUrl],
-    ["gear","Configuración","Perfil, app y notificaciones","#perfil"]];
+    ...(rwOn?[["bolt","Reto del día","Gana puntos hoy","#retos"],["trophy","Ranking",`<span id="mhPos">Ver mi puesto</span>`,"#ranking"]]:[]),
+    ["news","Noticias","Análisis y avisos","#comunidad"],
+    ["crown","Sala Oro",prem?"Contenido exclusivo":"Para planes Oro y Diamond","#oro"],
+    ["chat","Comunidad",s.discordUrl?"Entrar al Discord":"Opiniones de alumnos",s.discordUrl||"#opiniones",!!s.discordUrl],
+    ["gear","Configuración","Perfil, app y avisos","#perfil"]];
+  const acadCta=cerr?`<span class="pill">Abre muy pronto</span>`:prem?(nx?`<a class="btn gold btn-ic" href="${toAcad("leccion-"+nx.id)}">${ico("play",18)}<span>Continuar lección</span></a>`:`<a class="btn gold" href="${toAcad("practica")}">Ir a práctica</a>`):`<a class="btn gold" href="${toAcad("inicio")}">Entrar a la academia</a><a class="btn" href="${toAcad("presentacion-precios")}">Ver planes</a>`;
   app.innerHTML=`<div id="appCard"></div>${launchBox(true)}
   <section class="mh">
     <div class="mh-bg" aria-hidden="true"></div>
@@ -665,26 +697,30 @@ async function memberHome(){
       <div class="mh-t"><span class="eyebrow">${saludo()}</span><h1>${esc(p.username||"trader")} ${flag(p.country||"")}</h1>
         <div class="mh-chips">${prem?premTag(myPlan()):myCourseTags()||'<span class="tag">Cuenta gratis</span>'}${p.affiliate?affTag():""}<span class="tag">${esc(lv.name)}</span>${admin()?'<span class="tag pub">Admin</span>':""}</div></div></div>
     <div class="mh-cta">${cta}</div>
-    <div class="mh-bars">
-      <div><div class="mh-bl"><span>Avance en la academia</span><b class="mono">${apct}%</b></div><div class="bar"><i style="width:${apct}%"></i></div></div>
-      <div><div class="mh-bl"><span>${lv.to?`Nivel ${lv.i+2} en ${lv.to-(g.xp||0)} pts`:"Nivel máximo"}</span><b class="mono">${lpct}%</b></div><div class="bar"><i style="width:${lpct}%"></i></div></div>
+    <div class="mh-bars one">
+      <div><div class="mh-bl"><span>${lv.to?`Nivel ${lv.i+2} en ${lv.to-(g.xp||0)} pts`:"Nivel máximo"}</span><b class="mono">${g.xp||0} pts</b></div><div class="bar"><i style="width:${lpct}%"></i></div></div>
     </div>
   </section>
   ${admin()?"":`<a class="mh-dm${S.dm&&S.dm.unread?" new":""}" href="${toMain("mensajes")}"><span class="mh-dm-i">${ico("chat",24)}${S.dm&&S.dm.unread?`<em class="nbadge">${S.dm.unread}</em>`:""}</span>
     <span><b>${S.dm&&S.dm.unread?`Tienes ${S.dm.unread>1?S.dm.unread+" mensajes nuevos":"un mensaje nuevo"}`:"Tus mensajes"}</b><small>${S.dm&&S.dm.unread?"El Arte Gráfico te escribió. Toca para leer y responder.":"Aquí te escribimos si necesitamos algo de ti (tu ID de Deriv, un pago, una duda). Te llega notificación."}</small></span><i>${S.dm&&S.dm.unread?"Leer":"Abrir"} →</i></a>`}
-  ${inTrial()?trialCard():""}
   <section class="mh-tiles">${tiles.map(([k,t,d,h,ext])=>`<a class="mt" href="${esc(h)}"${ext?' target="_blank" rel="noopener"':""}><span class="mt-i">${ico(k)}</span><b>${t}</b><span class="dim">${d}</span></a>`).join("")}</section>
+  <section class="sx"><div class="sx-h sm"><span class="eyebrow">Tus espacios</span><h2>Academia y EAG Charts</h2></div>
+    <div class="doors two">
+      <div class="door door-acad"><span class="door-k">${ico("acad",18)}Academia</span><h3>${cerr?"La academia abre muy pronto":prem?(nx?esc(nx.title):"Terminaste las lecciones publicadas"):"El método completo para Boom y Crash"}</h3>
+        <p>${cerr?"Te avisaremos cuando abra. Tu cuenta ya quedó lista.":prem?(dias!=null&&dias<3650?`Tu plan: te quedan ${dias} día${dias===1?"":"s"}.`:"Tienes acceso completo."):inTrial()?`Prueba gratis activa: te quedan ${trialLeft()} día${trialLeft()===1?"":"s"}.`:`Tienes ${demo} de 5 gráficas de prueba.`}</p>
+        ${cerr?"":`<div class="door-bar"><div class="mh-bl"><span>Avance</span><b class="mono">${pas} de ${total} lecciones · ${apct}%</b></div><div class="bar"><i style="width:${apct}%"></i></div></div>`}
+        <div class="row">${acadCta}</div></div>
+      <div class="door door-charts"><span class="door-k">${ico("chart",18)}EAG Charts</span><h3>Tu plataforma de análisis</h3><p>${prem?"Tienes EAG Charts completo: todas las herramientas, alertas y replay.":"Versión gratis activa. Con un plan desbloqueas alertas, replay y todas las herramientas."}</p>
+        <div class="row"><a class="btn gold btn-ic" href="https://charts.elartegrafico.com" target="_blank" rel="noopener">${ico("site",18)}<span>Abrir EAG Charts</span></a><a class="btn" href="#charts">Ver funciones</a></div></div>
+    </div></section>
   <section class="mh-grid">
     <div class="panel"><div class="sec-h"><h3>Novedades</h3><a href="#comunidad">Ver todo</a></div><div id="mhNews" class="mh-news"><div class="muted">Cargando…</div></div></div>
     <div class="mh-side">
-      <div class="panel mh-plan">${prem?`<span class="mt-i gold">${ico("crown")}</span><div><b>Tu plan Premium</b><span class="muted">${dias!=null&&dias>=3650?"Acceso de por vida a todo":dias!=null&&dias<3650?`Te quedan <b>${dias}</b> día${dias===1?"":"s"} · hasta ${fmtDate(p.premium_until)}`:"Acceso completo a la academia"}</span></div>${dias!=null&&dias<=7?'<a class="btn sm gold" href="#premium">Renovar</a>':""}`
-        :`<span class="mt-i gold">${ico("crown")}</span><div><b>Desbloquea toda la academia</b><span class="muted">Todos los módulos, práctica ilimitada y tu placa dorada en el ranking.</span></div><a class="btn sm gold" href="#precios-mh">Ver planes</a>`}</div>
-      <div class="panel"><div class="sec-h"><h3>${rewardsOn()||admin()?"Ranking de retos":"Tabla de progreso"}</h3><a href="${rewardsOn()||admin()?"#ranking":toAcad("progreso")}">Completo</a></div><div id="mhRk" class="muted">Cargando…</div></div>
+      <div class="panel"><div class="sec-h"><h3>${rwOn?"Ranking de retos":"Tabla de progreso"}</h3><a href="${rwOn?"#ranking":toAcad("progreso")}">Completo</a></div><div id="mhRk" class="muted">Cargando…</div></div>
     </div>
   </section>
-  ${promoBlock()}
-  ${prem?"":'<section class="sec" id="precios-mh"></section>'}`;
-  appCard($("#appCard"));if(!prem)pricingBlock($("#precios-mh"));
+  ${promoBlock()}`;
+  appCard($("#appCard"));
   postsVis().then(ps=>{const h=$("#mhNews");if(!h)return;h.innerHTML=ps.slice(0,4).map(x=>`<a class="mn" href="#nota-${esc(x.id)}">${x.image_url?`<span class="mn-img" style="background-image:url('${esc(x.image_url)}')"></span>`:`<span class="mn-img none">${ico("news",20)}</span>`}<span class="mn-t"><span class="dim">${fmtDate(x.created_at)} · ${esc(x.category||"Noticia")}</span><b>${esc(x.title)}</b></span></a>`).join("")||'<div class="muted">Pronto publicaremos novedades.</div>'}).catch(()=>{const h=$("#mhNews");if(h)h.innerHTML='<div class="muted">No se pudieron cargar las novedades.</div>'});
   (rewardsOn()||admin()?API.rewardsBoard("mes").then(r=>r.map(x=>Object.assign(x,{v:x.points+" pts"}))):API.progressBoard().then(r=>r.map(x=>Object.assign(x,{v:x.lessons+" lecc."})))).then(r=>{const h=$("#mhRk");if(!h)return;const k=r.findIndex(x=>x.is_me);if($("#mhPos"))$("#mhPos").textContent=k>=0?`Vas en el puesto #${k+1}`:"Juega para aparecer";
     h.innerHTML=r.length?`<table class="tbl rk">${r.slice(0,5).map((x,i)=>`<tr class="${x.is_me?"me ":""}${x.premium?"prem":""}"><td class="mono">${i<3?["🥇","🥈","🥉"][i]:i+1}</td><td><span class="who-cell">${avatar(x,24)}${uL(x.username)}${flag(x.country)}${x.affiliate?affTag():""}</span></td><td class="n">${esc(x.v)}</td></tr>`).join("")}</table>${k>=5?`<div class="mh-me">Tú: puesto #${k+1} · ${esc(r[k].v)}</div>`:""}`:'<div class="muted">Todavía no hay nadie aquí. ¡Sé el primero!</div>'}).catch(()=>{const h=$("#mhRk");if(h)h.textContent="No se pudo cargar."});
@@ -1032,66 +1068,119 @@ function streakCard(r){const b=+(RW().streakBonus??50);const s=r.streak||0,left=
 const ICK='<svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 7"/></svg>';
 async function mainHome(){
   if(logged()&&API.profile())return memberHome();
-  const s=S.site,p=API.profile();
+  const s=S.site;const nm=esc(s.name||"El Arte Gráfico");
   const dItems=(s.discordItems&&s.discordItems.length?s.discordItems:DISC.items);
-  app.innerHTML=`${logged()&&p?`<section class="welcome"><a class="welcome-av" href="#perfil" title="Configuración">${avatar(p,56)}</a><div style="flex:1;min-width:200px"><span class="eyebrow">Tu cuenta</span><h2>Hola, ${esc(p.username)}</h2><p class="muted">${closedAcad()&&!admin()?"Tu cuenta ya quedó creada. La academia abre muy pronto: te avisaremos por aquí y en la comunidad.":premium()?"Tienes acceso premium a toda la academia.":`Cuenta gratis · ${(S.courses||[]).some(c=>c.base)?"tienes el curso Fundamentos del trading completo y ":"tienes "}${Math.max(0,5-(p.demo_used||0))} de 5 gráficas de prueba en la academia.`}</p></div>${closedAcad()&&!admin()?'<span class="pill">Academia: próximamente</span>':`<a class="btn gold" href="${toAcad("inicio")}">Ir a la academia</a>`}</section>`:""}
-  <div id="appCard"></div>${launchBox()}
-  <section class="lp-hero">
-    <div class="lp-hero-t"><span class="eyebrow">Boom y Crash · Índices sintéticos</span>
-      <h1>Aprende a leer el gráfico. Opera con método.</h1>
-      <p class="lp-lead">Una comunidad gratuita para empezar, una academia paso a paso y una plataforma de análisis profesional. Todo en ${esc(s.name||"El Arte Gráfico")}.</p>
-      <div class="row">${logged()?`<a class="btn gold" href="${toAcad("inicio")}">Ir a la academia</a>`:`<a class="btn gold" href="#registro">Crear cuenta gratis</a>`}<button type="button" class="btn" data-go="lp-acad">Conocer la academia</button></div>
-      <div class="lp-ticks"><span>${ICK}Sin tarjeta</span><span>${ICK}Curso Fundamentos gratis</span><span>${ICK}PC y celular</span></div></div>
-    <div class="demo-wrap"><div class="demo-card" id="demo" aria-label="Así se practica en la academia"></div><a class="btn try-btn" href="#probar">▶ Pruébalo ahora, sin registrarte</a></div>
-  </section>
-  <section class="lp-parts" aria-label="Las tres partes de El Arte Gráfico">
-    <button type="button" class="lp-part" data-go="lp-com"><span class="lp-pn">01</span><span class="lp-tag t-free">Gratis</span><h3>Comunidad</h3><p>Curso Fundamentos, retos diarios con premios, ranking, análisis y Discord. Solo necesitas tu cuenta.</p><span class="lp-more">Ver más →</span></button>
-    <button type="button" class="lp-part" data-go="lp-acad"><span class="lp-pn">02</span><span class="lp-tag t-acad">Con plan o curso</span><h3>Academia</h3><p>El método completo para Boom y Crash: estructura, zonas, entradas, stop loss y gestión del riesgo.</p><span class="lp-more">Ver más →</span></button>
-    <button type="button" class="lp-part" data-go="lp-charts"><span class="lp-pn">03</span><span class="lp-tag t-charts">Gratis y completo</span><h3>EAG Charts</h3><p>La plataforma de análisis: gráficos en vivo, ticks, alertas al celular y zonas con el lote calculado.</p><span class="lp-more">Ver más →</span></button>
+  const base=(S.courses||[]).filter(c=>c.base&&c.status!=="borrador");
+  app.innerHTML=`<div id="appCard"></div>${launchBox()}
+  <section class="hx hx-main">
+    <div class="hx-t"><span class="hx-k"><i class="live"></i>Comunidad gratis · Boom y Crash</span>
+      <h1>Trading con método, <em>en comunidad.</em></h1>
+      <p class="hx-lead">${nm} es la casa de los traders de índices sintéticos: análisis diarios, retos con premios, ranking y un Discord activo. Entras gratis y creces a tu ritmo.</p>
+      <div class="row hx-cta"><a class="btn gold big" href="#registro">Crear cuenta gratis</a>${s.discordUrl?`<a class="btn big btn-ic" href="${esc(s.discordUrl)}" target="_blank" rel="noopener">${ICON_CHAT}<span>Unirme al Discord</span></a>`:`<a class="btn big" href="#comunidad">Ver publicaciones</a>`}</div>
+      <div class="hx-ticks"><span>${ICK}Sin tarjeta</span><span>${ICK}${base.length?"Curso Fundamentos gratis":"Retos y ranking gratis"}</span><span>${ICK}PC y celular</span></div></div>
+    <div class="hx-v" aria-label="Hoy en la comunidad">
+      <div class="live-card"><div class="lc-h"><b>Hoy en la comunidad</b><span class="lc-live"><i class="live"></i>En vivo</span></div>
+        <a class="lc-row" href="#retos"><span class="lc-i">${ico("bolt",20)}</span><span><b>Reto del día</b><small>Responde y suma puntos para el ranking</small></span><i>→</i></a>
+        <a class="lc-row" href="#ranking"><span class="lc-i">${ico("trophy",20)}</span><span><b>Ranking del mes</b><small id="lcRk">Los mejores traders del mes</small></span><i>→</i></a>
+        <a class="lc-row" href="${s.discordUrl?esc(s.discordUrl):"#comunidad"}"${s.discordUrl?' target="_blank" rel="noopener"':""}><span class="lc-i">${ico("chat",20)}</span><span><b>Discord</b><small id="lcDc">Análisis, dudas y avisos</small></span><i>→</i></a>
+        <div class="lc-news"><span class="lc-sub">Últimas publicaciones</span><div id="newsMini" class="lc-list"><div class="muted">Cargando…</div></div></div></div></div>
   </section>
 
-  <section class="lp-sec lp-white" id="lp-com"><div class="lp-in">
-    <div class="lp-head"><div class="lp-kick"><span class="eyebrow">01 · Comunidad</span><span class="lp-tag t-free">Gratis</span></div><h2>Empieza sin pagar nada.</h2><p class="lp-lead">Con tu cuenta gratuita tienes las bases del trading y un lugar para practicar todos los días junto a otros traders.</p></div>
-    <ul class="lp-checks">${["Curso Fundamentos del trading completo","Retos diarios con premios","Ranking, medallas y tu perfil","Análisis y noticias de la comunidad","Discord con más traders","EAG Charts gratis"].map(t=>`<li>${ICK}${t}</li>`).join("")}</ul>
-    ${promoBlock()}
-    <div class="disc">
-    <div class="disc-main"><span class="eyebrow">Discord</span><h2>${esc(s.discordTitle||DISC.title)}</h2><p class="muted">${esc(s.discordText||DISC.text)}</p>
+  <section class="sx" aria-labelledby="sx-free"><div class="sx-h"><span class="eyebrow">Todo esto es gratis</span><h2 id="sx-free">Lo que tienes con tu cuenta</h2><p>Sin pagar nada. Solo creas tu cuenta y ya puedes participar.</p></div>
+    <div class="fx-grid">${[["news","Análisis y noticias","Publicaciones del profe sobre el mercado, avisos y novedades de la comunidad."],["bolt","Retos diarios","Una pregunta o un gráfico cada día. Aciertas, sumas puntos y subes en el ranking."],["trophy","Ranking y premios","Compite cada mes con la comunidad. Los mejores se llevan premios."],["medal","Perfil y medallas","Tu nivel, tus logros y tu placa visibles para todos."],["chat","Discord","Habla con otros traders, comparte tus gráficos y resuelve dudas."],["chart","EAG Charts gratis","Gráficos en vivo de Deriv con multitemporalidad y herramientas básicas."]].map(([i,t,d])=>`<div class="fx"><span class="fx-i">${ico(i,22)}</span><h3>${t}</h3><p>${d}</p></div>`).join("")}</div>
+    ${promoBlock()}</section>
+
+  <section class="sx" aria-labelledby="sx-disc"><div class="disc">
+    <div class="disc-main"><span class="eyebrow">Discord</span><h2 id="sx-disc">${esc(s.discordTitle||DISC.title)}</h2><p class="muted">${esc(s.discordText||DISC.text)}</p>
       <ul class="checks">${dItems.map(i=>`<li>${esc(i)}</li>`).join("")}</ul>
       <div class="cstats" id="cstats">${(s.communityStats||[]).map(c=>`<div><b class="mono">${esc(c.v)}</b><span>${esc(c.t)}</span></div>`).join("")}</div>
-      <div class="row">${s.discordUrl?`<a class="btn gold btn-ic" href="${esc(s.discordUrl)}" target="_blank" rel="noopener">${ICON_CHAT}<span>Unirme al Discord</span></a>`:'<span class="pill">El enlace al Discord se publicará pronto</span>'}<a class="btn ghost" href="#comunidad">Ver publicaciones</a></div></div>
-    <div class="disc-news"><div class="sec-h"><h3>Últimas publicaciones</h3><a href="#comunidad">Ver todo</a></div><div id="newsMini" class="minis"><div class="muted">Cargando…</div></div></div>
-  </div></div></section>
-
-  <section class="lp-sec" id="lp-acad"><div class="lp-in">
-    <div class="lp-head"><div class="lp-kick"><span class="eyebrow">02 · Academia</span><span class="lp-tag t-acad">Con plan o curso</span></div><h2>El método completo para Boom y Crash.</h2><p class="lp-lead">Lecciones cortas, ejercicios en gráficas reales y repetición vela por vela para ver qué habría pasado con tu operación.</p></div>
-    ${pathBlock()}
-    <div class="sec"><div class="sec-h"><h3>Qué vas a aprender</h3><a href="${toAcad("inicio")}">Ir a la academia</a></div><div class="cards" id="cards"></div></div>
-    <div class="sec" id="about"></div>
-    <div class="sec"><div class="sec-h"><h3>Temario</h3><a href="${toAcad("academia")}">Ver temario completo</a></div><div class="tmp" id="tmp"></div></div>
+      <div class="row">${s.discordUrl?`<a class="btn gold btn-ic" href="${esc(s.discordUrl)}" target="_blank" rel="noopener">${ICON_CHAT}<span>Unirme al Discord</span></a>`:'<span class="pill">El enlace al Discord se publicará pronto</span>'}<a class="btn" href="#comunidad">Ver publicaciones</a></div></div>
+    <div class="disc-news"><div class="sec-h"><h3>Opiniones de la comunidad</h3><a href="#opiniones">Ver todas</a></div><div id="revs"></div></div>
   </div></section>
 
-  <section class="lp-sec lp-navy" id="lp-charts"><div class="lp-in">
-    <div class="lp-head"><div class="lp-kick"><span class="eyebrow">03 · EAG Charts</span><span class="lp-tag t-charts">Gratis y completo</span></div><h2>Una plataforma de análisis profesional.</h2><p class="lp-lead">Hecha para los sintéticos de Deriv: más funciones que un gráfico común y pensada para el método que aprendes en la academia. En PC y en el celular.</p></div>
-    <div class="lp-feats">${[["chart","Multitemporalidad","Un gráfico grande y, debajo, de 1m a 1D a la vez, cada uno con su contador de cierre."],["bolt","Ticks y spikes","Cada movimiento del precio y cuántos ticks van desde el último spike."],["layers","Zonas con lote calculado","Marca tu zona y te dice el lote exacto según el riesgo que elijas."],["bell","Alertas al celular","Precio, cierre de vela, RSI, cruce de medias y spikes."],["play","Replay","Vuelve a cualquier fecha y practica vela por vela."],["acad","Modo Clase","En los lives ves en tu gráfico lo mismo que dibuja el profe."]].map(([i,t,d])=>`<div class="lp-feat"><span class="lp-fi">${ico(i,22)}</span><h3>${t}</h3><p>${d}</p></div>`).join("")}</div>
-    <div class="lp-cbar"><div><b>Gratis: gráficos en vivo, multitemporalidad, varios mercados y 2 indicadores.</b><span>Desde Plata: todas las herramientas, indicadores sin límite y alertas.</span></div><div class="row"><a class="btn gold" href="https://charts.elartegrafico.com" target="_blank" rel="noopener">Abrir EAG Charts</a><button type="button" class="btn" data-go="precios">Ver planes</button></div></div>
-  </div></section>
+  <section class="sx" aria-labelledby="sx-more"><div class="sx-h"><span class="eyebrow">Cuando quieras ir más lejos</span><h2 id="sx-more">Dos partes más, cada una con su espacio</h2><p>Con la misma cuenta entras a todo. Cada una tiene su propia página para que sepas exactamente qué incluye.</p></div>
+    <div class="doors">
+      <a class="door door-acad" href="${toAcad("inicio")}"><span class="door-k">${ico("acad",18)}Academia</span><h3>El método completo para Boom y Crash</h3><p>Lecciones cortas, ejercicios en gráficas reales, repetición vela por vela y certificado. Con plan o comprando el curso.</p>
+        <ul>${["Ruta paso a paso","Práctica con gráficas reales","Quién te enseña y temario"].map(t=>`<li>${ICK}${t}</li>`).join("")}</ul>
+        <div class="door-mock" aria-hidden="true">${((S.modules||[]).filter(m=>m.status!=="borrador").slice(0,4).map(m=>m.title).concat(["Estructura del mercado","Zonas y fractales","Entradas y stop loss","Gestión del riesgo"])).slice(0,4).map((t,i)=>`<div class="dm-r${i<2?" ok":i===2?" now":""}"><span>${String(i+1).padStart(2,"0")}</span><b>${esc(t)}</b><i>${i<2?"✓":i===2?"▶":"🔒"}</i></div>`).join("")}</div><span class="door-go">Conocer la academia <i>→</i></span></a>
+      <a class="door door-charts" href="#charts"><span class="door-k">${ico("chart",18)}EAG Charts</span><h3>Una plataforma de análisis profesional</h3><p>Gráficos en vivo de Deriv con ticks, alertas al celular, replay y zonas con el lote calculado. Gratis para empezar.</p>
+        <div class="door-shot"><img src="assets/charts-shot-pc.webp" alt="Vista de EAG Charts" loading="lazy" width="1440" height="860"></div><span class="door-go">Ver todas las funciones <i>→</i></span></a>
+    </div></section>
 
-  <section class="sec" id="precios"></section>
-  <section class="sec"><div class="sec-h"><div><span class="eyebrow">Opiniones</span><h2>Lo que dicen los alumnos</h2></div><a href="#opiniones">Ver todas</a></div><div id="revs"></div></section>
-  <section class="sec"><div class="sec-h"><div><span class="eyebrow">Preguntas frecuentes</span><h2>Antes de empezar</h2></div></div><div class="faq" id="faq"></div></section>
-  <section class="cta-band" id="premiumBand"></section>`;
-  app.querySelectorAll("[data-go]").forEach(b=>b.addEventListener("click",e=>{e.preventDefault();const t=document.getElementById(b.dataset.go);if(t)t.scrollIntoView({behavior:"smooth",block:"start"})}));
-  demoChart($("#demo"));aboutBlock($("#about"));temarioBlock($("#tmp"));pricingBlock($("#precios"));faqBlock($("#faq"));appCard($("#appCard"));
-  if(s.discordUrl)discordCounts(s.discordUrl).then(d=>{const h=$("#cstats");if(!h||!d||!d.members)return;
-    h.querySelectorAll("[data-dc]").forEach(x=>x.remove());/* si el inicio se pinta dos veces, no se duplican */
-    h.insertAdjacentHTML("afterbegin",`<div data-dc><b class="mono">${fmtN(d.members)}</b><span>miembros en Discord</span></div>${d.online?`<div data-dc><b class="mono"><i class="live"></i>${fmtN(d.online)}</b><span>conectados ahora</span></div>`:""}`)});
-  $("#cards").innerHTML=(s.cards||[]).map((c,i)=>`<div class="card"><span class="k">${String(i+1).padStart(2,"0")}</span><h3>${esc(c.title)}</h3><p>${esc(c.text)}</p></div>`).join("");
-  if($("#mkts"))$("#mkts").innerHTML=marketsHTML(s.markets||[],true);
-  {const pb=$("#premiumBand");if(premium())pb.remove();else if(logged())pb.innerHTML=premiumBand();
-    else pb.innerHTML=`<div class="pb final"><div><span class="eyebrow">Empieza hoy</span><h2>${(S.courses||[]).some(c=>c.base)?"Crea tu cuenta y aprende trading gratis":"Crea tu cuenta gratis y prueba el método"}</h2><p class="muted" style="max-width:60ch;margin-top:8px">${(S.courses||[]).some(c=>c.base)?`Con tu cuenta tienes el curso <b>${esc((S.courses||[]).filter(c=>c.base).map(c=>c.title).join(" y "))}</b> completo, 5 gráficas de prueba y el reto del día. Cuando quieras la estrategia para un mercado, como Boom y Crash, la compras o la tienes con un plan. Sin tarjeta y sin compromiso.`:"Tienes 5 gráficas de prueba para marcar tu zona, poner tu stop loss y ver la repetición, y puedes jugar el reto del día desde ya. Sin tarjeta y sin compromiso."}</p></div><div class="row"><a class="btn ghost" href="${toMain("probar")}">Probar una gráfica ahora</a><a class="btn gold" href="#registro">Crear cuenta gratis</a><a class="btn ghost" href="#entrar">Ya tengo cuenta</a></div></div>`}
-  API.publicReviews().then(r=>{if($("#revs"))$("#revs").innerHTML=reviewsHTML(r.slice(0,3),true)}).catch(()=>{});
-  postsVis().then(p=>{if($("#newsMini"))$("#newsMini").innerHTML=p.slice(0,4).map(x=>`<a class="mini" href="#nota-${esc(x.id)}"><span class="dim">${fmtDate(x.created_at)} · ${esc(x.category||"Noticia")}</span><b>${esc(x.title)}</b></a>`).join("")||'<div class="muted">Pronto publicaremos noticias y actualizaciones.</div>'}).catch(()=>{if($("#newsMini"))$("#newsMini").innerHTML='<div class="muted">Sin publicaciones por ahora.</div>'});
+  <section class="cta-band" id="premiumBand"><div class="pb final"><div><span class="eyebrow">Empieza hoy</span><h2>Crea tu cuenta y entra a la comunidad</h2><p class="muted" style="max-width:60ch;margin-top:8px">Es gratis y te sirve para todo: la comunidad, la academia y EAG Charts. Sin tarjeta y sin compromiso.</p></div><div class="row"><a class="btn gold" href="#registro">Crear cuenta gratis</a><a class="btn" href="#entrar">Ya tengo cuenta</a></div></div></section>`;
+  appCard($("#appCard"));
+  if(s.discordUrl)discordCounts(s.discordUrl).then(d=>{if(!d||!d.members)return;const l=$("#lcDc");if(l)l.textContent=`${fmtN(d.members)} miembros${d.online?` · ${fmtN(d.online)} conectados`:""}`;const h=$("#cstats");if(!h)return;
+    h.querySelectorAll("[data-dc]").forEach(x=>x.remove());
+    h.insertAdjacentHTML("afterbegin",`<div data-dc><b class="mono">${fmtN(d.members)}</b><span>miembros en Discord</span></div>${d.online?`<div data-dc><b class="mono"><i class="live"></i>${fmtN(d.online)}</b><span>conectados ahora</span></div>`:""}`)}).catch(()=>{});
+  API.publicReviews().then(r=>{if($("#revs"))$("#revs").innerHTML=reviewsHTML(r.slice(0,2),true)}).catch(()=>{});
+  postsVis().then(p=>{if($("#newsMini"))$("#newsMini").innerHTML=p.slice(0,3).map(x=>`<a class="lc-n" href="#nota-${esc(x.id)}"><span class="dim">${fmtDate(x.created_at)} · ${esc(x.category||"Noticia")}</span><b>${esc(x.title)}</b></a>`).join("")||'<div class="muted">Pronto publicaremos noticias.</div>'}).catch(()=>{if($("#newsMini"))$("#newsMini").innerHTML='<div class="muted">Sin publicaciones por ahora.</div>'});
 }
+
+/* ---------- presentación de la academia (vive dentro de la academia) ---------- */
+ROUTES.presentacion=arg=>{const s=S.site,u=logged()&&API.profile(),cerr=closedAcad()&&!admin(),pb=pathBlock();
+  app.innerHTML=`<div id="appCard"></div>
+  <section class="hx hx-acad">
+    <div class="hx-t"><span class="hx-k">${ico("acad",16)}Academia ${esc(s.name||"El Arte Gráfico")}</span>
+      <h1>El método completo para <em>Boom y Crash.</em></h1>
+      <p class="hx-lead">Aprende a leer la estructura, marcar zonas, entrar con stop loss y gestionar el riesgo. Lecciones cortas, ejercicios en gráficas reales y repetición vela por vela para ver qué habría pasado con tu operación.</p>
+      <div class="row hx-cta">${u?(cerr?'<span class="pill">La academia abre muy pronto</span>':`<a class="btn gold big" href="#inicio">Ir a mi panel</a>`):`<a class="btn gold big" href="#ac-precios" data-go="ac-precios">Ver planes</a>`}<a class="btn big" href="${toMain("probar")}">▶ Probar una gráfica gratis</a></div>
+      <div class="hx-ticks"><span>${ICK}Clases en video</span><span>${ICK}Ejercicios con gráficas reales</span><span>${ICK}Certificado</span></div></div>
+    <div class="hx-v"><div class="demo-wrap"><div class="demo-card" id="demo" aria-label="Así se practica en la academia"></div></div></div>
+  </section>
+  <nav class="subnav" aria-label="En esta página">${(pb?[["ac-ruta","La ruta"]]:[]).concat([["ac-aprende","Qué aprendes"],["ac-profe","Quién te enseña"],["ac-temario","Temario"],["ac-precios","Planes y precios"],["ac-faq","Preguntas"]]).map(([k,t])=>`<a href="#${k}" data-go="${k}">${t}</a>`).join("")}</nav>
+  ${pb?`<section class="sx" id="ac-ruta">${pb}</section>`:""}
+  <section class="sx" id="ac-aprende"><div class="sx-h"><span class="eyebrow">Qué vas a aprender</span><h2>Las bases de una operación con reglas</h2></div><div class="cards" id="cards"></div></section>
+  <section class="sx" id="ac-profe"><div id="about"></div></section>
+  <section class="sx" id="ac-temario"><div class="sx-h"><span class="eyebrow">Temario</span><h2>Módulos de la academia</h2></div><div class="tmp" id="tmp"></div></section>
+  <section class="sx" id="ac-precios"></section>
+  <section class="sx"><div class="sx-h"><span class="eyebrow">Opiniones</span><h2>Lo que dicen los alumnos</h2></div><div id="revs"></div></section>
+  <section class="sx" id="ac-faq"><div class="sx-h"><span class="eyebrow">Preguntas frecuentes</span><h2>Antes de empezar</h2></div><div class="faq" id="faq"></div></section>
+  ${u?"":`<section class="cta-band"><div class="pb final"><div><span class="eyebrow">Empieza gratis</span><h2>Crea tu cuenta y prueba la academia</h2><p class="muted" style="max-width:60ch;margin-top:8px">Con tu cuenta tienes 5 gráficas de prueba${(S.courses||[]).some(c=>c.base)?" y el curso Fundamentos completo":""}. Cuando quieras el método completo, eliges un plan o compras el curso.</p></div><div class="row"><a class="btn gold" href="${toMain("registro")}">Crear cuenta gratis</a><a class="btn" href="${toMain("entrar-academia")}">Ya tengo cuenta</a></div></div></section>`}`;
+  goLinks();demoChart($("#demo"));aboutBlock($("#about"));temarioBlock($("#tmp"));pricingBlock($("#ac-precios"));faqBlock($("#faq"));appCard($("#appCard"));
+  $("#cards").innerHTML=(s.cards||[]).map((c,i)=>`<div class="card"><span class="k">${String(i+1).padStart(2,"0")}</span><h3>${esc(c.title)}</h3><p>${esc(c.text)}</p></div>`).join("");
+  API.publicReviews().then(r=>{if($("#revs"))$("#revs").innerHTML=reviewsHTML(r.slice(0,3),true)}).catch(()=>{});
+  if(arg)setTimeout(()=>{const t=document.getElementById("ac-"+arg);if(t)t.scrollIntoView({block:"start"})},250);
+};
+function goLinks(){app.querySelectorAll("[data-go]").forEach(b=>b.addEventListener("click",e=>{e.preventDefault();const t=document.getElementById(b.dataset.go);if(t)t.scrollIntoView({behavior:"smooth",block:"start"})}))}
+
+/* ---------- presentación de EAG Charts ---------- */
+const CH_URL="https://charts.elartegrafico.com";
+ROUTES.charts=()=>{const fi=+((S.site||{}).chartFreeInd!=null&&S.site.chartFreeInd!==""?S.site.chartFreeInd:2)||0;
+  const G=[
+    ["chart","Gráficos","Lee el precio como quieras",["Velas, Heikin Ashi, Renko y gráfico de ticks","De ticks a 1 día, y tus propias temporalidades (por ejemplo 2m o 12H)","Hasta 6 gráficos a la vez en una sola pantalla","Pestañas de mercados tipo MT5, arriba o abajo"]],
+    ["layers","Multitemporalidad","Todas las temporalidades de un vistazo",["Debajo del gráfico: 1m, 5m, 15m, 1H, 4H y 1D al mismo tiempo","Cada una con su contador de cierre de vela","Tocas una y se vuelve el gráfico grande","Datos en vivo de Deriv: Boom, Crash, sintéticos, forex, cripto y más"]],
+    ["scale","Dibujo y análisis","Las herramientas del método",["Líneas, zonas, rectángulos, textos, notas y regla","Fibonacci, posiciones largas/cortas, patrones y ondas","Imán, bloquear, ocultar y deshacer","Tus dibujos se guardan en tu cuenta"]],
+    ["card","Lote calculado","Gestión del riesgo sin cuentas a mano",["Eliges cuánto arriesgar en dólares o en %","Al marcar tu zona con stop, te dice el lote exacto","Funciona en sintéticos, forex y metales"]],
+    ["bolt","Ticks y spikes","Hecho para Boom y Crash",["Gráfico de ticks en vivo","Contador de ticks desde el último spike","Zonas automáticas de soporte y resistencia"]],
+    ["bell","Alertas al celular","Te avisa aunque cierres la página",["Por precio o al tocar una zona","Cierre de vela, RSI y cruce de medias","Aviso de spike en Boom y Crash"]],
+    ["play","Replay y práctica","Entrena sin arriesgar",["Vuelve a cualquier fecha y avanza vela por vela","Practica entradas con stop y objetivo","Ve cómo habría terminado tu operación"]],
+    ["users","Modo Clase","Aprende en vivo con el profe",["En los lives ves en tu gráfico lo que dibuja el profe","Zonas del profe publicadas para los planes Oro y Diamond","Lo activas y lo desactivas cuando quieras"]],
+    ["crown","Operar con Deriv","Del análisis a la orden",["Conectas tu cuenta de Deriv (real o demo)","Multiplicadores con lote tipo MT5, stop loss y take profit","Ves margen, comisión y puntos hasta el stop"]]];
+  const ROWS=[["Gráficos en vivo, varios mercados y temporalidades",1,1],["Multitemporalidad y varios gráficos a la vez",1,1],["Gráfico de ticks y contador de spikes",1,1],["Líneas, zonas, rectángulos y textos",1,1],["Calculadora de lote en tus zonas",1,1],["Operar multiplicadores con Deriv",1,1],["Indicadores",`${fi}`,"Sin límite"],["Fibonacci, posiciones, patrones y ondas",0,1],["Alertas al celular (precio, vela, RSI, medias, spikes)",0,1],["Zonas automáticas de soporte y resistencia",0,1],["Replay y Práctica",0,1],["Heikin Ashi, Renko y temporalidades personalizadas",0,1]];
+  const yes=v=>v===1?`<span class="cmp-y" aria-label="Incluido">${ICK}</span>`:v===0?'<span class="cmp-n" aria-label="No incluido">—</span>':`<b>${esc(v)}</b>`;
+  app.innerHTML=`
+  <section class="hx hx-charts">
+    <div class="hx-t"><span class="hx-k">${ico("chart",16)}EAG Charts</span>
+      <h1>La plataforma de análisis para <em>los sintéticos de Deriv.</em></h1>
+      <p class="hx-lead">Gráficos en vivo con más funciones que un gráfico común y pensados para el método de la academia. En el navegador, en PC y en el celular, sin instalar nada.</p>
+      <div class="row hx-cta"><a class="btn gold big btn-ic" href="${CH_URL}" target="_blank" rel="noopener">${ico("site",18)}<span>Abrir EAG Charts</span></a><a class="btn big" href="#ch-planes" data-go="ch-planes">Gratis vs. completo</a></div>
+      <div class="hx-ticks"><span>${ICK}Gratis para empezar</span><span>${ICK}Datos en vivo de Deriv</span><span>${ICK}PC y celular</span></div></div>
+  </section>
+  <section class="shot" aria-label="Así se ve EAG Charts"><div class="shot-pc"><div class="shot-bar"><i></i><i></i><i></i><span>charts.elartegrafico.com</span></div><img src="assets/charts-shot-pc.webp" alt="EAG Charts en computador: gráfico de Boom 1000 con multitemporalidad debajo" width="1440" height="860"></div>
+    <div class="shot-cel"><img src="assets/charts-shot-cel.webp" alt="EAG Charts en el celular" width="390" height="844" loading="lazy"></div></section>
+  <nav class="subnav" aria-label="En esta página">${[["ch-funciones","Funciones"],["ch-planes","Gratis vs. completo"],["ch-empezar","Cómo empezar"],["ch-faq","Preguntas"]].map(([k,t])=>`<a href="#${k}" data-go="${k}">${t}</a>`).join("")}</nav>
+  <section class="sx" id="ch-funciones"><div class="sx-h"><span class="eyebrow">Funciones</span><h2>Todo lo que tiene EAG Charts</h2><p>Organizado por lo que vas a hacer: mirar el mercado, analizar, calcular tu riesgo, recibir avisos, practicar y operar.</p></div>
+    <div class="cf-grid">${G.map(([i,t,d,L])=>`<article class="cf"><div class="cf-h"><span class="fx-i">${ico(i,22)}</span><div><h3>${t}</h3><span>${d}</span></div></div><ul>${L.map(x=>`<li>${ICK}${x}</li>`).join("")}</ul></article>`).join("")}</div></section>
+  <section class="sx" id="ch-planes"><div class="sx-h"><span class="eyebrow">Gratis vs. completo</span><h2>Empieza gratis, desbloquea todo con un plan</h2><p>EAG Charts completo viene incluido en los planes Plata, Oro y Diamond, junto con la academia.</p></div>
+    <div class="cmp" role="table" aria-label="Comparación de EAG Charts gratis y completo"><div class="cmp-r cmp-hd" role="row"><span role="columnheader">Función</span><span role="columnheader">Gratis</span><span role="columnheader" class="cmp-pro">Completo<small>Plata · Oro · Diamond</small></span></div>
+      ${ROWS.map(([t,a,b])=>`<div class="cmp-r" role="row"><span role="cell">${t}</span><span role="cell">${yes(a)}</span><span role="cell" class="cmp-pro">${yes(b)}</span></div>`).join("")}</div>
+    <div class="row" style="justify-content:center;margin-top:22px"><a class="btn gold" href="${toAcad("presentacion-precios")}">Ver planes y precios</a><a class="btn" href="${CH_URL}" target="_blank" rel="noopener">Probar gratis</a></div></section>
+  <section class="sx" id="ch-empezar"><div class="sx-h"><span class="eyebrow">Cómo empezar</span><h2>En menos de un minuto</h2></div>
+    <ol class="steps3">${[["Abre EAG Charts","Entra a charts.elartegrafico.com desde el PC o el celular. Puedes instalarlo como app."],["Entra con tu cuenta","La misma cuenta de El Arte Gráfico. Así se guardan tus dibujos, alertas y ajustes."],["Elige tu mercado","Busca Boom, Crash o el que operes, marca tus zonas y deja que te avise."]].map(([t,d],i)=>`<li><span class="st-n">${i+1}</span><h3>${t}</h3><p>${d}</p></li>`).join("")}</ol></section>
+  <section class="sx" id="ch-faq"><div class="sx-h"><span class="eyebrow">Preguntas frecuentes</span><h2>Sobre EAG Charts</h2></div><div class="faq">${[["¿Es gratis?",`Sí. La versión gratis tiene gráficos en vivo, multitemporalidad, varios mercados, ticks, la calculadora de lote y ${fi} indicador${fi===1?"":"es"}. Con un plan Plata, Oro o Diamond tienes todo lo demás.`],["¿De dónde salen los datos?","Directamente de Deriv, en tiempo real. Son los mismos precios que ves en tu plataforma."],["¿Funciona en el celular?","Sí. Está pensado para el celular también y puedes instalarlo como app desde el navegador."],["¿Puedo operar desde EAG Charts?","Sí, con multiplicadores de Deriv: conectas tu cuenta (real o demo) y abres o cierras operaciones desde el gráfico. Siempre bajo tu responsabilidad."],["¿Es asesoría financiera?","No. Es una herramienta de análisis con fines educativos. Operar tiene alto riesgo."]].map(([q,a])=>`<details class="fq"><summary>${q}</summary><p class="muted">${a}</p></details>`).join("")}</div></section>
+  <section class="cta-band"><div class="pb final"><div><span class="eyebrow">EAG Charts</span><h2>Ábrelo y míralo tú mismo</h2><p class="muted" style="max-width:60ch;margin-top:8px">No necesitas instalar nada. Entra con tu cuenta de El Arte Gráfico y empieza gratis.</p></div><div class="row"><a class="btn gold" href="${CH_URL}" target="_blank" rel="noopener">Abrir EAG Charts</a><a class="btn" href="${toAcad("presentacion-precios")}">Ver planes</a></div></div></section>`;
+  goLinks();
+};
 
 /* ---------- panel de la academia ---------- */
 function trialNext(){for(const m of S.modules.filter(x=>x.free&&modOpen(x))){const ls=S.lindex.filter(l=>l.module_id===m.id).sort((a,b)=>(a.sort||0)-(b.sort||0));for(const l of ls){if(!(S.prog.done[l.id]&&S.prog.done[l.id].passed))return l}}return null}
@@ -1505,8 +1594,8 @@ window.AGAPP={uL,showProfile,TIERS,chatBox,dmPoll,pop,mediaVideo,hlsInit,ico,ava
 
 /* ---------- arranque ---------- */
 async function loadContent(){const [m,l,c,mc]=await Promise.all([API.modules().catch(()=>[]),API.lessonIndex().catch(()=>[]),(API.courses?API.courses():Promise.resolve([])).catch(()=>[]),(API.myCourses&&logged()?API.myCourses():Promise.resolve([])).catch(()=>[])]);S.modules=m||[];S.lindex=l||[];S.courses=c||[];S.myCourses=new Set((mc||[]).map(x=>x.course_id||x))}
-function applySite(){const s=S.site,n=s.name||"El Arte Gráfico";$("#brandName").textContent=n.toUpperCase();if(s.logoUrl)$("#logoMark").src=s.logoUrl;
-  $("#brandSub").textContent=ACAD?"ACADEMY":"TRADING · COMUNIDAD";document.body.dataset.site=SITE;
+function applySite(){const s=S.site,n=s.name||"El Arte Gráfico";{const w=n.trim().split(/\s+/),l=w.pop();$("#brandName").innerHTML=(w.length?esc(w.join(" "))+" ":"")+`<em>${esc(l)}</em>`}if(s.logoUrl)$("#logoMark").src=s.logoUrl;
+  $("#brandSub").textContent=ACAD?"Academia":"Trading · Comunidad";document.body.dataset.site=SITE;
   document.title=ACAD?n+" Academy":n+" · Trading, educación y comunidad";renderFoot();analytics()}
 /* Google Analytics: solo si hay ID y la persona acepta las cookies de estadística */
 let gaOn=false;
