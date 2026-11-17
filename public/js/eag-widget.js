@@ -360,6 +360,28 @@ window.EAGWidget=function(o){
   /* ---------- datos ---------- */
   const msOf=p=>p.multiplier*({tick:1e3,minute:6e4,hour:36e5,day:864e5,week:6048e5}[p.timespan]||6e4);
   const isTk=()=>per&&per.timespan==="tick";
+  /* ---------- Heikin Ashi y Renko: se calculan a partir de las velas normales (RAW) ---------- */
+  let RAW=[],XF="",RBOX=0;
+  const xfNow=()=>isTk()?"":((o.getXform&&o.getXform())||"");
+  function haOf(c,prev){const cl=(c.open+c.high+c.low+c.close)/4,op=prev?(prev.open+prev.close)/2:(c.open+c.close)/2;
+    return{timestamp:c.timestamp,open:op,high:Math.max(c.high,op,cl),low:Math.min(c.low,op,cl),close:cl,volume:c.volume||0}}
+  const haList=(L,prev)=>{const out=[];let p=prev||null;L.forEach(c=>{p=haOf(c,p);out.push(p)});return out};
+  /* tamaño del ladrillo: el que elija el alumno o, en automático, la mediana del rango de las velas (ignora los spikes) */
+  function renkoBox(L){const b=o.getRenkoBox&&o.getRenkoBox();if(b>0)return b;const r=L.map(c=>c.high-c.low).filter(v=>v>0).sort((a,b)=>a-b);
+    let m=r.length?r[Math.floor(r.length/2)]:0;if(!(m>0)){const c=L.length?L[L.length-1].close:1;m=Math.abs(c)*0.001||1}
+    const e=Math.pow(10,Math.floor(Math.log10(m))),n=m/e;return(n<1.5?1:n<3.5?2:n<7.5?5:10)*e}
+  /* ladrillos por precio de cierre; para cambiar de dirección hacen falta 2 ladrillos (Renko clásico) */
+  function renkoList(L){if(!L.length)return[];const box=renkoBox(L);let hi=L[0].close,lo=hi,out=[];
+    L.forEach(c=>{let k=0;const t=()=>c.timestamp+(k++);
+      while(c.close>=hi+box){const o2=hi,c2=hi+box;out.push({timestamp:t(),open:o2,high:c2,low:o2,close:c2,volume:0});lo=hi;hi=c2}
+      while(c.close<=lo-box){const o2=lo,c2=lo-box;out.push({timestamp:t(),open:o2,high:o2,low:c2,close:c2,volume:0});hi=lo;lo=c2}});
+    RBOX=box;window.__renkoBox=box;return out}
+  const viewOf=L=>XF==="ha"?haList(L):XF==="renko"?renkoList(L):L;
+  function pushRaw(d){const n=RAW.length;if(n&&RAW[n-1].timestamp===d.timestamp)RAW[n-1]=d;else if(!n||d.timestamp>RAW[n-1].timestamp)RAW.push(d);else return false;
+    if(RAW.length>20000)RAW.splice(0,RAW.length-20000);return true}
+  function liveUpdate(d){if(!XF){chart.updateData(d);return}if(!pushRaw(d))return;const L=chart.getDataList();
+    if(XF==="ha"){let prev=null;for(let i=L.length-1;i>=0;i--){if(L[i].timestamp<d.timestamp){prev=L[i];break}}chart.updateData(haOf(d,prev||null));return}
+    if(XF==="renko"){const B=renkoList(RAW),lt=L.length?L[L.length-1].timestamp:0;B.filter(b=>b.timestamp>lt).forEach(b=>chart.updateData(b))}}
   let noMore=false;
   /* escala de precios automática otra vez (si se estiró a mano, al cambiar de mercado quedaba congelada) */
   function autoScale(){try{const ax=chart._candlePane&&chart._candlePane.getAxisComponent();if(ax){ax._autoCalcTickFlag=true;chart.adjustPaneViewport(false,true,true,true)}}catch(e){}}
@@ -372,8 +394,9 @@ window.EAGWidget=function(o){
     let list=await o.datafeed.getHistoryKLineData(sym,per,from,to);
     if(g!==gen)return;
     const seen=new Set();list=list.filter(k=>!seen.has(k.timestamp)&&seen.add(k.timestamp)).sort((x,y)=>x.timestamp-y.timestamp);
-    chart.applyNewData(list,list.length>0);autoScale();ready=true;applyStyles();offR=null;fixOffR(true);
-    o.datafeed.subscribe(sym,per,d=>{if(g===gen){chart.updateData(d);cdKick(120)}});subKey={s:sym,p:per};
+    XF=xfNow();RAW=list.slice();
+    chart.applyNewData(viewOf(list),list.length>0&&XF!=="renko");autoScale();ready=true;applyStyles();offR=null;fixOffR(true);
+    o.datafeed.subscribe(sym,per,d=>{if(g===gen){liveUpdate(d);cdKick(120)}});subKey={s:sym,p:per};
     restoreDrawings();
   }
   chart.setLoadDataCallback(async({type,data,callback})=>{
@@ -385,6 +408,9 @@ window.EAGWidget=function(o){
     /* solo velas más antiguas que la primera que ya está en el gráfico; si Deriv ya no tiene más, se deja de pedir */
     const first=data.timestamp,seen=new Set(),list=raw.filter(k=>k.timestamp<first&&!seen.has(k.timestamp)&&seen.add(k.timestamp)).sort((x,y)=>x.timestamp-y.timestamp);
     if(!list.length)noMore=true;
+    if(XF==="renko"){callback([],false);return}
+    if(XF==="ha"){RAW=list.concat(RAW);callback(haList(list),list.length>0);return}
+    RAW=list.concat(RAW);
     callback(list,list.length>0)});
 
   /* ---------- barra superior ---------- */
@@ -415,7 +441,7 @@ window.EAGWidget=function(o){
   const two=n=>String(n).padStart(2,"0"),cdEl=$(".wcd"),clkEl=$(".wclk");
   const tick=()=>{if(!root.isConnected)return clearInterval(clkT);const now=Date.now(),bog=new Date(now-5*36e5);
     clkEl.textContent=`${two(bog.getUTCHours())}:${two(bog.getUTCMinutes())}:${two(bog.getUTCSeconds())} (UTC-5)`;
-    const L=chart.getDataList(),last=L[L.length-1];if(last&&isTk()){cdEl.textContent="Ticks en vivo";cdEl.classList.remove("soon")}else if(last){const left=Math.max(0,last.timestamp+msOf(per)-now),s2=Math.floor(left/1000),h=Math.floor(s2/3600),m=Math.floor(s2%3600/60);
+    const L=chart.getDataList(),last=L[L.length-1];if(last&&(isTk()||XF==="renko")){cdEl.textContent=isTk()?"Ticks en vivo":"Renko · ladrillo "+RBOX;cdEl.classList.remove("soon")}else if(last){const left=Math.max(0,last.timestamp+msOf(per)-now),s2=Math.floor(left/1000),h=Math.floor(s2/3600),m=Math.floor(s2%3600/60);
       cdEl.textContent=`Cierra en ${h?h+":"+two(m):m}:${two(s2%60)}`;cdEl.classList.toggle("soon",left<10000)}};
   const clkT=setInterval(tick,1000);tick();
   /* cuenta regresiva del cierre de vela. Dos modos (Configuración → Gráfico):
@@ -425,7 +451,7 @@ window.EAGWidget=function(o){
   const cdl=document.createElement("div");cdl.className="wcdl";chartEl.appendChild(cdl);
   const cdc=document.createElement("div");cdc.className="wcdc";cdc.innerHTML='<b></b><span></span>';chartEl.appendChild(cdc);
   const cdcN=cdc.firstChild,cdcT=cdc.lastChild;
-  const cdMode=()=>{if(isTk())return"off";const m=o.getCdMode&&o.getCdMode();return m==="regla"||m==="vela"?m:"off"};  /* "mtf" (por defecto): el reloj va en cada mini de la multitemporalidad, no en el gráfico grande */
+  const cdMode=()=>{if(isTk()||XF==="renko")return"off";const m=o.getCdMode&&o.getCdMode();return m==="regla"||m==="vela"?m:"off"};  /* "mtf" (por defecto): el reloj va en cada mini de la multitemporalidad, no en el gráfico grande */
   /* espacio libre a la derecha de la última vela para que el contador no tape velas (como el "desplazamiento" de MT5) */
   /* OJO: setOffsetRightDistance mueve la vista al tiempo real, así que SOLO se llama al cargar el mercado o al cambiar el modo/la letra
      (antes se llamaba en cada cuadro y al hacer zoom con la rueda el gráfico se iba para un lado) */
@@ -923,7 +949,8 @@ window.EAGWidget=function(o){
 
   return{chart,el:root,startTool:n=>{stopBrush();startTool(n)},stopBrush:()=>stopBrush(),startBrush:()=>startBrush(),undo,redo,renderAlerts,cancelDraw:()=>cancelDraw(),
     getSymbol:()=>sym,setSymbol(s,p){if(!s||(sym&&s.ticker===sym.ticker&&s.pricePrecision===sym.pricePrecision))return;sym=s;if(p&&p.text)per=p;loadData();try{paintBar()}catch(e){}},
-    getPeriod:()=>per,getData:()=>chart.getDataList(),setPeriod(p){if(!p||p.text===per.text)return;per=p;loadData()},
+    getPeriod:()=>per,getData:()=>chart.getDataList(),getRaw:()=>RAW,
+    refreshXform(){if(xfNow()!==XF||XF==="renko")loadData()},setPeriod(p){if(!p||p.text===per.text)return;per=p;loadData()},
     getTheme:()=>theme,setTheme(t){theme=t;applyStyles()},
     setStyles(s){extra=s||{};applyStyles()},setDecimals(){applyDec();applyStyles()},
     refreshBar:paintBar,

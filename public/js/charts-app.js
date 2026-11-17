@@ -393,11 +393,14 @@ function start(){
   if(["#35c4a2","#22ab94","#0ecb81"].includes(SAVE.cfg.up))SAVE.cfg.up=UP;if(["#ec5b52","#f6465d"].includes(SAVE.cfg.dn))SAVE.cfg.dn=DN;
   const CF=()=>SAVE.cfg,light=()=>CF().theme==="light",eagT=()=>CF().theme==="eag",defBg=()=>light()?"#ffffff":eagT()?"#060b1a":"#0b0c0e";
   const barOf=()=>{const c=CF();return{upColor:c.up,downColor:c.dn,noChangeColor:NC,upBorderColor:c.up,downBorderColor:c.dn,noChangeBorderColor:NC,upWickColor:c.up,downWickColor:c.dn,noChangeWickColor:NC}};
+  const CTYPES=[["candle_solid","Velas"],["candle_stroke","Huecas"],["ohlc","Barras"],["area","Área"],["ha","Heikin Ashi"],["renko","Renko"]];
+  const kType=t=>t==="ha"||t==="renko"?"candle_solid":t;
   const styFor=()=>{const c=CF(),gc=light()?"rgba(16,18,24,.06)":eagT()?"rgba(43,66,130,.35)":"rgba(255,255,255,.045)";
     return{grid:{show:!!c.grid,horizontal:{show:!!c.grid,color:gc},vertical:{show:!!c.grid,color:gc}},
-      candle:{type:c.type,bar:barOf(),area:{lineColor:c.up},priceMark:{last:{show:!!c.last,upColor:c.up,downColor:c.dn},high:{show:!!c.hl},low:{show:!!c.hl}}},
+      candle:{type:kType(c.type),bar:barOf(),area:{lineColor:c.up},priceMark:{last:{show:!!c.last,upColor:c.up,downColor:c.dn},high:{show:!!c.hl},low:{show:!!c.hl}}},
       crosshair:{show:!!c.cross},xAxis:{show:!!c.axis},yAxis:{show:!!c.axis}}};
   const BGS=["#060b1a","#0b0c0e","#000000","#131722","#0d1512","#15121b","#ffffff","#faf8f3","#f3f5f8"];
+  let lastXk=null;
   function applyCfg(){const c=CF();
     document.documentElement.classList.toggle("light",light());document.documentElement.classList.toggle("eag",eagT());appw.classList.toggle("h-wm",!c.wm);
     const de=document.documentElement;de.dataset.wm=(c.wmMode==="brand"||!c.wm)?"brand":"both";de.style.setProperty("--wmo",Math.max(FREE?16:6,+c.wmOp||10)/100);de.style.setProperty("--wms",(+c.wmSize||100)/100);
@@ -407,10 +410,11 @@ function start(){
     panes.forEach(p=>{try{if(p.kc.getTheme()!==c.theme)p.kc.setTheme(c.theme)}catch(e){}setTimeout(()=>{try{p.kc.setStyles(styFor());p.kc.setDecimals()}catch(e){}},40)});
     Object.values(MTFS).forEach(M=>M.minis.forEach(m=>{try{m.c.setStyles({candle:{bar:barOf()}})}catch(e){}}));
     if(c.ticks===false)panes.forEach((p,i)=>{try{if(p.kc.getPeriod().timespan==="tick"){p.kc.setPeriod(perOf("1m"));SAVE.panes[i]=Object.assign({},SAVE.panes[i],{p:"1m"})}}catch(e){}});
-    try{decorateAll()}catch(e){}window.__spkPaint&&window.__spkPaint()}
+    try{decorateAll()}catch(e){}window.__spkPaint&&window.__spkPaint();
+    const xk=c.type+"|"+(c.type==="renko"?(+c.rbox||0):"");if(xk!==lastXk){const first=lastXk==null;lastXk=xk;if(!first)panes.forEach(p=>{try{p.kc.reloadData()}catch(e){}})}}
   function openCfg(anchor){const c=CF();
     const tg=(k,t)=>`<label class="sw"><input type="checkbox" data-k="${k}" ${c[k]?"checked":""}><i></i><span>${t}</span></label>`;
-    const TYPES=[["candle_solid","Velas"],["candle_stroke","Huecas"],["ohlc","Barras"],["area","Área"]];
+    const TYPES=CTYPES;
     pop.innerHTML=`<div class="ph">Tema</div><div class="seg">${[["dark","Oscuro"],["light","Claro"]].map(([v,t])=>`<button data-th="${v}" class="${c.theme===v?"on":""}">${t}</button>`).join("")}</div>
       <div class="ph">Fondo del gráfico</div><div class="sws">${BGS.map(b=>`<button class="swc${(c.bg||"")===b?" on":""}" data-bg="${b}" style="background:${b}" title="${b}"></button>`).join("")}<label class="swc pick" title="Otro color"><input type="color" data-bgp value="${c.bg||defBg()}">+</label><button class="swc auto${c.bg?"":" on"}" data-bg="" title="Según el tema">A</button></div>
       <div class="ph">Velas</div><div class="seg">${TYPES.map(([v,t])=>`<button data-ty="${v}" class="${c.type===v?"on":""}">${t}</button>`).join("")}</div>
@@ -443,7 +447,7 @@ function start(){
     const kc=window.EAGWidget({container:el.firstChild,symbol:findInfo(sym),period:per,datafeed:Datafeed(),theme:CF().theme,timezone:TZ,
       indicators:FREE?trimInd(sv.ind):sv.ind,magnet:SAVE.magnet,lastTools:SAVE.lastTools,
       toolAllowed:FREE?(n=>FREE_TOOLS.has(n)):null,maxIndicators:FREE?FREE_IND:null,alertsAllowed:FREE?(()=>false):null,onLocked:(k,what)=>upsell(what),
-      getFavTF:()=>SAVE.tfFav,ticksOn:()=>CF().ticks!==false,
+      getFavTF:()=>SAVE.tfFav,getXform:()=>CF().type==="ha"||CF().type==="renko"?CF().type:"",getRenkoBox:()=>+CF().rbox||0,ticksOn:()=>CF().ticks!==false,
       onPickTF:t=>{kc.setPeriod(perOf(t));afterTF()},
       onTFClick:a=>{setActive(i);pop.hidden||pop.dataset.for!=="tf"?openTF(p,a):closePop()},
       onSymbolClick:anc=>{setActive(i);const a=anc&&anc.nodeType?anc:el.querySelector(".wsym");pop.hidden||pop.dataset.for!=="sym"?openSymPicker(p,a):closePop()},
@@ -761,7 +765,10 @@ function start(){
     if(cat==="apariencia")return`<h3>Apariencia</h3>
       <div class="sgrp"><div class="slabel">Tema</div><div class="thm">${[["dark","Oscuro","#0b0c0e","#131418"],["light","Claro","#ffffff","#f3f4f6"],["eag","Arte Gráfico","#060b1a","#0a1330"]].map(([v,t,a,b])=>`<button class="thc${c.theme===v?" on":""}" data-th="${v}"><span class="thp" style="background:${a}"><i style="background:${b}"></i><em style="background:${c.up}"></em><em style="background:${c.dn};height:40%"></em><em style="background:${c.up};height:55%"></em></span><b>${t}</b></button>`).join("")}</div></div>
       <div class="sgrp"><div class="slabel">Fondo del gráfico</div><p class="shelp">"A" usa el fondo del tema. Puedes elegir cualquier color con +.</p><div class="sws">${BGS.map(b=>`<button class="swc${(c.bg||"")===b?" on":""}" data-bg="${b}" style="background:${b}" title="${b}"></button>`).join("")}<label class="swc pick" title="Otro color"><input type="color" data-bgp value="${c.bg||defBg()}">+</label><button class="swc auto${c.bg?"":" on"}" data-bg="" title="Según el tema">A</button></div></div>
-      <div class="sgrp"><div class="slabel">Velas</div><div class="seg">${[["candle_solid","Velas"],["candle_stroke","Huecas"],["ohlc","Barras"],["area","Área"]].map(([v,t])=>`<button data-ty="${v}" class="${c.type===v?"on":""}">${t}</button>`).join("")}</div>
+      <div class="sgrp"><div class="slabel">Velas</div><div class="seg seg-wrap">${CTYPES.map(([v,t])=>`<button data-ty="${v}" class="${c.type===v?"on":""}">${t}</button>`).join("")}</div>
+        ${c.type==="ha"?`<p class="shelp"><b>Heikin Ashi</b>: velas "promediadas" que suavizan el ruido y muestran mejor la tendencia. Ojo: sus precios no son los reales del mercado; para entrar y poner el SL mira el precio real.</p>`:""}
+        ${c.type==="renko"?`<p class="shelp"><b>Renko</b>: ladrillos del mismo tamaño que solo se dibujan cuando el precio se mueve esa distancia; el tiempo no cuenta. Para cambiar de color hace falta un movimiento de 2 ladrillos.</p>
+          ${row("Tamaño del ladrillo","En puntos. Vacío = automático (según el movimiento normal del mercado).",`<input type="number" min="0" step="any" data-rbox value="${c.rbox>0?c.rbox:""}" placeholder="Auto" style="width:90px">`)}`:""}
         ${row("Color alcista","Velas que cierran por encima de su apertura.",`<input type="color" data-col="up" value="${c.up}">`)}${row("Color bajista","Velas que cierran por debajo de su apertura.",`<input type="color" data-col="dn" value="${c.dn}">`)}</div>`;
     if(cat==="grafico")return`<h3>Gráfico</h3>
       <div class="slabel">Decimales del precio</div><p class="shelp">Cuántos decimales se ven en el precio, la escala y la leyenda. "Auto" usa los del mercado.</p>
@@ -821,6 +828,7 @@ function start(){
     ov.querySelectorAll("[data-bg]").forEach(b=>b.onclick=()=>set("bg",b.dataset.bg));
     const bp=ov.querySelector("[data-bgp]");bp&&(bp.onchange=e=>set("bg",e.target.value));
     ov.querySelectorAll("[data-ty]").forEach(b=>b.onclick=()=>set("type",b.dataset.ty));
+    const rb=ov.querySelector("[data-rbox]");rb&&(rb.onchange=()=>{const v=parseFloat(String(rb.value).replace(",","."));set("rbox",isFinite(v)&&v>0?v:0)});
     ov.querySelectorAll("[data-col]").forEach(i=>i.onchange=()=>set(i.dataset.col,i.value));
     ov.querySelectorAll("input[data-k]").forEach(i=>i.onchange=()=>set(i.dataset.k,i.checked));
     ov.querySelectorAll("[data-wm]").forEach(b=>b.onclick=()=>set("wmMode",b.dataset.wm));
