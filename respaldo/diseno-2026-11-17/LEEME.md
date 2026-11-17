@@ -7,5 +7,5 @@ Para volver a este diseño:
 2. Copia `js/app.js` de esta carpeta a `public/js/app.js`.
 3. Publica (git push a main).
 
-También quedó marcado en git con la etiqueta `diseno-anterior-2026-11-17`:
-`git checkout diseno-anterior-2026-11-17 -- public/index.html public/styles.css public/js/app.js`
+En git, el último cambio con el diseño anterior es el commit `827816c`:
+`git checkout 827816c -- public/index.html public/styles.css public/js/app.js`
