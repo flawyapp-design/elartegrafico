@@ -248,7 +248,7 @@ function renderNav(){sideState();viewBar();document.body.classList.toggle("is-ac
     if(ACAD&&u&&p&&!(closedAcad()&&!admin())){
       G.push(["Aprender",[it("#inicio","Mi panel","home",r==="inicio"),it("#academia","Temario","acad",["academia","modulo","leccion"].includes(r)),it("#practica","Práctica","chart",r==="practica")]]);
       G.push(["Tu avance",[it("#logros","Logros","medal",r==="logros"),it("#progreso","Progreso","layers",r==="progreso")].concat(premium()?[]:[it("#prueba","Prueba gratis","play",r==="prueba")])]);
-      G.push(["Más",[it("#presentacion-precios","Planes y precios","crown",false),it("#presentacion","Presentación","news",r==="presentacion")]]);
+      G.push(["Más",[it("#presentacion-precios","Planes y precios","crown",r==="presentacion"&&ra==="precios"),it("#presentacion","Presentación","news",r==="presentacion"&&ra!=="precios")]]);
     }else{
       const pa=k=>toAcad("presentacion"+(k?"-"+k:"")),on=k=>r==="presentacion"&&(ra||"")===k;
       G.push(["Academia",[it(pa(""),"Presentación","acad",on("")),it(pa("aprende"),"Qué vas a aprender","bolt",on("aprende")),it(pa("profe"),"Quién te enseña","users",on("profe")),it(pa("temario"),"Temario","layers",on("temario")),it(pa("precios"),"Planes y precios","crown",on("precios")||r==="premium"),it(pa("faq"),"Preguntas frecuentes","news",on("faq"))]]);
@@ -604,7 +604,7 @@ function expandPlans(pl,disc){pl=(Array.isArray(pl)?pl:[]).filter(x=>x&&!x.auto)
   return out}
 let PRICE_SEL={}; /* meses elegidos en cada plan (tarjeta) */
 function pricingBlock(host,o={}){if(!host)return;const s=S.site;const pl=(s.plans||[]).filter(x=>x&&x.name&&x.price);const cs=(S.courses||[]).filter(c=>c.status!=="borrador"&&!c.base),bases=(S.courses||[]).filter(c=>c.status!=="borrador"&&c.base);
-  if((!pl.length&&!cs.length)||(premium()&&!o.page)){host.remove();return}const off=o.off??!!s.paymentsOff;
+  if((!pl.length&&!cs.length)||(premium()&&!o.page&&!o.always)){host.remove();return}const off=o.off??!!s.paymentsOff;
   const num=x=>{const m=String(x).replace(",",".").match(/\d+(\.\d+)?/);return m?parseFloat(m[0]):NaN};const cur=x=>String(x).replace(/[\d.,\s]+/g," ").trim()||"USD";
   const fm=v=>(Math.round(v*10)/10).toLocaleString("es-CO",{maximumFractionDigits:1});
   const btn=(lbl,attr,gold)=>off?'<span class="btn disabled" aria-disabled="true">Disponible pronto</span>':o.page?`<button type="button" class="btn ${gold?"gold":""}" ${attr}>${lbl}</button>`:`<a class="btn ${gold?"gold":""}" href="${toMain("premium")}">${lbl}</a>`;
@@ -1138,7 +1138,7 @@ ROUTES.presentacion=arg=>{if(secJump("pres","ac-",arg))return;const s=S.site,u=l
   <section class="sx"><div class="sx-h"><span class="eyebrow">Opiniones</span><h2>Lo que dicen los alumnos</h2></div><div id="revs"></div></section>
   <section class="sx" id="ac-faq"><div class="sx-h"><span class="eyebrow">Preguntas frecuentes</span><h2>Antes de empezar</h2></div><div class="faq" id="faq"></div></section>
   ${u?"":`<section class="cta-band"><div class="pb final"><div><span class="eyebrow">Empieza gratis</span><h2>Crea tu cuenta y prueba la academia</h2><p class="muted" style="max-width:60ch;margin-top:8px">Con tu cuenta tienes 5 gráficas de prueba${(S.courses||[]).some(c=>c.base)?" y el curso Fundamentos completo":""}. Cuando quieras el método completo, eliges un plan o compras el curso.</p></div><div class="row"><a class="btn gold" href="${toMain("registro")}">Crear cuenta gratis</a><a class="btn" href="${toMain("entrar-academia")}">Ya tengo cuenta</a></div></div></section>`}`;
-  goLinks();demoChart($("#demo"));aboutBlock($("#about"));temarioBlock($("#tmp"));pricingBlock($("#ac-precios"));faqBlock($("#faq"));appCard($("#appCard"));
+  goLinks();demoChart($("#demo"));aboutBlock($("#about"));temarioBlock($("#tmp"));pricingBlock($("#ac-precios"),{always:1});if(premium()&&$("#ac-precios"))$("#ac-precios").insertAdjacentHTML("afterbegin",`<div class="note ok-note">Ya tienes el plan <b>${esc((TIERS[myPlan()]||{n:"Premium"}).n)}</b>${(API.profile()||{}).premium_until&&new Date(API.profile().premium_until).getFullYear()<2090?` hasta el ${fmtDate(API.profile().premium_until)}`:""}. Si eliges otro plan, los días se suman a los que te quedan.</div>`);faqBlock($("#faq"));appCard($("#appCard"));
   $("#cards").innerHTML=(s.cards||[]).map((c,i)=>`<div class="card"><span class="k">${String(i+1).padStart(2,"0")}</span><h3>${esc(c.title)}</h3><p>${esc(c.text)}</p></div>`).join("");
   API.publicReviews().then(r=>{if($("#revs"))$("#revs").innerHTML=reviewsHTML(r.slice(0,3),true)}).catch(()=>{});
   app.dataset.pg="pres";if(arg)setTimeout(()=>{const t=document.getElementById("ac-"+arg);if(t)t.scrollIntoView({block:"start"})},250);

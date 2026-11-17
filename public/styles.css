@@ -2291,3 +2291,4 @@ html.v4 .view>.pagehead{margin-bottom:-6px}
   html.v4 .appcard .t .muted{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;font-size:13px;line-height:1.45}
   html.v4 .appcard .row{grid-column:1/-1;margin:0}
 }
+#ac-precios>.note{margin-bottom:22px}
