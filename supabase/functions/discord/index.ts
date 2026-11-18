@@ -21,6 +21,8 @@ const BOT = Deno.env.get("DISCORD_BOT_TOKEN") || "";
 const GUILD = Deno.env.get("DISCORD_GUILD_ID") || "";
 const ROLE = Deno.env.get("DISCORD_ROLE_AFILIADO") || "";
 const READY = !!(CID && CSEC && BOT && GUILD && ROLE);
+const SOPORTE = Deno.env.get("DISCORD_SOPORTE_CHANNEL") || "";   // canal donde se abren los tickets (hilos privados)
+const SOPORTE_ROL = Deno.env.get("DISCORD_SOPORTE_ROL") || "";   // opcional: rol de tu equipo, se menciona al abrir un ticket
 const ALLOWED = ["https://elartegrafico.com/", "https://www.elartegrafico.com/", "http://localhost:8766/"];
 
 const cors = {
@@ -77,6 +79,50 @@ async function syncOne(p: any): Promise<string> {
   return "limite";
 }
 
+// ---------- tickets de soporte ----------
+async function dcPost(channel: string, payload: unknown) {
+  for (let i = 0; i < 3; i++) {
+    const r = await dc(`/channels/${channel}/messages`, { method: "POST", body: JSON.stringify(payload) });
+    if (r.status === 429) { const j: any = await r.json().catch(() => ({})); await wait(Math.ceil((j.retry_after || 1) * 1000)); continue; }
+    if (r.ok) return (await r.json()).id as string;
+    return null;
+  }
+  return null;
+}
+// si ya tenía ticket y conecta su Discord después, lo agrega a su ticket
+async function addToTicket(uid: string, did: string) {
+  try {
+    const t = (await (await db(`dm_threads?user_id=eq.${uid}&select=dc_thread`)).json())[0];
+    if (t && t.dc_thread && t.dc_thread !== "creando") await dc(`/channels/${t.dc_thread}/thread-members/${did}`, { method: "PUT" });
+  } catch { /* sin ticket */ }
+}
+async function ticketOf(uid: string): Promise<string | null> {
+  for (let i = 0; i < 6; i++) {   // si otro proceso lo está creando, espera un momento
+    const t = (await (await db(`dm_threads?user_id=eq.${uid}&select=dc_thread`)).json())[0];
+    if (!t || !t.dc_thread) return null;
+    if (t.dc_thread !== "creando") return t.dc_thread;
+    await wait(700);
+  }
+  return null;
+}
+async function ticketOpen(uid: string, p: any): Promise<string | null> {
+  // reserva para que dos mensajes seguidos no abran dos tickets
+  const claim = await (await db(`dm_threads?user_id=eq.${uid}&dc_thread=is.null`, { method: "PATCH", headers: { Prefer: "return=representation" }, body: JSON.stringify({ dc_thread: "creando" }) })).json();
+  if (!Array.isArray(claim) || !claim.length) return await ticketOf(uid);
+  const tag = p.affiliate ? " ✅" : "";
+  const r = await dc(`/channels/${SOPORTE}/threads`, { method: "POST", body: JSON.stringify({ name: `🎫 ${String(p.username || "alumno").slice(0, 80)}${tag}`, type: 12, invitable: false, auto_archive_duration: 10080 }) });
+  if (!r.ok) { await db(`dm_threads?user_id=eq.${uid}`, { method: "PATCH", headers: { Prefer: "return=minimal" }, body: JSON.stringify({ dc_thread: null }) }); return null; }
+  const th: any = await r.json();
+  if (p.discord_id) await dc(`/channels/${th.id}/thread-members/${p.discord_id}`, { method: "PUT" });
+  const plan = p.premium_until && new Date(p.premium_until) > new Date() ? (p.plan || "premium") : "gratis";
+  const intro = await dcPost(th.id, {
+    content: `${SOPORTE_ROL ? `<@&${SOPORTE_ROL}> ` : ""}🎫 **Ticket de ${p.username || "alumno"}**${p.discord_id ? ` · <@${p.discord_id}>` : " · (no ha conectado su Discord)"}\nPlan: ${plan}${p.affiliate ? " · Miembro verificado ✅" : ""}\nLo que escriban aquí le llega a su chat en la página, y lo que escriba en la página aparece aquí.\nChat en la página: https://elartegrafico.com/#admin-chat-${uid}`,
+    allowed_mentions: { roles: SOPORTE_ROL ? [SOPORTE_ROL] : [], users: p.discord_id ? [p.discord_id] : [] },
+  });
+  await db(`dm_threads?user_id=eq.${uid}`, { method: "PATCH", headers: { Prefer: "return=minimal" }, body: JSON.stringify({ dc_thread: th.id, dc_last: intro || null }) });
+  return th.id;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   let body: any = {};
@@ -89,6 +135,61 @@ Deno.serve(async (req) => {
   // llamada automática desde la base de datos cuando cambia el afiliado de alguien
   if (action === "sync" && (await cronOk(req))) {
     if (body.user_id) return json({ result: await syncOne(await profile(body.user_id)) });
+  }
+
+  // ---------- Soporte: tickets en Discord ----------
+  if ((action === "ticket-msg" || action === "ticket-poll") && !(await cronOk(req))) return json({ error: "No autorizado" }, 403);
+  if (action === "ticket-msg") {
+    if (!SOPORTE) return json({ skip: "sin canal de soporte" });
+    const m = (await (await db(`dm_messages?id=eq.${body.id}&select=id,user_id,from_admin,body,dc_src`)).json())[0];
+    if (!m || m.dc_src) return json({ skip: true });
+    const p = (await (await db(`profiles?id=eq.${m.user_id}&select=id,username,discord_id,affiliate,plan,premium_until`)).json())[0] || {};
+    let t = await ticketOf(m.user_id);
+    // un mensaje de la página llegado justo con el del alumno: espera a que se abra su ticket
+    for (let i = 0; !t && m.from_admin && i < 4; i++) { await wait(1200); t = await ticketOf(m.user_id); }
+    if (!t) {
+      if (m.from_admin) return json({ skip: "sin ticket" });
+      t = await ticketOpen(m.user_id, p);
+      if (!t) return json({ error: "no se pudo abrir el ticket" }, 500);
+    }
+    const who = m.from_admin ? "🟡 **El Arte Gráfico** (desde la página)" : `🔵 **${p.username || "Alumno"}** (desde la página)`;
+    const r = await dcPost(t, { content: `${who}\n${String(m.body).slice(0, 1800)}`, allowed_mentions: { parse: [] } });
+    return json({ ok: r });
+  }
+  if (action === "ticket-poll") {
+    if (!SOPORTE) return json({ skip: true });
+    const since = new Date(Date.now() - 7 * 864e5).toISOString();
+    const T = await (await db(`dm_threads?dc_thread=not.is.null&dc_thread=neq.creando&last_at=gt.${since}&select=user_id,dc_thread,dc_last`)).json();
+    let copied = 0;
+    for (const th of (Array.isArray(T) ? T : [])) {
+      const p = (await (await db(`profiles?id=eq.${th.user_id}&select=discord_id`)).json())[0] || {};
+      const r = await dc(`/channels/${th.dc_thread}/messages?limit=50${th.dc_last ? `&after=${th.dc_last}` : ""}`);
+      if (r.status === 429) { await wait(1500); continue; }
+      if (!r.ok) continue;
+      const L: any[] = ((await r.json()) || []).reverse();   // del más viejo al más nuevo
+      if (!L.length) continue;
+      let last = th.dc_last, staffText = "";
+      for (const msg of L) {
+        last = msg.id;
+        if (!th.dc_last) continue;          // primera vez: solo marca dónde va
+        if (msg.author?.bot || msg.type !== 0 && msg.type !== 19) continue;
+        let text = String(msg.content || "").trim();
+        if (msg.attachments?.length) text += (text ? "\n" : "") + "📎 Adjunto en Discord: " + msg.attachments.map((a: any) => a.url).join(" ");
+        if (!text) continue;
+        const fromStaff = !p.discord_id || msg.author?.id !== p.discord_id;
+        await db("dm_messages", { method: "POST", headers: { Prefer: "return=minimal" }, body: JSON.stringify({ user_id: th.user_id, from_admin: fromStaff, body: text.slice(0, 1500), dc_src: true, notified: fromStaff }) });
+        if (fromStaff) staffText = text;
+        copied++;
+      }
+      await db(`dm_threads?user_id=eq.${th.user_id}`, { method: "PATCH", headers: { Prefer: "return=minimal" }, body: JSON.stringify({ dc_last: last, ...(copied ? { last_at: new Date().toISOString(), open: true } : {}) }) });
+      // aviso al celular del alumno cuando le responden desde Discord
+      if (staffText) {
+        const sec = req.headers.get("x-cron-secret") || "";
+        await fetch(`${URL_}/functions/v1/send-push`, { method: "POST", headers: { "Content-Type": "application/json", apikey: ANON, Authorization: `Bearer ${ANON}`, "x-cron-secret": sec }, body: JSON.stringify({ action: "dm-user", user_id: th.user_id, text: staffText }) }).catch(() => {});
+      }
+      await wait(200);
+    }
+    return json({ ok: true, copied });
   }
 
   const user = await sessionUser(req);
@@ -118,6 +219,7 @@ Deno.serve(async (req) => {
     const jr = await dc(`/guilds/${GUILD}/members/${du.id}`, { method: "PUT", body: JSON.stringify({ access_token: tk.access_token }) });
     const joined = jr.status === 201;
     const res = await syncOne({ ...me, discord_id: du.id, discord_role: false });
+    await addToTicket(me.id, du.id);
     return json({ ok: true, name, joined, result: res, affiliate: !!me.affiliate });
   }
 
@@ -133,6 +235,7 @@ Deno.serve(async (req) => {
     await db(`profiles?id=eq.${me.id}`, { method: "PATCH", body: JSON.stringify({ discord_id: du.id, discord_name: name }), headers: { Prefer: "return=minimal" } });
     const jr = await dc(`/guilds/${GUILD}/members/${du.id}`, { method: "PUT", body: JSON.stringify({ access_token: tok }) });
     const res = await syncOne({ ...me, discord_id: du.id });
+    await addToTicket(me.id, du.id);
     return json({ ok: true, name, joined: jr.status === 201, result: res });
   }
 

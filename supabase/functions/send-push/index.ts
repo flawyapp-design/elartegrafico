@@ -232,6 +232,17 @@ Deno.serve(async (req) => {
     const keys = await vapid();
     if (body.action === "setup") return json({ publicKey: keys.public_key });
 
+    // respuesta de soporte que llegó desde Discord: notificación al alumno (la llama la función discord)
+    if (body.action === "dm-user") {
+      const sec = req.headers.get("x-cron-secret") || "";
+      const row = (await (await db("push_config?id=eq.1&select=cron_secret")).json())[0];
+      if (!sec || !row?.cron_secret || sec !== row.cron_secret) return json({ error: "No autorizado" }, 403);
+      const uid = String(body.user_id || "");
+      if (!/^[0-9a-f-]{36}$/i.test(uid)) return json({ error: "Usuario no válido" }, 400);
+      const r = await sendAll(keys, "todos", { title: "💬 El Arte Gráfico te respondió", body: String(body.text || "").slice(0, 140), url: "https://elartegrafico.com/#mensajes", tag: "dm" }, uid);
+      return json(r);
+    }
+
     // avisos automáticos de retos (los llama Supabase cada minuto con una clave secreta)
     if (body.action === "cron") {
       const sec = req.headers.get("x-cron-secret") || "";
