@@ -1381,7 +1381,7 @@ async function authView(mode,arg){
   else box.innerHTML=head+`<form class="form" id="f" novalidate><label for="uE">Correo electrónico<input id="uE" type="email" required></label><label>Verificación<div id="cap"></div></label>
       <div class="err" id="err" role="alert"></div><button class="btn gold" type="submit" id="go">Enviar enlace</button><a href="#entrar" style="font-size:14px">Volver a ingresar</a></form>`;
   $$("[data-m]",box).forEach(b=>b.onclick=()=>location.hash="#"+b.dataset.m);
-  const dl=$("#dcLogin");if(dl)dl.onclick=()=>{try{localStorage.setItem("ag_oauth_back",back?"academia":"")}catch(e){}busy(dl,true);API.discordLogin()};
+  const dl=$("#dcLogin");if(dl)dl.onclick=()=>{try{localStorage.setItem("ag_oauth_back",back?"academia":"")}catch(e){}busy(dl,true);Promise.resolve(API.discordLogin()).then(ok=>{if(ok===false)busy(dl,false)})};
   $$("[data-show]",box).forEach(b=>b.onclick=()=>{const i=$("#"+b.dataset.show);i.type=i.type==="password"?"text":"password";b.textContent=i.type==="password"?"Mostrar":"Ocultar"});
   const cap=$("#cap")?captcha($("#cap")):null;
   if($("#uP")&&mode==="up")$("#uP").oninput=()=>{const v=$("#uP").value;let sc=0;if(v.length>=8)sc++;if(/[0-9]/.test(v)&&/[a-zA-Z]/.test(v))sc++;if(v.length>=12)sc++;if(/[^A-Za-z0-9]/.test(v))sc++;
