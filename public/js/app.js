@@ -98,6 +98,7 @@ const isBase=cid=>!!(S.courses||[]).find(c=>c.id===cid&&c.base);
 const ownsCourse=cid=>{if(!cid)return false;if(viewAs()==="curso")return isBase(cid)||cid===((S.courses||[]).find(c=>!c.base)||{}).id;if(viewAs())return false;
   if(isBase(cid))return logged();return !!(S.myCourses&&S.myCourses.has(cid))};
 const ownedCourses=()=>(S.courses||[]).filter(c=>ownsCourse(c.id));
+const paidCourses=()=>ownedCourses().filter(c=>!c.base);
 const courseLessons=c=>{const ms=new Set((S.modules||[]).filter(m=>m.course_id===c.id).map(m=>m.id));return (S.lindex||[]).filter(l=>ms.has(l.module_id))};
 const graduated=c=>{const ls=courseLessons(c);return ls.length>0&&ls.every(l=>S.prog&&S.prog.done[l.id]&&S.prog.done[l.id].passed)};
 const courseTag=c=>`<span class="crs-tag${graduated(c)?" grad":""}" style="--cc:${esc(c.color||"#d8b062")}" title="Curso ${esc(c.title)}">${esc(c.icon||"🎓")} ${graduated(c)?"✓ Graduado · ":""}${esc(c.title)}</span>`;
@@ -284,7 +285,7 @@ function renderNav(){sideState();viewBar();document.body.classList.toggle("is-ac
     if(!n.contains(e.target)||e.target.closest("a")){n.classList.remove("open");document.body.classList.remove("sheet-open")}})}
   $("#nav").innerHTML=navHTML+mus;
   $("#topUser").innerHTML=
-    (u&&p?`<div class="dd" id="dd"><button aria-haspopup="true" aria-expanded="false" id="ddb">${avatar(p,28)}<span>${esc(p.username)}</span>${premium()?`<span class="prem-badge t-${myPlan()}">${(TIERS[myPlan()]||{n:"Premium"}).n}</span>`:ownedCourses().length?`<span class="prem-badge crs" style="--cc:${esc(ownedCourses()[0].color)}">Curso</span>`:""}</button>
+    (u&&p?`<div class="dd" id="dd"><button aria-haspopup="true" aria-expanded="false" id="ddb">${avatar(p,28)}<span>${esc(p.username)}</span>${premium()?`<span class="prem-badge t-${myPlan()}">${(TIERS[myPlan()]||{n:"Premium"}).n}</span>`:paidCourses().length?`<span class="prem-badge crs" style="--cc:${esc(paidCourses()[0].color)}">Curso</span>`:""}</button>
       <div class="menu" hidden>
         <a class="dm-head" href="#perfil">${avatar(p,46)}<span class="dm-id"><b>${esc(p.username)} ${flag(p.country||"")}</b><small>${esc(p.email||"")}</small></span></a>
         <div class="dm-lv"><div class="dm-lvr"><span>${premium()?premTag(myPlan()):myCourseTags()||'<span class="tag">Cuenta gratis</span>'}${p.affiliate?affTag():""}<span class="dim">${esc(lv.name)}</span></span><b class="mono">${S.prog?S.prog.xp:0} pts</b></div>
