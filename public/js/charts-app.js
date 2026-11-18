@@ -115,6 +115,8 @@ const gate=(h1,p,btns)=>{app.innerHTML=`<div class="gate"><img src="assets/logo_
      Se puede apagar en Admin → EAG Charts ("Charts gratis para registrados"). */
   let SITE0={};try{SITE0=(API.site?await API.site():{})||{}}catch(e){SITE0={}}
   window.__site0=SITE0;const freeOn=SITE0.chartFree!==false;
+  /* afiliados de Deriv verificados: desbloquean gratis las funciones que elija el admin (Admin → EAG Charts) */
+  try{const me=(API.profile&&API.profile())||{};const on=SITE0.chartAffOn!==false;window.__affKeys=new Set(me.affiliate&&on?(Array.isArray(SITE0.chartAff)?SITE0.chartAff:["tools","ind","alerts","az"]):[]);window.__aff=!!me.affiliate}catch(e){window.__affKeys=new Set();window.__aff=false}
   if(!chartsPlan()){
     let t=null;try{t=API.chartTrial?await API.chartTrial():null}catch(e){t=null}
     if(freeOn&&(!t||!t.ends_at||new Date(t.ends_at).getTime()<=Date.now())){
@@ -155,13 +157,18 @@ function start(){
   const KP=window.klinechartspro,KC=window.klinecharts;
   /* ---------- versión gratis ---------- */
   const FREE=!!window.__free,S0=window.__site0||{};
+  const AFFK=window.__affKeys||new Set(),AFF_DEF=["tools","ind","alerts","az"];
+  const LOCK={tools:FREE&&!AFFK.has("tools"),ind:FREE&&!AFFK.has("ind"),alerts:FREE&&!AFFK.has("alerts"),az:FREE&&!AFFK.has("az")};
+  const AFF_NAMES={tools:"herramientas avanzadas de dibujo",ind:"indicadores sin límite",alerts:"alertas al celular",az:"zonas automáticas de soporte y resistencia",replay:"Replay del mercado",prac:"Práctica guiada"};
+  const affOffer=()=>{if(S0.chartAffOn===false)return"";const k=(Array.isArray(S0.chartAff)?S0.chartAff:AFF_DEF).filter(x=>AFF_NAMES[x]);if(!k.length)return"";const L=k.map(x=>AFF_NAMES[x]);return L.length>1?L.slice(0,-1).join(", ")+" y "+L[L.length-1]:L[0]};
   const FREE_IND=S0.chartFreeInd!=null&&S0.chartFreeInd!==""?Math.max(0,+S0.chartFreeInd||0):2;
   const FREE_TOOLS=new Set(["segment","rayLine","straightLine","horizontalStraightLine","horizontalRayLine","horizontalSegment","verticalStraightLine","priceLine","eagZone","eagRect","eagText","eagNote","eagMeasure"]);
   const PLAN_URL=MAIN+"#premium";
-  function upsell(what){if(!FREE)return;let m=document.querySelector(".upsell");if(m)m.remove();m=document.createElement("div");m.className="upsell";
+  function upsell(what){if(!FREE)return;const off=window.__aff?"":affOffer();let m=document.querySelector(".upsell");if(m)m.remove();m=document.createElement("div");m.className="upsell";
     m.innerHTML=`<div class="ups-card" role="dialog" aria-modal="true"><div class="ups-ic">🔒</div><h3>${esc(what)}</h3><p class="ups-sub">Disponible en EAG Charts completo: planes Plata, Oro y Diamond</p>
       <p>Estás usando la <b>versión gratis</b>: multitemporalidad, varios gráficos y mercados, líneas y zonas, y ${FREE_IND} indicador${FREE_IND===1?"":"es"}. Con <b>Plata, Oro o Diamond</b> tienes todas las herramientas (Fibonacci, zonas de compra/venta, posiciones, patrones y ondas), indicadores sin límite, alertas al celular, y el Replay y la Práctica.</p>
-      <div class="row"><button class="btn" data-x>Seguir gratis</button><a class="btn gold" href="${PLAN_URL}">Ver planes</a></div></div>`;
+      ${off?`<div class="ups-aff"><b>¿Eres parte de la comunidad?</b> Si abres tu cuenta de Deriv con el enlace de El Arte Gráfico y verificas tu ID, desbloqueas <b>gratis</b>: ${esc(off)}.</div>`:""}
+      <div class="row"><button class="btn" data-x>Seguir gratis</button>${off?`<a class="btn" href="${MAIN}#puntos">Verificar afiliado</a>`:""}<a class="btn gold" href="${PLAN_URL}">Ver planes</a></div></div>`;
     document.body.appendChild(m);const cl=()=>m.remove();m.onclick=e=>{if(e.target===m)cl()};m.querySelector("[data-x]").onclick=cl}
   window.__upsell=upsell;
   try{KP.loadLocales("es-ES",ES)}catch(e){}
@@ -184,7 +191,7 @@ function start(){
       <span class="st" id="st"><i></i><span>Conectando…</span></span>
       <span class="grow"></span>
       <span class="who">${esc(prof.username||"")}</span>
-      ${window.__free?`<a class="btn ic freeb" href="${MAIN}#premium" title="Estás en la versión gratis. Mejora a Plata, Oro o Diamond para tenerlo todo"><span class="pi">⭐</span><span class="t">Gratis · Mejorar</span></a>`:""}
+      ${window.__free?`<a class="btn ic freeb" href="${MAIN}#premium" title="${window.__affKeys&&window.__affKeys.size?"Afiliado: tienes funciones extra desbloqueadas. Mejora a Plata, Oro o Diamond para tenerlo todo":"Estás en la versión gratis. Mejora a Plata, Oro o Diamond para tenerlo todo"}"><span class="pi">⭐</span><span class="t">${window.__affKeys&&window.__affKeys.size?"Afiliado · Mejorar":"Gratis · Mejorar"}</span></a>`:""}
       <button class="btn ic clb" id="clb" title="Modo Clase y Zonas del profe"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="12" rx="1.5"/><path d="m7 12 3-3 2 2 4-4"/><path d="M9 20l3-4 3 4"/></svg><span class="t">Clase</span><i class="cdot"></i></button>
       <button class="btn ic prob" id="prob" title="Estudio: Replay del mercado y Práctica guiada (Premium)"><span class="pi">🎓</span><span class="t">Estudio</span><em>PRO</em></button>
       <button class="btn ic inst" id="instb" data-inst title="Instalar EAG Charts como app" hidden><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg><span class="t">Instalar app</span></button>
@@ -488,9 +495,9 @@ function start(){
     const sv=SAVE.panes[i]||{},sym=sv.s||DEF[i%DEF.length],per=perOf(sv.p||(i===0?"5m":"1m"));
     const p={el,kc:null};
     const kc=window.EAGWidget({container:el.firstChild,symbol:findInfo(sym),period:per,datafeed:Datafeed(),theme:CF().theme,timezone:TZ,
-      indicators:FREE?trimInd(sv.ind):sv.ind,magnet:SAVE.magnet,lastTools:SAVE.lastTools,
-      toolAllowed:FREE?(n=>FREE_TOOLS.has(n)):null,maxIndicators:FREE?FREE_IND:null,alertsAllowed:FREE?(()=>false):null,onLocked:(k,what)=>upsell(what),
-      getFavTF:()=>SAVE.tfFav,getXform:()=>CF().type==="ha"||CF().type==="renko"?CF().type:"",getRenkoBox:()=>+CF().rbox||0,autoZones:()=>!!CF().az&&!FREE,ticksOn:()=>CF().ticks!==false,
+      indicators:LOCK.ind?trimInd(sv.ind):sv.ind,magnet:SAVE.magnet,lastTools:SAVE.lastTools,
+      toolAllowed:LOCK.tools?(n=>FREE_TOOLS.has(n)):null,maxIndicators:LOCK.ind?FREE_IND:null,alertsAllowed:LOCK.alerts?(()=>false):null,onLocked:(k,what)=>upsell(what),
+      getFavTF:()=>SAVE.tfFav,getXform:()=>CF().type==="ha"||CF().type==="renko"?CF().type:"",getRenkoBox:()=>+CF().rbox||0,autoZones:()=>!!CF().az&&!LOCK.az,ticksOn:()=>CF().ticks!==false,
       onPickTF:t=>{kc.setPeriod(perOf(t));afterTF()},
       onTFClick:a=>{setActive(i);pop.hidden||pop.dataset.for!=="tf"?openTF(p,a):closePop()},
       onSymbolClick:anc=>{setActive(i);const a=anc&&anc.nodeType?anc:el.querySelector(".wsym");pop.hidden||pop.dataset.for!=="sym"?openSymPicker(p,a):closePop()},
@@ -732,12 +739,13 @@ function start(){
       try{loadAlerts()}catch(e){}},300)});
 
   $("#cfgb").onclick=e=>{e.stopPropagation();openSettings()};
-  $("#alb").onclick=e=>{e.stopPropagation();if(FREE)return upsell("Las alertas de precio");openSettings("alertas")};
+  $("#alb").onclick=e=>{e.stopPropagation();if(LOCK.alerts)return upsell("Las alertas de precio");openSettings("alertas")};
   /* ---------- Estudio (Replay + Práctica): Premium; el admin puede incluirlo en la prueba de 3 días ---------- */
   let SITE={};try{API.site&&API.site().then(d=>{SITE=d||{}}).catch(()=>{})}catch(e){}
   /* Replay: desde Oro. Práctica guiada: solo Diamond. El admin puede abrir ambos en la prueba. */
   const planRank=()=>{try{if(API.isAdmin())return 9;if(!API.isPremium())return 0;return({cobre:1,plata:2,oro:3,diamond:4})[String(((API.profile&&API.profile())||{}).plan||"").toLowerCase()]||0}catch(e){return 0}};
   const proAccess=mode=>{const need=mode==="replay"?3:4,r=planRank();if(r>=need)return{ok:true};
+    if(AFFK.has(mode==="replay"?"replay":"prac"))return{ok:true};
     if(window.__trial&&SITE.chartProTrial)return{ok:true};
     return{ok:false,need,why:mode==="replay"?"El Replay del mercado es exclusivo del plan Oro: mira el mercado vela por vela, en varias temporalidades a la vez y con operaciones simuladas.":"La Práctica guiada es exclusiva del plan Diamond: estudia con mercado real proyección, zonas, rompimientos e impulsos, con corrección al instante."}};
   if(window.EAGPro){window.EAGPro.init({feed,syms:()=>SYMS,SAVE,save,toast,MAIN,access:proAccess,
@@ -820,7 +828,7 @@ function start(){
       <div class="slabel">Contador de cierre de vela</div><p class="shelp">"En Multi-TF": cada temporalidad de la multitemporalidad muestra lo que le falta a su vela. "Junto a la vela" es como en MT5: al lado de la última vela del gráfico grande, con el nombre del mercado.</p>
       <div class="seg">${[["mtf","En Multi-TF"],["vela","Junto a la vela"],["regla","En la regla"],["off","Oculto"]].map(([v,t])=>`<button data-cd="${v}" class="${(c.cd||"mtf")===v?"on":""}">${t}</button>`).join("")}</div>
       <div class="slabel">Mostrar</div>`+[["grid","Cuadrícula","Líneas de fondo para ubicar precios y horas."],["axis","Ejes de precio y hora","La escala de precios a la derecha y las horas abajo."],["last","Línea del último precio","Línea punteada y etiqueta con el precio actual."],["hl","Máximo y mínimo visibles","Marca el precio más alto y más bajo de lo que estás viendo."],["cross","Cruz del cursor","Líneas que siguen al mouse con precio y hora exactos."]].map(([k,t,d])=>row(t,d,tog(`data-k="${k}"`,c[k]))).join("")
-      +`<div class="slabel">Zonas automáticas</div>`+row("Soportes y resistencias automáticos"+(FREE?" 🔒":""),"Marca solas las zonas donde el precio rebotó 2 o más veces (hasta 3 arriba y 3 abajo). Se actualizan cada 15 segundos. Son una ayuda: confírmalas con tu análisis.",tog('data-k="az"',!!c.az&&!FREE))
+      +`<div class="slabel">Zonas automáticas</div>`+row("Soportes y resistencias automáticos"+(LOCK.az?" 🔒":""),"Marca solas las zonas donde el precio rebotó 2 o más veces (hasta 3 arriba y 3 abajo). Se actualizan cada 15 segundos. Son una ayuda: confírmalas con tu análisis.",tog('data-k="az"',!!c.az&&!FREE))
       +`<div class="slabel">Gráfico de ticks</div>`+[["ticks","Botón «Ticks»","Gráfico donde cada punto es un movimiento del precio, como el gráfico de ticks de MT5."],["spk","Contador de spikes (Boom y Crash)","En el gráfico de ticks: cuántos ticks van desde el último spike y la estadística. Es estadística, no predicción."]].map(([k,t,d])=>row(t,d,tog(`data-k="${k}"`,c[k]!==false))).join("");
     if(cat==="marca")return`<h3>Marca de agua</h3><p class="shelp">Ideal para tus lives: se ve el mercado, la temporalidad y tu marca de fondo.</p>
       ${row("Mostrar mercado y temporalidad","La marca EL ARTE GRÁFICO siempre se ve; esto quita o pone el nombre del mercado.",tog('data-k="wm"',c.wm))}
@@ -874,7 +882,7 @@ function start(){
     ov.querySelectorAll("[data-ty]").forEach(b=>b.onclick=()=>set("type",b.dataset.ty));
     const rb=ov.querySelector("[data-rbox]");rb&&(rb.onchange=()=>{const v=parseFloat(String(rb.value).replace(",","."));set("rbox",isFinite(v)&&v>0?v:0)});
     ov.querySelectorAll("[data-col]").forEach(i=>i.onchange=()=>set(i.dataset.col,i.value));
-    ov.querySelectorAll("input[data-k]").forEach(i=>i.onchange=()=>{if(i.dataset.k==="az"&&FREE&&i.checked){i.checked=false;upsell("Zonas automáticas de soporte y resistencia");return}set(i.dataset.k,i.checked)});
+    ov.querySelectorAll("input[data-k]").forEach(i=>i.onchange=()=>{if(i.dataset.k==="az"&&LOCK.az&&i.checked){i.checked=false;upsell("Zonas automáticas de soporte y resistencia");return}set(i.dataset.k,i.checked)});
     ov.querySelectorAll("[data-wm]").forEach(b=>b.onclick=()=>set("wmMode",b.dataset.wm));
     ov.querySelectorAll("[data-dec]").forEach(b=>b.onclick=()=>set("dec",b.dataset.dec==="auto"?"auto":+b.dataset.dec));
     ov.querySelectorAll("[data-cd]").forEach(b=>b.onclick=()=>set("cd",b.dataset.cd));

@@ -2292,3 +2292,14 @@ html.v4 .view>.pagehead{margin-bottom:-6px}
   html.v4 .appcard .row{grid-column:1/-1;margin:0}
 }
 #ac-precios>.note{margin-bottom:22px}
+/* Discord en Configuración */
+.dc-box{display:grid;gap:16px}
+.dc-row{display:flex;gap:16px;align-items:flex-start}
+.dc-ic{width:52px;height:52px;border-radius:14px;display:grid;place-items:center;flex:none;background:rgba(88,101,242,.14);color:#8b95ff}
+.dc-ic.on{background:#5865F2;color:#fff}
+.dc-ic svg{width:28px;height:28px}
+.dc-t{display:grid;gap:6px;min-width:0}.dc-t b{font-size:16px}.dc-t .pill{justify-self:start;display:inline-flex;gap:6px;align-items:center}
+.dc-note{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+.dc-adm{margin-bottom:14px}
+.aff-note{margin-top:16px;display:flex;gap:14px;align-items:center;justify-content:space-between;flex-wrap:wrap;padding:16px 18px;border-radius:14px;background:rgba(34,184,146,.1);border:1px solid rgba(34,184,146,.35)}
+.aff-note b:first-child{color:var(--okt)}

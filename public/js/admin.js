@@ -474,6 +474,10 @@ async function chartsop(){
     <button class="btn ${fr?"bad":"gold"}" id="cfSw">${fr?"Apagar versión gratis":"Activar versión gratis"}</button></div>
   <div class="acad-switch ${pt?"on":"off"}" style="margin-bottom:14px"><div><b>Estudio (Replay y Práctica) en la prueba: ${pt?"incluido":"solo Premium"}</b><span class="muted">${pt?"Los que están en la prueba de 3 días también pueden usar Replay y Práctica. Úsalo como gancho para que se animen a Premium.":"Replay y Práctica solo los usan los que tienen plan. Los de la prueba ven el botón con el sello PRO y una invitación a Premium."}</span></div>
     <button class="btn ${pt?"bad":"gold"}" id="ptSw">${pt?"Quitar de la prueba":"Incluir en la prueba de 3 días"}</button></div>
+  <div class="panel" style="margin-bottom:14px"><h3>Gratis para afiliados</h3><p class="muted">Quien abrió su cuenta de Deriv con tu enlace y tiene el afiliado <b>verificado</b> desbloquea estas funciones de EAG Charts sin pagar un plan. A los que no son afiliados se lo ofrecemos cuando tocan algo bloqueado, con el botón "Verificar afiliado".</p>
+    <label class="ck" style="display:flex;gap:8px;align-items:center;margin:10px 0"><input type="checkbox" id="afOn"${(S.site||{}).chartAffOn!==false?" checked":""}> <b>Activado</b></label>
+    <div class="af-ks" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:8px;margin:6px 0 12px">${[["tools","Herramientas avanzadas de dibujo","Fibonacci, posiciones, patrones, ondas"],["ind","Indicadores sin límite","En vez del límite de la versión gratis"],["alerts","Alertas al celular","Precio, cierre de vela, RSI, medias, spikes"],["az","Zonas automáticas","Soportes y resistencias solos"],["replay","Replay del mercado","Normalmente desde el plan Oro"],["prac","Práctica guiada","Normalmente solo Diamond"]].map(([k,t,d])=>`<label class="ck" style="display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border:1px solid var(--line);border-radius:10px"><input type="checkbox" data-afk="${k}"${(Array.isArray((S.site||{}).chartAff)?S.site.chartAff:["tools","ind","alerts","az"]).includes(k)?" checked":""}><span><b>${t}</b><br><span class="dim" style="font-size:12.5px">${d}</span></span></label>`).join("")}</div>
+    <button class="btn gold" id="afG">Guardar</button></div>
     <div class="panel"><h3>EAG Charts</h3><p class="muted">Todos los registrados tienen 3 días gratis desde la primera vez que abren EAG Charts. Al terminar se les pide que califiquen y dejen recomendaciones.</p>
     <div class="row" style="flex-wrap:wrap;gap:10px;margin:10px 0"><span class="tag">${list.length} lo han probado</span><span class="tag">${act} en prueba ahora</span><span class="tag">${fb.length} opiniones</span><span class="tag">Promedio ${avg?avg.toFixed(1)+" ★":"—"}</span>
     <a class="btn sm gold" href="https://charts.elartegrafico.com" target="_blank" rel="noopener">Abrir EAG Charts ↗</a></div>
@@ -482,6 +486,7 @@ async function chartsop(){
   $$("[data-cf]").forEach(b=>b.onclick=()=>{f=b.dataset.cf;$$("[data-cf]").forEach(x=>x.classList.toggle("gold",x===b));draw()});draw();
   $("#cfSw").onclick=async()=>{const ns=Object.assign({},S.site,{chartFree:!fr});try{await API.saveSite(ns);S.site=ns;toast(fr?"Versión gratis apagada":"Versión gratis activada")}catch(x){toast(x.message)}A.ROUTES.admin("chartsop")};
   $("#cfIndG").onclick=async()=>{const v=Math.max(0,Math.min(10,parseInt($("#cfInd").value)||0));const ns=Object.assign({},S.site,{chartFreeInd:v});try{await API.saveSite(ns);S.site=ns;toast("Guardado: "+v+" indicador"+(v===1?"":"es")+" en la versión gratis")}catch(x){toast(x.message)}A.ROUTES.admin("chartsop")};
+  $("#afG").onclick=async()=>{const ks=$$("[data-afk]").filter(i=>i.checked).map(i=>i.dataset.afk);const ns=Object.assign({},S.site,{chartAffOn:$("#afOn").checked,chartAff:ks});try{await API.saveSite(ns);S.site=ns;toast($("#afOn").checked?(ks.length?"Guardado: los afiliados desbloquean "+ks.length+" función"+(ks.length===1?"":"es"):"Guardado, pero no marcaste ninguna función"):"Desbloqueo para afiliados apagado")}catch(x){toast(x.message)}};
   $("#ptSw").onclick=async()=>{const ns=Object.assign({},S.site,{chartProTrial:!pt});try{await API.saveSite(ns);S.site=ns;toast(pt?"Estudio ahora es solo Premium":"Estudio incluido en la prueba de 3 días")}catch(x){toast(x.message)}A.ROUTES.admin("chartsop")};
 }
 /* ---------- opiniones ---------- */
@@ -622,14 +627,24 @@ async function retos(){
         retos()}catch(x){toast(x.message)}finally{const b=$("#rSv");if(b)busy(b,false)}};
   }
 }
+/* Discord: rol de Afiliado automático */
+async function dcAdmin(){const h=$("#dcAdm");if(!h)return;let c=null,st=null;
+  try{c=await API.discord("config")}catch(e){c={error:e.message}}
+  try{st=await API.adminDiscordStats()}catch(e){}
+  if(!$("#dcAdm"))return;
+  h.innerHTML=`<h3>Rol de Afiliado en Discord</h3>`+(c&&c.ready?`<p class="muted">Activo. Cuando un afiliado queda verificado (a mano o con la lista de Deriv Partners), el bot le pone el rol solo. Si lo rechazas o lo bloqueas, se lo quita. Los alumnos conectan su Discord en <b>Configuración → Discord</b>.</p>
+      <div class="row" style="gap:8px;flex-wrap:wrap;margin:10px 0">${st?`<span class="tag">${st.conectados} con Discord conectado</span><span class="tag">${st.con_rol} con rol de Afiliado</span><span class="tag">${st.afiliados_sin_discord} afiliados sin Discord</span>`:""}</div>
+      <button class="btn" id="dcSync">Revisar todos los roles ahora</button>`
+    :`<p class="muted">${c&&c.error&&/Falta publicar/.test(c.error)?"Falta publicar la función <b>discord</b> en Supabase.":"Falta configurar la conexión con Discord (los secretos de la función <b>discord</b>)."} Sigue la guía que te dejé: crear la app y el bot en Discord, correr <b>supabase/discord_afiliados.sql</b> y publicar la función.</p>`);
+  const b=$("#dcSync");if(b)b.onclick=async()=>{try{busy(b,true);const r=await API.discord("sync");const o=r.out||{};toast(`Revisados ${r.total}: ${o["rol-puesto"]||0} con rol, ${o["rol-quitado"]||0} sin rol${o["no-esta-en-el-servidor"]?`, ${o["no-esta-en-el-servidor"]} no están en el servidor`:""}`);dcAdmin()}catch(x){toast(x.message)}finally{busy(b,false)}}}
 async function afiliados(){
   let list=[];try{list=await API.adminAffiliates()}catch(e){H().innerHTML=`<div class="empty">No se pudieron cargar. ¿Ya corriste <b>supabase/retos.sql</b>?<span class="dim">${esc(e.message)}</span></div>`;return}
   let pinfo={total:0};try{pinfo=await API.adminPartnerInfo()||pinfo}catch(e){}
   const grab=t=>{const T=String(t||"").replace(/-\s*\n\s*/g,"-").toUpperCase();return [...new Set([...(T.match(/\b[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}\b/g)||[]),...(T.match(/\bD-[A-Z0-9]{7}\b/g)||[]),...(T.replace(/[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}/g," ").replace(/D-[A-Z0-9]{7}/g," ").match(/(?<![\w-])[A-Z]{1,5}\d{4,12}\b/g)||[]).filter(x=>!/^(USD|EUR|COP|USDT|MT)\d/.test(x))])]};
   let f="pendiente";const ES={pendiente:'<span class="pill gold">Por verificar</span>',verificado:'<span class="pill ok">Verificado</span>',rechazado:'<span class="pill">Rechazado</span>'};
-  const draw=()=>{const L=list.filter(a=>f==="todos"||a.status===f);
+  const draw=()=>{const L=list.filter(a=>f==="todos"||a.status===f);setTimeout(dcAdmin,0);
     const nOld=list.filter(a=>a.status==="pendiente"&&a.in_list==="antiguo").length;
-    H().innerHTML=`<details class="panel pl-box"${list.some(a=>a.status==="pendiente")||!pinfo.total?" open":""}><summary><b>⚡ Listas de clientes de Deriv Partners</b><span class="muted">${pinfo.total?`IDs activos: <b>${pinfo.active||0}</b> (se aprueban solos) · IDs antiguos: <b>${pinfo.old||0}</b> (te aviso y tú autorizas) · cada cliente suele tener 2 IDs (el largo y el d-…)${pinfo.updated?` · lista activa del ${fmtDate(pinfo.updated)}`:""}`:"Aún no has cargado tus listas."}</span></summary>
+    H().innerHTML=`<div class="panel dc-adm" id="dcAdm"><div class="muted">Discord: cargando…</div></div><details class="panel pl-box"${list.some(a=>a.status==="pendiente")||!pinfo.total?" open":""}><summary><b>⚡ Listas de clientes de Deriv Partners</b><span class="muted">${pinfo.total?`IDs activos: <b>${pinfo.active||0}</b> (se aprueban solos) · IDs antiguos: <b>${pinfo.old||0}</b> (te aviso y tú autorizas) · cada cliente suele tener 2 IDs (el largo y el d-…)${pinfo.updated?` · lista activa del ${fmtDate(pinfo.updated)}`:""}`:"Aún no has cargado tus listas."}</span></summary>
         <label for="plT">Pega aquí la tabla de clientes (Deriv Partners → Inicio → Desglose del comerciante activo). Sirve la tabla completa: tomo solo los IDs (largos tipo 019c0ed8-61dc-…, cortos tipo d-k3skg7d o tipo CR1234567).<textarea id="plT" style="min-height:120px" placeholder="019c0ed8-61dc-7fa0-9657-56f9ed8ee1e1 d-50rd293&#10;…"></textarea></label>
         <div class="pl-opts">
           <label class="pl-op"><input type="radio" name="plK" value="activo" checked><span><b>Lista activa</b> · clientes que operaron este mes. Se aprueban solos.</span></label>

@@ -153,6 +153,10 @@ function SupabaseAPI(url,key){
     adminPushStats(){return rpc("admin_push_stats").then(r=>r&&r[0]||{total:0,premium:0,gratis:0})},
     async sendPush(o){const r=await raw("/functions/v1/send-push",{method:"POST",body:o});
       if(!r.ok)throw new Error((r.j&&(r.j.error||r.j.message))||(r.status===404?"Falta publicar la función send-push en Supabase.":"No se pudo enviar ("+r.status+")"));return r.j},
+    async discord(action,o){const r=await raw("/functions/v1/discord",{method:"POST",body:Object.assign({action},o||{})});
+      if(!r.ok)throw new Error((r.j&&(r.j.error||r.j.message))||(r.status===404?"Falta publicar la función discord en Supabase.":"No se pudo conectar con Discord ("+r.status+")"));
+      if(action!=="config")await this.loadProfile().catch(()=>{});return r.j},
+    adminDiscordStats(){return rpc("admin_discord_stats").then(r=>Array.isArray(r)?r[0]:r)},
     async updateMyProfile(o){await rpc("update_my_profile",{p_avatar:o.avatar_url||"",p_bio:o.bio||"",p_country:o.country||""});await this.loadProfile()},
     publicStats(){return rpc("public_stats")},
     publicReviews(){return rpc("public_reviews")},
@@ -324,6 +328,12 @@ function LocalAPI(){
     async adminPushStats(){return{total:0,premium:0,gratis:0}},
     async sendPush(){throw new Error("En el modo de prueba no se envían notificaciones. Pruébalo en la web real.")},
     async uploadAvatar(blob){return await new Promise((ok,no)=>{const r=new FileReader();r.onload=()=>ok(r.result);r.onerror=no;r.readAsDataURL(blob)})},
+    async discord(action,o){const p=me();if(!p)throw new Error("Inicia sesión");if(action==="config")return{clientId:"local",ready:true};
+      if(action==="link"){Object.assign(p,{discord_id:"local-"+p.id.slice(0,6),discord_name:p.username,discord_role:!!p.affiliate});save();return{ok:true,name:p.discord_name,result:p.affiliate?"rol-puesto":"rol-quitado",affiliate:!!p.affiliate}}
+      if(action==="unlink"){Object.assign(p,{discord_id:null,discord_name:null,discord_role:false});save();return{ok:true}}
+      if(action==="resync"){p.discord_role=!!p.affiliate;save();return{result:p.affiliate?"rol-puesto":"rol-quitado"}}
+      if(action==="sync")return{ok:true,total:db.profiles.filter(x=>x.discord_id).length,out:{}}},
+    async adminDiscordStats(){return{conectados:db.profiles.filter(x=>x.discord_id).length,con_rol:db.profiles.filter(x=>x.discord_role).length,afiliados_sin_discord:db.profiles.filter(x=>x.affiliate&&!x.discord_id).length}},
     async updateMyProfile(o){const p=me();if(!p)throw new Error("Inicia sesión");p.avatar_url=o.avatar_url||null;p.bio=String(o.bio||"").slice(0,160);p.country=String(o.country||"").slice(0,40);save()},
     async publicStats(){const ap=db.reviews.filter(r=>r.approved);return{students:db.profiles.length,lessons:db.lessons.filter(l=>l.status==="publicado").length,exercises:db.exercises.length,rating:ap.length?Math.round(10*ap.reduce((s,r)=>s+r.rating,0)/ap.length)/10:null,reviews:ap.length}},
     async publicReviews(){return db.reviews.filter(r=>r.approved).map(r=>{const p=db.profiles.find(x=>x.id===r.user_id)||{};return{id:r.id,rating:r.rating,body:r.body,created_at:r.created_at,username:p.username||"alumno",avatar_url:p.avatar_url||null,premium:isPrem(p)}}).sort((a,b)=>String(b.created_at).localeCompare(a.created_at))},
