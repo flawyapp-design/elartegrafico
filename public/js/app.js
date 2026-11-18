@@ -1364,7 +1364,8 @@ async function authView(mode,arg){
   const box=$("#abox");
   const head=`<div style="display:grid;gap:6px"><img src="assets/logo_mark.webp" alt="" style="width:56px;height:56px"><h2>${mode==="up"?"Crea tu cuenta":mode==="in"?(back?"Ingresa para entrar a la academia":"Ingresa a tu cuenta"):"Recupera tu contraseña"}</h2><p class="muted">${mode==="up"?"Gratis. Una sola cuenta para la comunidad y la academia, con 5 gráficas de prueba.":mode==="in"?"Una sola cuenta para El Arte Gráfico y la academia.":"Te enviaremos un enlace a tu correo."}</p></div>`;
   const seg=mode==="rec"?"":`<div class="seg"><button class="${mode==="in"?"on":""}" data-m="entrar${back?"-academia":""}">Ingresar</button><button class="${mode==="up"?"on":""}" data-m="registro${back?"-academia":""}">Crear cuenta</button></div>`;
-  if(mode==="up")box.innerHTML=head+seg+`<form class="form" id="f" novalidate>
+  const dcb=mode==="rec"?"":`<button type="button" class="btn dc-login" id="dcLogin">${DC_SVG}<span>${mode==="up"?"Crear cuenta con Discord":"Ingresar con Discord"}</span></button><div class="or-sep"><span>o con tu correo</span></div>`;
+  if(mode==="up")box.innerHTML=head+seg+dcb+`<form class="form" id="f" novalidate>
       <label for="uU">Nombre de usuario<input id="uU" autocomplete="username" required minlength="3" maxlength="24" pattern="[A-Za-z0-9_.]{3,24}" placeholder="ej. trader_juan"><span class="dim" style="font-weight:400">Letras, números, punto o guion bajo. Se verá en el ranking y la comunidad.</span></label>
       <label for="uE">Correo electrónico<input id="uE" type="email" autocomplete="email" required placeholder="tucorreo@ejemplo.com"></label>
       <label for="uP">Contraseña<div class="pw"><input id="uP" type="password" autocomplete="new-password" required minlength="8"><button type="button" data-show="uP">Mostrar</button></div><div class="meter"><i id="pm"></i></div><span class="dim" id="pmt" style="font-weight:400">Mínimo 8 caracteres, con letras y números.</span></label>
@@ -1372,7 +1373,7 @@ async function authView(mode,arg){
       <label>Verificación<div id="cap"></div></label>
       <label class="accept"><input type="checkbox" id="uT"> <span>Soy mayor de 18 años, acepto los <a href="${toMain("legal-terminos")}" target="_blank" rel="noopener">Términos y condiciones</a> y el <a href="${toMain("legal-riesgo")}" target="_blank" rel="noopener">Aviso de riesgo</a>, y autorizo el tratamiento de mis datos según la <a href="${toMain("legal-privacidad")}" target="_blank" rel="noopener">Política de datos personales</a>.</span></label>
       <div class="err" id="err" role="alert"></div><button class="btn gold" type="submit" id="go">Crear cuenta</button></form>`;
-  else if(mode==="in")box.innerHTML=head+seg+`<form class="form" id="f" novalidate>
+  else if(mode==="in")box.innerHTML=head+seg+dcb+`<form class="form" id="f" novalidate>
       <label for="uE">Correo o nombre de usuario<input id="uE" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" required></label>
       <label for="uP">Contraseña<div class="pw"><input id="uP" type="password" autocomplete="current-password" required><button type="button" data-show="uP">Mostrar</button></div></label>
       ${CFG.TURNSTILE_SITE_KEY?'<label>Verificación<div id="cap"></div></label>':""}
@@ -1380,6 +1381,7 @@ async function authView(mode,arg){
   else box.innerHTML=head+`<form class="form" id="f" novalidate><label for="uE">Correo electrónico<input id="uE" type="email" required></label><label>Verificación<div id="cap"></div></label>
       <div class="err" id="err" role="alert"></div><button class="btn gold" type="submit" id="go">Enviar enlace</button><a href="#entrar" style="font-size:14px">Volver a ingresar</a></form>`;
   $$("[data-m]",box).forEach(b=>b.onclick=()=>location.hash="#"+b.dataset.m);
+  const dl=$("#dcLogin");if(dl)dl.onclick=()=>{try{localStorage.setItem("ag_oauth_back",back?"academia":"")}catch(e){}busy(dl,true);API.discordLogin()};
   $$("[data-show]",box).forEach(b=>b.onclick=()=>{const i=$("#"+b.dataset.show);i.type=i.type==="password"?"text":"password";b.textContent=i.type==="password"?"Mostrar":"Ocultar"});
   const cap=$("#cap")?captcha($("#cap")):null;
   if($("#uP")&&mode==="up")$("#uP").oninput=()=>{const v=$("#uP").value;let sc=0;if(v.length>=8)sc++;if(/[0-9]/.test(v)&&/[a-zA-Z]/.test(v))sc++;if(v.length>=12)sc++;if(/[^A-Za-z0-9]/.test(v))sc++;
@@ -1744,6 +1746,11 @@ async function boot(){
   applySite();
   await Promise.all([loadProg(),loadContent()]);S.loaded=true;
   if(rec)location.hash="#nueva-clave";
+  const oe=API.oauthError&&API.oauthError();
+  if(oe){history.replaceState(null,"",location.pathname+"#entrar");setTimeout(()=>toast(oe),300)}
+  if(API.oauthDone&&API.oauthDone()){let bk="";try{bk=localStorage.getItem("ag_oauth_back")||"";localStorage.removeItem("ag_oauth_back")}catch(e){}
+    if(logged()){API.shareSession&&API.shareSession();if(bk==="academia"){location.href=toAcad("inicio");return}
+      const pf=API.profile()||{};if(pf.created_at&&Date.now()-new Date(pf.created_at).getTime()<10*60e3)setTimeout(()=>pop({icon:"check",tone:"green",kicker:"Cuenta creada con Discord",title:"¡Bienvenido, "+esc(pf.username||"")+"!",text:"Tu cuenta quedó conectada con Discord. Puedes cambiar tu foto y tu país en Configuración."}),600)}}
   route();dcReturn();
 }
 window.AGBOOT=boot;window.AGPOP=(o)=>pop(o);window.AGTOAST=(m,t)=>toast(m,t);

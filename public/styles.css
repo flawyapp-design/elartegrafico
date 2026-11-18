@@ -2315,3 +2315,9 @@ html.v4 .view>.pagehead{margin-bottom:-6px}
 .mem-perks .lc-row>i{color:var(--ok);font-weight:800}
 .chat-page>.mem-panel{margin-bottom:16px}
 .rt-lock{display:inline-flex;align-self:flex-start;margin:2px 0 4px;padding:4px 10px;border-radius:999px;background:var(--gbg);color:var(--gt);font-size:12px;font-weight:700}
+/* ingresar con Discord */
+html.v4 .btn.dc-login:not(.gold):not(.bad){width:100%;display:flex;align-items:center;justify-content:center;gap:10px;background:#5865F2!important;border-color:#5865F2!important;color:#fff!important;font-weight:700;padding:12px 16px}
+html.v4 .btn.dc-login:not(.gold):not(.bad):hover{background:#4752C4!important;border-color:#4752C4!important}
+html.v4 .btn.dc-login svg{width:22px;height:22px}
+.or-sep{display:flex;align-items:center;gap:12px;color:var(--dim);font-size:13px;margin:4px 0}
+.or-sep::before,.or-sep::after{content:"";flex:1;height:1px;background:var(--line)}

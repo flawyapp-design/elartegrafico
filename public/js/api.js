@@ -22,6 +22,7 @@ const errMsg=j=>{const m=(j&&(j.error_description||j.msg||j.message||j.error))||
 function SupabaseAPI(url,key){
   url=url.replace(/\/$/,"");
   let sess=null;try{sess=JSON.parse(localStorage.getItem("ag_sess")||"null")}catch(e){}
+  let oauthOk=false,oauthErr=null;
   /* sesión compartida entre elartegrafico.com y academia.elartegrafico.com: el refresh token viaja en una cookie del dominio */
   const SHARED=/(^|\.)elartegrafico\.com$/.test(location.hostname);
   const ckGet=()=>{const m=document.cookie.match(/(?:^|; )ag_rt=([^;]*)/);return m?decodeURIComponent(m[1]):null};
@@ -55,15 +56,23 @@ function SupabaseAPI(url,key){
     async init(){
       // vuelta desde un correo (confirmación o recuperar contraseña): #access_token=...&type=...
       const h=location.hash;let recovery=false;
-      if(h.includes("access_token=")){const p=new URLSearchParams(h.slice(1));
+      /* vuelta desde Discord con error (#error=... o ?error=...) */
+      {const q=new URLSearchParams(location.search),hp=new URLSearchParams(h.slice(1)),ed=hp.get("error_description")||q.get("error_description");
+        if(ed||((hp.get("error")||q.get("error"))&&!q.get("state"))){oauthErr=/cancel|denied/i.test((hp.get("error")||q.get("error")||"")+ed)?"Cancelaste el ingreso con Discord.":"No se pudo ingresar con Discord: "+(ed||"inténtalo otra vez").replace(/\+/g," ");
+          history.replaceState(null,"",location.pathname+"#entrar")}}
+      if(h.includes("access_token=")){const p=new URLSearchParams(h.slice(1));const pt=p.get("provider_token");if(pt){oauthOk=true;this._dcTok=pt}
         saveSess({access_token:p.get("access_token"),refresh_token:p.get("refresh_token"),expires_at:Math.floor(Date.now()/1000)+(+p.get("expires_in")||3600),user:null});
         recovery=p.get("type")==="recovery";history.replaceState(null,"",location.pathname+(recovery?"#nueva-clave":"#inicio"))}
       if(SHARED){const rt=ckGet();
         if(!rt&&sess)saveSess(null);                       // cerró sesión en el otro sitio
         else if(rt&&(!sess||sess.refresh_token!==rt)){sess={refresh_token:rt};if(!(await refresh()))saveSess(null)}}
       if(sess){try{const u=await req("/auth/v1/user");sess.user=u;saveSess(sess);await this.loadProfile()}catch(e){saveSess(null)}}
+      /* entró con Discord: conecta su Discord (rol de miembro y lo agrega al servidor) sin hacer nada más */
+      if(this._dcTok&&sess&&sess.user){const t=this._dcTok;this._dcTok=null;this.discord("link-token",{token:t}).catch(()=>{})}
       return{recovery};
     },
+    oauthDone(){return oauthOk},oauthError(){return oauthErr},
+    discordLogin(){location.href=`${url}/auth/v1/authorize?`+new URLSearchParams({provider:"discord",redirect_to:location.origin+"/",scopes:"identify email guilds.join"})},
     shareSession(){if(sess&&sess.refresh_token)ckSet(sess.refresh_token);return SHARED?!!ckGet():true},
     user(){return sess&&sess.user?{id:sess.user.id,email:sess.user.email}:null},
     profile(){return prof},
@@ -337,6 +346,7 @@ function LocalAPI(){
       if(action==="unlink"){Object.assign(p,{discord_id:null,discord_name:null,discord_role:false});save();return{ok:true}}
       if(action==="resync"){p.discord_role=!!p.affiliate;save();return{result:p.affiliate?"rol-puesto":"rol-quitado"}}
       if(action==="sync")return{ok:true,total:db.profiles.filter(x=>x.discord_id).length,out:{}}},
+    discordLogin(){window.AGTOAST&&window.AGTOAST("En el modo de prueba no se puede ingresar con Discord. Pruébalo en la web real.")},
     async adminDiscordHooks(){const h=db.dchooks||{};return{general:!!h.g,miembros:!!h.m,premium:!!h.p,general_tail:(h.g||"").slice(-6),miembros_tail:(h.m||"").slice(-6),premium_tail:(h.p||"").slice(-6)}},
     async adminSetDiscordHooks(g,m,p){const h=db.dchooks=db.dchooks||{};const ok=/^https:\/\/(discord|discordapp)\.com\/api\/webhooks\/\d+\/[\w-]+$/;[["g",g],["m",m],["p",p]].forEach(([k,v])=>{if(v===null||v===undefined)return;if(v&&!ok.test(v))throw new Error("Ese enlace no es un webhook de Discord");h[k]=v||null});save()},
     async discordTest(){throw new Error("En el modo de prueba no se envían mensajes a Discord. Pruébalo en la web real.")},

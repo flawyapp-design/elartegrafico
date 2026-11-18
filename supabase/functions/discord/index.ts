@@ -121,6 +121,21 @@ Deno.serve(async (req) => {
     return json({ ok: true, name, joined, result: res, affiliate: !!me.affiliate });
   }
 
+  // entró con "Ingresar con Discord": ya trae el token de Discord, sin pasar por la autorización otra vez
+  if (action === "link-token") {
+    const tok = String(body.token || "");
+    if (!tok) return json({ error: "Falta el token de Discord." }, 400);
+    const du: any = await (await fetch("https://discord.com/api/v10/users/@me", { headers: { Authorization: `Bearer ${tok}` } })).json().catch(() => ({}));
+    if (!du || !du.id) return json({ error: "No pudimos leer tu cuenta de Discord." }, 400);
+    const other = await (await db(`profiles?discord_id=eq.${du.id}&id=neq.${me.id}&select=id`)).json();
+    if (Array.isArray(other) && other.length) return json({ error: "Esa cuenta de Discord ya está conectada a otro perfil de El Arte Gráfico." }, 409);
+    const name = du.global_name || du.username || "";
+    await db(`profiles?id=eq.${me.id}`, { method: "PATCH", body: JSON.stringify({ discord_id: du.id, discord_name: name }), headers: { Prefer: "return=minimal" } });
+    const jr = await dc(`/guilds/${GUILD}/members/${du.id}`, { method: "PUT", body: JSON.stringify({ access_token: tok }) });
+    const res = await syncOne({ ...me, discord_id: du.id });
+    return json({ ok: true, name, joined: jr.status === 201, result: res });
+  }
+
   if (action === "unlink") {
     if (me.discord_id && me.discord_role) await syncOne({ ...me, affiliate: false });
     await db(`profiles?id=eq.${me.id}`, { method: "PATCH", body: JSON.stringify({ discord_id: null, discord_name: null, discord_role: false }), headers: { Prefer: "return=minimal" } });
