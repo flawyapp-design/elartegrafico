@@ -156,6 +156,10 @@ function SupabaseAPI(url,key){
     async discord(action,o){const r=await raw("/functions/v1/discord",{method:"POST",body:Object.assign({action},o||{})});
       if(!r.ok)throw new Error((r.j&&(r.j.error||r.j.message))||(r.status===404?"Falta publicar la función discord en Supabase.":"No se pudo conectar con Discord ("+r.status+")"));
       if(action!=="config")await this.loadProfile().catch(()=>{});return r.j},
+    dmMemberStart(){return rpc("dm_member_start")},
+    adminDiscordHooks(){return rpc("admin_discord_hooks").then(r=>Array.isArray(r)?r[0]||{}:r||{})},
+    adminSetDiscordHooks(g,m,p){return rpc("admin_set_discord_hooks",{p_general:g,p_miembros:m,p_premium:p})},
+    async discordTest(){const r=await raw("/functions/v1/send-push",{method:"POST",body:{action:"discord-test"}});if(!r.ok)throw new Error((r.j&&r.j.error)||"No se pudo probar ("+r.status+")");return r.j},
     adminDiscordStats(){return rpc("admin_discord_stats").then(r=>Array.isArray(r)?r[0]:r)},
     async updateMyProfile(o){await rpc("update_my_profile",{p_avatar:o.avatar_url||"",p_bio:o.bio||"",p_country:o.country||""});await this.loadProfile()},
     publicStats(){return rpc("public_stats")},
@@ -333,6 +337,11 @@ function LocalAPI(){
       if(action==="unlink"){Object.assign(p,{discord_id:null,discord_name:null,discord_role:false});save();return{ok:true}}
       if(action==="resync"){p.discord_role=!!p.affiliate;save();return{result:p.affiliate?"rol-puesto":"rol-quitado"}}
       if(action==="sync")return{ok:true,total:db.profiles.filter(x=>x.discord_id).length,out:{}}},
+    async adminDiscordHooks(){const h=db.dchooks||{};return{general:!!h.g,miembros:!!h.m,premium:!!h.p,general_tail:(h.g||"").slice(-6),miembros_tail:(h.m||"").slice(-6),premium_tail:(h.p||"").slice(-6)}},
+    async adminSetDiscordHooks(g,m,p){const h=db.dchooks=db.dchooks||{};const ok=/^https:\/\/(discord|discordapp)\.com\/api\/webhooks\/\d+\/[\w-]+$/;[["g",g],["m",m],["p",p]].forEach(([k,v])=>{if(v===null||v===undefined)return;if(v&&!ok.test(v))throw new Error("Ese enlace no es un webhook de Discord");h[k]=v||null});save()},
+    async discordTest(){throw new Error("En el modo de prueba no se envían mensajes a Discord. Pruébalo en la web real.")},
+    async dmMemberStart(){const p=me();if(!p)throw new Error("Inicia sesión");if(p.affiliate)throw new Error("Ya eres miembro verificado de la comunidad");db.dms=db.dms||{};const t=db.dms[uid]=db.dms[uid]||{open:true,topic:"",messages:[]};t.open=true;t.topic="Miembro verificado";t.messages=t.messages||[];t.last_at=now();
+      t.messages.push({id:uuid(),from_admin:false,body:"Hola, quiero ser miembro verificado de la comunidad.",created_at:now()});t.messages.push({id:uuid(),from_admin:true,body:"¡Qué bueno que quieras ser parte de la comunidad! Así te haces miembro verificado:\n\n1. Abre tu cuenta de Deriv con el enlace de la comunidad: "+((db.site||{}).derivRefUrl||"(te lo enviamos en un momento)")+"\n2. Copia tu ID de cliente de Deriv y pégalo en el recuadro de arriba. Se verifica solo.",created_at:now()});save();return{ok:true}},
     async adminDiscordStats(){return{conectados:db.profiles.filter(x=>x.discord_id).length,con_rol:db.profiles.filter(x=>x.discord_role).length,afiliados_sin_discord:db.profiles.filter(x=>x.affiliate&&!x.discord_id).length}},
     async updateMyProfile(o){const p=me();if(!p)throw new Error("Inicia sesión");p.avatar_url=o.avatar_url||null;p.bio=String(o.bio||"").slice(0,160);p.country=String(o.country||"").slice(0,40);save()},
     async publicStats(){const ap=db.reviews.filter(r=>r.approved);return{students:db.profiles.length,lessons:db.lessons.filter(l=>l.status==="publicado").length,exercises:db.exercises.length,rating:ap.length?Math.round(10*ap.reduce((s,r)=>s+r.rating,0)/ap.length)/10:null,reviews:ap.length}},
@@ -370,7 +379,7 @@ function LocalAPI(){
       const E=(db.centries||[]).filter(e=>e.challenge_id===c.id),w=E.filter(e=>e.place!=null).length,me=E.find(e=>e.user_id===uid),k=(db.ckeys||{})[c.id]||{};const cl=self._closeAt(c),closed=cl<=t,show=closed;
       return Object.assign({},c,{ends_at:cl.toISOString(),winners:show?w:null,players:E.length,closed,my_correct:me&&show?me.correct:null,my_place:me&&show?me.place:null,my_points:me&&show?me.points:null,answered:!!me,correct:show?k.correct:null,zone:show&&k.zone!=null?k.zone+(+c.off||0):null,tol:show?k.tol:null,explain:show?k.explain:null,after_bars:show?c.after_bars:null,chart_t:null,my_answer:me?me.answer:null})})},
     async submitChallenge(id,ans){if(!uid)throw new Error("Inicia sesión para participar");const cfg=(db.site||{}).rewards||{};if(!cfg.enabled)throw new Error("Los retos todavía no están activos");
-      const c=(db.challenges||[]).find(x=>x.id===id);if(!c||c.status!=="publicado"||new Date(c.starts_at)>Date.now())throw new Error("Ese reto no está disponible");if(this._closeAt(c)<=Date.now())throw new Error("Este reto ya cerró");
+      const c=(db.challenges||[]).find(x=>x.id===id);if(!c||c.status!=="publicado"||new Date(c.starts_at)>Date.now())throw new Error("Ese reto no está disponible");if(this._closeAt(c)<=Date.now())throw new Error("Este reto ya cerró");if(c.express&&cfg.expressOnlyMembers!==false&&!(me()||{}).affiliate)throw new Error("Los retos express son solo para miembros verificados de la comunidad");
       db.centries=db.centries||[];if(db.centries.some(e=>e.challenge_id===id&&e.user_id===uid))throw new Error("Ya respondiste este reto");
       const k=(db.ckeys||{})[id]||{},p=me();const ok=c.kind==="zona"?(k.zone!=null&&Math.abs(+ans.price-(+c.off||0)-k.zone)<=(k.tol||0)):(+ans.option===k.correct);
       const w=db.centries.filter(e=>e.challenge_id===id&&e.place!=null).length;let place=null,pts=0;

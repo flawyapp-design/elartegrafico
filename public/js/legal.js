@@ -53,7 +53,7 @@ Estos términos regulan el uso de {SITIO} y de la academia (en adelante, "la pla
 - Lo que se comparte en la sala, incluidas operaciones y análisis de otros usuarios o de El Arte Gráfico, es **educativo** y no es asesoría financiera ni una señal para operar (ver **Aviso de riesgo**).
 
 ### 8. Tu perfil público
-Para que funcionen el ranking, los retos y la comunidad, otros usuarios pueden ver en tu perfil: nombre de usuario, foto, país, fecha de registro, tu placa de plan o curso, si eres afiliado verificado, tu nivel y puntos, tu avance en la academia (lecciones aprobadas) y tus estadísticas de retos. Nunca mostramos tu correo, tus pagos, tu ID de Deriv ni tu cuenta de Binance. Elige un nombre de usuario y una foto que no te importe que otros vean.
+Para que funcionen el ranking, los retos y la comunidad, otros usuarios pueden ver en tu perfil: nombre de usuario, foto, país, fecha de registro, tu placa de plan o curso, si eres miembro verificado, tu nivel y puntos, tu avance en la academia (lecciones aprobadas) y tus estadísticas de retos. Nunca mostramos tu correo, tus pagos, tu ID de Deriv ni tu cuenta de Binance. Elige un nombre de usuario y una foto que no te importe que otros vean.
 
 ### 9. Enlaces de socio y afiliación con Deriv
 - El Arte Gráfico participa en el programa de socios de **Deriv** y puede recibir una comisión de Deriv cuando abres una cuenta con nuestro enlace u operas con ella. Esto **no te cuesta nada adicional** y no cambia las condiciones de tu cuenta.
@@ -113,7 +113,7 @@ Esta política se adopta en cumplimiento de la **Ley 1581 de 2012**, el **Decret
 - Cumplir obligaciones legales y atender requerimientos de autoridades.
 
 ### 3A. Información que ven otros usuarios
-Tu nombre de usuario, foto, país, fecha de registro, placa de plan o curso, condición de afiliado verificado, nivel, avance en la academia y estadísticas de retos son visibles para otros usuarios, igual que tus mensajes y fotos en la Sala Oro mientras estén publicados. Tu correo, pagos, ID de Deriv y cuenta de Binance **no** se muestran a nadie más que a la administración.
+Tu nombre de usuario, foto, país, fecha de registro, placa de plan o curso, condición de miembro verificado, nivel, avance en la academia y estadísticas de retos son visibles para otros usuarios, igual que tus mensajes y fotos en la Sala Oro mientras estén publicados. Tu correo, pagos, ID de Deriv y cuenta de Binance **no** se muestran a nadie más que a la administración.
 
 ### 4. Autorización
 Al marcar la casilla de aceptación en el registro nos das tu autorización **previa, expresa e informada** para tratar tus datos con las finalidades descritas. Puedes revocarla en cualquier momento, salvo cuando exista un deber legal o contractual de conservarlos.
@@ -230,14 +230,14 @@ Estas bases regulan los **retos diarios**, los **retos express**, los **puntos**
 
 ### 4A. Retos express y saldo en dólares
 - Los **retos express** son retos cortos (por ejemplo, de 30 minutos) cuyo premio es un monto en **dólares (USD)** por ganador, en vez de puntos. El premio y la duración se muestran en cada reto.
-- Igual que en los retos diarios, los resultados se revelan al cierre; los afiliados verificados de Deriv reciben el premio completo y el resto, la mitad.
+- Los retos express son **solo para miembros verificados** de la comunidad: usuarios que abrieron su cuenta de Deriv con el enlace de El Arte Gráfico y verificaron su ID de cliente. Hacerse miembro es gratis. Igual que en los retos diarios, los resultados se revelan al cierre.
 - Los premios van a tu **saldo**, que puedes pedir retirar **en cualquier momento** desde el mínimo que se muestra en "Saldo y puntos", por Binance (USDT), a una cuenta **del mismo titular**. Solo puedes tener un retiro en camino a la vez.
 - Revisamos cada retiro antes de pagar y aplican las mismas reglas de verificación, trampas y sanciones de estas bases. Si un retiro se rechaza, el monto vuelve a tu saldo, salvo que el rechazo sea por trampa.
-- Participar es gratis: no hay que pagar ni depositar nada para jugar ni para ganar.
+- Participar es gratis: no hay que pagar a El Arte Gráfico para jugar ni para ganar.
 
 ### 5. Trampas y sanciones
 Se consideran trampa, entre otras: usar varias cuentas, bots o programas automáticos; ponerse de acuerdo para repartir respuestas entre cuentas; aprovechar errores de la plataforma; usar datos falsos; o recibir pagos en cuentas de terceros.
-Si detectamos una trampa podemos, sin aviso previo: anular los puntos ganados, rechazar o revertir canjes, quitar la verificación de afiliado y suspender o cerrar las cuentas involucradas. Para revisar posibles trampas usamos la información de la cuenta y de la actividad en la plataforma (por ejemplo, la conexión desde la que se responde), según la Política de datos.
+Si detectamos una trampa podemos, sin aviso previo: anular los puntos ganados, rechazar o revertir canjes, quitar la verificación de miembro y suspender o cerrar las cuentas involucradas. Para revisar posibles trampas usamos la información de la cuenta y de la actividad en la plataforma (por ejemplo, la conexión desde la que se responde), según la Política de datos.
 
 ### 6. Cambios
 Podemos cambiar estas bases, la tasa de canje, los puntos por reto, los bonos, o pausar o terminar los retos. Avisaremos en la plataforma. Los cambios no afectan los canjes que ya aprobamos. Si los retos terminan, tendrás al menos 30 días para canjear los puntos que ya cumplan el mínimo.

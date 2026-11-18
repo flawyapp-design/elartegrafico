@@ -167,8 +167,8 @@ function start(){
   function upsell(what){if(!FREE)return;const off=window.__aff?"":affOffer();let m=document.querySelector(".upsell");if(m)m.remove();m=document.createElement("div");m.className="upsell";
     m.innerHTML=`<div class="ups-card" role="dialog" aria-modal="true"><div class="ups-ic">🔒</div><h3>${esc(what)}</h3><p class="ups-sub">Disponible en EAG Charts completo: planes Plata, Oro y Diamond</p>
       <p>Estás usando la <b>versión gratis</b>: multitemporalidad, varios gráficos y mercados, líneas y zonas, y ${FREE_IND} indicador${FREE_IND===1?"":"es"}. Con <b>Plata, Oro o Diamond</b> tienes todas las herramientas (Fibonacci, zonas de compra/venta, posiciones, patrones y ondas), indicadores sin límite, alertas al celular, y el Replay y la Práctica.</p>
-      ${off?`<div class="ups-aff"><b>¿Eres parte de la comunidad?</b> Si abres tu cuenta de Deriv con el enlace de El Arte Gráfico y verificas tu ID, desbloqueas <b>gratis</b>: ${esc(off)}.</div>`:""}
-      <div class="row"><button class="btn" data-x>Seguir gratis</button>${off?`<a class="btn" href="${MAIN}#puntos">Verificar afiliado</a>`:""}<a class="btn gold" href="${PLAN_URL}">Ver planes</a></div></div>`;
+      ${off?`<div class="ups-aff"><b>Hazte miembro verificado de la comunidad</b> Es gratis: abres tu cuenta de Deriv con el enlace de El Arte Gráfico, nos ayudas a crecer y desbloqueas <b>gratis</b>: ${esc(off)}.</div>`:""}
+      <div class="row"><button class="btn" data-x>Seguir gratis</button>${off?`<a class="btn" href="${MAIN}#miembro">Hacerme miembro</a>`:""}<a class="btn gold" href="${PLAN_URL}">Ver planes</a></div></div>`;
     document.body.appendChild(m);const cl=()=>m.remove();m.onclick=e=>{if(e.target===m)cl()};m.querySelector("[data-x]").onclick=cl}
   window.__upsell=upsell;
   try{KP.loadLocales("es-ES",ES)}catch(e){}
@@ -191,7 +191,7 @@ function start(){
       <span class="st" id="st"><i></i><span>Conectando…</span></span>
       <span class="grow"></span>
       <span class="who">${esc(prof.username||"")}</span>
-      ${window.__free?`<a class="btn ic freeb" href="${MAIN}#premium" title="${window.__affKeys&&window.__affKeys.size?"Afiliado: tienes funciones extra desbloqueadas. Mejora a Plata, Oro o Diamond para tenerlo todo":"Estás en la versión gratis. Mejora a Plata, Oro o Diamond para tenerlo todo"}"><span class="pi">⭐</span><span class="t">${window.__affKeys&&window.__affKeys.size?"Afiliado · Mejorar":"Gratis · Mejorar"}</span></a>`:""}
+      ${window.__free?`<a class="btn ic freeb" href="${MAIN}#premium" title="${window.__affKeys&&window.__affKeys.size?"Miembro verificado: tienes funciones extra desbloqueadas. Mejora a Plata, Oro o Diamond para tenerlo todo":"Estás en la versión gratis. Mejora a Plata, Oro o Diamond para tenerlo todo"}"><span class="pi">⭐</span><span class="t">${window.__affKeys&&window.__affKeys.size?"Miembro · Mejorar":"Gratis · Mejorar"}</span></a>`:""}
       <button class="btn ic clb" id="clb" title="Modo Clase y Zonas del profe"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="12" rx="1.5"/><path d="m7 12 3-3 2 2 4-4"/><path d="M9 20l3-4 3 4"/></svg><span class="t">Clase</span><i class="cdot"></i></button>
       <button class="btn ic prob" id="prob" title="Estudio: Replay del mercado y Práctica guiada (Premium)"><span class="pi">🎓</span><span class="t">Estudio</span><em>PRO</em></button>
       <button class="btn ic inst" id="instb" data-inst title="Instalar EAG Charts como app" hidden><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg><span class="t">Instalar app</span></button>

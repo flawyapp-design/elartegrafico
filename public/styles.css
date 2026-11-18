@@ -2303,3 +2303,15 @@ html.v4 .view>.pagehead{margin-bottom:-6px}
 .dc-adm{margin-bottom:14px}
 .aff-note{margin-top:16px;display:flex;gap:14px;align-items:center;justify-content:space-between;flex-wrap:wrap;padding:16px 18px;border-radius:14px;background:rgba(34,184,146,.1);border:1px solid rgba(34,184,146,.35)}
 .aff-note b:first-child{color:var(--okt)}
+/* miembros verificados */
+.rt-card.locked{opacity:.85}
+.rt-lk{font-style:normal;font-weight:700;color:var(--gt)}
+.mem-cta{margin:0}
+.mem-panel{display:grid;gap:12px}
+.mem-panel h3{display:flex;align-items:center;gap:8px}
+.mem-form{display:grid;gap:10px;max-width:520px}
+.mem-chat{margin:0}
+.mem-perks .lc-row{cursor:default}
+.mem-perks .lc-row>i{color:var(--ok);font-weight:800}
+.chat-page>.mem-panel{margin-bottom:16px}
+.rt-lock{display:inline-flex;align-self:flex-start;margin:2px 0 4px;padding:4px 10px;border-radius:999px;background:var(--gbg);color:var(--gt);font-size:12px;font-weight:700}

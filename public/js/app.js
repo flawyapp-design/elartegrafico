@@ -42,7 +42,7 @@ function link(site,hash){hash=hash||"inicio";if(site===SITE)return"#"+hash;
   return location.pathname+(site==="academia"?"?sitio=academia"+(vq?"&"+vq:""):(vq?"?"+vq:""))+"#"+hash}
 try{const q=new URLSearchParams(location.search),v=q.get("ver");if(q.has("ver")){if(v&&v!=="admin")sessionStorage.setItem("ag_view_as",v);else sessionStorage.removeItem("ag_view_as");q.delete("ver");const qs=q.toString();history.replaceState(null,"",location.pathname+(qs?"?"+qs:"")+location.hash)}}catch(e){}
 const ACAD_R=new Set(["academia","modulo","leccion","practica","prueba","progreso","logros","presentacion"]);
-const MAIN_R=new Set(["certificado","probar","mensajes","oro","entrar","registro","recuperar","noticias","comunidad","nota","opiniones","mercados","legal","terminos","privacidad","retos","reto","ranking","puntos","charts","acad"]);
+const MAIN_R=new Set(["certificado","probar","mensajes","oro","entrar","registro","recuperar","noticias","comunidad","nota","opiniones","mercados","legal","terminos","privacidad","retos","reto","ranking","puntos","charts","acad","miembro"]);
 const toAcad=h=>link("academia",h),toMain=h=>link("main",h);
 
 /* ---------- utilidades UI ---------- */
@@ -241,7 +241,7 @@ function renderNav(){sideState();viewBar();document.body.classList.toggle("is-ac
   const it=(href,t,ic,on,x={})=>({href,t,ic,on,...x});
   const G=[];
   if(sec==="main"){
-    G.push(["Comunidad",[it(toMain("inicio"),"Inicio","home",r==="inicio"),it(toMain("comunidad"),"Noticias","news",r==="comunidad"),it(toMain("opiniones"),"Opiniones","star",r==="opiniones"),it(toMain("mercados"),"Mercados","chart",r==="mercados")]]);
+    G.push(["Comunidad",[it(toMain("inicio"),"Inicio","home",r==="inicio"),it(toMain("comunidad"),"Noticias","news",r==="comunidad"),it(toMain("opiniones"),"Opiniones","star",r==="opiniones"),it(toMain("mercados"),"Mercados","chart",r==="mercados"),it(toMain("miembro"),(API.profile()||{}).affiliate?"Miembro verificado":"Hazte miembro","medal",r==="miembro")]]);
     if(rw)G.push(["Juega y gana",[it(toMain("retos"),"Retos diarios","bolt",r==="retos"),it(toMain("ranking"),"Ranking","trophy",r==="ranking")].concat(u&&p?[it(toMain("puntos"),"Saldo y puntos","card",r==="puntos")]:[])]);
     if(u&&p)G.push(["Tu cuenta",[it(toMain("oro"),"Sala Oro","crown",r==="oro"),it(toMain("mensajes"),"Mensajes","msg",r==="mensajes",{badge:S.dm&&S.dm.unread})]]);
   }else if(sec==="acad"){
@@ -439,8 +439,10 @@ function chatBox(host,{load,send,me="Tú",them="El Arte Gráfico",empty="",close
   refresh();timer=setInterval(()=>{if(!document.hidden)refresh()},7000);
   return{refresh,fill:t=>{ta.value=t;ta.dispatchEvent(new Event("input"));ta.focus()}}}
 
-ROUTES.mensajes=async()=>{if(!logged()){location.hash="#entrar";return}
-  app.innerHTML=`<section class="sec chat-page"><div class="sec-h"><div><span class="eyebrow">Privado</span><h1>Mensajes</h1><p class="muted">Conversación privada entre tú y El Arte Gráfico. Nadie más la ve. Los mensajes se borran solos a los pocos días.</p></div></div><div id="chatHost"></div></section>`;
+ROUTES.mensajes=async arg=>{if(!logged()){location.hash="#entrar";return}
+  const mem=arg==="miembro"&&!(API.profile()||{}).affiliate;
+  app.innerHTML=`<section class="sec chat-page"><div class="sec-h"><div><span class="eyebrow">Privado</span><h1>Mensajes</h1><p class="muted">Conversación privada entre tú y El Arte Gráfico. Nadie más la ve. Los mensajes se borran solos a los pocos días.</p></div></div>${mem?'<div class="panel mem-panel" id="memBox"></div>':""}<div id="chatHost"></div></section>`;
+  if(mem)memberBox($("#memBox"),null,()=>ROUTES.mensajes("miembro"),true);
   chatBox($("#chatHost"),{load:()=>API.dmMine(),send:v=>API.dmSend(v),empty:"Todavía no tienes mensajes. Si necesitamos algo de ti, te escribiremos por aquí y te llegará una notificación.",closedTxt:"Esta conversación terminó."});
   setTimeout(dmPoll,1200)};
 
@@ -733,8 +735,9 @@ async function memberHome(){
    RETOS DIARIOS · PUNTOS · AFILIADOS · CANJES (sitio principal)
    ===================================================================== */
 const RW=()=>(S.site&&S.site.rewards)||{};
+const exLocked=()=>RW().expressOnlyMembers!==false&&!(API.profile()||{}).affiliate&&!admin();
 const rewardsOn=()=>RW().enabled!==false;
-const affTag=()=>'<span class="aff-tag" title="Afiliado verificado de Deriv"><svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.2 4.2L19 7"/></svg>Afiliado</span>';
+const affTag=()=>'<span class="aff-tag" title="Miembro verificado de la comunidad"><svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.2 4.2L19 7"/></svg>Verificado</span>';
 const usdF=v=>(+v||0).toLocaleString("es-CO",{style:"currency",currency:"USD",minimumFractionDigits:2});
 const ptsUsd=p=>{const r=Math.max(1,+RW().ptsPerUsd||100);return (p/r).toLocaleString("es-CO",{style:"currency",currency:"USD",minimumFractionDigits:2})};
 const KIND={opcion:"Cuestionario",tendencia:"¿Sube o baja?",zona:"Marca la zona"};
@@ -765,20 +768,20 @@ function pathBlock(){const base=(S.courses||[]).filter(c=>c.base&&c.status!=="bo
 function promoBlock(){if(!rewardsOn()&&!RW().teaser)return"";const on=rewardsOn(),c=RW();
   return `<section class="promo"><div class="promo-t"><span class="eyebrow">${on?"Retos diarios · Gana USDT":"Muy pronto"}</span><h2>Acierta el reto y gana USDT.</h2>
     <p>Cada día sale un reto: un cuestionario, adivinar la tendencia o marcar la zona. Tienes <b>${RW().revealHours||3} horas</b> para responder y nadie sabe si ganó hasta el final: ahí se revelan <b>los primeros 5 en acertar</b>, que ganan puntos para cambiar por dinero cada mes${c.ptsPerUsd?` (${c.ptsPerUsd} puntos = 1 USD)`:""}.</p>
-    <ul class="promo-l"><li>${ico("trophy",18)}Top 5 de cada reto gana puntos</li><li>${ico("bolt",18)}Resultados con suspenso al cierre</li><li>${ico("card",18)}Canjea cada mes por USDT</li><li>${ico("star",18)}Afiliados de Deriv ganan el doble</li></ul>
+    <ul class="promo-l"><li>${ico("trophy",18)}Top 5 de cada reto gana puntos</li><li>${ico("bolt",18)}Resultados con suspenso al cierre</li><li>${ico("card",18)}Canjea cada mes por USDT</li><li>${ico("star",18)}Miembros verificados: retos en dólares</li></ul>
     <div class="row">${on?`<a class="btn gold" href="${toMain("retos")}">Ver el reto de hoy</a><a class="btn ghost" href="${toMain("ranking")}">Ranking</a>`:`<span class="pill gold">Te avisaremos cuando empiece</span>`}</div></div>
     <div class="promo-art" aria-hidden="true"><div class="pa-coin">$</div><div class="pa-card"><b>Reto del día</b><span>¿Sube o baja?</span><i></i><i></i><i></i></div><div class="pa-badge">+100 pts</div><div class="pa-cd mono">2:59:59</div></div></section>`}
 /* lista de retos */
 ROUTES.retos=async()=>{
   if(!rewardsOn()&&!admin()){app.innerHTML=`<div class="pagehead"><span class="eyebrow">Retos diarios</span><h1>Muy pronto</h1><p class="muted">Estamos preparando los retos diarios con premios. Te avisaremos por las notificaciones y la comunidad.</p></div>${promoBlock()}`;return}
-  app.innerHTML=`<div class="pagehead"><span class="eyebrow">Retos diarios</span><h1>Juega, acierta y gana</h1><p class="muted">Cada reto dura <b>${RW().revealHours||3} horas</b>. Nadie sabe si ganó hasta el final: al cerrar se revelan la respuesta y los primeros ${5} que acertaron, que ganan puntos. Los afiliados verificados de Deriv reciben los puntos completos; el resto, la mitad. <a href="${toMain("legal-retos")}">Bases de los retos</a></p></div>
+  app.innerHTML=`<div class="pagehead"><span class="eyebrow">Retos diarios</span><h1>Juega, acierta y gana</h1><p class="muted">Cada reto dura <b>${RW().revealHours||3} horas</b>. Nadie sabe si ganó hasta el final: al cerrar se revelan la respuesta y los primeros ${5} que acertaron, que ganan puntos. Los <a href="${toMain("miembro")}">miembros verificados</a> reciben los puntos completos y juegan los retos express en dólares; el resto, la mitad de los puntos. <a href="${toMain("legal-retos")}">Bases de los retos</a></p></div>
     ${admin()&&!rewardsOn()?'<div class="note admin-note">Los retos están apagados para los alumnos. Actívalos en Administración → Retos y puntos → Ajustes.</div>':""}
     <div id="myPts"></div><section class="sec"><div class="sec-h"><h2>Abiertos ahora</h2><a href="#ranking">Ver ranking</a></div><div id="rtOpen" class="rt-grid"><div class="muted">Cargando…</div></div></section>
     <section class="sec"><div class="sec-h"><h2>Retos anteriores</h2></div><div id="rtPast" class="rt-list"></div></section>`;
   ptsCard($("#myPts"));
   let L=[];try{L=await API.challengesFeed()}catch(e){$("#rtOpen").innerHTML=`<div class="empty">No se pudieron cargar los retos.</div>`;return}
-  const card=c=>{return `<a class="rt-card${c.answered?" done":""}${c.closed?" closed":""}${c.weekly?" weekly":""}${c.express?" express":""}" href="#reto-${esc(c.id)}">
-    ${c.express?`<span class="rt-wk rt-ex">⚡ Reto express · premio en dólares</span>`:c.weekly?`<span class="rt-wk">${ico2("crown",14)}Reto semanal</span>`:""}<div class="rt-top"><span class="rt-k">${ico(c.kind==="opcion"?"msg":c.kind==="tendencia"?"chart":"layers",16)}${KIND[c.kind]}</span><span class="rt-pts">${c.express?usdF(c.prize_usd):`+${c.points} pts`}</span></div>
+  const card=c=>{const lk=c.express&&!c.closed&&exLocked();return `<a class="rt-card${c.answered?" done":""}${c.closed?" closed":""}${c.weekly?" weekly":""}${c.express?" express":""}${lk?" locked":""}" href="#reto-${esc(c.id)}">
+    ${c.express?`<span class="rt-wk rt-ex">⚡ Reto express · premio en dólares</span>${lk?'<span class="rt-lock">🔒 Solo miembros verificados</span>':""}`:c.weekly?`<span class="rt-wk">${ico2("crown",14)}Reto semanal</span>`:""}<div class="rt-top"><span class="rt-k">${ico(c.kind==="opcion"?"msg":c.kind==="tendencia"?"chart":"layers",16)}${KIND[c.kind]}</span><span class="rt-pts">${c.express?usdF(c.prize_usd):`+${c.points} pts`}</span></div>
     <b class="rt-t">${esc(c.title)}</b>
     ${c.closed?`<div class="rt-cupos">${Array.from({length:c.max_winners},(_,i)=>`<i class="${i<(c.winners||0)?"on":""}"></i>`).join("")}<span>Cerrado · ${c.winners||0} ganador${c.winners===1?"":"es"}</span></div>`
       :`<div class="rt-cdl"><span>⏳ Resultados en</span>${cdHtml(c.ends_at)}</div>`}
@@ -795,19 +798,20 @@ async function ptsCard(host,withStreak){if(!host)return;if(!logged()){host.inner
   host.innerHTML=`<div class="pts-card${w?" wallet":""}">${w?`<div class="pts-bal"><a class="bal usd" href="#puntos-saldo"><span class="eyebrow">💵 Saldo</span><b class="mono">${usdF(w.usd)}</b><span class="dim">De retos express · retíralo cuando quieras</span></a>
       <a class="bal" href="#puntos"><span class="eyebrow">⭐ Puntos</span><b class="mono">${r.balance}</b><span class="dim">≈ ${ptsUsd(r.balance)} · este mes +${r.month} · canje mensual</span></a></div>`
     :`<div class="pts-main"><span class="eyebrow">Mis puntos</span><b class="mono">${r.balance}</b><span class="dim">≈ ${ptsUsd(r.balance)} · este mes +${r.month}</span></div>`}
-    <div class="pts-st"><div><b class="mono">${r.wins}</b><span>retos ganados</span></div><div><b class="mono">${r.played}</b><span>jugados</span></div><div>${p.affiliate?affTag():`<span class="tag">${r.affiliate==="pendiente"?"Afiliado: en revisión":"No afiliado"}</span>`}<span>${p.affiliate?"puntos completos":"recibes la mitad"}</span></div></div>
-    <div class="pts-act">${w&&+w.usd>=+(w.min_usd||1)?`<a class="btn gold" href="#puntos-saldo">Retirar ${usdF(w.usd)}</a>`:""}<a class="btn ${w&&+w.usd>=+(w.min_usd||1)?"ghost":"gold"}" href="#puntos">${RW().redeemOpen?"Canjear puntos":"Mis puntos"}</a>${p.affiliate?"":`<a class="btn ghost" href="#puntos-afiliado">Verificar afiliado</a>`}</div></div>${withStreak!==false?streakCard(r):""}`;
+    <div class="pts-st"><div><b class="mono">${r.wins}</b><span>retos ganados</span></div><div><b class="mono">${r.played}</b><span>jugados</span></div><div>${p.affiliate?affTag():`<a class="tag" href="${toMain("miembro")}">${r.affiliate==="pendiente"?"Miembro: en revisión":"Aún no eres miembro"}</a>`}<span>${p.affiliate?"puntos completos y retos express":"recibes la mitad"}</span></div></div>
+    <div class="pts-act">${w&&+w.usd>=+(w.min_usd||1)?`<a class="btn gold" href="#puntos-saldo">Retirar ${usdF(w.usd)}</a>`:""}<a class="btn ${w&&+w.usd>=+(w.min_usd||1)?"ghost":"gold"}" href="#puntos">${RW().redeemOpen?"Canjear puntos":"Mis puntos"}</a>${p.affiliate?"":`<a class="btn ghost" href="${toMain("miembro")}">Hazte miembro verificado</a>`}</div></div>${withStreak!==false?streakCard(r):""}`;
   const L=evalAch(RETO_ACH,r);checkAch("retos",L);const sh=$("#retoAch");if(sh)sh.innerHTML=achHero(L,"Retos · Logros",L.filter(a=>a.on).length?"Tus medallas de retos":"Gana tu primera medalla de retos")+achGroups(L)}
 /* jugar un reto */
 ROUTES.reto=async id=>{
   app.innerHTML='<div class="muted">Cargando reto…</div>';let L=[];try{L=await API.challengesFeed()}catch(e){}const c=L.find(x=>x.id===id);
   if(!c){app.innerHTML=`<div class="empty">Ese reto no existe o todavía no está publicado.<a class="btn sm" href="#retos">Ver retos</a></div>`;return}
-  const opts=(c.options&&c.options.length?c.options:(c.kind==="tendencia"?["Sube","Baja"]:[]));const can=!c.closed&&!c.answered&&logged()&&rewardsOn();
+  const opts=(c.options&&c.options.length?c.options:(c.kind==="tendencia"?["Sube","Baja"]:[]));const xl=c.express&&exLocked();const can=!c.closed&&!c.answered&&logged()&&rewardsOn()&&!xl;
   app.innerHTML=`<div class="crumbs"><a href="#retos">Retos</a><span>/</span><span>${esc(c.title)}</span></div>
-    <div class="rt-head"><div><span class="eyebrow">${c.express?"⚡ Reto express · ":c.weekly?"Reto semanal · ":""}${KIND[c.kind]} · ${c.express?`${usdF(c.prize_usd)} por ganador${API.profile()&&!API.profile().affiliate&&RW().halfIfNotAffiliate!==false?` (tú: ${usdF(Math.round(c.prize_usd*50)/100)})`:""}`:`+${c.points} pts${API.profile()&&!API.profile().affiliate?` (tú: +${Math.ceil(c.points/2)})`:""}`}</span><h1>${esc(c.title)}</h1>${c.question?`<p class="muted">${esc(c.question)}</p>`:""}</div>
+    <div class="rt-head"><div><span class="eyebrow">${c.express?"⚡ Reto express · ":c.weekly?"Reto semanal · ":""}${KIND[c.kind]} · ${c.express?`${usdF(c.prize_usd)} por ganador${exLocked()?" · solo miembros verificados":""}`:`+${c.points} pts${API.profile()&&!API.profile().affiliate?` (tú: +${Math.ceil(c.points/2)})`:""}`}</span><h1>${esc(c.title)}</h1>${c.question?`<p class="muted">${esc(c.question)}</p>`:""}</div>
       ${c.closed?`<div class="rt-meta"><div class="rt-cupos big">${Array.from({length:c.max_winners},(_,i)=>`<i class="${i<(c.winners||0)?"on":""}"></i>`).join("")}</div><span>Reto cerrado · ${c.winners||0} ganador${c.winners===1?"":"es"}</span></div>`
         :`<div class="rt-meta rt-cdbox"><span>Resultados en</span><b>${cdHtml(c.ends_at)}</b><small>a las ${esc(hhmm(c.ends_at))} · top ${c.max_winners} gana${c.players?` · 👥 ${c.players}`:""}</small></div>`}</div>
     ${!logged()?`<div class="rk-cta"><div><b>Ingresa para jugar</b><span class="muted">Crea tu cuenta gratis y participa en los retos diarios.</span></div><a class="btn gold" href="#registro">Crear cuenta</a></div>`:!rewardsOn()?'<div class="note admin-note">Vista de admin: los retos están apagados para los alumnos.</div>':""}
+    ${xl&&logged()&&!c.closed?`<div class="rk-cta mem-cta"><div><b>🔒 Reto exclusivo para miembros verificados</b><span class="muted">Los retos express pagan en dólares y son para quienes son parte de la comunidad y nos ayudan a crecer. Hacerte miembro es gratis y lo hacemos por chat.</span></div><a class="btn gold" href="${toMain("miembro")}">Quiero ser miembro</a></div>`:""}
     <div class="rt-play panel">${c.image_url?`<img class="rt-img" src="${esc(c.image_url)}" alt="">`:""}${c.kind!=="opcion"?`<div class="chartbox rt-chart"><div class="cv" style="position:absolute;inset:0"></div><div class="chint">${c.kind==="zona"?"Toca la gráfica donde está tu zona":"Así iba el precio · ¿qué pasa después?"}</div></div>`:""}
       ${c.kind==="zona"?`<div class="row rt-zbar"><span id="rzv" class="muted">${can?"Toca la gráfica para poner tu zona":""}</span><button class="btn gold" id="rzOk" disabled ${can?"":"hidden"}>Enviar mi zona</button></div>`
         :`<div class="rt-opts">${opts.map((o,i)=>`<button type="button" class="rt-opt${c.correct===i?" ok":""}${c.my_answer&&+c.my_answer.option===i?" pick":""}" data-o="${i}" ${can?"":"disabled"}><i>${String.fromCharCode(65+i)}</i><span>${esc(o)}</span></button>`).join("")}</div>`}
@@ -815,7 +819,7 @@ ROUTES.reto=async id=>{
     <section class="sec"><div class="sec-h"><h2>Ganadores</h2></div><div id="rtWin" class="muted">Cargando…</div></section>`;
   const res=$("#rtRes");
   const wait=()=>{res.innerHTML=`<div class="result rt-susp"><b class="big">✓ Respuesta enviada</b><div>Nadie sabe todavía si ganó. A las <b>${esc(hhmm(c.ends_at))}</b> se revelan la respuesta correcta y los ${c.max_winners} primeros que acertaron.</div><div class="rt-cdl">⏳ ${cdHtml(c.ends_at)}</div></div>`};
-  const show=(r,mine)=>{if(r.reason==="cuenta_nueva"){res.innerHTML=`<div class="result"><b class="big">Respuesta registrada</b><div>Tu cuenta se creó después de que salió este reto, así que este no suma puntos. Desde el próximo reto ya compites por los premios. <a href="${toMain("legal-retos")}">Ver bases</a></div></div>`;return}res.innerHTML=r.correct?(r.place?`<div class="result ok"><b class="big">¡Acertaste! Puesto #${r.place} · +${r.express?usdF(r.usd)+" a tu saldo":r.points+" puntos"}</b>${r.express?`<div><a href="#puntos-saldo">Retirar mi saldo</a></div>`:""}${!r.express&&!r.affiliate&&r.points<r.full_points?`<div>Como no eres afiliado verificado recibiste la mitad. <a href="#puntos-afiliado">Verifícate y gana los ${r.full_points} completos</a>.</div>`:""}</div>`
+  const show=(r,mine)=>{if(r.reason==="cuenta_nueva"){res.innerHTML=`<div class="result"><b class="big">Respuesta registrada</b><div>Tu cuenta se creó después de que salió este reto, así que este no suma puntos. Desde el próximo reto ya compites por los premios. <a href="${toMain("legal-retos")}">Ver bases</a></div></div>`;return}res.innerHTML=r.correct?(r.place?`<div class="result ok"><b class="big">¡Acertaste! Puesto #${r.place} · +${r.express?usdF(r.usd)+" a tu saldo":r.points+" puntos"}</b>${r.express?`<div><a href="#puntos-saldo">Retirar mi saldo</a></div>`:""}${!r.express&&!r.affiliate&&r.points<r.full_points?`<div>Como aún no eres miembro verificado recibiste la mitad. <a href="${toMain("miembro")}">Hazte miembro y gana los ${r.full_points} completos</a>.</div>`:""}</div>`
       :`<div class="result"><b class="big">Acertaste, pero ya se llenaron los ${c.max_winners} cupos</b><div>Sé de los primeros en el próximo reto. Activa las notificaciones para enterarte apenas salga.</div></div>`)
       :`<div class="result bad"><b class="big">No era esa</b><div>Mañana hay otro reto. ¡Sigue practicando en la academia!</div></div>`};
   if(c.answered&&!c.closed)wait();else if(c.answered)show({correct:c.my_correct,place:c.my_place,points:c.my_points,affiliate:(API.profile()||{}).affiliate,full_points:c.points,express:c.express,usd:c.my_usd});
@@ -824,7 +828,7 @@ ROUTES.reto=async id=>{
   const send=async ans=>{try{const r=await API.submitChallenge(c.id,ans);if(r.reason==="cuenta_nueva")show(r);else if(r.received)wait();else show(r);
     if(r.reason==="cuenta_nueva")pop({icon:"check",tone:"blue",kicker:"Respuesta registrada",title:"Desde el próximo reto ya sumas",text:"Las cuentas creadas después de publicado un reto juegan, pero no suman en ese reto."});
     else if(r.received)pop({icon:"check",tone:"blue",kicker:"Respuesta enviada",title:`Resultados a las ${hhmm(r.reveal_at||c.ends_at)}`,text:`Ahí sabrás si quedaste entre los ${c.max_winners} primeros. ¡Suerte!`,ms:4500});
-    else if(r.correct&&r.place)pop({icon:"trophy",kicker:`¡Acertaste! · Puesto #${r.place}`,title:`+${r.points} puntos`,text:!r.affiliate&&r.points<r.full_points?`Verifícate como afiliado y gana los ${r.full_points} completos.`:"Quedaste entre los ganadores del reto.",confetti:true,ms:5000});
+    else if(r.correct&&r.place)pop({icon:"trophy",kicker:`¡Acertaste! · Puesto #${r.place}`,title:`+${r.points} puntos`,text:!r.affiliate&&r.points<r.full_points?`Hazte miembro verificado y gana los ${r.full_points} completos.`:"Quedaste entre los ganadores del reto.",confetti:true,ms:5000});
     else if(r.correct)pop({icon:"check",tone:"blue",kicker:"Acertaste",title:"Pero ya se llenaron los cupos",text:"Activa las notificaciones y sé de los primeros mañana."});
     else pop({icon:"x",tone:"red",kicker:"No era esa",title:"Mañana hay otro reto",text:"Mira la explicación cuando cierre y sigue practicando."});setTimeout(()=>ROUTES.reto(c.id),1800)}catch(x){toast(x.message)}};
   $$("[data-o]").forEach(b=>b.onclick=()=>{if(!can)return;$$("[data-o]").forEach(x=>{x.disabled=true;x.classList.toggle("pick",x===b)});send({option:+b.dataset.o})});
@@ -918,7 +922,7 @@ async function roomView(tabs){
   $("#rmImg").onchange=async e=>{const x=e.target.files[0];e.target.value="";if(!x)return;if(!/^image\//.test(x.type)){toast("Solo imágenes");return}try{file=await fitImage(x)}catch(er){toast(er.message);return}prev()};
   f.onsubmit=async e=>{e.preventDefault();const v=ta.value.trim();if(!v&&!file)return;const b=$("button[type=submit]",f);busy(b,true);
     try{let img=null;if(file)img=await API.uploadRoom(file);await API.roomSend(v,img);
-      if(admin()&&API.sendPush)API.sendPush({title:"👑 Sala Oro · El Arte Gráfico",body:(v||"📷 Compartió una foto").slice(0,140),url:absUrl("main","oro-chat"),audience:"oro",tag:"sala"}).catch(()=>{});
+      if(admin()&&API.sendPush)API.sendPush({title:"👑 Sala Oro · El Arte Gráfico",body:(v||"📷 Compartió una foto").slice(0,140),url:absUrl("main","oro-chat"),audience:"oro",tag:"sala",discord:false}).catch(()=>{});
       ta.value="";ta.style.height="auto";file=null;prev();await load();log.scrollTop=log.scrollHeight}catch(x){toast(x.message)}finally{busy(b,false);ta.focus()}};
   log.addEventListener("click",e=>{const b=e.target.closest(".rm-more");if(!b)return;const id=b.dataset.m,m=seen.get(id);if(!m)return;let mn=$("#rmMenu");if(mn)mn.remove();
     mn=document.createElement("div");mn.id="rmMenu";mn.className="rm-menu";const A=[];
@@ -935,7 +939,7 @@ async function roomView(tabs){
 /* ranking de puntos (El Arte Gráfico) */
 ROUTES.ranking=async per=>{per=per==="total"?"total":"mes";
   const mes=new Date().toLocaleDateString("es-CO",{month:"long",year:"numeric"});
-  app.innerHTML=`<div class="pagehead"><span class="eyebrow">Retos diarios</span><h1>Ranking</h1><p class="muted">Puntos ganados en los retos. Los primeros 5 de cada reto suman; los afiliados verificados suman el doble.</p></div>
+  app.innerHTML=`<div class="pagehead"><span class="eyebrow">Retos diarios</span><h1>Ranking</h1><p class="muted">Puntos ganados en los retos. Los primeros 5 de cada reto suman; los miembros verificados suman el doble.</p></div>
     ${!rewardsOn()&&!admin()?promoBlock():""}
     <div class="seg rk-seg"><a class="${per==="mes"?"on":""}" href="#ranking">Este mes · ${esc(mes)}</a><a class="${per==="total"?"on":""}" href="#ranking-total">Histórico</a></div><div id="rk" class="muted">Cargando…</div>`;
   try{const r=await API.rewardsBoard(per);const yo=r.find(x=>x.is_me);
@@ -959,8 +963,8 @@ async function saldoPanel(ir){const h=$("#sld");if(!h)return;let w=null;try{w=aw
   if(ir)setTimeout(()=>h.scrollIntoView({behavior:"smooth",block:"start"}),200)}
 /* mis puntos: canjes y afiliado */
 ROUTES.puntos=async arg=>{if(!logged()){location.hash="#entrar";return}
-  app.innerHTML=`<div class="pagehead"><span class="eyebrow">Retos</span><h1>Saldo y puntos</h1><p class="muted">Tu saldo en dólares de los retos express, tus puntos, tus canjes y tu verificación de afiliado.</p></div><div id="myPts"></div><section class="panel" id="sld" hidden></section>
-    <div class="two pts-two"><section class="panel" id="cnj"><h3>Canjear por dinero</h3><div class="muted">Cargando…</div></section><section class="panel" id="afl"><h3>Afiliado de Deriv</h3><div class="muted">Cargando…</div></section></div>
+  app.innerHTML=`<div class="pagehead"><span class="eyebrow">Retos</span><h1>Saldo y puntos</h1><p class="muted">Tu saldo en dólares de los retos express, tus puntos, tus canjes y tu verificación como miembro.</p></div><div id="myPts"></div><section class="panel" id="sld" hidden></section>
+    <div class="two pts-two"><section class="panel" id="cnj"><h3>Canjear por dinero</h3><div class="muted">Cargando…</div></section><section class="panel" id="afl"><h3>Miembro verificado</h3><div class="muted">Cargando…</div></section></div>
     <section class="panel" id="hist"><h3>Mis canjes</h3><div class="muted">Cargando…</div></section><section class="sec" id="retoAch"></section>`;
   ptsCard($("#myPts"));let r=null;try{r=await API.myRewards()}catch(e){}if(!r)return;const c=RW(),p=API.profile()||{},rate=Math.max(1,+c.ptsPerUsd||100),mn=+(c.minRedeem??500);
   const pend=(r.redemptions||[]).find(x=>x.status==="pendiente");
@@ -971,13 +975,7 @@ ROUTES.puntos=async arg=>{if(!logged()){location.hash="#entrar";return}
        <label for="cA">Tu Binance Pay ID o correo de Binance<input id="cA" maxlength="120" required placeholder="Ej.: 123456789"></label><button class="btn gold" id="cS">Enviar solicitud de canje</button><p class="dim" style="font-size:13px;margin:0">Revisamos y pagamos los canjes en los días siguientes al cierre del mes. La cuenta de Binance debe ser tuya. Al canjear aceptas las <a href="${toMain("legal-retos")}">bases de los retos</a>.</p></form>`);
   const cf=$("#cf");if(cf){$("#cP").oninput=()=>$("#cU").textContent=ptsUsd(Math.max(0,+$("#cP").value||0));
     cf.onsubmit=async e=>{e.preventDefault();try{busy($("#cS"),true);const _p=+$("#cP").value;await API.requestRedemption(_p,"binance",$("#cA").value.trim());pop({icon:"coin",kicker:"Canje enviado",title:`${_p} puntos → ${ptsUsd(_p)}`,text:"Lo revisamos y te enviamos el pago por Binance. Te avisamos cuando esté pagado.",confetti:true,ms:5200});ROUTES.puntos()}catch(x){toast(x.message)}finally{const b=$("#cS");if(b)busy(b,false)}}}
-  const st=r.affiliate;$("#afl").innerHTML=`<h3>Afiliado de Deriv ${p.affiliate?affTag():""}</h3><p class="muted">Si abriste tu cuenta de Deriv con el enlace de El Arte Gráfico, eres afiliado: <b>ganas los puntos completos</b> en cada reto (los demás reciben la mitad), te sale la etiqueta de afiliado${(S.site||{}).chartAffOn!==false?", <b>desbloqueas funciones extra de EAG Charts</b>":""} y recibes el <b>rol de Afiliado en Discord</b>.</p>`+
-    (st==="verificado"?`<div class="note ok-note">Verificado · ID de Deriv <b class="mono">${esc(r.deriv_id||"")}</b></div>${p.discord_id?(p.discord_role?'<div class="note">Rol de Afiliado activo en Discord.</div>':""):`<div class="note dc-note"><span>Conecta tu Discord y te damos el rol de <b>Afiliado</b> automáticamente.</span><a class="btn sm gold" href="${toMain("perfil-discord")}">Conectar Discord</a></div>`}`
-    :st==="pendiente"?`<div class="note">Tu solicitud está en revisión · ID <b class="mono">${esc(r.deriv_id||"")}</b>. Revisamos que estés en nuestra red de socios de Deriv.</div>`
-    :`${st==="rechazado"?`<div class="note">No pudimos verificar el ID <b class="mono">${esc(r.deriv_id||"")}</b>${r.affiliate_note?`: ${esc(r.affiliate_note)}`:""}. Revisa y vuelve a enviarlo.</div>`:""}
-      <form class="form" id="af"><label for="aD">Tu ID de cliente de Deriv<input id="aD" maxlength="40" required placeholder="Ej.: d-k3skg7d, CR1234567 o 019c0ed8-61dc-…" autocomplete="off"></label><button class="btn gold" id="aS">Enviar para verificar</button>
-      <p class="dim" style="font-size:13px;margin:0">Lo encuentras en Deriv, arriba a la derecha (empieza por CR). ¿Aún no tienes cuenta? ${S.site.derivRefUrl?`<a href="${esc(S.site.derivRefUrl)}" target="_blank" rel="noopener sponsored">Ábrela con nuestro enlace</a>.`:"Pide el enlace en la comunidad."}</p></form>${retagGuide()}`);
-  const af=$("#af");if(af)af.onsubmit=async e=>{e.preventDefault();try{busy($("#aS"),true);const rr=await API.requestAffiliate($("#aD").value);if(rr&&rr.status==="verificado"){const pf=API.profile();if(pf)pf.affiliate=true;pop({icon:"check",tone:"green",kicker:"¡Verificado al instante!",title:"Ya eres afiliado de El Arte Gráfico",text:"Desde ahora ganas los puntos completos en cada reto y te sale la etiqueta de afiliado.",confetti:true,ms:5200})}else pop({icon:"send",tone:"green",kicker:"Verificación enviada",title:"Revisamos tu ID de Deriv",text:"Cuando te aprobemos ganas los puntos completos y te sale la etiqueta de afiliado."});ROUTES.puntos("afiliado")}catch(x){toast(x.message)}finally{const b=$("#aS");if(b)busy(b,false)}};
+  memberBox($("#afl"),r,()=>ROUTES.puntos("miembro"));
   const H=r.redemptions||[];const ES={pendiente:'<span class="pill gold">En revisión</span>',pagado:'<span class="pill ok">Pagado</span>',rechazado:'<span class="pill">Rechazado</span>'};
   $("#hist").innerHTML=`<h3>Mis canjes</h3>`+(H.length?`<div class="tree">${H.map(x=>`<div class="item"><span class="txt"><b>${x.points} puntos · ${ptsUsd(x.points)}</b><span>${fmtDate(x.created_at)}${x.admin_note?` · ${esc(x.admin_note)}`:""}</span></span>${ES[x.status]||""}</div>`).join("")}</div>`:'<div class="muted">Aún no has hecho canjes.</div>');
   saldoPanel(arg==="saldo");
@@ -1146,6 +1144,40 @@ ROUTES.presentacion=arg=>{if(secJump("pres","ac-",arg))return;const s=S.site,u=l
 /* en las presentaciones, el menú lateral lleva a cada parte sin recargar la página */
 function secJump(pg,pre,arg){if(app.dataset.pg!==pg||!$("#"+pre+"ruta,#"+pre+"aprende,#"+pre+"funciones"))return false;
   if(!arg){window.scrollTo({top:0,behavior:"smooth"});return true}const t=document.getElementById(pre+arg);if(!t)return false;t.scrollIntoView({behavior:"smooth",block:"start"});return true}
+/* ---------- Miembro verificado (quien abrió Deriv con el enlace de la comunidad) ---------- */
+const MEM_PERKS=()=>{const s=S.site||{},L=[["bolt","Retos express en dólares","Retos con premios en dinero que van a tu saldo y retiras por Binance."],["trophy","Puntos completos","Ganas el 100 % de los puntos en cada reto (los demás, la mitad)."]];
+  if(s.chartAffOn!==false&&affList())L.push(["chart","EAG Charts extra, gratis",affList().replace(/^./,c=>c.toUpperCase())+"."]);
+  L.push(["chat","Rol en Discord","El rol de Miembro verificado y los canales exclusivos del servidor."],["medal","Etiqueta de verificado","Tu perfil, el ranking y los comentarios muestran que eres parte de la comunidad."]);return L};
+async function memberStart(btn){if(!logged()){location.href=toMain("registro");return}
+  try{busy(btn,true);await API.dmMemberStart();location.href=toMain("mensajes-miembro")}catch(x){toast(x.message)}finally{busy(btn,false)}}
+/* estado + formulario del ID de Deriv; r = API.myRewards() (o null para cargarlo) */
+async function memberBox(h,r,done,noChat){if(!h)return;const p=API.profile()||{};
+  if(!r){try{r=await API.myRewards()}catch(e){r={}}}r=r||{};const st=r.affiliate;
+  h.innerHTML=`<h3>Miembro verificado ${p.affiliate?affTag():""}</h3>`+
+    (st==="verificado"||p.affiliate?`<div class="note ok-note">Eres miembro verificado de la comunidad${r.deriv_id?` · ID de Deriv <b class="mono">${esc(r.deriv_id)}</b>`:""}. ¡Gracias por ayudarnos a crecer!</div>${p.discord_id?(p.discord_role?'<div class="note">Rol de Miembro verificado activo en Discord.</div>':""):`<div class="note dc-note"><span>Conecta tu Discord y te damos el rol de <b>Miembro verificado</b> solo.</span><a class="btn sm gold" href="${toMain("perfil-discord")}">Conectar Discord</a></div>`}`
+    :st==="pendiente"?`<div class="note">Estamos revisando tu ID <b class="mono">${esc(r.deriv_id||"")}</b>. Te avisamos apenas quedes verificado.</div>`
+    :`<p class="muted">Hacerte miembro es gratis: abres tu cuenta de Deriv con el enlace de la comunidad y nos ayudas a crecer. Escríbenos por chat y te guiamos, o si ya la abriste con el enlace, pega tu ID aquí.</p>
+      ${st==="rechazado"?`<div class="note">No pudimos verificar el ID <b class="mono">${esc(r.deriv_id||"")}</b>${r.affiliate_note?`: ${esc(r.affiliate_note)}`:""}. Revísalo o escríbenos por chat.</div>`:""}
+      <form class="form mem-form"><label>Tu ID de cliente de Deriv<input name="d" maxlength="40" required placeholder="Ej.: CR1234567, d-k3skg7d o 019c0ed8-61dc-…" autocomplete="off"></label><button class="btn gold">Verificarme</button>
+      <p class="dim" style="font-size:13px;margin:0">Lo encuentras en Deriv, arriba a la derecha.</p></form>
+      ${noChat?"":`<div class="row mem-chat"><button type="button" class="btn" data-mchat>${ico("chat",16)}Hablar por chat</button></div>`}`);
+  const f=$(".mem-form",h);if(f)f.onsubmit=async e=>{e.preventDefault();const b=$("button",f);try{busy(b,true);const rr=await API.requestAffiliate(f.d.value);
+    if(rr&&rr.status==="verificado"){const pf=API.profile();if(pf)pf.affiliate=true;pop({icon:"check",tone:"green",kicker:"¡Verificado al instante!",title:"Ya eres miembro verificado",text:"Desbloqueaste los retos express, los puntos completos y todo lo de la comunidad. ¡Gracias por ayudarnos a crecer!",confetti:true,ms:5200})}
+    else pop({icon:"send",tone:"green",kicker:"Recibido",title:"Estamos revisando tu ID",text:"Cuando quedes verificado te avisamos y se desbloquea todo."});
+    renderNav();done?done():memberBox(h,null,done)}catch(x){toast(x.message)}finally{busy(b,false)}};
+  const c=$("[data-mchat]",h);if(c)c.onclick=()=>memberStart(c)}
+ROUTES.miembro=()=>{const p=API.profile()||{},m=!!p.affiliate,u=logged();
+  app.innerHTML=`<section class="hx hx-mem"><div class="hx-t"><span class="hx-k">${ico("medal",16)}Comunidad El Arte Gráfico</span>
+      <h1>${m?"Eres miembro <em>verificado.</em>":"Sé parte de la comunidad <em>de verdad.</em>"}</h1>
+      <p class="hx-lead">${m?"Gracias por ayudarnos a crecer. Tienes desbloqueado todo lo de la comunidad: retos express en dólares, puntos completos, EAG Charts extra y tu rol en Discord.":"Los miembros verificados son los que caminan con nosotros: abren su cuenta de Deriv con el enlace de la comunidad y así nos ayudan a crecer. A cambio tienen acceso a todo nuestro ecosistema. Es gratis y lo hacemos por chat."}</p>
+      <div class="row hx-cta">${m?`<a class="btn gold big" href="${toMain("retos")}">Ver retos</a><a class="btn big" href="${toMain("perfil-discord")}">Conectar Discord</a>`:u?`<button class="btn gold big" id="mGo">${ico("chat",18)}<span>Quiero ser miembro</span></button><a class="btn big" href="#mem-id" data-go="mem-id">Ya tengo cuenta con el enlace</a>`:`<a class="btn gold big" href="${toMain("registro")}">Crear cuenta gratis</a><a class="btn big" href="${toMain("entrar")}">Ingresar</a>`}</div></div>
+    <div class="hx-v"><div class="live-card mem-perks"><div class="lc-h"><b>Lo que desbloqueas</b>${m?'<span class="lc-live">✓ Activo</span>':""}</div>${MEM_PERKS().map(([i,t,d])=>`<div class="lc-row"><span class="lc-i">${ico(i,20)}</span><span><b>${t}</b><small>${d}</small></span><i>${m?"✓":""}</i></div>`).join("")}</div></div></section>
+  ${m?"":`<section class="sx"><div class="sx-h"><span class="eyebrow">Cómo te haces miembro</span><h2>Tres pasos, por chat</h2></div>
+    <ol class="steps3">${[["Escríbenos por chat","Toca \"Quiero ser miembro\" y se abre tu chat privado con El Arte Gráfico, con los pasos y el enlace de la comunidad."],["Abre tu cuenta de Deriv","Con el enlace de la comunidad. Si ya tenías cuenta, cuéntanos por el chat y te decimos cómo hacerlo."],["Pega tu ID y listo","Tu ID de cliente de Deriv se verifica solo y se desbloquea todo al instante."]].map(([t,d],i)=>`<li><span class="st-n">${i+1}</span><h3>${t}</h3><p>${d}</p></li>`).join("")}</ol></section>
+  ${u?`<section class="sx" id="mem-id"><div class="panel mem-panel" id="memBox"><div class="muted">Cargando…</div></div></section>`:""}`}
+  <section class="sx"><div class="faq">${[["¿Me cuesta algo?","No. Hacerte miembro es gratis: solo abres tu cuenta de Deriv con el enlace de la comunidad."],["¿Por qué con el enlace?","Así Deriv reconoce que llegaste por El Arte Gráfico y eso nos ayuda a seguir creciendo y a pagar los premios de los retos."],["¿Y si ya tenía cuenta en Deriv?","Escríbenos por el chat y te explicamos cómo hacerlo."],["¿Cuándo me llega el rol de Discord?","Al instante, si ya conectaste tu Discord en Configuración. Si no, conéctalo y te llega solo."]].map(([q,a])=>`<details class="fq"><summary>${q}</summary><p class="muted">${a}</p></details>`).join("")}</div></section>`;
+  goLinks();const g=$("#mGo");if(g)g.onclick=()=>memberStart(g);if(u&&!m)memberBox($("#memBox"),null,()=>ROUTES.miembro())};
+
 /* ---------- Discord: conectar la cuenta para recibir el rol de Afiliado solo ---------- */
 const DC_SVG='<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M19.3 5.3A16.6 16.6 0 0 0 15.2 4l-.5 1a15.4 15.4 0 0 0-5.4 0L8.8 4a16.5 16.5 0 0 0-4.1 1.3C2.1 9.1 1.4 12.9 1.7 16.6A16.7 16.7 0 0 0 6.8 19l1.1-1.7a10.8 10.8 0 0 1-1.7-.8l.4-.3a11.9 11.9 0 0 0 10.8 0l.4.3a10.8 10.8 0 0 1-1.7.8l1.1 1.7a16.6 16.6 0 0 0 5.1-2.4c.4-4.3-.7-8.1-3-11.3ZM8.7 14.4c-1 0-1.8-.9-1.8-2s.8-2 1.8-2 1.8.9 1.8 2-.8 2-1.8 2Zm6.6 0c-1 0-1.8-.9-1.8-2s.8-2 1.8-2 1.8.9 1.8 2-.8 2-1.8 2Z"/></svg>';
 const dcRedirect=()=>PROD?"https://elartegrafico.com/":location.origin+"/";
@@ -1156,7 +1188,7 @@ async function dcStart(btn){try{busy(btn,true);const c=await API.discord("config
     location.href="https://discord.com/oauth2/authorize?"+new URLSearchParams({client_id:c.clientId,response_type:"code",redirect_uri:dcRedirect(),scope:"identify guilds.join",state:st,prompt:"none"});
   }catch(x){toast(x.message)}finally{busy(btn,false)}}
 function dcDone(r){const p=API.profile()||{};
-  pop({icon:"check",kicker:"Discord conectado",title:r&&r.name?esc(r.name):"¡Listo!",text:r&&r.result==="rol-puesto"?"Ya tienes el rol de Afiliado en el servidor de El Arte Gráfico.":r&&r.result==="no-esta-en-el-servidor"?"Conectamos tu cuenta, pero no estás en el servidor. Entra al Discord y vuelve a tocar \"Revisar mi rol\".":p.affiliate?"Tu cuenta quedó conectada. En unos segundos te llega el rol de Afiliado.":"Tu cuenta quedó conectada. Cuando verifiquemos tu afiliado de Deriv, te ponemos el rol de Afiliado solo, sin que tengas que pedirlo."});
+  pop({icon:"check",kicker:"Discord conectado",title:r&&r.name?esc(r.name):"¡Listo!",text:r&&r.result==="rol-puesto"?"Ya tienes el rol de Miembro verificado en el servidor de El Arte Gráfico.":r&&r.result==="no-esta-en-el-servidor"?"Conectamos tu cuenta, pero no estás en el servidor. Entra al Discord y vuelve a tocar \"Revisar mi rol\".":p.affiliate?"Tu cuenta quedó conectada. En unos segundos te llega el rol de Miembro verificado.":"Tu cuenta quedó conectada. Cuando seas miembro verificado de la comunidad, te ponemos el rol solo, sin que tengas que pedirlo."});
   const h=$("#dcBox");if(h)dcBox(h)}
 /* al volver de Discord (?code=...&state=dc...) */
 async function dcReturn(){const q=new URLSearchParams(location.search);const st=q.get("state")||"";if(!st.startsWith("dc."))return;
@@ -1166,14 +1198,14 @@ async function dcReturn(){const q=new URLSearchParams(location.search);const st=
   if(!code||st!==mine||!logged()){toast("No se pudo conectar Discord. Inténtalo otra vez desde Configuración.");return}
   try{const r=await API.discord("link",{code,redirect:dcRedirect()});dcDone(r)}catch(x){toast(x.message)}}
 function dcBox(h){if(!h)return;const p=API.profile()||{},inv=(S.site||{}).discordUrl;
-  const roleTxt=p.discord_role?`<span class="pill ok">${ICK}Rol de Afiliado activo</span>`:p.affiliate?'<span class="pill">Rol de Afiliado pendiente</span>':'<span class="pill">Sin rol de Afiliado</span>';
-  h.innerHTML=p.discord_id?`<div class="dc-row"><span class="dc-ic on">${DC_SVG}</span><div class="dc-t"><b>Conectado como ${esc(p.discord_name||"tu cuenta")}</b><span class="muted">${p.affiliate?(p.discord_role?"Tienes el rol de Afiliado en el servidor.":"Eres afiliado verificado: si no ves el rol, entra al servidor y toca \"Revisar mi rol\"."):"Cuando tu afiliado de Deriv quede verificado, te ponemos el rol de Afiliado solo."}</span>${roleTxt}</div></div>
+  const roleTxt=p.discord_role?`<span class="pill ok">${ICK}Rol de Miembro verificado activo</span>`:p.affiliate?'<span class="pill">Rol pendiente</span>':'<span class="pill">Sin rol de Miembro verificado</span>';
+  h.innerHTML=p.discord_id?`<div class="dc-row"><span class="dc-ic on">${DC_SVG}</span><div class="dc-t"><b>Conectado como ${esc(p.discord_name||"tu cuenta")}</b><span class="muted">${p.affiliate?(p.discord_role?"Tienes el rol de Miembro verificado en el servidor.":"Eres miembro verificado: si no ves el rol, entra al servidor y toca \"Revisar mi rol\"."):"Cuando seas miembro verificado, te ponemos el rol solo."}</span>${roleTxt}</div></div>
       <div class="row">${p.affiliate&&!p.discord_role?'<button class="btn gold" id="dcRe">Revisar mi rol</button>':""}${inv?`<a class="btn" href="${esc(inv)}" target="_blank" rel="noopener">Abrir el servidor</a>`:""}<button class="btn ghost" id="dcOut">Desconectar</button></div>`
-    :`<div class="dc-row"><span class="dc-ic">${DC_SVG}</span><div class="dc-t"><b>Conecta tu cuenta de Discord</b><span class="muted">Si eres afiliado verificado de Deriv, te damos el rol de <b>Afiliado</b> en el servidor automáticamente. Si no estás en el servidor, te agregamos al conectar.</span></div></div>
-      <div class="row"><button class="btn gold btn-ic" id="dcGo">${DC_SVG}<span>Conectar Discord</span></button>${p.affiliate?"":`<a class="btn" href="${toMain("puntos")}">Verificar mi afiliado</a>`}</div>`;
+    :`<div class="dc-row"><span class="dc-ic">${DC_SVG}</span><div class="dc-t"><b>Conecta tu cuenta de Discord</b><span class="muted">Si eres miembro verificado de la comunidad, te damos el rol de <b>Miembro verificado</b> en el servidor automáticamente. Si no estás en el servidor, te agregamos al conectar.</span></div></div>
+      <div class="row"><button class="btn gold btn-ic" id="dcGo">${DC_SVG}<span>Conectar Discord</span></button>${p.affiliate?"":`<a class="btn" href="${toMain("miembro")}">Hacerme miembro</a>`}</div>`;
   const g=$("#dcGo",h);if(g)g.onclick=()=>{if(ACAD){location.href=toMain("perfil-discord");return}dcStart(g)};
   const o=$("#dcOut",h);if(o)o.onclick=async()=>{try{busy(o,true);await API.discord("unlink");toast("Discord desconectado");dcBox(h)}catch(x){toast(x.message)}finally{busy(o,false)}};
-  const re=$("#dcRe",h);if(re)re.onclick=async()=>{try{busy(re,true);const r=await API.discord("resync");toast(r.result==="rol-puesto"?"Listo: ya tienes el rol de Afiliado":r.result==="no-esta-en-el-servidor"?"Primero entra al servidor de Discord y vuelve a intentarlo":"No se pudo poner el rol: "+r.result);dcBox(h)}catch(x){toast(x.message)}finally{busy(re,false)}}}
+  const re=$("#dcRe",h);if(re)re.onclick=async()=>{try{busy(re,true);const r=await API.discord("resync");toast(r.result==="rol-puesto"?"Listo: ya tienes el rol de Miembro verificado":r.result==="no-esta-en-el-servidor"?"Primero entra al servidor de Discord y vuelve a intentarlo":"No se pudo poner el rol: "+r.result);dcBox(h)}catch(x){toast(x.message)}finally{busy(re,false)}}}
 function goLinks(){app.querySelectorAll("[data-go]").forEach(b=>b.addEventListener("click",e=>{e.preventDefault();const t=document.getElementById(b.dataset.go);if(t)t.scrollIntoView({behavior:"smooth",block:"start"})}))}
 
 /* ---------- presentación de EAG Charts ---------- */
@@ -1207,7 +1239,7 @@ ROUTES.charts=arg=>{if(secJump("charts","ch-",arg))return;const fi=+((S.site||{}
   <section class="sx" id="ch-planes"><div class="sx-h"><span class="eyebrow">Gratis vs. completo</span><h2>Empieza gratis, desbloquea todo con un plan</h2><p>EAG Charts completo viene incluido en los planes Plata, Oro y Diamond, junto con la academia.</p></div>
     <div class="cmp" role="table" aria-label="Comparación de EAG Charts gratis y completo"><div class="cmp-r cmp-hd" role="row"><span role="columnheader">Función</span><span role="columnheader">Gratis</span><span role="columnheader" class="cmp-pro">Completo<small>Plata · Oro · Diamond</small></span></div>
       ${ROWS.map(([t,a,b])=>`<div class="cmp-r" role="row"><span role="cell">${t}</span><span role="cell">${yes(a)}</span><span role="cell" class="cmp-pro">${yes(b)}</span></div>`).join("")}</div>
-    ${(S.site||{}).chartAffOn!==false&&affList()?`<div class="aff-note"><span><b>¿Eres afiliado de Deriv con nuestro enlace?</b> Desbloqueas gratis: ${affList()}.</span><a class="btn sm" href="${toMain("puntos")}">Verificar afiliado</a></div>`:""}
+    ${(S.site||{}).chartAffOn!==false&&affList()?`<div class="aff-note"><span><b>¿Eres miembro verificado de la comunidad?</b> Desbloqueas gratis: ${affList()}.</span><a class="btn sm" href="${toMain("miembro")}">Hacerme miembro</a></div>`:""}
     <div class="row" style="justify-content:center;margin-top:22px"><a class="btn gold" href="${toAcad("presentacion-precios")}">Ver planes y precios</a><a class="btn" href="${CH_URL}" target="_blank" rel="noopener">Probar gratis</a></div></section>
   <section class="sx" id="ch-empezar"><div class="sx-h"><span class="eyebrow">Cómo empezar</span><h2>En menos de un minuto</h2></div>
     <ol class="steps3">${[["Abre EAG Charts","Entra a charts.elartegrafico.com desde el PC o el celular. Puedes instalarlo como app."],["Entra con tu cuenta","La misma cuenta de El Arte Gráfico. Así se guardan tus dibujos, alertas y ajustes."],["Elige tu mercado","Busca Boom, Crash o el que operes, marca tus zonas y deja que te avise."]].map(([t,d],i)=>`<li><span class="st-n">${i+1}</span><h3>${t}</h3><p>${d}</p></li>`).join("")}</ol></section>

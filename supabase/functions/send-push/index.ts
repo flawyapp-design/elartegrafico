@@ -19,6 +19,41 @@ const json = (b: unknown, s = 200) => new Response(JSON.stringify(b), { status: 
 const db = (path: string, init: RequestInit = {}) =>
   fetch(`${URL_}/rest/v1/${path}`, { ...init, headers: { apikey: SR, Authorization: `Bearer ${SR}`, "Content-Type": "application/json", ...(init.headers || {}) } });
 
+// ---------- Discord: los mismos avisos, publicados en los canales por webhook ----------
+const HOOK_RE = /^https:\/\/(discord|discordapp)\.com\/api\/webhooks\/\d+\/[\w-]+$/;
+let hooksCache: any = null;
+async function hooks() {
+  if (hooksCache) return hooksCache;
+  try {
+    const r = await (await db("push_config?id=eq.1&select=dc_general,dc_miembros,dc_premium")).json();
+    hooksCache = Array.isArray(r) && r[0] ? r[0] : {};
+  } catch { hooksCache = {}; }
+  return hooksCache;
+}
+const absUrl = (u: unknown) => { const s = String(u || "/"); return /^https?:\/\//.test(s) ? s : "https://elartegrafico.com" + (s.startsWith("/") ? s : "/" + s); };
+async function toDiscord(hook: string | null | undefined, msg: Record<string, unknown>, color = 0xD8B062) {
+  if (!hook || !HOOK_RE.test(hook)) return 0;
+  const url = absUrl(msg.url);
+  try {
+    const r = await fetch(hook + "?wait=false", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        username: "El Arte Gráfico", avatar_url: "https://elartegrafico.com/assets/icon-192.png",
+        allowed_mentions: { parse: [] },
+        embeds: [{ title: String(msg.title || "").slice(0, 256), description: `${String(msg.body || "").slice(0, 1800)}\n\n**[Abrir →](${url})**`, url, color }],
+      }),
+    });
+    return r.ok ? 1 : 0;
+  } catch { return 0; }
+}
+// adónde va cada aviso según a quién iba dirigido
+async function discordFor(aud: string, msg: Record<string, unknown>) {
+  const h = await hooks();
+  if (aud === "premium" || aud === "oro") return await toDiscord(h.dc_premium, msg);
+  if (aud === "miembros") return await toDiscord(h.dc_miembros, msg, 0x22B892);
+  return await toDiscord(h.dc_general, msg);
+}
+
 async function vapid() {
   const r = await db("push_config?id=eq.1&select=public_key,private_key");
   const rows = await r.json();
@@ -190,6 +225,7 @@ async function chartAlerts(keys: any) {
 const hora = (t: string) => new Date(t).toLocaleTimeString("es-CO", { timeZone: "America/Bogota", hour: "numeric", minute: "2-digit" });
 
 Deno.serve(async (req) => {
+  hooksCache = null;
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   try {
     const body = await req.json().catch(() => ({}));
@@ -211,11 +247,20 @@ Deno.serve(async (req) => {
             : { title: `🎯 Nuevo reto: ${String(it.title).slice(0, 60)}`, body: `Tienes hasta las ${hora(it.close_at)} para responder. Los primeros ${it.max_winners} en acertar ganan ${it.points} puntos.`, url, tag: `reto-${it.id}` })
           : { title: `🏆 Ya salieron los ganadores`, body: `“${String(it.title).slice(0, 60)}”: entra y mira si quedaste entre los ${it.max_winners} primeros.`, url, tag: `reto-res-${it.id}` };
         sent += (await sendAll(keys, "todos", msg)).sent;
+        // Discord: el reto express completo va al canal de miembros; en el general, una invitación a hacerse miembro
+        if (Number(it.prize_usd) > 0) {
+          await discordFor("miembros", msg);
+          if (it.what === "nuevo") await discordFor("todos", { title: "⚡ Reto express en dólares para miembros verificados", body: `Ahora mismo hay un reto con premio de US$ ${Number(it.prize_usd).toFixed(2).replace(".", ",")} por ganador, solo para miembros verificados de la comunidad. Hacerte miembro es gratis.`, url: "https://elartegrafico.com/#miembro" });
+        } else await discordFor("todos", msg);
       }
       // lanzamiento: a la hora programada se abre la academia y se avisa a todos
       try {
         const opened = await (await db("rpc/launch_claim", { method: "POST", body: "{}" })).json();
-        if (opened === true) sent += (await sendAll(keys, "todos", { title: "🚀 ¡La academia ya abrió!", body: "Entra ya: el curso Fundamentos del trading es gratis con tu cuenta.", url: "https://academia.elartegrafico.com/#inicio", tag: "launch" })).sent;
+        if (opened === true) {
+          const m = { title: "🚀 ¡La academia ya abrió!", body: "Entra ya: el curso Fundamentos del trading es gratis con tu cuenta.", url: "https://academia.elartegrafico.com/#inicio", tag: "launch" };
+          sent += (await sendAll(keys, "todos", m)).sent;
+          await discordFor("todos", m);
+        }
       } catch (_) { /* aún no existe */ }
       // sala Oro: borrar mensajes y fotos de más de 7 días
       try {
@@ -242,6 +287,10 @@ Deno.serve(async (req) => {
     const prof = await (await db(`profiles?id=eq.${user.id}&select=role,banned`)).json();
     if (!prof[0] || prof[0].role !== "admin" || prof[0].banned) return json({ error: "Solo el administrador puede enviar notificaciones" }, 403);
 
+    if (body.action === "discord-test") {
+      const h = await hooks(); const t = { title: "✅ Prueba de El Arte Gráfico", body: "Si ves esto, los avisos de la página ya llegan a este canal.", url: "https://elartegrafico.com/" };
+      return json({ general: await toDiscord(h.dc_general, t), miembros: await toDiscord(h.dc_miembros, t, 0x22B892), premium: await toDiscord(h.dc_premium, t) });
+    }
     const title = String(body.title || "").slice(0, 80);
     const text = String(body.body || "").slice(0, 200);
     const url = String(body.url || "/").slice(0, 300);
@@ -250,7 +299,15 @@ Deno.serve(async (req) => {
 
     const only = typeof body.user_id === "string" && /^[0-9a-f-]{36}$/i.test(body.user_id) ? body.user_id : undefined;
     const r = await sendAll(keys, aud, { title, body: text, url, tag: body.tag || undefined }, only);
-    return json({ ...r, audience: aud });
+    // también a Discord (salvo mensajes personales o si se desmarca "También en Discord")
+    let discord = 0;
+    if (!only && body.discord !== false && aud !== "gratis") {
+      if (body.express) {   // reto express: completo para miembros; en el general, invitación a hacerse miembro
+        discord = await discordFor("miembros", { title, body: text, url });
+        await discordFor("todos", { title: "⚡ Reto express en dólares para miembros verificados", body: `Ahora mismo hay un reto${Number(body.prize_usd) > 0 ? ` con premio de US$ ${Number(body.prize_usd).toFixed(2).replace(".", ",")} por ganador` : " con premio en dólares"}, solo para miembros verificados de la comunidad. Hacerte miembro es gratis.`, url: "https://elartegrafico.com/#miembro" });
+      } else discord = await discordFor(aud, { title, body: text, url });
+    }
+    return json({ ...r, audience: aud, discord });
   } catch (e) {
     return json({ error: String((e as Error)?.message || e) }, 500);
   }

@@ -11,7 +11,7 @@ const TDESC={chat:"Conversaciones privadas con cada alumno. Se borran solas a lo
   contenido:"Módulos, lecciones, videos y el orden del temario.",ejercicios:"Gráficas, cálculos y preguntas de cada lección y de la práctica.",noticias:"Publicaciones de la comunidad y avisos.",
   opiniones:"Opiniones públicas de los alumnos: aprueba u oculta.",chartsop:"Quién está probando EAG Charts (3 días gratis) y qué recomiendan mejorar.",resenas:"Lo que dicen los alumnos al terminar cada módulo (privado).",pagos:"Pagos de Binance por confirmar y el historial.",
   alumnos:"Cuentas, premium, puntos y avance de cada alumno.",archivos:"Imágenes y archivos subidos.",notif:"Envía avisos al celular de los alumnos.",legal:"Términos, privacidad y avisos legales."};
-const TABS=[["chat","Mensajes"],["cursos","Cursos y planes"],["top","Top, puntos y saldo"],["retos","Retos diarios"],["afiliados","Afiliados Deriv"],["canjes","Canjes"],["rpuntos","Ajustes de puntos"],["resumen","Estadísticas"],["sitio","Sitio y textos"],["banners","Banners"],["contenido","Módulos y lecciones"],["ejercicios","Ejercicios"],["noticias","Noticias"],["opiniones","Opiniones"],["chartsop","EAG Charts: prueba y opiniones"],["resenas","Reseñas de módulos"],["pagos","Pagos"],["alumnos","Alumnos"],["archivos","Archivos"],["notif","Notificaciones"],["legal","Legal"]];
+const TABS=[["chat","Mensajes"],["cursos","Cursos y planes"],["top","Top, puntos y saldo"],["retos","Retos diarios"],["afiliados","Miembros verificados"],["canjes","Canjes"],["rpuntos","Ajustes de puntos"],["resumen","Estadísticas"],["sitio","Sitio y textos"],["banners","Banners"],["contenido","Módulos y lecciones"],["ejercicios","Ejercicios"],["noticias","Noticias"],["opiniones","Opiniones"],["chartsop","EAG Charts: prueba y opiniones"],["resenas","Reseñas de módulos"],["pagos","Pagos"],["alumnos","Alumnos"],["archivos","Archivos"],["notif","Notificaciones"],["legal","Legal"]];
 A.ROUTES.admin=sub=>{
   if(!A.admin()){app.innerHTML=`<div class="empty">Esta sección es solo para administradores.<a class="btn sm" href="#inicio">Volver</a></div>`;return}
   let chatU=null;if(sub&&/^chat-/.test(sub)){tab="chat";chatU=sub.slice(5)}else if(sub&&TABS.some(t=>t[0]===sub))tab=sub;
@@ -137,6 +137,21 @@ async function resumen(){
 
 /* ---------- notificaciones ---------- */
 const DEST=()=>[["Inicio de El Arte Gráfico",A.absUrl("main","inicio")],["Comunidad",A.absUrl("main","comunidad")],["Panel de la academia",A.absUrl("academia","inicio")],["Temario",A.absUrl("academia","academia")],["Práctica",A.absUrl("academia","practica")],["Premium",A.absUrl("main","premium")]];
+/* avisos también en Discord: enlaces de webhook por canal */
+async function dcHooks(){const h=$("#dcH");if(!h)return;let c=null;try{c=await API.adminDiscordHooks()}catch(e){c={error:e.message}}
+  if(!$("#dcH"))return;
+  if(c&&c.error){h.innerHTML=`<h3>Avisos en Discord</h3><p class="muted">Falta correr <b>supabase/discord_avisos.sql</b> en Supabase.</p>`;return}
+  c=c||{};const f=(k,t,d)=>`<label>${t}<input data-dh="${k}" placeholder="${c[k]?"✓ Configurado (…"+esc(c[k+"_tail"]||"")+"). Pega otro enlace para cambiarlo":"https://discord.com/api/webhooks/…"}"><span class="dim" style="font-size:12.5px">${d}${c[k]?` <button type="button" class="btn sm ghost" data-dhx="${k}">Quitar</button>`:""}</span></label>`;
+  h.innerHTML=`<h3>Avisos en Discord</h3><p class="muted">Todo lo que se envía como notificación (retos, ganadores, noticias, clases en vivo, zonas del profe y tus avisos) se publica también en tu servidor. En Discord: <b>Ajustes del canal → Integraciones → Webhooks → Nuevo webhook → Copiar URL</b>, y pégala aquí.</p>
+    <div class="form" style="display:grid;gap:12px;margin-top:10px">${f("general","Canal para todos (ej. #anuncios)","Retos normales y sus ganadores, noticias, clases en vivo y tus avisos. Cuando hay un reto express, aquí sale una invitación a hacerse miembro.")}
+    ${f("miembros","Canal de Miembros verificados (ej. #miembros)","Solo lo ve el rol Miembro verificado: los retos express completos con su premio.")}
+    ${f("premium","Canal de planes (opcional)","Lo que envías solo a premium u Oro, como las zonas del profe.")}
+    <div class="row"><button class="btn gold" id="dhS">Guardar</button><button class="btn" id="dhT"${c.general||c.miembros||c.premium?"":" disabled"}>Enviar mensaje de prueba</button><span class="muted" id="dhR"></span></div></div>`;
+  $("#dhS").onclick=async()=>{const v=k=>{const i=$(`[data-dh="${k}"]`);return i.value.trim()||null};
+    const g=v("general"),m=v("miembros"),p=v("premium");
+    try{busy($("#dhS"),true);await API.adminSetDiscordHooks(g,m,p);toast("Canales de Discord guardados");dcHooks()}catch(x){toast(x.message)}finally{const b=$("#dhS");if(b)busy(b,false)}};
+  $$("[data-dhx]").forEach(b=>b.onclick=async e=>{e.preventDefault();const k=b.dataset.dhx;try{await API.adminSetDiscordHooks(k==="general"?"":null,k==="miembros"?"":null,k==="premium"?"":null);toast("Canal quitado");dcHooks()}catch(x){toast(x.message)}});
+  $("#dhT").onclick=async()=>{try{busy($("#dhT"),true);const r=await API.discordTest();$("#dhR").textContent=["general","miembros","premium"].filter(k=>c[k]).map(k=>`${k}: ${r[k]?"✓ llegó":"✗ no llegó"}`).join(" · ")}catch(x){toast(x.message)}finally{const b=$("#dhT");if(b)busy(b,false)}}}
 async function notif(){
   let st={total:0,premium:0,gratis:0};try{st=await API.adminPushStats()}catch(e){}
   H().innerHTML=`<div class="split"><form class="panel form" id="nf">
@@ -146,15 +161,17 @@ async function notif(){
       <div class="two"><label for="nD">Al tocarla abre<select id="nD">${DEST().map(([t,u])=>`<option value="${esc(u)}">${esc(t)}</option>`).join("")}<option value="">Otro enlace…</option></select></label>
         <label for="nA">Enviar a<select id="nA"><option value="todos">Todos</option><option value="premium">Solo premium</option><option value="gratis">Solo cuentas gratis</option></select></label></div>
       <label for="nU" id="nUl" hidden>Enlace<input id="nU" placeholder="https://academia.elartegrafico.com/#modulo-..."></label>
+      <label class="chk"><input type="checkbox" id="nDc" checked> Publicar también en Discord</label>
       <div class="row"><button class="btn gold" id="ns">Enviar notificación</button><span class="muted" id="nr"></span></div>
       <p class="dim" style="font-size:13px;margin:0">Solo la reciben quienes activaron las notificaciones (en Mi cuenta o en el aviso del inicio). No abuses: 1 a 3 por semana es lo ideal.</p></form>
     <div class="panel"><h3>Vista previa</h3><div class="npv"><img src="assets/icon-192.png" alt="" width="40" height="40"><div><b id="pvT">Nuevo módulo disponible</b><span id="pvB">Ya puedes ver “Gestión del riesgo” en la academia.</span><small>elartegrafico.com · ahora</small></div></div>
       <h3 style="margin-top:18px">Para que te lleguen a ti</h3><p class="muted" style="font-size:14px">Entra a <b>Configuración → App y notificaciones</b> en tu celular y actívalas. En iPhone primero agrega la app a la pantalla de inicio desde Safari.</p></div></div>`;
+  H().insertAdjacentHTML("beforeend",`<div class="panel dc-hooks" id="dcH" style="margin-top:16px"><div class="muted">Discord: cargando…</div></div>`);dcHooks();
   const pv=()=>{$("#pvT").textContent=$("#nT").value||"Nuevo módulo disponible";$("#pvB").textContent=$("#nB").value||"Ya puedes ver “Gestión del riesgo” en la academia."};$("#nT").oninput=pv;$("#nB").oninput=pv;
   $("#nD").onchange=()=>{$("#nUl").hidden=$("#nD").value!==""};
   $("#nf").onsubmit=async e=>{e.preventDefault();const title=$("#nT").value.trim(),body=$("#nB").value.trim(),url=$("#nD").value||$("#nU").value.trim();
     if(!title)return toast("Escribe un título");if(!/^https:\/\//.test(url)&&!/^http:\/\/localhost/.test(url))return toast("El enlace debe empezar por https://");
-    try{busy($("#ns"),true);const r=await API.sendPush({title,body,url,audience:$("#nA").value});$("#nr").textContent=`Enviadas: ${r.sent}${r.failed?` · fallidas: ${r.failed}`:""}${r.removed?` · ${r.removed} dispositivos ya no existían y se quitaron`:""}`;toast("Notificación enviada")}catch(x){toast(x.message)}finally{busy($("#ns"),false)}};
+    try{busy($("#ns"),true);const r=await API.sendPush({title,body,url,audience:$("#nA").value,discord:$("#nDc").checked});$("#nr").textContent=`Enviadas: ${r.sent}${r.discord?" · y publicada en Discord":""}${r.failed?` · fallidas: ${r.failed}`:""}${r.removed?` · ${r.removed} dispositivos ya no existían y se quitaron`:""}`;toast("Notificación enviada")}catch(x){toast(x.message)}finally{busy($("#ns"),false)}};
 }
 
 /* ---------- legal ---------- */
@@ -474,7 +491,7 @@ async function chartsop(){
     <button class="btn ${fr?"bad":"gold"}" id="cfSw">${fr?"Apagar versión gratis":"Activar versión gratis"}</button></div>
   <div class="acad-switch ${pt?"on":"off"}" style="margin-bottom:14px"><div><b>Estudio (Replay y Práctica) en la prueba: ${pt?"incluido":"solo Premium"}</b><span class="muted">${pt?"Los que están en la prueba de 3 días también pueden usar Replay y Práctica. Úsalo como gancho para que se animen a Premium.":"Replay y Práctica solo los usan los que tienen plan. Los de la prueba ven el botón con el sello PRO y una invitación a Premium."}</span></div>
     <button class="btn ${pt?"bad":"gold"}" id="ptSw">${pt?"Quitar de la prueba":"Incluir en la prueba de 3 días"}</button></div>
-  <div class="panel" style="margin-bottom:14px"><h3>Gratis para afiliados</h3><p class="muted">Quien abrió su cuenta de Deriv con tu enlace y tiene el afiliado <b>verificado</b> desbloquea estas funciones de EAG Charts sin pagar un plan. A los que no son afiliados se lo ofrecemos cuando tocan algo bloqueado, con el botón "Verificar afiliado".</p>
+  <div class="panel" style="margin-bottom:14px"><h3>Gratis para miembros verificados</h3><p class="muted">Quien abrió su cuenta de Deriv con tu enlace y tiene el afiliado <b>verificado</b> desbloquea estas funciones de EAG Charts sin pagar un plan. A los que no son afiliados se lo ofrecemos cuando tocan algo bloqueado, con el botón "Verificar afiliado".</p>
     <label class="ck" style="display:flex;gap:8px;align-items:center;margin:10px 0"><input type="checkbox" id="afOn"${(S.site||{}).chartAffOn!==false?" checked":""}> <b>Activado</b></label>
     <div class="af-ks" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:8px;margin:6px 0 12px">${[["tools","Herramientas avanzadas de dibujo","Fibonacci, posiciones, patrones, ondas"],["ind","Indicadores sin límite","En vez del límite de la versión gratis"],["alerts","Alertas al celular","Precio, cierre de vela, RSI, medias, spikes"],["az","Zonas automáticas","Soportes y resistencias solos"],["replay","Replay del mercado","Normalmente desde el plan Oro"],["prac","Práctica guiada","Normalmente solo Diamond"]].map(([k,t,d])=>`<label class="ck" style="display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border:1px solid var(--line);border-radius:10px"><input type="checkbox" data-afk="${k}"${(Array.isArray((S.site||{}).chartAff)?S.site.chartAff:["tools","ind","alerts","az"]).includes(k)?" checked":""}><span><b>${t}</b><br><span class="dim" style="font-size:12.5px">${d}</span></span></label>`).join("")}</div>
     <button class="btn gold" id="afG">Guardar</button></div>
@@ -622,7 +639,7 @@ async function retos(){
       else{o.bars=null;o.after_bars=null;o.off=0}
       if(kind==="zona"){key.zone=$("#rZo").value===""?null:+(+$("#rZo").value-(OFF||0)).toFixed(cur?cur.Hh.dec:3);key.tol=$("#rTo").value===""?null:+$("#rTo").value;if(key.zone==null||!key.tol){toast("Marca la zona correcta y el margen");return}}
       try{busy($("#rSv"),true);const saved=await API.saveChallenge(o,key);toast("Reto guardado");
-        if(nowPush&&API.sendPush){try{await API.sendPush({title:(o.express?"⚡ Reto express: ":"🎯 Nuevo reto: ")+o.title.slice(0,60),body:o.express?`Tienes ${Math.round((new Date(o.ends_at)-new Date(o.starts_at))/6e4)} minutos. Los primeros ${o.max_winners} en acertar ganan ${Number(o.prize_usd).toLocaleString("es-CO",{style:"currency",currency:"USD"})} cada uno, retirables al instante.`:`Tienes ${o.weekly?"hasta el cierre":RH()+" horas"} para responder. Los primeros ${o.max_winners} en acertar ganan ${o.points} puntos.`,url:A.absUrl("main","reto-"+saved.id),audience:"todos",tag:"reto-"+saved.id});toast("Notificación enviada")}catch(x){toast("Guardado, pero la notificación falló: "+x.message)}}
+        if(nowPush&&API.sendPush){try{await API.sendPush({title:(o.express?"⚡ Reto express: ":"🎯 Nuevo reto: ")+o.title.slice(0,60),body:o.express?`Tienes ${Math.round((new Date(o.ends_at)-new Date(o.starts_at))/6e4)} minutos. Los primeros ${o.max_winners} en acertar ganan ${Number(o.prize_usd).toLocaleString("es-CO",{style:"currency",currency:"USD"})} cada uno, retirables al instante.`:`Tienes ${o.weekly?"hasta el cierre":RH()+" horas"} para responder. Los primeros ${o.max_winners} en acertar ganan ${o.points} puntos.`,url:A.absUrl("main","reto-"+saved.id),audience:"todos",express:!!o.express,prize_usd:o.express?Number(o.prize_usd)||0:0,tag:"reto-"+saved.id});toast("Notificación enviada")}catch(x){toast("Guardado, pero la notificación falló: "+x.message)}}
         else if(o.notify&&o.status==="publicado"&&!x.notified_at)toast("La notificación sale sola a la hora de publicación");
         retos()}catch(x){toast(x.message)}finally{const b=$("#rSv");if(b)busy(b,false)}};
   }
@@ -632,7 +649,7 @@ async function dcAdmin(){const h=$("#dcAdm");if(!h)return;let c=null,st=null;
   try{c=await API.discord("config")}catch(e){c={error:e.message}}
   try{st=await API.adminDiscordStats()}catch(e){}
   if(!$("#dcAdm"))return;
-  h.innerHTML=`<h3>Rol de Afiliado en Discord</h3>`+(c&&c.ready?`<p class="muted">Activo. Cuando un afiliado queda verificado (a mano o con la lista de Deriv Partners), el bot le pone el rol solo. Si lo rechazas o lo bloqueas, se lo quita. Los alumnos conectan su Discord en <b>Configuración → Discord</b>.</p>
+  h.innerHTML=`<h3>Rol de Miembro verificado en Discord</h3>`+(c&&c.ready?`<p class="muted">Activo. Cuando alguien queda como miembro verificado (a mano o con la lista de Deriv Partners), el bot le pone el rol solo. Si lo rechazas o lo bloqueas, se lo quita. Los alumnos conectan su Discord en <b>Configuración → Discord</b>.</p>
       <div class="row" style="gap:8px;flex-wrap:wrap;margin:10px 0">${st?`<span class="tag">${st.conectados} con Discord conectado</span><span class="tag">${st.con_rol} con rol de Afiliado</span><span class="tag">${st.afiliados_sin_discord} afiliados sin Discord</span>`:""}</div>
       <button class="btn" id="dcSync">Revisar todos los roles ahora</button>`
     :`<p class="muted">${c&&c.error&&/Falta publicar/.test(c.error)?"Falta publicar la función <b>discord</b> en Supabase.":"Falta configurar la conexión con Discord (los secretos de la función <b>discord</b>)."} Sigue la guía que te dejé: crear la app y el bot en Discord, correr <b>supabase/discord_afiliados.sql</b> y publicar la función.</p>`);
@@ -745,7 +762,8 @@ function rpuntos(){const c=RWc();
     <h3>Retos diarios</h3>
     <label class="chk"><input type="checkbox" id="wE" ${c.enabled?"checked":""}> <b>Activar retos y puntos</b> (los alumnos pueden jugar, ganar puntos y ver el ranking)</label>
     <label class="chk"><input type="checkbox" id="wTz" ${c.teaser?"checked":""}> Mostrar el anuncio “Muy pronto: El Arte Gráfico te paga por participar” aunque estén apagados</label>
-    <label class="chk"><input type="checkbox" id="wH" ${c.halfIfNotAffiliate!==false?"checked":""}> Quien no es afiliado verificado gana la mitad de los puntos</label>
+    <label class="chk"><input type="checkbox" id="wH" ${c.halfIfNotAffiliate!==false?"checked":""}> Quien no es miembro verificado (afiliado de Deriv) gana la mitad de los puntos</label>
+    <label class="chk"><input type="checkbox" id="wXm" ${c.expressOnlyMembers!==false?"checked":""}> Retos express (dólares) solo para miembros verificados</label>
     <div class="two"><label for="wRh">Horas que dura cada reto diario<input id="wRh" type="number" min="0.25" max="48" step="0.25" value="${c.revealHours}"></label><div class="muted" style="align-self:end;font-size:13px">Todos pueden responder durante ese tiempo. Al cerrar se revelan la respuesta, los ganadores y los puntos.</div></div>
     <label class="chk"><input type="checkbox" id="wPr" ${c.pushResults!==false?"checked":""}> Enviar también una notificación cuando se revelen los ganadores de cada reto</label>
     <div class="two"><label for="wB">Bono por racha de 7 días jugando (puntos, 0 = sin bono)<input id="wB" type="number" min="0" value="${c.streakBonus??50}"></label><div class="muted" style="align-self:end;font-size:13px">Se entrega cada 7 días seguidos jugando (acierte o no). Quien no es afiliado recibe la mitad.</div></div>
@@ -759,7 +777,7 @@ function rpuntos(){const c=RWc();
   const calc=()=>{const r=Math.max(1,+$("#wR").value||100),m=+$("#wM").value||0;$("#wU").textContent=(m/r).toLocaleString("es-CO",{style:"currency",currency:"USD"});
     $("#wCalc").innerHTML=`Con retos de 100 puntos y 5 ganadores al día, si todos fueran afiliados repartirías hasta <b>${(500*30/r).toLocaleString("es-CO",{style:"currency",currency:"USD"})}</b> al mes (la mitad si nadie es afiliado). Ajusta los puntos por USD a tu presupuesto.`};
   $("#wR").oninput=calc;$("#wM").oninput=calc;calc();groupForm($("#wf"));
-  $("#wf").onsubmit=async e=>{e.preventDefault();const ns=Object.assign({},S.site,{rewards:{pushResults:$("#wPr").checked,revealHours:Math.min(48,Math.max(.25,+$("#wRh").value||3)),enabled:$("#wE").checked,teaser:$("#wTz").checked,halfIfNotAffiliate:$("#wH").checked,ptsPerUsd:Math.max(1,+$("#wR").value||100),minRedeem:Math.max(1,+$("#wM").value||500),redeemOpen:$("#wO").checked,streakBonus:Math.max(0,+$("#wB").value||0)}});
+  $("#wf").onsubmit=async e=>{e.preventDefault();const ns=Object.assign({},S.site,{rewards:{pushResults:$("#wPr").checked,revealHours:Math.min(48,Math.max(.25,+$("#wRh").value||3)),enabled:$("#wE").checked,teaser:$("#wTz").checked,halfIfNotAffiliate:$("#wH").checked,expressOnlyMembers:$("#wXm").checked,ptsPerUsd:Math.max(1,+$("#wR").value||100),minRedeem:Math.max(1,+$("#wM").value||500),redeemOpen:$("#wO").checked,streakBonus:Math.max(0,+$("#wB").value||0)}});
     try{busy($("#wS"),true);await API.saveSite(ns);S.site=ns;A.applySite&&A.applySite();toast("Ajustes guardados")}catch(x){toast(x.message)}finally{busy($("#wS"),false)}};
 }
 /* ---------- reseñas de módulos ---------- */
