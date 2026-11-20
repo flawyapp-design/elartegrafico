@@ -2369,3 +2369,12 @@ html.v4.side-mini nav.main .nbadge.nb-txt{display:none}
 .clv-it .txt{display:grid;gap:2px;min-width:0}.clv-it .txt>span{overflow:hidden;text-overflow:ellipsis}
 .clv-note{margin-top:10px;font-size:12px}
 .clv-it .clv-m{font-style:normal;font-weight:700;color:var(--fg)}
+/* ===== Chat: enviar y ver imágenes ===== */
+.chat-in{align-items:flex-end}
+.chat-att{flex:0 0 auto;display:grid;place-items:center;width:42px;height:42px;border-radius:12px;border:1px solid var(--line2,var(--line));color:var(--mut);cursor:pointer;transition:color .15s,border-color .15s}
+.chat-att:hover{color:var(--gold);border-color:var(--gold)}
+.chat-in.busy .chat-att{opacity:.5;pointer-events:none;animation:chatpulse 1s ease-in-out infinite}
+@keyframes chatpulse{50%{opacity:.25}}
+.chat-imga{display:block;margin:2px 0}
+.chat-img{display:block;max-width:min(260px,100%);max-height:320px;border-radius:12px;object-fit:cover;background:rgba(0,0,0,.15);cursor:zoom-in}
+.chat.drop,#chatHost.drop .chat,#dmBox.drop .chat{outline:2px dashed var(--gold);outline-offset:-6px}

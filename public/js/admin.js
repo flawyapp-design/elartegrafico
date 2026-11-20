@@ -76,7 +76,7 @@ async function chat(sel){
   H().innerHTML=`<div class="dm-adm"><aside class="dm-list"><div class="dm-new"><input id="dmQ" placeholder="Buscar alumno para escribirle…" autocomplete="off"><div id="dmRes" class="dm-res" hidden></div></div><div id="dmL"><div class="muted">Cargando…</div></div></aside><section class="dm-pane" id="dmP"></section></div>`;
   let users=null;const flagOf=c=>A.flag?A.flag(c||""):"";
   const loadList=async()=>{let L=[];try{L=await API.adminDmThreads()}catch(e){$("#dmL").innerHTML=`<div class="empty">¿Ya corriste <b>supabase/chat.sql</b>?<span class="dim">${esc(e.message)}</span></div>`;return}
-    $("#dmL").innerHTML=L.length?L.map(t=>`<a class="dm-it${t.user_id===sel?" on":""}${t.unread?" new":""}" href="#admin-chat-${esc(t.user_id)}">${A.avatar?A.avatar({username:t.username,avatar_url:t.avatar_url},38):""}<span><b>${esc(t.username||"Alumno")} ${flagOf(t.country)}</b><small>${t.last_from_admin?"Tú: ":""}${esc((t.last_body||"").slice(0,70))}</small></span><i>${t.unread?`<em class="nbadge">${t.unread}</em>`:""}<small>${esc(fmtDate(t.last_at))}</small></i></a>`).join("")
+    $("#dmL").innerHTML=L.length?L.map(t=>`<a class="dm-it${t.user_id===sel?" on":""}${t.unread?" new":""}" href="#admin-chat-${esc(t.user_id)}">${A.avatar?A.avatar({username:t.username,avatar_url:t.avatar_url},38):""}<span><b>${esc(t.username||"Alumno")} ${flagOf(t.country)}</b><small>${t.last_from_admin?"Tú: ":""}${esc((A.chatPreview?A.chatPreview(t.last_body):(t.last_body||"")).slice(0,70))}</small></span><i>${t.unread?`<em class="nbadge">${t.unread}</em>`:""}<small>${esc(fmtDate(t.last_at))}</small></i></a>`).join("")
       :`<div class="empty">Sin conversaciones abiertas. Busca un alumno arriba, o toca <b>Escribirle</b> en Afiliados o Alumnos.</div>`;
     const b=document.querySelector('[data-badge="chat"]');const n=L.reduce((a,t)=>a+t.unread,0);if(b){b.textContent=n||"";b.classList.toggle("on",!!n)}};
   $("#dmQ").oninput=async()=>{const q=$("#dmQ").value.trim().toLowerCase(),r=$("#dmRes");if(q.length<2){r.hidden=true;return}
@@ -84,6 +84,8 @@ async function chat(sel){
     const m=users.filter(u=>(u.username||"").toLowerCase().includes(q)||(u.email||"").toLowerCase().includes(q)).slice(0,8);
     r.hidden=false;r.innerHTML=m.length?m.map(u=>`<a href="#admin-chat-${esc(u.id)}">${esc(u.username)} <small class="dim">${esc(u.email||"")}</small></a>`).join(""):'<span class="dim">Nadie con ese nombre</span>'};
   await loadList();
+  /* fotos viejas del chat: se borran una vez al día (las de mensajes que ya se borraron solos) */
+  try{const k="ag_chatimg_clean",t=+(localStorage.getItem(k)||0);if(API.chatImgClean&&Date.now()-t>864e5){localStorage.setItem(k,String(Date.now()));API.chatImgClean().catch(()=>{})}}catch(e){}
   const P=$("#dmP");
   if(!sel){P.innerHTML=`<div class="dm-ph">${ico("chat",34)}<b>Elige una conversación</b><span class="muted">Los alumnos solo pueden responder cuando tú les escribes primero. Les llega una notificación al celular.</span></div>`;return}
   let d=null;try{d=await API.adminDmThread(sel)}catch(e){P.innerHTML=`<div class="empty">${esc(e.message)}</div>`;return}
@@ -91,11 +93,11 @@ async function chat(sel){
   P.innerHTML=`<header class="dm-ph-h"><a class="btn sm ghost dm-back" href="#admin-chat">←</a>${A.avatar?A.avatar(u,40):""}<div><b>${esc(u.username||"Alumno")} ${flagOf(u.country)}</b><small class="dim">${d.exists?"Conversación abierta":"Nueva conversación"}</small></div><span class="grow"></span>${d.exists?'<span id="dmEndH"><button class="btn sm bad" id="dmEnd">Finalizar y borrar</button></span>':""}</header>
     <div class="dm-quick">${DM_QUICK().map(([t],i)=>`<button type="button" class="chipb" data-q="${i}">${esc(t)}</button>`).join("")}</div><div id="dmBox"></div>`;
   const box=A.chatBox($("#dmBox"),{load:()=>API.adminDmThread(sel),send:Object.assign(async v=>{const m=await API.dmSend(v,sel);
-      if(API.sendPush)API.sendPush({title:"💬 Mensaje de El Arte Gráfico",body:v.slice(0,140),url:(A.toMain?A.toMain("mensajes"):"https://elartegrafico.com/#mensajes"),user_id:sel,tag:"dm"}).catch(()=>{});
+      if(API.sendPush)API.sendPush({title:"💬 Mensaje de El Arte Gráfico",body:(A.chatPreview?A.chatPreview(v):v).slice(0,140),url:(A.toMain?A.toMain("mensajes"):"https://elartegrafico.com/#mensajes"),user_id:sel,tag:"dm"}).catch(()=>{});
       if(!d.exists){d.exists=true;chat(sel)}else loadList();return m},{canStart:true}),me:"Tú",them:u.username||"Alumno",empty:"Escribe el primer mensaje. Le llegará una notificación."});
   $$("[data-q]").forEach(b=>b.onclick=()=>box.fill(DM_QUICK()[+b.dataset.q][1]));
   try{const pre=sessionStorage.getItem("ag_dm_pre");if(pre){sessionStorage.removeItem("ag_dm_pre");const o=JSON.parse(pre);if(o.u===sel)box.fill(o.t)}}catch(e){}
-  const e=$("#dmEnd");if(e)e.onclick=()=>A.confirmInline($("#dmEndH"),"¿Borrar toda la conversación?",async()=>{try{await API.adminDmClose(sel);toast("Conversación finalizada y borrada");location.hash="#admin-chat"}catch(x){toast(x.message)}});
+  const e=$("#dmEnd");if(e)e.onclick=()=>A.confirmInline($("#dmEndH"),"¿Borrar toda la conversación?",async()=>{try{if(API.chatImgClean)await API.chatImgClean(sel).catch(()=>0);await API.adminDmClose(sel);toast("Conversación finalizada y borrada");location.hash="#admin-chat"}catch(x){toast(x.message)}});
 }
 /* agrupa un formulario largo en tarjetas: cada <h3> abre una sección */
 function groupForm(f){if(!f)return;const kids=[...f.children];let sec=null;const out=document.createDocumentFragment();

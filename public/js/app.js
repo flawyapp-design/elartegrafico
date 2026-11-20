@@ -423,21 +423,40 @@ setInterval(()=>{if(!document.hidden)dmPoll()},45000);document.addEventListener(
 window.addEventListener("hashchange",()=>setTimeout(dmPoll,400));setTimeout(dmPoll,1500);
 
 /* caja de chat: la usan el alumno (#mensajes) y el admin */
+/* fotos en el chat: la línea "📷 <enlace>" se ve como imagen (en Discord también se ve sola) */
+const CHAT_IMG=/^📷 (https:\/\/\S+\/storage\/v1\/object\/public\/chat\/\S+|blob:\S+)$/;
+const chatBody=t=>String(t||"").split("\n").map(l=>{const m=l.trim().match(CHAT_IMG);if(m)return`<a class="chat-imga" href="${esc(m[1])}" target="_blank" rel="noopener"><img class="chat-img" src="${esc(m[1])}" alt="Imagen" loading="lazy"></a>`;
+  return esc(l).replace(/(https?:\/\/[^\s<]+)/g,'<a href="$1" target="_blank" rel="noopener">$1</a>')}).join("<br>").replace(/(<\/a>)<br>(?=<a class="chat-imga")/g,"$1");
+const chatPreview=t=>String(t||"").split("\n").map(l=>CHAT_IMG.test(l.trim())?"📷 Imagen":l).join(" ");
 function chatBox(host,{load,send,me="Tú",them="El Arte Gráfico",empty="",closedTxt="Esta conversación terminó."}){
-  host.innerHTML=`<div class="chat"><div class="chat-log" aria-live="polite"></div><form class="chat-in"><textarea rows="1" maxlength="1500" placeholder="Escribe un mensaje…" aria-label="Mensaje"></textarea><button class="btn gold" type="submit">Enviar</button></form></div>`;
-  const log=$(".chat-log",host),f=$(".chat-in",host),ta=$("textarea",f);let sig="",timer=null,st=null;
+  host.innerHTML=`<div class="chat"><div class="chat-log" aria-live="polite"></div><form class="chat-in"><label class="chat-att" title="Enviar una imagen (captura de pantalla o foto)"><input type="file" accept="image/*" hidden><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.8"/><path d="m21 15-5-5L5 21"/></svg></label><textarea rows="1" maxlength="1400" placeholder="Escribe un mensaje…" aria-label="Mensaje"></textarea><button class="btn gold" type="submit">Enviar</button></form></div>`;
+  const log=$(".chat-log",host),f=$(".chat-in",host),ta=$("textarea",f),fi=$('input[type="file"]',f);let sig="",timer=null,st=null;
   const day=t=>new Date(t).toLocaleDateString("es-CO",{weekday:"short",day:"numeric",month:"short"}),hr=t=>new Date(t).toLocaleTimeString("es-CO",{hour:"numeric",minute:"2-digit"});
   const draw=d=>{st=d;const L=(d&&d.messages)||[];const k=L.map(m=>m.id+(m.read?1:0)).join()+"|"+(d&&d.open);if(k===sig)return;sig=k;
     const atBottom=log.scrollHeight-log.scrollTop-log.clientHeight<60;let lastDay="";
     log.innerHTML=L.length?L.map(m=>{const dd=day(m.at),sep=dd!==lastDay?`<div class="chat-day">${esc(dd)}</div>`:"";lastDay=dd;
-      return `${sep}<div class="msg ${m.mine?"me":"them"}"><div class="bub">${esc(m.body).replace(/\n/g,"<br>").replace(/(https?:\/\/[^\s<]+)/g,'<a href="$1" target="_blank" rel="noopener">$1</a>')}</div><small>${m.mine?me:them} · ${hr(m.at)}${m.mine&&m.read?" · ✓✓ visto":""}</small></div>`}).join(""):`<div class="chat-empty">${empty}</div>`;
+      return `${sep}<div class="msg ${m.mine?"me":"them"}"><div class="bub">${chatBody(m.body)}</div><small>${m.mine?me:them} · ${hr(m.at)}${m.mine&&m.read?" · ✓✓ visto":""}</small></div>`}).join(""):`<div class="chat-empty">${empty}</div>`;
+    log.querySelectorAll("img.chat-img").forEach(im=>{if(!im.complete)im.onload=()=>{if(log.scrollHeight-log.scrollTop-log.clientHeight<400)log.scrollTop=log.scrollHeight}});
     const off=d&&d.exists===false&&!send.canStart?true:d&&d.open===false;f.hidden=!!off;
     let n=$(".chat-end",host);if(off&&d&&d.exists!==false){if(!n){n=document.createElement("div");n.className="chat-end";host.querySelector(".chat").appendChild(n)}n.textContent=closedTxt}else if(n)n.remove();
     if(atBottom||!log.dataset.init){log.scrollTop=log.scrollHeight;log.dataset.init=1}};
   const refresh=async()=>{if(!host.isConnected){clearInterval(timer);return}try{draw(await load())}catch(e){}};
   ta.addEventListener("input",()=>{ta.style.height="auto";ta.style.height=Math.min(140,ta.scrollHeight)+"px"});
   ta.addEventListener("keydown",e=>{if(e.key==="Enter"&&!e.shiftKey&&matchMedia("(pointer:fine)").matches){e.preventDefault();f.requestSubmit()}});
-  f.onsubmit=async e=>{e.preventDefault();const v=ta.value.trim();if(!v)return;const b=$("button",f);b.disabled=true;try{await send(v);ta.value="";ta.style.height="auto";sig="";await refresh();log.scrollTop=log.scrollHeight}catch(x){toast(x.message)}b.disabled=false;ta.focus()};
+  const after=async()=>{ta.value="";ta.style.height="auto";sig="";await refresh();log.scrollTop=log.scrollHeight};
+  f.onsubmit=async e=>{e.preventDefault();const v=ta.value.trim();if(!v)return;const b=$("button",f);b.disabled=true;try{await send(v);await after()}catch(x){toast(x.message)}b.disabled=false;ta.focus()};
+  /* enviar imagen: se achica (máx. 1600 px, WebP) antes de subirla, así pesa ~100-300 KB */
+  let upl=false;
+  const sendImg=async file=>{if(upl||!file)return;if(!/^image\//.test(file.type||"")){toast("Solo se pueden enviar imágenes");return}if(file.size>25e6){toast("La imagen es muy pesada");return}
+    if(!API.uploadChat){toast("No disponible");return}upl=true;f.classList.add("busy");const att=$(".chat-att",f);att.setAttribute("aria-busy","true");toast("Subiendo imagen…");
+    try{let blob=await fitImage(file,1600);if(blob&&blob.size>1.8e6)blob=await fitImage(file,1100);if(!blob)throw new Error("No se pudo leer la imagen");
+      const u=await API.uploadChat(blob),cap=ta.value.trim();await send("📷 "+u+(cap?"\n"+cap:""));await after()}catch(x){toast(x.message||"No se pudo enviar la imagen")}
+    upl=false;f.classList.remove("busy");att.removeAttribute("aria-busy");fi.value=""};
+  fi.onchange=()=>sendImg(fi.files&&fi.files[0]);
+  ta.addEventListener("paste",e=>{const it=[...((e.clipboardData||{}).items||[])].find(x=>x.kind==="file"&&/^image\//.test(x.type));if(it){e.preventDefault();sendImg(it.getAsFile())}});
+  host.addEventListener("dragover",e=>{if([...(e.dataTransfer||{}).types||[]].includes("Files")){e.preventDefault();host.classList.add("drop")}});
+  host.addEventListener("dragleave",()=>host.classList.remove("drop"));
+  host.addEventListener("drop",e=>{host.classList.remove("drop");const fl=e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files[0];if(fl&&/^image\//.test(fl.type)){e.preventDefault();if(!f.hidden)sendImg(fl)}});
   refresh();timer=setInterval(()=>{if(!document.hidden)refresh()},7000);
   return{refresh,fill:t=>{ta.value=t;ta.dispatchEvent(new Event("input"));ta.focus()}}}
 
@@ -1696,7 +1715,7 @@ ROUTES.admin=async sub=>{if(viewAs()){setViewAs("");viewBar();renderNav()}if(!ad
   try{await admLoad}catch(e){app.innerHTML='<div class="empty">No se pudo cargar la administración. Revisa tu conexión y recarga.</div>';return}
   if(ROUTES.admin.__lazy){app.innerHTML='<div class="empty">No se pudo cargar la administración.</div>';return}ROUTES.admin(sub)};
 ROUTES.admin.__lazy=true;
-window.AGAPP={uL,showProfile,TIERS,chatBox,dmPoll,pop,mediaVideo,hlsInit,ico,avatar,affTag,absUrl,enablePush,flag,premTag,legalText,modOpen,modState,SITE,ACAD,link,toAcad,toMain,S,API,$,$$,esc,md,toast,busy,fmtT,fmtDate,fmtDT,TZ,MARKETS,MNAME,h1Bars,m5Bars,idxAt,avgRange,toC,Chart,cleanupPush:f=>cleanup.push(f),route,ROUTES,app,premium,admin,logged,confirmInline,loadContent:()=>loadContent(),renderFoot:()=>renderFoot(),applySite:()=>applySite()};
+window.AGAPP={uL,showProfile,TIERS,chatBox,chatPreview,dmPoll,pop,mediaVideo,hlsInit,ico,avatar,affTag,absUrl,enablePush,flag,premTag,legalText,modOpen,modState,SITE,ACAD,link,toAcad,toMain,S,API,$,$$,esc,md,toast,busy,fmtT,fmtDate,fmtDT,TZ,MARKETS,MNAME,h1Bars,m5Bars,idxAt,avgRange,toC,Chart,cleanupPush:f=>cleanup.push(f),route,ROUTES,app,premium,admin,logged,confirmInline,loadContent:()=>loadContent(),renderFoot:()=>renderFoot(),applySite:()=>applySite()};
 
 /* ---------- arranque ---------- */
 async function loadContent(){const [m,l,c,mc]=await Promise.all([API.modules().catch(()=>[]),API.lessonIndex().catch(()=>[]),(API.courses?API.courses():Promise.resolve([])).catch(()=>[]),(API.myCourses&&logged()?API.myCourses():Promise.resolve([])).catch(()=>[])]);S.modules=m||[];S.lindex=l||[];S.courses=c||[];S.myCourses=new Set((mc||[]).map(x=>x.course_id||x))}
