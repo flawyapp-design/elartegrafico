@@ -195,6 +195,32 @@ html.light .mini.on .mh em{color:var(--gold)}
 .wnavt{position:absolute;left:8px;bottom:40px;z-index:4;display:grid;place-items:center;width:28px;height:28px;border-radius:50%;border:1px solid var(--line2);background:var(--card);color:var(--dim);cursor:pointer;opacity:.75;box-shadow:0 3px 10px rgba(0,0,0,.2);transition:opacity .15s,color .15s,border-color .15s}
 .wnavt:hover{opacity:1;color:var(--gold);border-color:var(--gold)}
 .wchart.nonav .wnav{display:none!important}.wchart.nonav .wnavt{color:var(--gold);border-color:var(--gold);opacity:.9}
+.wtrk{position:absolute;left:42px;bottom:40px;z-index:4;display:grid;place-items:center;width:28px;height:28px;border-radius:50%;border:1px solid var(--line2);background:var(--card);color:var(--dim);cursor:pointer;opacity:.75;box-shadow:0 3px 10px rgba(0,0,0,.2)}
+.wtrk:hover{opacity:1;color:var(--gold);border-color:var(--gold)}.wtrk.on{color:var(--gold);border-color:var(--gold);opacity:.95}
+.trk{position:fixed;z-index:60;width:244px;background:var(--card);border:1px solid var(--line2);border-radius:16px;box-shadow:var(--shadow);padding:10px 12px 12px;color:var(--fg);user-select:none;-webkit-user-select:none;font-variant-numeric:tabular-nums}
+.trk[hidden]{display:none}
+.trk-h{display:flex;align-items:center;gap:6px;cursor:grab;margin:-2px -4px 6px;padding:2px 4px;touch-action:none}.trk-h:active{cursor:grabbing}
+.trk-t{flex:1;display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:var(--gold);letter-spacing:.04em;text-transform:uppercase}
+.trk-h button{width:24px;height:24px;border-radius:7px;border:1px solid var(--line2);background:transparent;color:var(--mut);cursor:pointer;font-weight:700;font-size:13px;line-height:1}
+.trk-h button:hover{color:var(--fg);border-color:var(--gold)}
+.trk-tot{font-size:30px;font-weight:800;line-height:1.1;text-align:center;margin:2px 0}.trk-tot.tw{color:var(--ok)}.trk-tot.tl{color:var(--bad)}
+.trk-sub{text-align:center;font-size:11.5px;color:var(--mut);margin-bottom:8px}
+.trk-cnt{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:8px}
+.trk-cnt span{display:flex;flex-direction:column;align-items:center;gap:1px;padding:6px 2px;border-radius:10px;background:var(--card2);font-size:10.5px;color:var(--mut)}
+.trk-cnt b{font-size:20px;color:var(--fg)}.trk-cnt .tw b{color:var(--ok)}.trk-cnt .tl b{color:var(--bad)}
+.trk-seq{display:flex;gap:4px;justify-content:center;min-height:10px;margin-bottom:9px;flex-wrap:wrap}
+.trk-seq i{width:10px;height:10px;border-radius:50%}.trk-seq .tw{background:var(--ok)}.trk-seq .tl{background:var(--bad)}.trk-seq .tz{background:var(--dim)}
+.trk-btn{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-bottom:9px}
+.trk-btn button{height:42px;border-radius:11px;border:0;font-size:18px;font-weight:800;cursor:pointer;color:#fff;transition:transform .08s,filter .15s}
+.trk-btn button:active{transform:scale(.94)}.trk-btn button:disabled{opacity:.35;cursor:not-allowed}
+.trk .trk-btn button.tl{background:var(--bad);color:#fff}.trk .trk-btn button.tw{background:var(--ok);color:#fff}.trk-btn .tz{background:var(--card2);color:var(--fg);border:1px solid var(--line2)}
+.trk-f{display:flex;align-items:center;justify-content:space-between;gap:6px;font-size:11.5px;color:var(--mut);margin-bottom:8px}
+.trk-f label{display:flex;align-items:center;gap:5px;white-space:nowrap}.trk-f input{width:64px;padding:4px 6px;border-radius:7px;border:1px solid var(--line2);background:var(--bg2);color:var(--fg);font:inherit;font-weight:700}
+.trk-f small{font-size:10.5px;text-align:right}
+.trk-act{display:flex;gap:6px}.trk-act button{flex:1;height:30px;border-radius:8px;border:1px solid var(--line2);background:transparent;color:var(--fg2);font-size:12px;cursor:pointer}
+.trk-act button:hover:not(:disabled){border-color:var(--gold);color:var(--fg)}.trk-act button:disabled{opacity:.4;cursor:not-allowed}.trk-act .sure{border-color:var(--bad);color:var(--bad)}
+.trk.big{width:300px}.trk.big .trk-tot{font-size:44px}.trk.big .trk-cnt b{font-size:28px}.trk.big .trk-btn button{height:50px;font-size:22px}.trk.big .trk-seq i{width:13px;height:13px}
+@media (max-width:640px){.trk{width:212px;padding:8px 10px 10px}.trk-tot{font-size:26px}.trk-btn button{height:40px}.trk.big{width:250px}}
 .wnav i{width:6px}
 .wnav button{display:grid;place-items:center;width:32px;height:32px;border-radius:9px;border:1px solid var(--line2);background:var(--card);color:var(--fg2);cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.25)}
 .wnav button:hover{color:var(--fg);border-color:var(--gold)}

@@ -288,6 +288,7 @@ const IC={
   mtf:'<rect x="3" y="3" width="18" height="10" rx="1.5"/><rect x="3" y="15" width="5" height="6" rx="1"/><rect x="9.5" y="15" width="5" height="6" rx="1"/><rect x="16" y="15" width="5" height="6" rx="1"/>',
   chevl:'<path d="m15 6-6 6 6 6"/>',chevr:'<path d="m9 6 6 6-6 6"/>',
   reset:'<path d="M4 12a8 8 0 1 0 2.4-5.7"/><path d="M4 4v4h4"/>',
+  score:'<rect x="3" y="4" width="18" height="16" rx="3"/><path d="M12 4v16M6.5 12h3M8 10.5v3M14.5 12h3"/>',
   reload:'<path d="M20 12a8 8 0 1 1-2.4-5.7"/><path d="M20 4v4h-4"/><circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none"/>',
   copy:'<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M4 16V4h12"/>',
   front:'<rect x="9" y="9" width="11" height="11" rx="1"/><path d="M15 9V4H4v11h5"/>'};
@@ -367,7 +368,7 @@ window.EAGWidget=function(o){
   root.innerHTML=`<div class="wbar"><button class="wsym" title="Cambiar mercado"><b></b>${svg("caret",12)}</button><button class="wtf" title="Todas las temporalidades"><b></b>${svg("caret",11)}</button><span class="wfav"></span><span class="wsp"></span>
       <button class="wb wmtf" data-a="mtf" title="Multitemporalidad de este gráfico" hidden>${svg("mtf",17)}<span>Multi-TF</span></button><button class="wb" data-a="ind" title="Indicadores">${svg("fx")}<span>Indicadores</span></button><button class="wb" data-a="cfg" title="Ajustes del gráfico">${svg("gear")}</button><button class="wb" data-a="shot" title="Captura (descargar imagen)">${svg("cam")}</button></div>
     <div class="wbody"><div class="dbar"></div><div class="wchart"><div class="wwm"><div class="wm-s"></div><div class="wm-b">EL ARTE GRÁFICO</div></div>
-      <button class="wnavt" title="Mostrar u ocultar los botones de navegación">${svg("eye",15)}</button><div class="wnav"><button data-n="left" title="Mover a la izquierda">${svg("chevl",16)}</button><button data-n="right" title="Mover a la derecha">${svg("chevr",16)}</button><i></i><button data-n="reset" title="Volver al precio actual (zoom normal)">${svg("reset",16)}</button><button data-n="reload" title="Recargar el gráfico (si se traba)">${svg("reload",16)}</button></div></div></div>
+      <button class="wnavt" title="Mostrar u ocultar los botones de navegación">${svg("eye",15)}</button>${o.onTracker?`<button class="wtrk" title="Marcador de operaciones (ganadas, perdidas y total en US$)">${svg("score",15)}</button>`:""}<div class="wnav"><button data-n="left" title="Mover a la izquierda">${svg("chevl",16)}</button><button data-n="right" title="Mover a la derecha">${svg("chevr",16)}</button><i></i><button data-n="reset" title="Volver al precio actual (zoom normal)">${svg("reset",16)}</button><button data-n="reload" title="Recargar el gráfico (si se traba)">${svg("reload",16)}</button></div></div></div>
     <div class="wfoot"><span class="wrng">${[["1D",1],["5D",5],["1M",30],["3M",90],["6M",180],["1A",365],["Todo",0]].map(([t,d])=>`<button data-d="${d}" title="${d?"Ver "+t:"Ver todo el historial cargado"}">${t}</button>`).join("")}</span><span class="wsp"></span>
       <span class="wcd" title="Tiempo para el cierre de la vela"></span><span class="wclk" title="Hora de Colombia (UTC-5)"></span><i class="wsep"></i><button class="wax" data-ax="percentage" title="Escala en porcentaje">%</button><button class="wax" data-ax="log" title="Escala logarítmica">log</button><button class="wax" data-ax="normal" title="Escala normal (automática)">auto</button></div>`;
   const $=s=>root.querySelector(s),chartEl=$(".wchart"),dbar=$(".dbar");
@@ -557,6 +558,7 @@ window.EAGWidget=function(o){
     const paint=()=>{wc.classList.toggle("nonav",off);nt.innerHTML=svg(off?"eyeoff":"eye",15);nt.title=off?"Mostrar botones (mover, recargar)":"Ocultar botones (mover, recargar)"};paint();
     nt.onclick=e=>{e.stopPropagation();off=!off;try{localStorage.setItem("eag_nav_off",off?"1":"0")}catch(x){}document.querySelectorAll(".wchart").forEach(c=>{c.classList.toggle("nonav",off);const t=c.querySelector(".wnavt");if(t){t.innerHTML=svg(off?"eyeoff":"eye",15)}})};
     nt.addEventListener("pointerdown",e=>e.stopPropagation())}
+  {const tb=root.querySelector(".wtrk");if(tb){tb.onclick=e=>{e.stopPropagation();o.onTracker()};tb.addEventListener("pointerdown",e=>e.stopPropagation())}}
   root.querySelectorAll(".wnav button").forEach(b=>b.onclick=e=>{e.stopPropagation();const n=b.dataset.n,w=chartEl.clientWidth;
     try{if(n==="left")chart.scrollByDistance(w*.35,250);else if(n==="right")chart.scrollByDistance(-w*.35,250);
       else if(n==="reset"){if(bs0)chart.setBarSpace(bs0);chart.scrollToRealTime(300);autoScale()}

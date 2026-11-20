@@ -502,7 +502,7 @@ function start(){
       indicators:LOCK.ind?trimInd(sv.ind):sv.ind,magnet:SAVE.magnet,lastTools:SAVE.lastTools,
       toolAllowed:LOCK.tools?(n=>FREE_TOOLS.has(n)):null,maxIndicators:LOCK.ind?FREE_IND:null,alertsAllowed:LOCK.alerts?(()=>false):null,onLocked:(k,what)=>upsell(what),
       getFavTF:()=>SAVE.tfFav,getXform:()=>CF().type==="ha"||CF().type==="renko"?CF().type:"",getRenkoBox:()=>+CF().rbox||0,autoZones:()=>!!CF().az&&!LOCK.az,ticksOn:()=>CF().ticks!==false,
-      onPickTF:t=>{kc.setPeriod(perOf(t));afterTF()},
+      onPickTF:t=>{kc.setPeriod(perOf(t));afterTF()},onTracker:()=>TRK.toggle(),
       onTFClick:a=>{setActive(i);pop.hidden||pop.dataset.for!=="tf"?openTF(p,a):closePop()},
       onSymbolClick:anc=>{setActive(i);const a=anc&&anc.nodeType?anc:el.querySelector(".wsym");pop.hidden||pop.dataset.for!=="sym"?openSymPicker(p,a):closePop()},
       onSettings:()=>openSettings("apariencia"),getDecimals:()=>CF().dec,getFont:()=>CF().font,getCdMode:()=>CF().cd,
@@ -816,6 +816,53 @@ function start(){
   window.__eagLot=(tk,entry,sl)=>{const r=RISK();if(!r.on||!tk)return"";const d=Math.abs(+entry-+sl),usd=riskUsd(r);if(!(d>0)||!(usd>0))return"";
     const [cs,exact]=contractOf(tk),lot=Math.floor(usd/(d*cs)*100+1e-9)/100;
     return lot>=0.01?`${exact?"":"≈ "}Lote ${lot.toFixed(2)} · $${usd%1?usd.toFixed(2):usd}`:`Lote < 0.01 · SL muy lejos`};
+  /* ---------- marcador de operaciones (para los lives): −1 / 0 / +1 en "R" (lo que arriesgas por operación) ---------- */
+  const TRK=(()=>{const st=()=>{SAVE.trk=Object.assign({open:false,ops:[],risk:null,x:null,y:null,big:false},SAVE.trk||{});return SAVE.trk};
+    let el=null,sure=false,sureT=0;
+    const rk=()=>{const t=st();if(t.risk>0)return+t.risk;const u=riskUsd(RISK());return u>0?u:0};
+    const money=v=>(v<0?"−":v>0?"+":"")+"US$ "+Math.abs(v).toLocaleString("en-US",{minimumFractionDigits:Math.abs(v)%1?2:0,maximumFractionDigits:2});
+    const rTxt=v=>(v>0?"+":v<0?"−":"")+Math.abs(v)+"R";
+    function place(){const t=st();if(!el)return;const W=innerWidth,H=innerHeight,w=el.offsetWidth||240,h=el.offsetHeight||200;
+      let x=t.x==null?W-w-18:t.x,y=t.y==null?Math.max(70,H-h-90):t.y;x=Math.min(Math.max(6,x),W-w-6);y=Math.min(Math.max(6,y),H-h-6);el.style.left=x+"px";el.style.top=y+"px"}
+    function paint(){const t=st();if(!el)return;const O=t.ops,w=O.filter(q=>q.r>0).length,l=O.filter(q=>q.r<0).length,z=O.filter(q=>q.r===0).length;
+      const tot=O.reduce((a,q)=>a+q.r*q.u,0),tr=O.reduce((a,q)=>a+q.r,0),wr=w+l?Math.round(w/(w+l)*100):null,r=rk();
+      el.classList.toggle("big",!!t.big);
+      el.querySelector("[data-tot]").textContent=O.length?money(tot):"US$ 0";
+      el.querySelector("[data-tot]").className="trk-tot"+(tot>0?" tw":tot<0?" tl":"");
+      el.querySelector("[data-sub]").textContent=O.length?`${rTxt(+tr.toFixed(2))} · ${O.length} ${O.length===1?"operación":"operaciones"}${wr!=null?` · ${wr}% acierto`:""}`:"Sin operaciones todavía";
+      el.querySelector("[data-w]").textContent=w;el.querySelector("[data-l]").textContent=l;el.querySelector("[data-z]").textContent=z;
+      el.querySelector("[data-seq]").innerHTML=O.slice(-14).map(q=>`<i class="${q.r>0?"tw":q.r<0?"tl":"tz"}" title="${rTxt(q.r)} · ${money(q.r*q.u)}"></i>`).join("");
+      const ri=el.querySelector("[data-risk]");if(document.activeElement!==ri)ri.value=r?String(+r.toFixed(2)):"";
+      el.querySelector("[data-rhint]").textContent=t.risk>0?"por operación":riskUsd(RISK())>0?"de tu calculadora":"escribe cuánto arriesgas";
+      el.querySelectorAll("[data-a]").forEach(b=>b.disabled=!r);
+      el.querySelector("[data-undo]").disabled=!O.length;const rs=el.querySelector("[data-reset]");rs.disabled=!O.length;rs.textContent=sure?"¿Seguro?":"Reiniciar";rs.classList.toggle("sure",sure)}
+    function build(){el=document.createElement("div");el.className="trk";el.innerHTML=`
+      <div class="trk-h" data-drag><span class="trk-t">${'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M12 4v16"/></svg>'} Marcador</span>
+        <button data-size title="Tamaño grande / normal (para que se lea en el live)">A</button><button data-x title="Ocultar (vuelve con el botón del marcador, abajo a la izquierda del gráfico)">×</button></div>
+      <div class="trk-tot" data-tot></div><div class="trk-sub" data-sub></div>
+      <div class="trk-cnt"><span class="tw"><b data-w>0</b>Ganadas</span><span class="tz"><b data-z>0</b>En cero</span><span class="tl"><b data-l>0</b>Perdidas</span></div>
+      <div class="trk-seq" data-seq></div>
+      <div class="trk-btn"><button data-a="-1" class="tl">−1</button><button data-a="0" class="tz">0</button><button data-a="1" class="tw">+1</button></div>
+      <div class="trk-f"><label>Riesgo US$ <input data-risk type="number" min="0" step="any" inputmode="decimal"></label><small data-rhint></small></div>
+      <div class="trk-act"><button data-undo>↶ Deshacer</button><button data-reset>Reiniciar</button></div>`;
+      document.body.appendChild(el);
+      el.addEventListener("pointerdown",e=>e.stopPropagation());
+      el.querySelectorAll("[data-a]").forEach(b=>b.onclick=()=>{const u=rk();if(!u)return;st().ops.push({r:+b.dataset.a,u,t:Date.now()});sure=false;save();paint()});
+      el.querySelector("[data-undo]").onclick=()=>{st().ops.pop();sure=false;save();paint()};
+      el.querySelector("[data-reset]").onclick=()=>{if(!sure){sure=true;clearTimeout(sureT);sureT=setTimeout(()=>{sure=false;paint()},3000);paint();return}sure=false;st().ops=[];save();paint();toast("Marcador en cero")};
+      el.querySelector("[data-x]").onclick=()=>toggle(false);
+      el.querySelector("[data-size]").onclick=()=>{const t=st();t.big=!t.big;save();paint();place()};
+      const ri=el.querySelector("[data-risk]");ri.oninput=()=>{const v=+ri.value;st().risk=v>0?v:null;save();paint()};ri.onblur=()=>paint();
+      /* arrastrar desde la cabecera */
+      const hd=el.querySelector("[data-drag]");let d=null;
+      hd.addEventListener("pointerdown",e=>{if(e.target.closest("button"))return;d={x:e.clientX-el.offsetLeft,y:e.clientY-el.offsetTop};hd.setPointerCapture(e.pointerId);e.preventDefault()});
+      hd.addEventListener("pointermove",e=>{if(!d)return;const t=st();t.x=e.clientX-d.x;t.y=e.clientY-d.y;place()});
+      hd.addEventListener("pointerup",()=>{if(d){d=null;save()}});
+      addEventListener("resize",place)}
+    function toggle(on){const t=st();t.open=on==null?!t.open:!!on;save();if(t.open){if(!el)build();el.hidden=false;paint();place()}else if(el)el.hidden=true;
+      document.querySelectorAll(".wtrk").forEach(b=>b.classList.toggle("on",t.open))}
+    setTimeout(()=>{if(st().open)toggle(true)},600);
+    return{toggle,paint:()=>{if(el&&!el.hidden)paint()}}})();
   let lotT=0;const lotRepaint=()=>{clearTimeout(lotT);lotT=setTimeout(()=>panes.forEach(p=>{try{p.kc.repaint()}catch(e){}}),60)};
   function settingsBody(cat){const c=CF();
     if(cat==="apariencia")return`<h3>Apariencia</h3>
@@ -906,7 +953,7 @@ function start(){
     ov.querySelectorAll('input[data-rk="on"]').forEach(i=>i.onchange=()=>{SAVE.risk=Object.assign(RISK(),{on:i.checked});save();lotRepaint();re()});
     ov.querySelectorAll("[data-rm]").forEach(b=>b.onclick=()=>{SAVE.risk=Object.assign(RISK(),{mode:b.dataset.rm});save();lotRepaint();re()});
     ov.querySelectorAll("[data-rv]").forEach(i=>i.oninput=()=>{const v=parseFloat(String(i.value).replace(",","."));SAVE.risk=Object.assign(RISK(),{[i.dataset.rv]:isFinite(v)&&v>=0?v:0});save();lotRepaint();
-      const u=riskUsd(RISK()),inf=ov.querySelector("[data-rinfo]");if(inf)inf.innerHTML=u>0?`Arriesgas <b>US$ ${u.toFixed(2)}</b> por operación.`:"Escribe tu saldo y tu riesgo."});
+      try{TRK.paint()}catch(e){}const u=riskUsd(RISK()),inf=ov.querySelector("[data-rinfo]");if(inf)inf.innerHTML=u>0?`Arriesgas <b>US$ ${u.toFixed(2)}</b> por operación.`:"Escribe tu saldo y tu riesgo."});
     ov.querySelectorAll("[data-del]").forEach(b=>b.onclick=async()=>{try{await API.deleteChartAlert(b.dataset.del)}catch(e){}ALERTS=ALERTS.filter(a=>a.id!==b.dataset.del);paintAlerts();re()});
     ov.querySelectorAll("[data-re]").forEach(b=>b.onclick=async()=>{const a=ALERTS.find(x=>x.id===b.dataset.re);if(!a)return;try{const r=await API.saveChartAlert(Object.assign({id:a.id,symbol:a.symbol,symbol_name:a.symbol_name,kind:a.kind,price:a.price,price2:a.price2,note:a.note,active:true},a.kind==="nivel"||a.kind==="zona"?{}:{tf:a.tf,cond:a.cond,params:a.params,repeat:a.repeat}));Object.assign(a,r||{},{active:true})}catch(e){toast(esc(e.message||"No se pudo reactivar"))}paintAlerts();re()})}
   addEventListener("keydown",e=>{if(e.key==="Escape"){const m=$(".smodal");if(m){m.remove();e.stopImmediatePropagation();return}const pn=document.querySelector(".wmenu.panel");if(pn){pn.remove();e.stopImmediatePropagation()}}},true);
