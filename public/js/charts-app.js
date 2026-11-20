@@ -1019,8 +1019,9 @@ function start(){
       if(c.sp.show!==false)showChart(t)}
     /* te muestra ese gráfico: si ya está en uno de tus gráficos lo enfoca; si no, lo abre en el gráfico activo */
     function showChart(t){try{const n=visible();let j=-1;for(let k=0;k<n;k++)if(curSym(k)===t){j=k;break}
-      if(j<0){setSym(t);j=active}else if(j!==active)setActive(j);
-      const P=panes[j];if(!P)return;setTimeout(()=>{try{P.kc.chart.scrollToRealTime()}catch(e){}},j===active?400:0);
+      /* ya lo estás viendo: no te muevo nada (ni el gráfico ni el zoom), solo lo resalto */
+      const moved=j<0;if(moved){setSym(t);j=active}
+      const P=panes[j];if(!P)return;if(moved)setTimeout(()=>{try{P.kc.chart.scrollToRealTime()}catch(e){}},400);
       P.el.classList.remove("spkfl");void P.el.offsetWidth;P.el.classList.add("spkfl");setTimeout(()=>P.el.classList.remove("spkfl"),2600)}catch(e){}}
     function sync(){const c=SCFG().sp,want=new Set(c.on?c.syms.filter(t=>bc(t)!=null):[]);[...S.keys()].forEach(t=>{if(!want.has(t))stopOne(t)});want.forEach(startOne);
       const b=$("#alb");if(b){b.classList.toggle("watching",want.size>0);b.title=want.size?`Alertas · vigilando spikes en ${[...want].map(nm).join(", ")}`:"Alertas de precio"}}
@@ -1039,7 +1040,7 @@ function start(){
       <div class="sndr"><label class="af"><span>Sonido del spike</span><select data-snd="sp">${opts(sp.snd)}</select></label><button class="btn sm" data-sndt="sp">▶ Probar</button></div>
       ${cur&&WATCH.bc(cur)!=null&&!sp.syms.includes(cur)?`<div class="sbtns"><button class="btn sm gold" data-spcur>+ Vigilar ${esc(WATCH.nm(cur))} (el que tienes abierto)</button></div>`:""}
       <div class="spchips">${bcs.map(t=>`<button class="spc${sp.syms.includes(t)?" on":""}" data-spt="${esc(t)}">${esc(WATCH.nm(t).replace(" Index",""))}</button>`).join("")||`<p class="shelp">Cargando mercados…</p>`}</div>
-      ${row("Mostrarme el gráfico","Cuando salga el spike, te pone ese mercado en pantalla (si ya lo tienes en un gráfico, lo resalta).",tog("data-spshow",sp.show!==false))}
+      ${row("Mostrarme el gráfico","Cuando salga el spike en otro mercado, te lo pone en pantalla. Si ya lo estás viendo, no te mueve nada: solo lo resalta.",tog("data-spshow",sp.show!==false))}
       <label class="af"><span>Tamaño mínimo del spike (puntos, opcional)</span><input type="number" min="0" step="any" data-spmin value="${+sp.min>0?sp.min:""}" placeholder="Automático"></label>
     </div>`}
   function sndWire(ov,re){const c=()=>SCFG();
