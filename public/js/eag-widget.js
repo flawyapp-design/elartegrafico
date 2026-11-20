@@ -240,7 +240,7 @@ function registerAll(){
     const colOf=ov=>{const lb=(ov.extendData||{}).lbl||{},s2=ov.styles||{},ex=ov.extendData||{};return lb.c||(s2.line&&s2.line.color)||(s2.polygon&&s2.polygon.borderColor)||ex.color||GOLD};
     const HL=/^(horizontalStraightLine|horizontalRayLine|horizontalSegment|priceLine)$/,VL=/^(verticalStraightLine|verticalRayLine|verticalSegment)$/,
       TL=/^(segment|rayLine|straightLine|arrow|parallelStraightLine|priceChannelLine)$/,BX=/^(rect|eagRect|eagZone|eagBuyZone|eagSellZone)$/;
-    window.__eagLblFig=(ov,cs,bd)=>{const lb=(ov.extendData||{}).lbl;if(!lb||!lb.t||!cs||!cs.length)return[];const n=ov.name,h=lb.h||"right",v=lb.v||"top",sz=lb.s||13,col=colOf(ov);
+    window.__eagLblFig=(ov,cs,bd)=>{const lb=(ov.extendData||{}).lbl;if(!lb||!lb.t||!cs||!cs.length)return[];const n=ov.name,h=lb.hx?(lb.h||"center"):(BX.test(n)?(lb.h||"left"):"center"),v=lb.v||"top",sz=lb.s||13,col=colOf(ov);
       const st={color:col,size:sz,bold:!!lb.b,italic:!!lb.i,halo:"rgba(0,0,0,.35)"},F=(x,y,align,baseline,rot,dy)=>[{type:"eagLbl",ignoreEvent:true,attrs:{x,y,text:String(lb.t).slice(0,120),align,baseline,rot:rot||0,dy:dy||0},styles:st}];
       const pad=6,off=v==="top"?-4:v==="bottom"?4:0,bl=v==="top"?"bottom":v==="bottom"?"top":"middle";
       if(HL.test(n)){const y=cs[0].y;let x0=0,x1=bd.width;if(n==="horizontalRayLine"){if(cs[1]&&cs[1].x<cs[0].x){x0=0;x1=cs[0].x}else{x0=cs[0].x;x1=bd.width}}
@@ -934,7 +934,7 @@ window.EAGWidget=function(o){
   let panelPos=null;
   let panelTab="estilo";
   const LBLX=/^(eagText|eagNote|eagMeasure|eagLong|eagShort|eagPosition|eagBrush)$/;
-  const lblOf=v=>{const ex=v.extendData||{};const lb=Object.assign({t:"",c:null,s:13,b:false,i:false,h:BOX.test(v.name)?"left":"right",v:"top"},ex.lbl||{});if(!ex.lbl&&ex.text&&BOX.test(v.name)){lb.t=ex.text;lb.v="middle"}return lb};
+  const lblOf=v=>{const ex=v.extendData||{};const lb=Object.assign({t:"",c:null,s:13,b:false,i:false,h:BOX.test(v.name)?"left":"center",v:"top"},ex.lbl||{});if(!lb.hx&&!BOX.test(v.name))lb.h="center";if(!ex.lbl&&ex.text&&BOX.test(v.name)){lb.t=ex.text;lb.v="middle"}return lb};
   function setLbl(id,ch,quiet){const v=ovs.get(id);if(!v)return;const lb=Object.assign(lblOf(v),ch);const ex=Object.assign({},v.extendData||{},{lbl:lb});if(BOX.test(v.name)&&ex.text)delete ex.text;
     v.extendData=ex;try{chart.overrideOverlay({id,extendData:ex})}catch(e){}if(!quiet)persist()}
   function setTfv(id,list){const v=ovs.get(id);if(!v)return;v.tfv=list&&list.length&&list.length<STDTF.length?list.slice():null;const ok=tfOk(v);try{chart.overrideOverlay({id,visible:!hidden&&ok})}catch(e){}persist();return ok}
@@ -996,7 +996,7 @@ window.EAGWidget=function(o){
     const ls=menu.querySelector("[data-ls]");ls&&(ls.onchange=()=>{setLbl(id,{s:+ls.value})});
     const lbB=menu.querySelector("[data-lb]");lbB&&(lbB.onclick=()=>{setLbl(id,{b:!lblOf(v).b});again()});
     const lbI=menu.querySelector("[data-li]");lbI&&(lbI.onclick=()=>{setLbl(id,{i:!lblOf(v).i});again()});
-    menu.querySelectorAll("[data-lh]").forEach(b=>b.onclick=()=>{setLbl(id,{h:b.dataset.lh});again()});
+    menu.querySelectorAll("[data-lh]").forEach(b=>b.onclick=()=>{setLbl(id,{h:b.dataset.lh,hx:true});again()});
     menu.querySelectorAll("[data-lv]").forEach(b=>b.onclick=()=>{setLbl(id,{v:b.dataset.lv});again()});
     /* visibilidad */
     const visDone=ok=>{if(ok)again();else{closeMenu();hideStyleBar();selId=null;o.onToast&&o.onToast(`Listo: este dibujo ya no se ve en ${tf} (sigue guardado; aparece en las temporalidades que marcaste)`)}};
