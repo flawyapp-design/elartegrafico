@@ -231,6 +231,44 @@ function registerAll(){
       if(isV)tpl.createXAxisFigures=({overlay,coordinates})=>{const p=(overlay.points||[])[0],c=coordinates[0];return p&&c&&okT(p.timestamp)?[axX(c.x,p.timestamp,lc(overlay))]:[]};
       else tpl.createYAxisFigures=({overlay,coordinates,precision})=>{const p=(overlay.points||[])[0],c=coordinates[0];return p&&c?[axY(c.y,p.value,lc(overlay),precision)]:[]};
       Object.keys(tpl).forEach(k=>tpl[k]===undefined&&delete tpl[k]);KC.registerOverlay(tpl)})}catch(e){console.warn("ejes",e)}
+  /* ---------- texto en cualquier dibujo (como TradingView): extendData.lbl = {t, c, s, b, i, h:left|center|right, v:top|middle|bottom} ---------- */
+  try{
+    const FAM=(()=>{try{return getComputedStyle(document.body).fontFamily||"sans-serif"}catch(e){return"sans-serif"}})();
+    KC.registerFigure({name:"eagLbl",checkEventOn:()=>false,draw:(ctx,a,st)=>{if(!a.text)return;ctx.save();ctx.translate(a.x,a.y);if(a.rot)ctx.rotate(a.rot);
+      ctx.font=`${st.italic?"italic ":""}${st.bold?"700 ":"500 "}${st.size||13}px ${FAM}`;ctx.textAlign=a.align||"left";ctx.textBaseline=a.baseline||"bottom";
+      if(st.halo){ctx.lineJoin="round";ctx.lineWidth=3;ctx.strokeStyle=st.halo;ctx.strokeText(a.text,0,a.dy||0)}ctx.fillStyle=st.color||GOLD;ctx.fillText(a.text,0,a.dy||0);ctx.restore()}});
+    const colOf=ov=>{const lb=(ov.extendData||{}).lbl||{},s2=ov.styles||{},ex=ov.extendData||{};return lb.c||(s2.line&&s2.line.color)||(s2.polygon&&s2.polygon.borderColor)||ex.color||GOLD};
+    const HL=/^(horizontalStraightLine|horizontalRayLine|horizontalSegment|priceLine)$/,VL=/^(verticalStraightLine|verticalRayLine|verticalSegment)$/,
+      TL=/^(segment|rayLine|straightLine|arrow|parallelStraightLine|priceChannelLine)$/,BX=/^(rect|eagRect|eagZone|eagBuyZone|eagSellZone)$/;
+    window.__eagLblFig=(ov,cs,bd)=>{const lb=(ov.extendData||{}).lbl;if(!lb||!lb.t||!cs||!cs.length)return[];const n=ov.name,h=lb.h||"right",v=lb.v||"top",sz=lb.s||13,col=colOf(ov);
+      const st={color:col,size:sz,bold:!!lb.b,italic:!!lb.i,halo:"rgba(0,0,0,.35)"},F=(x,y,align,baseline,rot,dy)=>[{type:"eagLbl",ignoreEvent:true,attrs:{x,y,text:String(lb.t).slice(0,120),align,baseline,rot:rot||0,dy:dy||0},styles:st}];
+      const pad=6,off=v==="top"?-4:v==="bottom"?4:0,bl=v==="top"?"bottom":v==="bottom"?"top":"middle";
+      if(HL.test(n)){const y=cs[0].y;let x0=0,x1=bd.width;if(n==="horizontalRayLine"){if(cs[1]&&cs[1].x<cs[0].x){x0=0;x1=cs[0].x}else{x0=cs[0].x;x1=bd.width}}
+        else if(n==="horizontalSegment"&&cs[1]){x0=Math.min(cs[0].x,cs[1].x);x1=Math.max(cs[0].x,cs[1].x)}else if(n==="priceLine"){x0=cs[0].x;x1=bd.width}
+        x0=Math.max(0,x0);x1=Math.min(bd.width-60,x1);if(x1<x0)x1=x0;
+        return h==="left"?F(x0+pad,y+off,"left",bl):h==="center"?F((x0+x1)/2,y+off,"center",bl):F(x1-pad,y+off,"right",bl)}
+      if(VL.test(n)){const x=cs[0].x;let y0=0,y1=bd.height;if(n!=="verticalStraightLine"&&cs[1]){if(n==="verticalSegment"){y0=Math.min(cs[0].y,cs[1].y);y1=Math.max(cs[0].y,cs[1].y)}else if(cs[1].y<cs[0].y){y0=0;y1=cs[0].y}else{y0=cs[0].y;y1=bd.height}}
+        /* texto girado a lo largo de la línea vertical (de abajo hacia arriba) */
+        /* girado (se lee de abajo hacia arriba): "izquierda" = abajo, "derecha" = arriba */
+        return h==="left"?F(x,y1-pad,"left",bl,-Math.PI/2,off):h==="center"?F(x,(y0+y1)/2,"center",bl,-Math.PI/2,off):F(x,y0+pad,"right",bl,-Math.PI/2,off)}
+      if(TL.test(n)&&cs.length>=2){let a=cs[0],b=cs[1];if(b.x<a.x){const t=a;a=b;b=t}const ang=Math.atan2(b.y-a.y,b.x-a.x),L=Math.hypot(b.x-a.x,b.y-a.y)||1,ux=(b.x-a.x)/L,uy=(b.y-a.y)/L;
+        const at=h==="left"?{x:a.x+ux*pad,y:a.y+uy*pad,al:"left"}:h==="center"?{x:(a.x+b.x)/2,y:(a.y+b.y)/2,al:"center"}:{x:b.x-ux*pad,y:b.y-uy*pad,al:"right"};
+        return F(at.x,at.y,at.al,bl,ang,off)}
+      /* cajas: el texto va por dentro */
+      const xs=cs.map(c=>c.x),ys=cs.map(c=>c.y);let x0=Math.min(...xs),x1=Math.max(...xs);const y0=Math.min(...ys),y1=Math.max(...ys);
+      if(n==="eagZone")x1=bd.width-60;
+      if(BX.test(n)){const tx=h==="left"?x0+pad:h==="center"?(x0+x1)/2:x1-pad,ty=v==="top"?y0+pad:v==="bottom"?y1-pad:(y0+y1)/2;
+        return F(tx,ty,h,v==="top"?"top":v==="bottom"?"bottom":"middle")}
+      /* el resto (Fibonacci, patrones, formas): por encima o por debajo de todo el dibujo */
+      const tx=h==="left"?x0:h==="center"?(x0+x1)/2:x1,ty=v==="top"?y0-6:v==="bottom"?y1+6:(y0+y1)/2;
+      return F(tx,ty,h,v==="top"?"bottom":v==="bottom"?"top":"middle")};
+    const SKIP=/^(eagText|eagNote|eagMeasure|eagLong|eagShort|eagPosition|eagAlert|eagLastPx|eagBrush)$/;
+    const KEYS=["totalStep","lock","needDefaultPointFigure","needDefaultXAxisFigure","needDefaultYAxisFigure","mode","modeSensitivity","styles","createXAxisFigures","createYAxisFigures","performEventPressedMove","performEventMoveForDrawing",
+      "onDrawStart","onDrawing","onDrawEnd","onClick","onDoubleClick","onRightClick","onPressedMoveStart","onPressedMoving","onPressedMoveEnd","onMouseEnter","onMouseLeave","onRemoved","onSelected","onDeselected"];
+    TOOLS.forEach(g=>g.items.forEach(([n])=>{if(n==="-"||SKIP.test(n))return;const C=KC.getOverlayClass&&KC.getOverlayClass(n);if(!C)return;const t=new C(),orig=t.createPointFigures;
+      const tpl={name:n};KEYS.forEach(k=>{if(t[k]!=null)tpl[k]=t[k]});
+      tpl.createPointFigures=args=>{let F=[];try{F=orig?orig(args):[]}catch(e){F=[]}F=Array.isArray(F)?F:(F?[F]:[]);try{F=F.concat(window.__eagLblFig(args.overlay,args.coordinates,args.bounding))}catch(e){}return F};
+      KC.registerOverlay(tpl)}))}catch(e){console.warn("texto en dibujos",e)}
   /* Línea horizontal con precio (como TradingView) */
   /* indicadores extra */
   const sma=(a,n,i)=>{if(i<n-1)return null;let s=0;for(let k=i-n+1;k<=i;k++)s+=a[k];return s/n};
@@ -339,6 +377,7 @@ const TI={
   simpleTag:'<path d="M3 12h7"/><path d="M10 7h9l2 5-2 5h-9z"/>'};
 const tsvg=(k,s=18)=>`<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${TI[k]||""}</svg>`;
 const svg=(k,s=18)=>`<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${IC[k]||""}</svg>`;
+const STDTF=[["Ticks",0],["1m",60],["2m",120],["3m",180],["5m",300],["10m",600],["15m",900],["30m",1800],["1H",3600],["2H",7200],["4H",14400],["8H",28800],["1D",86400]];
 const COLORS=["#e2b55c","#f3d08a","#ffffff","#9da1aa","#2962ff","#089981","#f23645","#ff9800","#9c27b0","#e91e63","#00bcd4","#000000"];
 const IND=[ // [nombre, nombre en español, dónde]
   ["MA","Media móvil (MA)","main"],["EMA","Media exponencial (EMA)","main"],["SMA","Media suavizada (SMA)","main"],["WMA","Media ponderada (WMA)","main"],
@@ -380,6 +419,9 @@ window.EAGWidget=function(o){
 
   /* ---------- datos ---------- */
   const msOf=p=>p.multiplier*({tick:1e3,minute:6e4,hour:36e5,day:864e5,week:6048e5}[p.timespan]||6e4);
+  /* ---------- en qué temporalidades se ve cada dibujo (v.tfv = ["5m","15m"]; vacío = todas) ---------- */
+  const curTf=()=>{if(!per||per.timespan==="tick")return"Ticks";const g=msOf(per)/1000;let k="1m";for(const[t,gg]of STDTF){if(gg&&gg<=g)k=t}return k};
+  const tfOk=v=>!v||!v.tfv||!v.tfv.length||v.tfv.includes(curTf());
   const isTk=()=>per&&per.timespan==="tick";
   /* ---------- Heikin Ashi y Renko: se calculan a partir de las velas normales (RAW) ---------- */
   let RAW=[],XF="",RBOX=0;
@@ -605,7 +647,7 @@ window.EAGWidget=function(o){
       b.addEventListener("click",e=>{if(b.dataset.skip){e.stopImmediatePropagation();e.preventDefault()}},true)});
     dbar.querySelector('[data-x="magnet"]').onclick=()=>{magnet=magnet==="normal"?"weak_magnet":magnet==="weak_magnet"?"strong_magnet":"normal";ovs.forEach((v,id)=>chart.overrideOverlay({id,mode:magnet}));o.onMagnet&&o.onMagnet(magnet);paintDbar()};
     dbar.querySelector('[data-x="lock"]').onclick=()=>{locked=!locked;ovs.forEach((v,id)=>{v.lock=locked;chart.overrideOverlay({id,lock:locked})});persist();paintDbar()};
-    dbar.querySelector('[data-x="hide"]').onclick=()=>{hidden=!hidden;ovs.forEach((v,id)=>chart.overrideOverlay({id,visible:!hidden}));guestIds.forEach(id=>{try{chart.overrideOverlay({id,visible:!hidden})}catch(e){}});paintDbar()};
+    dbar.querySelector('[data-x="hide"]').onclick=()=>{hidden=!hidden;ovs.forEach((v,id)=>chart.overrideOverlay({id,visible:!hidden&&tfOk(v)}));guestIds.forEach(id=>{try{chart.overrideOverlay({id,visible:!hidden})}catch(e){}});paintDbar()};
     const tfb=dbar.querySelector('[data-x="tfav"]');if(tfb)tfb.onclick=e=>{e.stopPropagation();o.onTfav()};
     const cl=dbar.querySelector('[data-x="clear"]');cl.onclick=()=>{if(!ovs.size)return;if(!cl.classList.contains("confirm")){cl.classList.add("confirm");cl.title="Toca otra vez para borrar todo";setTimeout(()=>{cl.classList.remove("confirm");cl.title="Borrar todos los dibujos de este mercado"},2500);return}
       bulk=true;try{chart.removeOverlay()}catch(e){}bulk=false;ovs.clear();persist();hideStyleBar();paintDbar();guestIds=[];paintGuest();setTimeout(renderAlerts,0)};
@@ -722,12 +764,23 @@ window.EAGWidget=function(o){
     const scrollLock=!!(brushOn||drawingId||(touch&&selId)),zoomLock=!!(brushOn||(touch&&(drawingId||selId)));
     const k=scrollLock+"|"+zoomLock;if(k===panLocked)return;panLocked=k;
     try{chart.setScrollEnabled(!scrollLock);chart.setZoomEnabled(!zoomLock)}catch(e){}chartEl.classList.toggle("locked",scrollLock)}
-  function cancelDraw(){if(drawingId){try{chart.removeOverlay(drawingId)}catch(e){}ovs.delete(drawingId);drawingId=null}dbar.querySelectorAll(".dt").forEach(b=>b.classList.remove("act"));syncPan()}
+  function cancelDraw(){hideFin();if(drawingId){try{chart.removeOverlay(drawingId)}catch(e){}ovs.delete(drawingId);drawingId=null}dbar.querySelectorAll(".dt").forEach(b=>b.classList.remove("act"));syncPan()}
   const toolOK=n=>!o.toolAllowed||o.toolAllowed(n);
-  function startTool(name){if(!toolOK(name)){cancelDraw();o.onLocked&&o.onLocked("tool",TNAME[name]||name);return}if(name==="eagBrush"){startBrush();const bb=dbar.querySelector('.dt[data-k="eagBrush"]');bb&&bb.classList.add("act");return}cancelDraw();
+  /* herramientas sin número fijo de puntos (Ondas libres): se terminan con doble clic, clic derecho o el botón «Terminar» */
+  const FREE=n=>{try{const C=KC.getOverlayClass(n);return C&&new C().totalStep>1000}catch(e){return false}};
+  let finBtn=null;
+  function finishFree(){const id=drawingId;if(!id)return false;const ov=chart.getOverlayById(id);if(!ov||!FREE(ov.name))return false;
+    if((ov.points||[]).length<3){cancelDraw();o.onToast&&o.onToast("Marca al menos 2 puntos");return true}
+    {const P=ov.points,a=P[P.length-1],b=P[P.length-2];if(a&&b&&a.timestamp===b.timestamp&&a.value===b.value)P.pop()}
+    try{ov.forceComplete();const st=chart.getChartStore&&chart.getChartStore();st&&st.getOverlayStore().progressInstanceComplete()}catch(e){}
+    try{ov.onDrawEnd&&ov.onDrawEnd({overlay:ov})}catch(e){}drawingId=null;hideFin();syncPan();return true}
+  function showFin(){hideFin();finBtn=document.createElement("button");finBtn.className="wfin";finBtn.textContent="✓ Terminar";finBtn.onclick=e=>{e.stopPropagation();finishFree()};chartEl.appendChild(finBtn)}
+  function hideFin(){if(finBtn){finBtn.remove();finBtn=null}}
+  function startTool(name){hideFin();if(!toolOK(name)){cancelDraw();o.onLocked&&o.onLocked("tool",TNAME[name]||name);return}if(name==="eagBrush"){startBrush();const bb=dbar.querySelector('.dt[data-k="eagBrush"]');bb&&bb.classList.add("act");return}cancelDraw();
     const ts=(o.getToolStyle&&o.getToolStyle(name))||{};
     const ex=Object.assign(name==="eagText"?{text:"Texto"}:name==="eagNote"?{text:"Nota"}:{},ts.ex||{});
     const id=makeOverlay({name,extendData:Object.keys(ex).length?ex:undefined,styles:ts.styles||undefined},true);if(!id)return;drawingId=id;syncPan();
+    if(FREE(name)){showFin();o.onToast&&o.onToast("Toca cada punto. Para terminar: doble clic, clic derecho o «✓ Terminar»")}
     dbar.querySelectorAll(".dt[data-k]").forEach(b=>b.classList.toggle("act",b.dataset.k===name))}
   /* puntos para mover (como Deriv/TradingView): del color de cada dibujo */
   const lcOf=v=>{const s=(v&&v.styles)||{},e=(v&&v.extendData)||{};return(s.line&&s.line.color)||(s.polygon&&s.polygon.borderColor)||e.color||GOLD};
@@ -736,8 +789,8 @@ window.EAGWidget=function(o){
   function refreshPt(id){const v=ovs.get(id);if(!v)return;try{chart.overrideOverlay({id,styles:withPt(v)})}catch(e){}}
   function makeOverlay(def,drawing){
     if(!drawing&&BOX.test(def.name)&&def.points&&def.points.length===2)def=Object.assign({},def,{points:boxPts(def.points[0],def.points[1]).map(p=>({timestamp:p.timestamp,value:p.value}))});
-    const id=chart.createOverlay({name:def.name,points:def.points,styles:withPt(def),extendData:def.extendData,lock:!!def.lock,visible:!hidden,mode:magnet,
-      onDrawEnd:e=>{drawingId=null;dbar.querySelectorAll(".dt").forEach(b=>b.classList.remove("act"));setTimeout(syncPan,0);
+    const id=chart.createOverlay({name:def.name,points:def.points,styles:withPt(def),extendData:def.extendData,lock:!!def.lock,visible:!hidden&&tfOk(def),mode:magnet,
+      onDrawEnd:e=>{drawingId=null;hideFin();dbar.querySelectorAll(".dt").forEach(b=>b.classList.remove("act"));setTimeout(syncPan,0);
         if((e.overlay.name==="eagLong"||e.overlay.name==="eagShort")&&e.overlay.points.length<3)autoPos(e.overlay);
         if(BOX.test(e.overlay.name)&&e.overlay.points.length<8&&e.overlay.points.length>=2){const ps=e.overlay.points;chart.overrideOverlay({id:e.overlay.id,points:boxPts({timestamp:tsOf(ps[0]),dataIndex:ps[0].dataIndex,value:ps[0].value},{timestamp:tsOf(ps[1]),dataIndex:ps[1].dataIndex,value:ps[1].value})})}
         capture(chart.getOverlayById(e.overlay.id)||e.overlay);if(e.overlay.name==="eagText"||e.overlay.name==="eagNote")setTimeout(()=>editText(e.overlay.id),30);return false},
@@ -754,15 +807,15 @@ window.EAGWidget=function(o){
       onDeselected:e=>{SELBOX.delete(e.overlay.id);if(selId===e.overlay.id){selId=null;hideStyleBar()}syncPan();return false},
       onRemoved:e=>{SELBOX.delete(e.overlay.id);if(bulk)return false;ovs.delete(e.overlay.id);if(selId===e.overlay.id){selId=null;hideStyleBar()}persist();return false},
       onDoubleClick:e=>{if(e.overlay.id!==drawingId)openCtx(e.overlay.id,e,true);return false},
-      onRightClick:e=>{try{if(e.overlay.id===drawingId){cancelDraw();return true}openCtx(e.overlay.id,e)}catch(x){}return true}});
-    if(id){OVSYM.set(id,sym&&sym.ticker);ovs.set(id,{name:def.name,styles:def.styles||null,extendData:def.extendData||null,lock:!!def.lock,points:def.points||null});if(!drawing)ovs.get(id).done=true}
+      onRightClick:e=>{try{if(e.overlay.id===drawingId){if(!finishFree())cancelDraw();return true}openCtx(e.overlay.id,e)}catch(x){}return true}});
+    if(id){OVSYM.set(id,sym&&sym.ticker);ovs.set(id,{name:def.name,styles:def.styles||null,extendData:def.extendData||null,lock:!!def.lock,points:def.points||null,tfv:def.tfv&&def.tfv.length?def.tfv.slice():null});if(!drawing)ovs.get(id).done=true}
     return id}
   /* ---------- capas de solo lectura (Modo Clase y Zonas del profe): no se guardan ni se pueden mover ---------- */
   let guest={},guestIds=[];
   function paintGuest(){bulk=true;guestIds.forEach(id=>{try{chart.removeOverlay(id)}catch(e){}OVSYM.delete(id)});bulk=false;guestIds=[];if(!ready)return;
     Object.keys(guest).forEach(k=>(guest[k]||[]).forEach(d=>{if(!d||!d.name||!Array.isArray(d.points)||!d.points.length||!d.points.every(p=>p&&p.timestamp))return;
       let pts=d.points;if(BOX.test(d.name)&&pts.length===2)pts=boxPts(pts[0],pts[1]).map(p=>({timestamp:p.timestamp,value:p.value}));
-      try{const id=chart.createOverlay({name:d.name,points:pts,styles:withPt(d),extendData:d.extendData,lock:true,visible:!hidden,onRightClick:()=>true,onDoubleClick:()=>true,onPressedMoveStart:()=>true});
+      try{const id=chart.createOverlay({name:d.name,points:pts,styles:withPt(d),extendData:d.extendData,lock:true,visible:!hidden&&tfOk(d),onRightClick:()=>true,onDoubleClick:()=>true,onPressedMoveStart:()=>true});
         if(id){guestIds.push(id);OVSYM.set(id,sym&&sym.ticker)}}catch(e){}}))}
   function setGuest(layers){const a=guest.auto;guest=layers||{};if(a&&!guest.auto)guest.auto=a;paintGuest()}
   /* ---------- zonas automáticas de soporte y resistencia ----------
@@ -804,11 +857,11 @@ window.EAGWidget=function(o){
     const bars=Math.max(8,Math.round((vr.to-vr.from)*.16)),t0=tsOf(p0),ts=t0+bars*msOf(per);
     const pts=[{timestamp:t0,value:p0.value},{timestamp:ts,value:long?p0.value-d:p0.value+d},{timestamp:ts,value:long?p0.value+2*d:p0.value-2*d}];
     chart.overrideOverlay({id:ov.id,points:pts})}
-  function capture(ov){const v=ovs.get(ov.id);if(!v)return;v.points=(ov.points||[]).map(p=>({timestamp:tsOf(p),value:p.value}));v.done=true;v.lock=!!ov.lock;persist()}
+  function capture(ov){const v=ovs.get(ov.id);if(!v)return;if(!v.done&&!v.tfv&&o.drawTfOnly&&o.drawTfOnly())v.tfv=[curTf()];v.points=(ov.points||[]).map(p=>({timestamp:tsOf(p),value:p.value}));v.done=true;v.lock=!!ov.lock;persist()}
   /* guardado por mercado (todas las temporalidades), como en TradingView */
   /* deshacer / rehacer: historial de los dibujos de este mercado */
   let hist=[],fut=[],snap="[]",bulk=false;
-  function persist(){if(!sym)return;const all=loadD();const arr=[];ovs.forEach(v=>{if(v.done&&v.points&&v.points.length)arr.push({name:v.name,points:v.points,styles:v.styles,extendData:v.extendData,lock:v.lock})});
+  function persist(){if(!sym)return;const all=loadD();const arr=[];ovs.forEach(v=>{if(v.done&&v.points&&v.points.length){const d={name:v.name,points:v.points,styles:v.styles,extendData:v.extendData,lock:v.lock};if(v.tfv&&v.tfv.length)d.tfv=v.tfv;arr.push(d)}});
     const ns=JSON.stringify(arr);if(ns!==snap){hist.push(snap);if(hist.length>60)hist.shift();fut=[];snap=ns}
     if(arr.length)all[sym.ticker]=arr;else delete all[sym.ticker];saveD(all);o.onDrawingsChange&&o.onDrawingsChange(sym.ticker)}
   function applySnap(ns){const all=loadD(),arr=JSON.parse(ns);if(arr.length)all[sym.ticker]=arr;else delete all[sym.ticker];saveD(all);snap=ns;restoreDrawings(true);o.onDrawingsChange&&o.onDrawingsChange(sym.ticker)}
@@ -866,32 +919,61 @@ window.EAGWidget=function(o){
     sbar.innerHTML=`<span class="sn">${tsvg(v.name,16)}${esc(TNAME[v.name]||v.name)}</span><label class="cc" title="Color"><i style="background:${c.color}"></i><input type="color" value="${/^#/.test(c.color)?c.color.slice(0,7):GOLD}"></label>
       ${/^eag(Position|Long|Short)$/.test(v.name)?"":`<select title="Grosor">${[1,2,3,4].map(n=>`<option value="${n}" ${+c.size===n?"selected":""}>${n}px</option>`).join("")}</select>
       <select title="Tipo de línea"><option value="solid" ${c.dash==="solid"?"selected":""}>━ Sólida</option><option value="dash" ${c.dash==="dash"?"selected":""}>╍ Guiones</option><option value="dot" ${c.dash==="dot"?"selected":""}>┈ Puntos</option></select>`}
-      ${v.name==="eagText"||v.name==="eagNote"||v.name==="eagZone"?`<button data-a="txt" title="Editar texto">Aa</button>`:""}
+      ${v.name==="eagText"||v.name==="eagNote"?`<button data-a="txt" title="Editar texto">Aa</button>`:!LBLX.test(v.name)?`<button data-a="ptx" title="Texto en este dibujo">Aa</button>`:""}<button data-a="pvs" class="${v.tfv&&v.tfv.length?"on":""}" title="En qué temporalidades se ve">${svg("eye",16)}</button>
       ${alertable(v)?`<button data-a="alert" title="Crear alerta en este nivel">🔔</button>`:""}<button data-a="lock" title="${v.lock?"Desbloquear":"Bloquear"}">${svg(v.lock?"lock":"unlock",16)}</button><button data-a="dup" title="Duplicar">${svg("copy",16)}</button><button data-a="del" title="Eliminar (Supr)">${svg("trash",16)}</button><button data-a="cfg" title="Configurar este dibujo">${svg("gear",16)}</button>`;
     sbar.hidden=false;
     sbar.querySelector("input[type=color]").oninput=e=>{sbar.querySelector(".cc i").style.background=e.target.value};
     sbar.querySelector("input[type=color]").onchange=e=>setStyle(id,{color:e.target.value,fill:null});
     const sels=sbar.querySelectorAll("select");if(sels[0])sels[0].onchange=e=>setStyle(id,{size:+e.target.value});if(sels[1])sels[1].onchange=e=>setStyle(id,{dash:e.target.value});
     const tb=sbar.querySelector('[data-a="txt"]');tb&&(tb.onclick=()=>editText(id));
-    sbar.querySelector('[data-a="lock"]').onclick=()=>toggleLock(id);const ab=sbar.querySelector('[data-a="alert"]');ab&&(ab.onclick=()=>alertFrom(id));sbar.querySelector('[data-a="dup"]').onclick=()=>dupOv(id);sbar.querySelector('[data-a="del"]').onclick=()=>removeOv(id);const cfb=sbar.querySelector('[data-a="cfg"]');if(cfb)cfb.onclick=()=>{const r=chartEl.getBoundingClientRect(),b=cfb.getBoundingClientRect();openCtx(id,{x:b.left-r.left-120,y:b.bottom-r.top+8},true)}}
+    const openP=t=>{const r=chartEl.getBoundingClientRect(),b=sbar.getBoundingClientRect();openCtx(id,{x:b.left-r.left,y:b.bottom-r.top+8},true,t)};
+    const px2=sbar.querySelector('[data-a="ptx"]');px2&&(px2.onclick=()=>openP("texto"));const pv2=sbar.querySelector('[data-a="pvs"]');pv2&&(pv2.onclick=()=>openP("vis"));
+    sbar.querySelector('[data-a="lock"]').onclick=()=>toggleLock(id);const ab=sbar.querySelector('[data-a="alert"]');ab&&(ab.onclick=()=>alertFrom(id));sbar.querySelector('[data-a="dup"]').onclick=()=>dupOv(id);sbar.querySelector('[data-a="del"]').onclick=()=>removeOv(id);const cfb=sbar.querySelector('[data-a="cfg"]');if(cfb)cfb.onclick=()=>{const r=chartEl.getBoundingClientRect(),b=cfb.getBoundingClientRect();openCtx(id,{x:b.left-r.left-120,y:b.bottom-r.top+8},true,"estilo")}}
   function hideStyleBar(){sbar.hidden=true}
   /* menú de clic derecho sobre un dibujo */
   let panelPos=null;
-  function openCtx(id,e,panel){const prev=menu&&menu.classList.contains("panel")?{x:menu.offsetLeft,y:menu.offsetTop}:null;closeMenu();const v=ovs.get(id);if(!v)return;selId=id;showStyleBar(id);const c=curStyle(id);
-    const again=()=>openCtx(id,e,panel);
+  let panelTab="estilo";
+  const LBLX=/^(eagText|eagNote|eagMeasure|eagLong|eagShort|eagPosition|eagBrush)$/;
+  const lblOf=v=>{const ex=v.extendData||{};const lb=Object.assign({t:"",c:null,s:13,b:false,i:false,h:BOX.test(v.name)?"left":"right",v:"top"},ex.lbl||{});if(!ex.lbl&&ex.text&&BOX.test(v.name)){lb.t=ex.text;lb.v="middle"}return lb};
+  function setLbl(id,ch,quiet){const v=ovs.get(id);if(!v)return;const lb=Object.assign(lblOf(v),ch);const ex=Object.assign({},v.extendData||{},{lbl:lb});if(BOX.test(v.name)&&ex.text)delete ex.text;
+    v.extendData=ex;try{chart.overrideOverlay({id,extendData:ex})}catch(e){}if(!quiet)persist()}
+  function setTfv(id,list){const v=ovs.get(id);if(!v)return;v.tfv=list&&list.length&&list.length<STDTF.length?list.slice():null;const ok=tfOk(v);try{chart.overrideOverlay({id,visible:!hidden&&ok})}catch(e){}persist();return ok}
+  const ICA={left:'<path d="M4 6h16M4 10h10M4 14h16M4 18h10"/>',center:'<path d="M4 6h16M7 10h10M4 14h16M7 18h10"/>',right:'<path d="M4 6h16M10 10h10M4 14h16M10 18h10"/>',
+    top:'<path d="M4 4h16"/><path d="M12 8v12M8 12l4-4 4 4"/>',middle:'<path d="M4 12h16"/><path d="M12 3v5M12 16v5"/>',bottom:'<path d="M4 20h16"/><path d="M12 4v12M8 12l4 4 4-4"/>'};
+  const ico=(k,n)=>`<svg width="${n||16}" height="${n||16}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ICA[k]}</svg>`;
+  function openCtx(id,e,panel,tab){const prev=menu&&menu.classList.contains("panel")?{x:menu.offsetLeft,y:menu.offsetTop}:null;closeMenu();const v=ovs.get(id);if(!v)return;selId=id;showStyleBar(id);const c=curStyle(id);
+    if(tab)panelTab=tab;const again=t=>openCtx(id,e,panel,t);
     menu=document.createElement("div");menu.className="wmenu ctx"+(panel?" panel":"");
-    const isTxt=v.name==="eagText"||v.name==="eagNote"||v.name==="eagZone"||v.name==="eagRect";
-    menu.innerHTML=(panel?`<div class="ph2"><span class="mti">${tsvg(v.name,16)}<b>${esc(TNAME[v.name]||v.name)}</b></span><button class="px" title="Cerrar">×</button></div>`:`<div class="mt mti">${tsvg(v.name,15)}${esc(TNAME[v.name]||v.name)}</div>`)+
-      (panel&&isTxt?`<div class="ml">Texto</div><div class="mrow"><input class="ptxt" maxlength="80" value="${esc((v.extendData||{}).text||"")}" placeholder="Escribe aquí"></div>`:"")+`
-      <div class="mrow">${COLORS.map(k=>`<button class="sw${c.color===k?" on":""}" data-c="${k}" style="background:${k}" title="${k}"></button>`).join("")}<label class="sw pick" title="Otro color">+<input type="color" value="${/^#/.test(c.color)?c.color.slice(0,7):GOLD}"></label></div>
+    const isOldTxt=v.name==="eagText"||v.name==="eagNote";const canLbl=!LBLX.test(v.name);const tf=curTf();
+    const styleHTML=`<div class="mrow">${COLORS.map(k=>`<button class="sw${c.color===k?" on":""}" data-c="${k}" style="background:${k}" title="${k}"></button>`).join("")}<label class="sw pick" title="Otro color">+<input type="color" value="${/^#/.test(c.color)?c.color.slice(0,7):GOLD}"></label></div>
       ${/^eag(Position|Long|Short)$/.test(v.name)?"":`<div class="ml">Grosor</div><div class="mrow">${[1,2,3,4].map(n=>`<button class="wd${+c.size===n?" on":""}" data-w="${n}" title="${n}px"><i style="height:${n}px"></i></button>`).join("")}</div>
       <div class="ml">Línea</div><div class="mrow">${[["solid","Sólida"],["dash","Guiones"],["dot","Puntos"]].map(([k,t])=>`<button class="ls${c.dash===k?" on":""}" data-d="${k}" title="${t}"><i class="${k}"></i></button>`).join("")}</div>`}
-      ${isFill(v.name)?`<div class="ml">Relleno</div><div class="mrow">${[0,.08,.16,.3,.5].map(a=>`<button class="fa" data-f="${a}" title="${Math.round(a*100)}%"><i style="background:${hexA(c.color,a||.0001)};${a?"":"border:1px dashed var(--dim)"}"></i></button>`).join("")}</div>`:""}
-      <div class="msep"></div>
-      ${isTxt&&!panel?`<button class="mi" data-a="txt">Editar texto…</button>`:""}
+      ${isFill(v.name)?`<div class="ml">Relleno</div><div class="mrow">${[0,.08,.16,.3,.5].map(a=>`<button class="fa" data-f="${a}" title="${Math.round(a*100)}%"><i style="background:${hexA(c.color,a||.0001)};${a?"":"border:1px dashed var(--dim)"}"></i></button>`).join("")}</div>`:""}`;
+    const lb=lblOf(v);
+    const textHTML=isOldTxt?`<div class="ml">Texto</div><div class="mrow"><input class="ptxt" data-ot maxlength="80" value="${esc((v.extendData||{}).text||"")}" placeholder="Escribe aquí"></div>`
+      :canLbl?`<div class="mrow"><input class="ptxt" data-lt maxlength="120" value="${esc(lb.t)}" placeholder="Escribe un texto para este dibujo"></div>
+      <div class="ml">Color del texto</div><div class="mrow"><button class="sw${!lb.c?" on":""} auto" data-lc="" title="Igual que el dibujo">A</button>${COLORS.slice(0,10).map(k=>`<button class="sw${lb.c===k?" on":""}" data-lc="${k}" style="background:${k}"></button>`).join("")}</div>
+      <div class="ml">Tamaño y estilo</div><div class="mrow"><select class="psel" data-ls>${[10,11,12,13,14,16,18,20,24,28].map(n=>`<option value="${n}"${+lb.s===n?" selected":""}>${n}</option>`).join("")}</select>
+        <button class="tbn${lb.b?" on":""}" data-lb title="Negrita"><b>B</b></button><button class="tbn${lb.i?" on":""}" data-li title="Cursiva"><i>I</i></button></div>
+      <div class="ml">Posición</div><div class="mrow">${["left","center","right"].map(k=>`<button class="tbn${lb.h===k?" on":""}" data-lh="${k}" title="${{left:"Izquierda",center:"Centro",right:"Derecha"}[k]}">${ico(k)}</button>`).join("")}<i class="tsp"></i>${["top","middle","bottom"].map(k=>`<button class="tbn${lb.v===k?" on":""}" data-lv="${k}" title="${{top:"Arriba",middle:"En medio",bottom:"Abajo"}[k]}">${ico(k)}</button>`).join("")}</div>`
+      :`<p class="mhint">Este dibujo ya muestra sus datos y no lleva texto.</p>`;
+    const sel=new Set(v.tfv&&v.tfv.length?v.tfv:STDTF.map(x=>x[0]));const all=!v.tfv||!v.tfv.length;
+    const idx=STDTF.findIndex(x=>x[0]===tf),KS=STDTF.map(x=>x[0]),qL={only:[tf],up:KS.slice(Math.max(0,idx)),down:KS.slice(0,idx+1)};
+    const qIs=q=>!all&&qL[q].length<KS.length&&qL[q].join()===(v.tfv||[]).join();
+    const visHTML=`<p class="mhint">Marca en qué temporalidades se ve este dibujo. Así puedes marcar cosas distintas en cada temporalidad y cada mercado. Ahora estás en <b>${esc(tf)}</b>.</p>
+      <div class="mrow tfq"><button class="tbn wide${all?" on":""}" data-tq="all">Todas</button><button class="tbn wide${qIs("only")?" on":""}" data-tq="only">Solo ${esc(tf)}</button><button class="tbn wide${qIs("up")?" on":""}" data-tq="up">${esc(tf)} y mayores</button><button class="tbn wide${qIs("down")?" on":""}" data-tq="down">${esc(tf)} y menores</button></div>
+      <div class="mrow tfc">${STDTF.map(([t])=>`<button class="tfx${sel.has(t)?" on":""}${t===tf?" cur":""}" data-tf="${t}">${t}</button>`).join("")}</div>`;
+    const actHTML=`<div class="msep"></div>
       ${alertable(v)?`<button class="mi" data-a="alert">🔔 Crear alerta aquí…</button>`:""}
       <button class="mi" data-a="lock">${v.lock?"Desbloquear":"Bloquear"}</button><button class="mi" data-a="dup">Duplicar</button>
       <button class="mi" data-a="hide">Ocultar este dibujo</button><button class="mi danger" data-a="del">Eliminar</button>`;
+    if(panel){const T=panelTab==="texto"||panelTab==="vis"?panelTab:"estilo";
+      menu.innerHTML=`<div class="ph2"><span class="mti">${tsvg(v.name,16)}<b>${esc(TNAME[v.name]||v.name)}</b></span><button class="px" title="Cerrar">×</button></div>
+        <div class="ptabs">${[["estilo","Estilo"],["texto","Texto"],["vis","Visibilidad"]].map(([k,t])=>`<button data-pt="${k}" class="${T===k?"on":""}">${t}${k==="vis"&&!all?" •":""}${k==="texto"&&lb.t&&canLbl?" •":""}</button>`).join("")}</div>
+        <div class="pbody">${T==="estilo"?styleHTML+actHTML:T==="texto"?textHTML:visHTML}</div>`}
+    else menu.innerHTML=`<div class="mt mti">${tsvg(v.name,15)}${esc(TNAME[v.name]||v.name)}</div>${styleHTML}<div class="msep"></div>
+      ${isOldTxt?`<button class="mi" data-a="txt">Editar texto…</button>`:canLbl?`<button class="mi" data-a="ptexto">Aa  ${lb.t?"Editar texto…":"Agregar texto…"}</button>`:""}
+      <button class="mi" data-a="pvis">👁  Visibilidad por temporalidad…${all?"":" <em class=\"mtag\">"+v.tfv.length+"</em>"}</button>${actHTML.replace('<div class="msep"></div>',"")}`;
     document.body.appendChild(menu);
     const r=chartEl.getBoundingClientRect();let x=r.left+((e&&e.x)||40)+(panel?16:0),y=r.top+((e&&e.y)||40);
     if(panel&&(prev||panelPos)){x=(prev||panelPos).x;y=(prev||panelPos).y}
@@ -900,13 +982,32 @@ window.EAGWidget=function(o){
       h.addEventListener("pointerdown",ev=>{if(ev.target.closest(".px"))return;ev.preventDefault();const dx=ev.clientX-menu.offsetLeft,dy=ev.clientY-menu.offsetTop;try{h.setPointerCapture(ev.pointerId)}catch(x){}
         const mv=m=>{const st=safeTop(),nx=Math.max(0,Math.min(innerWidth-60,m.clientX-dx)),ny=Math.max(st+4,Math.min(innerHeight-40,m.clientY-dy));menu.style.left=nx+"px";menu.style.top=ny+"px";panelPos={x:nx,y:ny}};
         const up=()=>{h.removeEventListener("pointermove",mv);h.removeEventListener("pointerup",up)};h.addEventListener("pointermove",mv);h.addEventListener("pointerup",up)});
-      const pt=menu.querySelector(".ptxt");pt&&(pt.onkeydown=ev=>ev.stopPropagation(),pt.onchange=()=>{v.extendData=Object.assign({},v.extendData||{},{text:pt.value.trim()||(v.name==="eagText"?"Texto":"")});chart.overrideOverlay({id,extendData:v.extendData});persist()})}
+      menu.querySelectorAll("[data-pt]").forEach(b=>b.onclick=()=>again(b.dataset.pt))}
+    /* estilo */
     menu.querySelectorAll("[data-c]").forEach(b=>b.onclick=()=>{setStyle(id,{color:b.dataset.c,fill:null});again()});
-    menu.querySelector(".pick input").onchange=ev=>{setStyle(id,{color:ev.target.value,fill:null});again()};
+    const pk=menu.querySelector(".pick input");pk&&(pk.onchange=ev=>{setStyle(id,{color:ev.target.value,fill:null});again()});
     menu.querySelectorAll("[data-w]").forEach(b=>b.onclick=()=>{setStyle(id,{size:+b.dataset.w});again()});
     menu.querySelectorAll("[data-d]").forEach(b=>b.onclick=()=>{setStyle(id,{dash:b.dataset.d});again()});
     menu.querySelectorAll("[data-f]").forEach(b=>b.onclick=()=>{setStyle(id,{fill:hexA(curStyle(id).color,+b.dataset.f)});again()});
-    menu.querySelectorAll(".mi").forEach(b=>b.onclick=()=>{const a=b.dataset.a;if(!(panel&&(a==="lock")))closeMenu();
+    /* texto */
+    const ot=menu.querySelector("[data-ot]");ot&&(ot.onkeydown=ev=>ev.stopPropagation(),ot.onchange=()=>{v.extendData=Object.assign({},v.extendData||{},{text:ot.value.trim()||(v.name==="eagText"?"Texto":"")});chart.overrideOverlay({id,extendData:v.extendData});persist()});
+    const lt=menu.querySelector("[data-lt]");if(lt){lt.onkeydown=ev=>{ev.stopPropagation();if(ev.key==="Enter")lt.blur()};lt.oninput=()=>setLbl(id,{t:lt.value},true);lt.onchange=()=>setLbl(id,{t:lt.value});if(panel&&panelTab==="texto"&&!lastTouch)setTimeout(()=>{try{lt.focus()}catch(x){}},30)}
+    menu.querySelectorAll("[data-lc]").forEach(b=>b.onclick=()=>{setLbl(id,{c:b.dataset.lc||null});again()});
+    const ls=menu.querySelector("[data-ls]");ls&&(ls.onchange=()=>{setLbl(id,{s:+ls.value})});
+    const lbB=menu.querySelector("[data-lb]");lbB&&(lbB.onclick=()=>{setLbl(id,{b:!lblOf(v).b});again()});
+    const lbI=menu.querySelector("[data-li]");lbI&&(lbI.onclick=()=>{setLbl(id,{i:!lblOf(v).i});again()});
+    menu.querySelectorAll("[data-lh]").forEach(b=>b.onclick=()=>{setLbl(id,{h:b.dataset.lh});again()});
+    menu.querySelectorAll("[data-lv]").forEach(b=>b.onclick=()=>{setLbl(id,{v:b.dataset.lv});again()});
+    /* visibilidad */
+    const visDone=ok=>{if(ok)again();else{closeMenu();hideStyleBar();selId=null;o.onToast&&o.onToast(`Listo: este dibujo ya no se ve en ${tf} (sigue guardado; aparece en las temporalidades que marcaste)`)}};
+    menu.querySelectorAll("[data-tf]").forEach(b=>b.onclick=()=>{const t=b.dataset.tf,cur=new Set(v.tfv&&v.tfv.length?v.tfv:STDTF.map(x=>x[0]));if(cur.has(t))cur.delete(t);else cur.add(t);
+      if(!cur.size){o.onToast&&o.onToast("Debe verse al menos en una temporalidad");return}visDone(setTfv(id,STDTF.map(x=>x[0]).filter(k=>cur.has(k))))});
+    menu.querySelectorAll("[data-tq]").forEach(b=>b.onclick=()=>{const q=b.dataset.tq,ks=STDTF.map(x=>x[0]);let L=ks;
+      if(q==="only")L=[tf];else if(q==="up")L=ks.slice(Math.max(0,idx));else if(q==="down")L=ks.slice(0,idx+1);visDone(setTfv(id,q==="all"?null:L))});
+    /* acciones */
+    menu.querySelectorAll(".mi").forEach(b=>b.onclick=()=>{const a=b.dataset.a;
+      if(a==="ptexto"||a==="pvis"){const rr=chartEl.getBoundingClientRect(),mx=menu.offsetLeft-rr.left,my=menu.offsetTop-rr.top;openCtx(id,{x:mx,y:my},true,a==="ptexto"?"texto":"vis");return}
+      if(!(panel&&(a==="lock")))closeMenu();
       if(a==="alert")alertFrom(id);else if(a==="txt")editText(id);else if(a==="lock"){toggleLock(id);if(panel)again()}else if(a==="dup")dupOv(id);else if(a==="hide"){chart.overrideOverlay({id,visible:false});hideStyleBar()}else if(a==="del")removeOv(id)})}
   /* editar texto en el mismo gráfico (sin ventanas del navegador) */
   function editText(id){const v=ovs.get(id),ov=chart.getOverlayById(id);if(!v||!ov||!ov.points[0])return;
@@ -918,7 +1019,7 @@ window.EAGWidget=function(o){
     inp.onkeydown=e=>{e.stopPropagation();if(e.key==="Enter")done(true);if(e.key==="Escape")done(false)};inp.onblur=()=>done(true)}
   root.tabIndex=-1;
   root.addEventListener("keydown",e=>{if((e.key==="Delete"||e.key==="Backspace")&&selId&&!/input|select|textarea/i.test(e.target.tagName)){removeOv(selId);selId=null}if(e.key==="Escape"){cancelDraw();closeMenu();stopBrush()}});
-  chartEl.addEventListener("contextmenu",e=>{e.preventDefault();if(drawingId){cancelDraw();o.onToast&&o.onToast("Herramienta cancelada")}});
+  chartEl.addEventListener("contextmenu",e=>{e.preventDefault();if(drawingId){if(finishFree())return;cancelDraw();o.onToast&&o.onToast("Herramienta cancelada")}});
   /* escala de precios con el dedo: arrastra arriba/abajo sobre los números de la derecha para estirar o encoger */
   let yDrag=null;
   chartEl.addEventListener("touchstart",e=>{if(e.touches.length!==1)return;let ya;try{ya=chart.getSize("candle_pane","yAxis")}catch(x){return}if(!ya)return;

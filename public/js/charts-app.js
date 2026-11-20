@@ -188,6 +188,7 @@ function start(){
     <header class="top" id="top">
       <a class="brand" href="${ACAD}" title="Volver a la academia"><img src="assets/logo_circle.webp" alt=""><b>EAG <span>Charts</span></b></a>
       <div class="lay" role="group" aria-label="Distribución">${LAYS.map(([k,n,svg,t])=>`<button data-l="${k}" class="${(n>2||k==="l2")&&k!=="mtf"?"dk":""}${k==="mtf"?" mtfb":""}" title="${t}"><svg width="18" height="14" viewBox="0 0 18 14" fill="none" stroke="currentColor" stroke-width="1.4">${svg}</svg>${k==="mtf"?'<span class="t">Multi-TF</span>':""}</button>`).join("")}</div>
+      <button class="btn ic pfb" id="pfb" title="Perfiles de trabajo: cambia entre tu espacio de operativa y el de análisis sin tocar el otro"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><path d="M14 17.5h7M17.5 14v7"/></svg><span class="pfn" id="pfn"></span>${ICON.caret}</button>
       <span class="st" id="st"><i></i><span>Conectando…</span></span>
       <span class="grow"></span>
       <span class="who">${esc(prof.username||"")}</span>
@@ -325,8 +326,51 @@ function start(){
   function showPop(anchor,align){pop.hidden=false;const r=anchor.getBoundingClientRect(),w=pop.offsetWidth,h=pop.offsetHeight;
     let x=align==="right"?r.right-w:r.left;x=Math.max(8,Math.min(x,innerWidth-w-8));let y=r.bottom+6;if(y+h>innerHeight-8)y=Math.max(8,r.top-h-6);
     pop.style.left=x+"px";pop.style.top=y+"px"}
+  /* ---------- perfiles de trabajo (Operativa, Análisis…): cada uno guarda sus gráficos, mercados, temporalidades, indicadores y dibujos ---------- */
+  const PKEYS=["layout","panes","split","mtfh","pmh","symTF","link","hide"];
+  const DRAWK="eag_draw_v1";
+  const clone=x=>x==null?x:JSON.parse(JSON.stringify(x));
+  const liveSnap=()=>{const ws={};PKEYS.forEach(k=>{if(SAVE[k]!==undefined)ws[k]=clone(SAVE[k])});let draw={};try{draw=JSON.parse(localStorage.getItem(DRAWK)||"{}")||{}}catch(e){}return{ws,draw}};
+  function profInit(){if(SAVE.prof&&SAVE.prof.list&&SAVE.prof.list.length)return;
+    SAVE.prof={cur:"p1",list:[{id:"p1",n:"Operativa"},{id:"p2",n:"Análisis"}],data:{p2:liveSnap()}};save()}
+  profInit();
+  const profCur=()=>SAVE.prof.list.find(x=>x.id===SAVE.prof.cur)||SAVE.prof.list[0];
+  const paintProf=()=>{const n=$("#pfn");if(n)n.textContent=profCur().n};
+  async function profGo(id,fresh){const P=SAVE.prof;if(id===P.cur&&!fresh)return closePop();
+    P.data=P.data||{};P.data[P.cur]=liveSnap();
+    const t=fresh||P.data[id]||{ws:{},draw:{}};PKEYS.forEach(k=>{delete SAVE[k]});Object.keys(t.ws||{}).forEach(k=>{if(PKEYS.includes(k))SAVE[k]=clone(t.ws[k])});
+    try{localStorage.setItem(DRAWK,JSON.stringify(t.draw||{}))}catch(e){}
+    delete P.data[id];P.cur=id;save();closePop();try{sessionStorage.setItem("eag_prof_msg","1")}catch(e){}
+    toast(`Cambiando a <b>${esc((P.list.find(x=>x.id===id)||{}).n||"")}</b>…`);
+    /* se guarda en la cuenta antes de recargar, para que no se pierda nada */
+    try{clearTimeout(syncT);await Promise.race([new Promise(r=>{lastPush=null;pushSync();setTimeout(r,900)}),new Promise(r=>setTimeout(r,1500))])}catch(e){}
+    location.reload()}
+  function openProf(anchor,mode){const P=SAVE.prof,cur=P.cur;pop.dataset.for="prof";
+    const nameIn=(v,ph)=>`<input class="pfin" maxlength="24" value="${esc(v||"")}" placeholder="${ph}">`;
+    pop.innerHTML=`<div class="ph">Perfiles de trabajo</div>
+      <div class="pnote">Cada perfil guarda sus propios gráficos, mercados, temporalidades, indicadores y dibujos. Cambiar de perfil no toca nada del otro.</div>
+      <div class="pfl">${P.list.map(x=>`<div class="pfi${x.id===cur?" on":""}"><button class="pfgo" data-go="${x.id}">${x.id===cur?"✓ ":""}${esc(x.n)}${x.id===cur?' <em>en uso</em>':""}</button>
+        ${mode==="ren"+x.id?"":`<button class="pfx" data-ren="${x.id}" title="Cambiar nombre">✎</button>`}${x.id!==cur&&P.list.length>1?`<button class="pfx${mode==="del"+x.id?" sure":""}" data-del="${x.id}" title="Eliminar perfil">${mode==="del"+x.id?"¿Seguro?":"🗑"}</button>`:""}</div>
+        ${mode==="ren"+x.id?`<div class="pfrow">${nameIn(x.n,"Nombre")}<button class="btn sm gold" data-okren="${x.id}">Guardar</button></div>`:""}`).join("")}</div>
+      ${mode==="new"?`<div class="pfnew"><div class="pfrow">${nameIn("","Ej.: Scalping, Lives, Swing")}</div>
+        <div class="pfrow"><button class="btn sm gold" data-mk="copy">Crear como copia de «${esc(profCur().n)}»</button><button class="btn sm" data-mk="blank">Crear en blanco</button></div></div>`
+      :P.list.length<8?`<div class="pbtns"><button class="btn sm" data-a="new">+ Nuevo perfil</button></div>`:""}`;
+    pop.querySelectorAll("[data-go]").forEach(b=>b.onclick=()=>profGo(b.dataset.go));
+    pop.querySelectorAll("[data-ren]").forEach(b=>b.onclick=()=>openProf(anchor,"ren"+b.dataset.ren));
+    pop.querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>{const id=b.dataset.del;if(mode!=="del"+id)return openProf(anchor,"del"+id);
+      const x=P.list.find(q=>q.id===id);P.list=P.list.filter(q=>q.id!==id);delete P.data[id];save();toast(`Perfil «${esc(x?x.n:"")}» eliminado`);openProf(anchor)});
+    pop.querySelectorAll("[data-okren]").forEach(b=>b.onclick=()=>{const v=pop.querySelector(".pfin").value.trim();if(!v)return;const x=P.list.find(q=>q.id===b.dataset.okren);if(x)x.n=v.slice(0,24);save();paintProf();openProf(anchor)});
+    const na=pop.querySelector('[data-a="new"]');na&&(na.onclick=()=>openProf(anchor,"new"));
+    pop.querySelectorAll("[data-mk]").forEach(b=>b.onclick=()=>{const v=(pop.querySelector(".pfin").value||"").trim()||("Perfil "+(P.list.length+1));
+      const id="p"+Date.now().toString(36);P.list.push({id,n:v.slice(0,24)});save();
+      profGo(id,b.dataset.mk==="copy"?liveSnap():{ws:{},draw:{}})});
+    const fi=pop.querySelector(".pfin");if(fi){fi.onkeydown=e=>{e.stopPropagation();if(e.key==="Enter"){const k=pop.querySelector("[data-okren],[data-mk]");k&&k.click()}};setTimeout(()=>fi.focus(),30)}
+    showPop(anchor,"left")}
+  $("#pfb").onclick=e=>{e.stopPropagation();if(!pop.hidden&&pop.dataset.for==="prof")return closePop();openProf($("#pfb"))};
+  paintProf();
+  try{if(sessionStorage.getItem("eag_prof_msg")){sessionStorage.removeItem("eag_prof_msg");setTimeout(()=>toast(`Perfil <b>${esc(profCur().n)}</b>`),900)}}catch(e){}
   function closePop(){pop.hidden=true;pop.dataset.for="";pop.classList.remove("wide");if(shownPick&&shownPick.length){shownPick=[];watch()}}
-  document.addEventListener("pointerdown",e=>{if(!pop.hidden&&!pop.contains(e.target)&&!e.target.closest("#vb,#fab,#fteye,#cfgb,.tfdd,.wsym,.wtf,.dmini"))closePop()});
+  document.addEventListener("pointerdown",e=>{if(!pop.hidden&&!pop.contains(e.target)&&!e.target.closest("#vb,#fab,#fteye,#cfgb,#pfb,.tfdd,.wsym,.wtf,.dmini"))closePop()});
   let laserOn=false;window.__eagPanes=()=>panes;
   /* láser también en los gráficos pequeños (multi-temporalidad): punto rojo propio y el del profe para los alumnos */
   const miniAll=()=>{const A=[];Object.values(MTFS).forEach(M=>M&&(M.minis||[]).forEach(m=>A.push([M,m])));return A};
@@ -520,7 +564,7 @@ function start(){
       onTFClick:a=>{setActive(i);pop.hidden||pop.dataset.for!=="tf"?openTF(p,a):closePop()},
       onSymbolClick:anc=>{setActive(i);const a=anc&&anc.nodeType?anc:el.querySelector(".wsym");pop.hidden||pop.dataset.for!=="sym"?openSymPicker(p,a):closePop()},
       onSettings:()=>openSettings("apariencia"),getDecimals:()=>CF().dec,getFont:()=>CF().font,getCdMode:()=>CF().cd,
-      onFullReload:()=>fullReload(),getToolStyle:n=>(SAVE.toolStyles||{})[n],onToolStyle:(n,st)=>{SAVE.toolStyles=Object.assign({},SAVE.toolStyles,{[n]:st});save()},onReload:()=>{if(MTFS[i])buildMTF(i)},onToggleMtf:()=>{SAVE.panes[i]=Object.assign({},SAVE.panes[i],{mtf:!(SAVE.panes[i]||{}).mtf});save();syncStrips()},onToast:t=>toast(t),getAlerts:tk=>ALERTS.filter(a=>a.active&&a.symbol===tk&&a.price!=null&&["nivel","zona","cierre"].includes(a.kind)).map(a=>a.kind==="cierre"?Object.assign({},a,{kind:"nivel",note:`cierre ${a.cond==="abajo"?"↓":"↑"} ${tfTxt(a.tf)}${a.note?" · "+a.note:""}`}):a),onCreateAlert:a=>alertDialog(a),
+      onFullReload:()=>fullReload(),getToolStyle:n=>(SAVE.toolStyles||{})[n],drawTfOnly:()=>!!SAVE.cfg.drawTf,onToolStyle:(n,st)=>{SAVE.toolStyles=Object.assign({},SAVE.toolStyles,{[n]:st});save()},onReload:()=>{if(MTFS[i])buildMTF(i)},onToggleMtf:()=>{SAVE.panes[i]=Object.assign({},SAVE.panes[i],{mtf:!(SAVE.panes[i]||{}).mtf});save();syncStrips()},onToast:t=>toast(t),getAlerts:tk=>ALERTS.filter(a=>a.active&&a.symbol===tk&&a.price!=null&&["nivel","zona","cierre"].includes(a.kind)).map(a=>a.kind==="cierre"?Object.assign({},a,{kind:"nivel",note:`cierre ${a.cond==="abajo"?"↓":"↑"} ${tfTxt(a.tf)}${a.note?" · "+a.note:""}`}):a),onCreateAlert:a=>alertDialog(a),
       onIndicators:d=>{SAVE.panes[i]=Object.assign({},SAVE.panes[i],{ind:d});save()},
       onMagnet:m=>{SAVE.magnet=m;save()},getTfav:()=>!SAVE.hide.tf&&SAVE.toolFav.length>0,onTfav:()=>{if(!SAVE.toolFav.length){SAVE.hide.tf=false;save();applyHide();toast("Aún no tienes favoritas: abre una lista de herramientas (doble toque) y marca la ☆. Aparecen en la barra rápida.");return}SAVE.hide.tf=!SAVE.hide.tf;save();applyHide();panes.forEach(p=>{try{p.kc.refreshBar()}catch(e){}})},axisType:sv.ax,onAxisType:t=>{SAVE.panes[i]=Object.assign({},SAVE.panes[i],{ax:t});save()},getToolFav:()=>SAVE.toolFav,onToolFav:k=>{SAVE.toolFav=SAVE.toolFav.includes(k)?SAVE.toolFav.filter(x=>x!==k):SAVE.toolFav.concat(k);save();renderToolFav()},onLastTools:t=>{SAVE.lastTools=t;save()},
       onDrawingsChange:tk=>(window.__eagSync&&window.__eagSync(),window.EAGClase&&window.EAGClase.drawingsChanged(),panes).forEach(q2=>{if(q2!==p&&q2.kc&&q2.kc.getSymbol().ticker===tk)q2.kc.reloadDrawings()})});
@@ -896,6 +940,7 @@ function start(){
       <div class="slabel">Contador de cierre de vela</div><p class="shelp">"En Multi-TF": cada temporalidad de la multitemporalidad muestra lo que le falta a su vela. "Junto a la vela" es como en MT5: al lado de la última vela del gráfico grande, con el nombre del mercado.</p>
       <div class="seg">${[["mtf","En Multi-TF"],["vela","Junto a la vela"],["regla","En la regla"],["off","Oculto"]].map(([v,t])=>`<button data-cd="${v}" class="${(c.cd||"mtf")===v?"on":""}">${t}</button>`).join("")}</div>
       <div class="slabel">Mostrar</div>`+[["grid","Cuadrícula","Líneas de fondo para ubicar precios y horas."],["axis","Ejes de precio y hora","La escala de precios a la derecha y las horas abajo."],["last","Línea del último precio","Línea punteada y etiqueta con el precio actual."],["hl","Máximo y mínimo visibles","Marca el precio más alto y más bajo de lo que estás viendo."],["cross","Cruz del cursor","Líneas que siguen al mouse con precio y hora exactos."]].map(([k,t,d])=>row(t,d,tog(`data-k="${k}"`,c[k]))).join("")
+      +`<div class="slabel">Dibujos</div>`+row("Dibujos nuevos solo en su temporalidad","Lo que dibujes se verá solo en la temporalidad donde lo hiciste (por ejemplo, tus zonas de H1 no aparecen en M1). Cada dibujo se puede cambiar después en su pestaña «Visibilidad».",tog('data-k="drawTf"',c.drawTf))
       +`<div class="slabel">Zonas automáticas</div>`+row("Soportes y resistencias automáticos"+(LOCK.az?" 🔒":""),"Marca solas las zonas donde el precio rebotó 2 o más veces (hasta 3 arriba y 3 abajo). Se actualizan cada 15 segundos. Son una ayuda: confírmalas con tu análisis.",tog('data-k="az"',!!c.az&&!FREE))
       +`<div class="slabel">Gráfico de ticks</div>`+[["ticks","Botón «Ticks»","Gráfico donde cada punto es un movimiento del precio, como el gráfico de ticks de MT5."],["spk","Contador de spikes (Boom y Crash)","En el gráfico de ticks: cuántos ticks van desde el último spike y la estadística. Es estadística, no predicción."]].map(([k,t,d])=>row(t,d,tog(`data-k="${k}"`,c[k]!==false))).join("");
     if(cat==="marca")return`<h3>Marca de agua</h3><p class="shelp">Ideal para tus lives: se ve el mercado, la temporalidad y tu marca de fondo.</p>
