@@ -914,6 +914,7 @@ function start(){
       const li=a=>`<div class="arow${a.active?"":" done"}"><span class="adot"></span><div><b>${esc(a.symbol_name||a.symbol)}</b><p>${alertDesc(a,pp(a))}${a.repeat?" · cada vez":""}${a.note?" · "+esc(a.note):""}${a.active?(a.repeat&&a.triggered_at?` · último aviso ${new Date(a.triggered_at).toLocaleString("es-CO",{timeZone:"America/Bogota",day:"numeric",month:"short",hour:"numeric",minute:"2-digit"})}`:""):` · se activó ${a.triggered_at?new Date(a.triggered_at).toLocaleString("es-CO",{timeZone:"America/Bogota",day:"numeric",month:"short",hour:"numeric",minute:"2-digit"}):""}`}</p></div>${a.active?"":`<button class="btn sm" data-re="${a.id}">Reactivar</button>`}<button class="x" data-del="${a.id}" title="Borrar">×</button></div>`;
       return`<h3>Alertas</h3><p class="shelp">De <b>precio</b> (toca un nivel o entra a una zona) y <b>técnicas</b>: cierre de vela, RSI, cruce de medias y spikes en Boom y Crash. Te avisamos al celular, aunque tengas la página cerrada. También puedes dibujar una línea o zona y hacer <b>clic derecho → 🔔 Crear alerta</b>.</p>
         <div class="sbtns"><button class="btn sm gold" data-a="newal">+ Nueva alerta</button></div>
+        ${sndBlock()}
         <div class="slabel">Activas (${act.length}/30)</div>${act.length?act.map(li).join(""):`<p class="shelp">No tienes alertas activas.</p>`}
         ${old.length?`<div class="slabel">Ya avisadas</div>${old.map(li).join("")}`:""}
         <p class="shelp">Las notificaciones llegan a los dispositivos donde las activaste en la academia (en iPhone, con la app agregada a la pantalla de inicio). Se revisan cada minuto.</p>`}
@@ -969,14 +970,87 @@ function start(){
     ov.querySelectorAll("[data-rm]").forEach(b=>b.onclick=()=>{SAVE.risk=Object.assign(RISK(),{mode:b.dataset.rm});save();lotRepaint();re()});
     ov.querySelectorAll("[data-rv]").forEach(i=>i.oninput=()=>{const v=parseFloat(String(i.value).replace(",","."));SAVE.risk=Object.assign(RISK(),{[i.dataset.rv]:isFinite(v)&&v>=0?v:0});save();lotRepaint();
       try{TRK.paint()}catch(e){}const u=riskUsd(RISK()),inf=ov.querySelector("[data-rinfo]");if(inf)inf.innerHTML=u>0?`Arriesgas <b>US$ ${u.toFixed(2)}</b> por operación.`:"Escribe tu saldo y tu riesgo."});
+    try{sndWire(ov,re)}catch(e){}
     ov.querySelectorAll("[data-del]").forEach(b=>b.onclick=async()=>{try{await API.deleteChartAlert(b.dataset.del)}catch(e){}ALERTS=ALERTS.filter(a=>a.id!==b.dataset.del);paintAlerts();re()});
     ov.querySelectorAll("[data-re]").forEach(b=>b.onclick=async()=>{const a=ALERTS.find(x=>x.id===b.dataset.re);if(!a)return;try{const r=await API.saveChartAlert(Object.assign({id:a.id,symbol:a.symbol,symbol_name:a.symbol_name,kind:a.kind,price:a.price,price2:a.price2,note:a.note,active:true},a.kind==="nivel"||a.kind==="zona"?{}:{tf:a.tf,cond:a.cond,params:a.params,repeat:a.repeat}));Object.assign(a,r||{},{active:true})}catch(e){toast(esc(e.message||"No se pudo reactivar"))}paintAlerts();re()})}
   addEventListener("keydown",e=>{if(e.key==="Escape"){const m=$(".smodal");if(m){m.remove();e.stopImmediatePropagation();return}const pn=document.querySelector(".wmenu.panel");if(pn){pn.remove();e.stopImmediatePropagation()}}},true);
 
   /* ======================= ALERTAS ======================= */
+  /* ---------- sonidos (generados en el navegador, sin archivos) ---------- */
+  const SND=(()=>{let ac=null;const ctx=()=>{if(!ac){const A=window.AudioContext||window.webkitAudioContext;if(!A)return null;ac=new A()}if(ac.state==="suspended")ac.resume().catch(()=>{});return ac};
+    const unlock=()=>{const c=ctx();if(c&&c.state!=="running")c.resume().catch(()=>{})};["pointerdown","keydown","touchstart"].forEach(ev=>addEventListener(ev,unlock,{passive:true,capture:true}));
+    const tone=(c,out,f,t0,dur,type,g0,f2)=>{const o=c.createOscillator(),g=c.createGain();o.type=type||"sine";o.frequency.setValueAtTime(f,t0);if(f2)o.frequency.exponentialRampToValueAtTime(f2,t0+dur);
+      g.gain.setValueAtTime(0.0001,t0);g.gain.exponentialRampToValueAtTime(g0||.6,t0+.012);g.gain.exponentialRampToValueAtTime(0.0001,t0+dur);o.connect(g);g.connect(out);o.start(t0);o.stop(t0+dur+.05)};
+    const LIB={
+      campana:(c,o,t)=>{[[880,1.6,.55],[1760,1,.18],[2640,.6,.08]].forEach(([f,d,g])=>tone(c,o,f,t,d,"sine",g));[[880,1.6,.45],[1760,1,.14]].forEach(([f,d,g])=>tone(c,o,f,t+.45,d,"sine",g))},
+      ding:(c,o,t)=>{tone(c,o,988,t,.35,"triangle",.6);tone(c,o,1319,t+.14,.6,"triangle",.6)},
+      moneda:(c,o,t)=>{tone(c,o,988,t,.09,"square",.25);tone(c,o,1319,t+.08,.45,"square",.25)},
+      alarma:(c,o,t)=>{for(let k=0;k<6;k++)tone(c,o,k%2?660:880,t+k*.16,.15,"square",.28)},
+      sirena:(c,o,t)=>{tone(c,o,600,t,.45,"sawtooth",.28,1400);tone(c,o,600,t+.5,.45,"sawtooth",.28,1400)},
+      spike:(c,o,t)=>{tone(c,o,140,t,.25,"sine",.9,60);tone(c,o,1568,t+.05,.5,"triangle",.5);tone(c,o,2093,t+.18,.6,"triangle",.45)}};
+    const NAMES=[["campana","Campana"],["ding","Ding"],["moneda","Moneda"],["alarma","Alarma"],["sirena","Sirena"],["spike","Golpe + ping"],["no","Sin sonido"]];
+    function play(k,vol){if(!k||k==="no"||!LIB[k])return;const c=ctx();if(!c)return;const v=Math.max(0,Math.min(1,(vol==null?80:vol)/100));if(!v)return;
+      const g=c.createGain();g.gain.value=v;g.connect(c.destination);try{LIB[k](c,g,c.currentTime+.02)}catch(e){}}
+    return{play,NAMES}})();
+  const SCFG=()=>{SAVE.snd=Object.assign({al:"campana",vol:80},SAVE.snd||{});SAVE.snd.sp=Object.assign({on:false,syms:[],snd:"spike",min:0},SAVE.snd.sp||{});return SAVE.snd};
+  /* avisos con la página de fondo: notificación del sistema (si ya diste permiso) */
+  const sysNote=(title,body,tag)=>{try{if(!document.hidden||!("Notification" in window)||Notification.permission!=="granted")return;navigator.serviceWorker&&navigator.serviceWorker.ready.then(r=>r.showNotification(title,{body,tag,icon:"/assets/icon-192.png",badge:"/assets/badge-72.png",renotify:true,data:{url:location.href}})).catch(()=>{})}catch(e){}};
+  /* sonido cuando llega una alerta (el service worker avisa a la página abierta) */
+  const heard=new Set();
+  function alertRing(key,title){if(key&&heard.has(key))return;if(key)heard.add(key);const c=SCFG();SND.play(c.al,c.vol);if(title)toast(esc(title))}
+  try{navigator.serviceWorker&&navigator.serviceWorker.addEventListener("message",e=>{const d=e.data||{};if(d.type==="push"&&/^alerta-/.test(d.tag||""))alertRing(d.tag+"|"+Math.floor(Date.now()/20000),d.title)})}catch(e){}
+  /* ---------- vigilante de spikes: suena apenas sale un spike (Boom/Crash) en los mercados que elijas ---------- */
+  const WATCH=(()=>{const S=new Map();let cool={};
+    const bc=t=>{const m=String(t||"").match(/^(BOOM|CRASH)/);return m?m[1]==="BOOM":null};
+    const nm=t=>(bySym[t]&&bySym[t].display_name)||t;
+    function med(a){if(!a.length)return 0;const b=a.slice().sort((x,y)=>x-y);return b[b.length>>1]}
+    function startOne(t){if(S.has(t))return;const up=bc(t);if(up==null)return;const st={d:[],prev:null,ok:false};S.set(t,st);
+      feed.ask({ticks_history:t,style:"ticks",count:400,end:"latest"}).then(m=>{const P=(m.history&&m.history.prices)||[];for(let i=1;i<P.length;i++){const d=Math.abs(P[i]-P[i-1]);if(d>0)st.d.push(d)}st.d=st.d.slice(-400);if(P.length)st.prev=+P[P.length-1];st.ok=st.d.length>=30}).catch(()=>{});
+      tickOn(t,"watch",tk=>{const q=+tk.quote;if(!isFinite(q))return;const pv=st.prev;st.prev=q;if(pv==null)return;const d=q-pv,ad=Math.abs(d);
+        const c=SCFG().sp,thr=Math.max(st.ok?med(st.d)*12:Infinity,+c.min||0),big=(up?d:-d)>thr&&(st.ok||(+c.min>0));
+        if(ad>0&&!big){st.d.push(ad);if(st.d.length>400)st.d.shift();if(!st.ok&&st.d.length>=30)st.ok=true}
+        if(big&&Date.now()-(cool[t]||0)>3000){cool[t]=Date.now();fire(t,up,ad,tk.epoch)}})}
+    function stopOne(t){if(!S.has(t))return;S.delete(t);tickOff(t,"watch")}
+    function fire(t,up,sz,ep){const c=SCFG(),pr=bySym[t]?prec(bySym[t].pip):2;const d=new Date((ep||Date.now()/1000)*1000),m5=new Date(Math.floor(d.getTime()/300000)*300000);
+      const hh=x=>String(x.getHours()).padStart(2,"0")+":"+String(x.getMinutes()).padStart(2,"0");
+      SND.play(c.sp.snd,c.vol);toast(`⚡ <b>Spike en ${esc(nm(t))}</b>: ${up?"+":"−"}${sz.toFixed(pr)} pts · vela M5 de las ${hh(m5)}`);
+      sysNote(`⚡ Spike en ${nm(t)}`,`${up?"+":"−"}${sz.toFixed(pr)} pts · vela M5 de las ${hh(m5)}`,"spk-"+t);
+      const b=$("#alb");if(b){b.classList.remove("spkfl");void b.offsetWidth;b.classList.add("spkfl")}}
+    function sync(){const c=SCFG().sp,want=new Set(c.on?c.syms.filter(t=>bc(t)!=null):[]);[...S.keys()].forEach(t=>{if(!want.has(t))stopOne(t)});want.forEach(startOne);
+      const b=$("#alb");if(b){b.classList.toggle("watching",want.size>0);b.title=want.size?`Alertas · vigilando spikes en ${[...want].map(nm).join(", ")}`:"Alertas de precio"}}
+    return{sync,bc,nm,fire}})();
+  setTimeout(()=>{try{WATCH.sync()}catch(e){}},1500);
+  function sndBlock(){const c=SCFG(),sp=c.sp,cur=curSym(active),opts=v=>SND.NAMES.map(([k,n])=>`<option value="${k}"${k===v?" selected":""}>${n}</option>`).join("");
+    const bcs=Object.keys(bySym).filter(t=>WATCH.bc(t)!=null).sort((a,b)=>bcOrder({symbol:a})-bcOrder({symbol:b}));
+    return`<div class="snd">
+      <div class="slabel">🔊 Sonidos</div>
+      <div class="sndr"><label class="af"><span>Sonido de las alertas</span><select data-snd="al">${opts(c.al)}</select></label><button class="btn sm" data-sndt="al">▶ Probar</button></div>
+      <label class="af"><span>Volumen: <b data-volv>${c.vol}%</b></span><input type="range" min="0" max="100" step="5" value="${c.vol}" data-vol></label>
+      <p class="shelp">Suena en esta página cuando se dispara una alerta (además de la notificación al celular). En el celular, la notificación usa el sonido del teléfono.</p>
+      <div class="slabel">⚡ Vigilante de spikes (en vivo)</div>
+      <p class="shelp">Elige en qué mercado estás y te suena <b>apenas sale un spike</b> (la vela de M5 que lo marca), con la página abierta, aunque estés en otra pestaña.</p>
+      ${row("Vigilar spikes","Activa el sonido de spikes en los mercados marcados abajo.",tog("data-spon",sp.on))}
+      <div class="sndr"><label class="af"><span>Sonido del spike</span><select data-snd="sp">${opts(sp.snd)}</select></label><button class="btn sm" data-sndt="sp">▶ Probar</button></div>
+      ${cur&&WATCH.bc(cur)!=null&&!sp.syms.includes(cur)?`<div class="sbtns"><button class="btn sm gold" data-spcur>+ Vigilar ${esc(WATCH.nm(cur))} (el que tienes abierto)</button></div>`:""}
+      <div class="spchips">${bcs.map(t=>`<button class="spc${sp.syms.includes(t)?" on":""}" data-spt="${esc(t)}">${esc(WATCH.nm(t).replace(" Index",""))}</button>`).join("")||`<p class="shelp">Cargando mercados…</p>`}</div>
+      <label class="af"><span>Tamaño mínimo del spike (puntos, opcional)</span><input type="number" min="0" step="any" data-spmin value="${+sp.min>0?sp.min:""}" placeholder="Automático"></label>
+    </div>`}
+  function sndWire(ov,re){const c=()=>SCFG();
+    ov.querySelectorAll("select[data-snd]").forEach(sl=>sl.onchange=()=>{if(sl.dataset.snd==="al")c().al=sl.value;else c().sp.snd=sl.value;save();SND.play(sl.value,c().vol)});
+    ov.querySelectorAll("[data-sndt]").forEach(b=>b.onclick=()=>SND.play(b.dataset.sndt==="al"?c().al:c().sp.snd,c().vol));
+    const vr=ov.querySelector("[data-vol]");vr&&(vr.oninput=()=>{c().vol=+vr.value;ov.querySelector("[data-volv]").textContent=vr.value+"%";save()},vr.onchange=()=>SND.play(c().al,c().vol));
+    const on=ov.querySelector("[data-spon]");on&&(on.onchange=()=>{const sp=c().sp;sp.on=on.checked;if(sp.on&&!sp.syms.length){const cur=curSym(active);if(WATCH.bc(cur)!=null)sp.syms.push(cur)}save();WATCH.sync();
+      if(sp.on)toast(sp.syms.length?`⚡ Vigilando spikes en <b>${sp.syms.map(t=>esc(WATCH.nm(t))).join(", ")}</b>`:"Marca abajo los mercados que quieres vigilar");re()});
+    const cu=ov.querySelector("[data-spcur]");cu&&(cu.onclick=()=>{const sp=c().sp,t=curSym(active);if(!sp.syms.includes(t))sp.syms.push(t);sp.on=true;save();WATCH.sync();toast(`⚡ Vigilando spikes en <b>${esc(WATCH.nm(t))}</b>`);re()});
+    ov.querySelectorAll("[data-spt]").forEach(b=>b.onclick=()=>{const sp=c().sp,t=b.dataset.spt;sp.syms=sp.syms.includes(t)?sp.syms.filter(x=>x!==t):sp.syms.concat(t);if(sp.syms.includes(t))sp.on=true;save();WATCH.sync();re()});
+    const mn=ov.querySelector("[data-spmin]");mn&&(mn.onchange=()=>{const v=parseFloat(String(mn.value).replace(",","."));c().sp.min=isFinite(v)&&v>0?v:0;save()})}
   let ALERTS=[];
   function paintAlerts(){const n=ALERTS.filter(a=>a.active).length,b=$("#alc");b.hidden=!n;b.textContent=n;panes.forEach(p=>{try{p.kc.renderAlerts()}catch(e){}})}
-  async function loadAlerts(){try{ALERTS=(await API.chartAlerts())||[]}catch(e){ALERTS=[]}paintAlerts()}
+  let alSeen=null;
+  async function loadAlerts(){try{ALERTS=(await API.chartAlerts())||[]}catch(e){ALERTS=[]}
+    const now={};ALERTS.forEach(a=>{if(a.triggered_at)now[a.id]=a.triggered_at});
+    if(alSeen){const nw=ALERTS.find(a=>a.triggered_at&&alSeen[a.id]!==a.triggered_at&&Date.now()-new Date(a.triggered_at).getTime()<10*60000);if(nw)alertRing("alerta-"+nw.id+"|"+nw.triggered_at,`🔔 Alerta: ${nw.symbol_name||nw.symbol}`)}
+    alSeen=now;paintAlerts()}
   /* temporalidades que acepta el revisor de alertas (las de Deriv) */
   const ATF=[[60,"1m"],[300,"5m"],[900,"15m"],[1800,"30m"],[3600,"1H"],[14400,"4H"],[86400,"1D"]];
   const tfTxt=g=>(ATF.find(x=>x[0]===+g)||[0,(+g/60)+"m"])[1];

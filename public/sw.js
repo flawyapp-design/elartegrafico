@@ -16,6 +16,8 @@ self.addEventListener("fetch", e => {
 });
 self.addEventListener("push", e => {
   let d = {}; try { d = e.data ? e.data.json() : {}; } catch (_) { d = { title: "El Arte Gráfico", body: e.data && e.data.text() }; }
+  /* la página abierta suena con su propio sonido (alertas) */
+  try { self.clients.matchAll({ type: "window", includeUncontrolled: true }).then(l => l.forEach(c => c.postMessage({ type: "push", tag: d.tag || "", title: d.title || "" }))); } catch (_) {}
   e.waitUntil(self.registration.showNotification(d.title || "El Arte Gráfico", {
     body: d.body || "", icon: d.icon || "/assets/icon-192.png", badge: d.badge || "/assets/badge-72.png",
     tag: d.tag, data: { url: d.url || "/" }, lang: "es"
