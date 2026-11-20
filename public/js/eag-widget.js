@@ -807,7 +807,7 @@ window.EAGWidget=function(o){
       onDeselected:e=>{SELBOX.delete(e.overlay.id);if(selId===e.overlay.id){selId=null;hideStyleBar()}syncPan();return false},
       onRemoved:e=>{SELBOX.delete(e.overlay.id);if(bulk)return false;ovs.delete(e.overlay.id);if(selId===e.overlay.id){selId=null;hideStyleBar()}persist();return false},
       onDoubleClick:e=>{if(e.overlay.id!==drawingId)openCtx(e.overlay.id,e,true);return false},
-      onRightClick:e=>{try{if(e.overlay.id===drawingId){if(!finishFree())cancelDraw();return true}openCtx(e.overlay.id,e)}catch(x){}return true}});
+      onRightClick:e=>{try{if(e.overlay.id===drawingId){if(!finishFree())cancelDraw();return true}panelPos=null;closeMenu();openCtx(e.overlay.id,e,true,"estilo")}catch(x){}return true}});
     if(id){OVSYM.set(id,sym&&sym.ticker);ovs.set(id,{name:def.name,styles:def.styles||null,extendData:def.extendData||null,lock:!!def.lock,points:def.points||null,tfv:def.tfv&&def.tfv.length?def.tfv.slice():null});if(!drawing)ovs.get(id).done=true}
     return id}
   /* ---------- capas de solo lectura (Modo Clase y Zonas del profe): no se guardan ni se pueden mover ---------- */
@@ -941,7 +941,7 @@ window.EAGWidget=function(o){
   const ICA={left:'<path d="M4 6h16M4 10h10M4 14h16M4 18h10"/>',center:'<path d="M4 6h16M7 10h10M4 14h16M7 18h10"/>',right:'<path d="M4 6h16M10 10h10M4 14h16M10 18h10"/>',
     top:'<path d="M4 4h16"/><path d="M12 8v12M8 12l4-4 4 4"/>',middle:'<path d="M4 12h16"/><path d="M12 3v5M12 16v5"/>',bottom:'<path d="M4 20h16"/><path d="M12 4v12M8 12l4 4 4-4"/>'};
   const ico=(k,n)=>`<svg width="${n||16}" height="${n||16}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ICA[k]}</svg>`;
-  function openCtx(id,e,panel,tab){const prev=menu&&menu.classList.contains("panel")?{x:menu.offsetLeft,y:menu.offsetTop}:null;closeMenu();const v=ovs.get(id);if(!v)return;selId=id;showStyleBar(id);const c=curStyle(id);
+  function openCtx(id,e,panel,tab){panel=true;const prev=menu&&menu.classList.contains("panel")?{x:menu.offsetLeft,y:menu.offsetTop}:null;closeMenu();const v=ovs.get(id);if(!v)return;selId=id;showStyleBar(id);const c=curStyle(id);
     if(tab)panelTab=tab;const again=t=>openCtx(id,e,panel,t);
     menu=document.createElement("div");menu.className="wmenu ctx"+(panel?" panel":"");
     const isOldTxt=v.name==="eagText"||v.name==="eagNote";const canLbl=!LBLX.test(v.name);const tf=curTf();
