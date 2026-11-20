@@ -1015,7 +1015,13 @@ function start(){
       const hh=x=>String(x.getHours()).padStart(2,"0")+":"+String(x.getMinutes()).padStart(2,"0");
       SND.play(c.sp.snd,c.vol);toast(`⚡ <b>Spike en ${esc(nm(t))}</b>: ${up?"+":"−"}${sz.toFixed(pr)} pts · vela M5 de las ${hh(m5)}`);
       sysNote(`⚡ Spike en ${nm(t)}`,`${up?"+":"−"}${sz.toFixed(pr)} pts · vela M5 de las ${hh(m5)}`,"spk-"+t);
-      const b=$("#alb");if(b){b.classList.remove("spkfl");void b.offsetWidth;b.classList.add("spkfl")}}
+      const b=$("#alb");if(b){b.classList.remove("spkfl");void b.offsetWidth;b.classList.add("spkfl")}
+      if(c.sp.show!==false)showChart(t)}
+    /* te muestra ese gráfico: si ya está en uno de tus gráficos lo enfoca; si no, lo abre en el gráfico activo */
+    function showChart(t){try{const n=visible();let j=-1;for(let k=0;k<n;k++)if(curSym(k)===t){j=k;break}
+      if(j<0){setSym(t);j=active}else if(j!==active)setActive(j);
+      const P=panes[j];if(!P)return;setTimeout(()=>{try{P.kc.chart.scrollToRealTime()}catch(e){}},j===active?400:0);
+      P.el.classList.remove("spkfl");void P.el.offsetWidth;P.el.classList.add("spkfl");setTimeout(()=>P.el.classList.remove("spkfl"),2600)}catch(e){}}
     function sync(){const c=SCFG().sp,want=new Set(c.on?c.syms.filter(t=>bc(t)!=null):[]);[...S.keys()].forEach(t=>{if(!want.has(t))stopOne(t)});want.forEach(startOne);
       const b=$("#alb");if(b){b.classList.toggle("watching",want.size>0);b.title=want.size?`Alertas · vigilando spikes en ${[...want].map(nm).join(", ")}`:"Alertas de precio"}}
     return{sync,bc,nm,fire}})();
@@ -1033,6 +1039,7 @@ function start(){
       <div class="sndr"><label class="af"><span>Sonido del spike</span><select data-snd="sp">${opts(sp.snd)}</select></label><button class="btn sm" data-sndt="sp">▶ Probar</button></div>
       ${cur&&WATCH.bc(cur)!=null&&!sp.syms.includes(cur)?`<div class="sbtns"><button class="btn sm gold" data-spcur>+ Vigilar ${esc(WATCH.nm(cur))} (el que tienes abierto)</button></div>`:""}
       <div class="spchips">${bcs.map(t=>`<button class="spc${sp.syms.includes(t)?" on":""}" data-spt="${esc(t)}">${esc(WATCH.nm(t).replace(" Index",""))}</button>`).join("")||`<p class="shelp">Cargando mercados…</p>`}</div>
+      ${row("Mostrarme el gráfico","Cuando salga el spike, te pone ese mercado en pantalla (si ya lo tienes en un gráfico, lo resalta).",tog("data-spshow",sp.show!==false))}
       <label class="af"><span>Tamaño mínimo del spike (puntos, opcional)</span><input type="number" min="0" step="any" data-spmin value="${+sp.min>0?sp.min:""}" placeholder="Automático"></label>
     </div>`}
   function sndWire(ov,re){const c=()=>SCFG();
@@ -1043,6 +1050,7 @@ function start(){
       if(sp.on)toast(sp.syms.length?`⚡ Vigilando spikes en <b>${sp.syms.map(t=>esc(WATCH.nm(t))).join(", ")}</b>`:"Marca abajo los mercados que quieres vigilar");re()});
     const cu=ov.querySelector("[data-spcur]");cu&&(cu.onclick=()=>{const sp=c().sp,t=curSym(active);if(!sp.syms.includes(t))sp.syms.push(t);sp.on=true;save();WATCH.sync();toast(`⚡ Vigilando spikes en <b>${esc(WATCH.nm(t))}</b>`);re()});
     ov.querySelectorAll("[data-spt]").forEach(b=>b.onclick=()=>{const sp=c().sp,t=b.dataset.spt;sp.syms=sp.syms.includes(t)?sp.syms.filter(x=>x!==t):sp.syms.concat(t);if(sp.syms.includes(t))sp.on=true;save();WATCH.sync();re()});
+    const sh=ov.querySelector("[data-spshow]");sh&&(sh.onchange=()=>{c().sp.show=sh.checked;save()});
     const mn=ov.querySelector("[data-spmin]");mn&&(mn.onchange=()=>{const v=parseFloat(String(mn.value).replace(",","."));c().sp.min=isFinite(v)&&v>0?v:0;save()})}
   let ALERTS=[];
   function paintAlerts(){const n=ALERTS.filter(a=>a.active).length,b=$("#alc");b.hidden=!n;b.textContent=n;panes.forEach(p=>{try{p.kc.renderAlerts()}catch(e){}})}
