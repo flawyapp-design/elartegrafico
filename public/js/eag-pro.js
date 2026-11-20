@@ -240,7 +240,7 @@ function lock(why,need){const m=shell();setTab(need===3?"replay":"prac");const d
   $("[data-c]",m).onclick=close}
 
 /* ---------------- Práctica: inicio ---------------- */
-function pracHome(){{const a=X.access("prac");if(!a.ok)return lock(a.why,a.need)}const m=shell();setTab("prac");const S=state(),o=Object.assign({topic:"proy",grp:"bc",tf:"rnd",n:10,hide:1},S.opt||{});
+function pracHome(){{const a=X.access("prac");if(!a.ok)return lock(a.why,a.need)}const m=shell();setTab("prac");const S=state(),o=Object.assign({topic:"proy",grp:"bc",tf:"rnd",n:10,hide:1,k:"auto"},S.opt||{});
   const pct=t=>{const s=S.st[t];return s&&s.n?Math.round(s.ok/s.n*100)+"%":"—"};
   const tot=Object.values(S.st).reduce((a,s)=>a+(s.n||0),0),okT=Object.values(S.st).reduce((a,s)=>a+(s.ok||0),0);
   m.innerHTML=`<div class="pro-home"><section class="pro-intro"><h1>Práctica guiada</h1><p>Te llevamos a un punto al azar del pasado de un mercado. Tú lees el gráfico, respondes y te mostramos lo que pasó después, con la explicación. Todo se mide con lo que muestra el precio, no con un método en particular.</p>
@@ -250,11 +250,14 @@ function pracHome(){{const a=X.access("prac");if(!a.ok)return lock(a.why,a.need)
     <h3 class="pro-sub">2. Mercados</h3>${chips("grp",GROUPS,o.grp)}
     <h3 class="pro-sub">3. Temporalidad</h3>${chips("tf",[["rnd","Al azar"],...TFS.map(([t])=>[t,t])],o.tf)}
     <h3 class="pro-sub">4. Preguntas</h3>${chips("n",[[5,"5"],[10,"10"],[20,"20"]],o.n)}
+    <h3 class="pro-sub">5. ¿Cuántas velas hacia adelante?</h3>
+    <p class="pro-hint">Cuánto futuro se proyecta para ver si acertaste. En <b>Automático</b> se ajusta a la temporalidad (en 1H y 4H son menos velas, para no proyectar un día entero si no operas tan swing).</p>
+    ${chips("k",[["auto","Automático"],[5,"5"],[8,"8"],[10,"10"],[15,"15"],[20,"20"],[30,"30"],[50,"50"]],o.k)}
     <label class="pro-check"><input type="checkbox" data-hide ${o.hide?"checked":""}> Ocultar mercado y fecha hasta responder (recomendado: así no te dejas llevar por lo que ya sabes del mercado)</label>
     <div class="pro-row sticky"><button class="pro-btn gold big" data-go>Empezar práctica</button></div></div>`;
   $$(".pro-topic",m).forEach(b=>b.onclick=()=>{$$(".pro-topic",m).forEach(x=>x.classList.toggle("on",x===b))});
   wireChips(m);
-  $("[data-go]",m).onclick=()=>{const opt={topic:$(".pro-topic.on",m).dataset.k,grp:chipVal(m,"grp"),tf:chipVal(m,"tf"),n:+chipVal(m,"n"),hide:$("[data-hide]",m).checked?1:0};S.opt=opt;X.save();session(opt)}}
+  $("[data-go]",m).onclick=()=>{const kv=chipVal(m,"k");const opt={topic:$(".pro-topic.on",m).dataset.k,grp:chipVal(m,"grp"),tf:chipVal(m,"tf"),n:+chipVal(m,"n"),hide:$("[data-hide]",m).checked?1:0,k:kv==="auto"?"auto":+kv};S.opt=opt;X.save();session(opt)}}
 
 /* ---------------- Práctica: sesión ---------------- */
 function session(opt){const m=shell();setTab("prac");
@@ -277,12 +280,16 @@ function session(opt){const m=shell();setTab("prac");
     if(OV)finish(ses)})()}
 function paintTop(ses,m){const n=ses.opt.n;$(".pro-cnt",m).textContent=`${Math.min(ses.i+1,n)} / ${n}`;$(".pro-prog i",m).style.width=(ses.i/n*100)+"%";
   $(".pro-sc",m).innerHTML=`✓ ${ses.ok} · racha ${ses.streak}`}
+/* velas hacia adelante: lo que elijas, o en Automático según el tema y la temporalidad */
+const K_BASE={proy:20,romp:25,impr:20,zona:40};
+function velasK(topic,g,k){if(k&&k!=="auto"&&+k>0)return Math.max(3,Math.min(80,+k));
+  const f=g>=14400?0.3:g>=3600?0.45:g>=1800?0.7:1;return Math.max(5,Math.round((K_BASE[topic]||20)*f))}
 async function prepare(opt){const topics=["proy","romp","impr","zona"];
   for(let att=0;att<5;att++){const topic=opt.topic==="mix"?topics[Math.floor(Math.random()*topics.length)]:opt.topic;
     const L=symsOf(opt.grp),s=L[Math.floor(Math.random()*L.length)];const tf=opt.tf==="rnd"?TFS[Math.floor(Math.random()*TFS.length)]:TFS.find(x=>x[0]===opt.tf)||TFS[1];
     let c;try{c=await randomBlock(s.symbol,tf[1],640)}catch(e){continue}
     if(!c||c.length<400)continue;
-    const q=C.pick(c,topic,{});if(q)return{q,c,s,tf,prec:precOf(s),topic}}
+    const q=C.pick(c,topic,{K:velasK(topic,tf[1],opt.k)});if(q)return{q,c,s,tf,prec:precOf(s),topic}}
   return null}
 function ask(ses,Q,m){return new Promise(done=>{const{q,c,s,tf,prec}=Q,T=C.TOPICS[q.type],hide=!!ses.opt.hide,panel=$(".pro-q",m);
   const shown=q.t+1;chart.setData(c,shown,prec);chart.setHideTime(hide);chart.setFuture(true,"¿?");chart.setMode("pan");

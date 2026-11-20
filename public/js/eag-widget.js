@@ -131,8 +131,12 @@ function registerAll(){
       return[{type:"text",ignoreEvent:true,attrs:{x:z?0:bounding.width,y,text:r.t,align:z?"left":"right",baseline:"middle"},styles:r.st}]}});
   /* Pincel: trazo libre a mano alzada */
   KC.registerOverlay({name:"eagBrush",totalStep:2,needDefaultPointFigure:false,needDefaultXAxisFigure:false,needDefaultYAxisFigure:false,
-    createPointFigures:({overlay,coordinates})=>{if(coordinates.length<2)return[];const ex=overlay.extendData||{};
-      return[{type:"line",attrs:{coordinates},styles:{color:ex.color||GOLD,size:ex.size||2,smooth:true}}]}});
+    createPointFigures:({overlay,coordinates,barSpace,yAxis})=>{if(coordinates.length<2)return[];const ex=overlay.extendData||{};
+      let cs=coordinates;
+      /* trazo nuevo: puntos relativos al primero (en velas y precio) → sigue la forma exacta al hacer zoom o mover el gráfico */
+      if(Array.isArray(ex.rel)&&ex.rel.length>1&&yAxis&&barSpace&&barSpace.bar){const x0=coordinates[0].x,v0=overlay.points[0].value,b=barSpace.bar;
+        cs=ex.rel.map(([dx,dv])=>({x:x0+dx*b,y:yAxis.convertToPixel(v0+dv)}))}
+      return[{type:"line",attrs:{coordinates:cs},styles:{color:ex.color||GOLD,size:ex.size||2,smooth:false}}]}});
   /* Medir: diferencia de precio, %, velas y tiempo */
   KC.registerOverlay({name:"eagMeasure",totalStep:3,needDefaultPointFigure:true,needDefaultXAxisFigure:true,needDefaultYAxisFigure:true,
     createPointFigures:({overlay,coordinates,precision})=>{
@@ -596,7 +600,41 @@ window.EAGWidget=function(o){
     menu.querySelectorAll("button").forEach(b=>b.onclick=()=>{lastTool[g.g]=b.dataset.k;o.onLastTools&&o.onLastTools(lastTool);closeMenu();stopBrush();paintDbar();startTool(b.dataset.k)})}
   let drawingId=null;
   /* ---------- pincel ---------- */
-  let brushOn=false,brushEl=null;
+  /* ---------- puntero láser (para explicar en vivo): punto rojo con estela que se desvanece ----------
+     Lo tuyo se dibuja al mover el mouse; en Modo Clase se manda a los alumnos en coordenadas del gráfico (vela + precio). */
+  let laserOn=false,lzEl=null,lzCx=null,lzPts=[],lzRem=[],lzRaf=0,lzEmit=0;
+  const LZ_LIFE=750,LZ_REM=1100;
+  function lzEnsure(){if(lzEl)return;lzEl=document.createElement("canvas");lzEl.className="wlaser";chartEl.appendChild(lzEl);lzCx=lzEl.getContext("2d")}
+  function lzDrop(){if(lzEl&&!laserOn&&!lzRem.length){lzEl.remove();lzEl=null;lzCx=null}}
+  function lzKick(){if(!lzRaf)lzRaf=requestAnimationFrame(lzDraw)}
+  function lzRemPx(q){try{const a=chart.convertToPixel({timestamp:q.ts,value:q.v},{paneId:"candle_pane"});if(!a||!isFinite(a.x)||!isFinite(a.y))return null;return{x:a.x+(q.f||0)*(chart.getBarSpace()||0),y:a.y,t:q.t}}catch(e){return null}}
+  function lzTrail(P,now,life,head){const c=lzCx;if(!P.length)return;
+    for(let i=1;i<P.length;i++){const a=P[i-1],b=P[i],k=1-(now-b.t)/life;if(k<=0)continue;c.strokeStyle=`rgba(255,40,40,${(0.55*k).toFixed(3)})`;c.lineWidth=2+5*k;c.lineCap="round";c.beginPath();c.moveTo(a.x,a.y);c.lineTo(b.x,b.y);c.stroke()}
+    const h=head||P[P.length-1];const k=Math.max(0,1-(now-h.t)/(life*1.6));if(k<=0)return;
+    c.save();c.shadowColor="rgba(255,30,30,.95)";c.shadowBlur=18;c.fillStyle=`rgba(255,45,45,${(0.95*k).toFixed(3)})`;c.beginPath();c.arc(h.x,h.y,6.5,0,Math.PI*2);c.fill();c.restore();
+    c.fillStyle=`rgba(255,235,235,${k.toFixed(3)})`;c.beginPath();c.arc(h.x,h.y,2.4,0,Math.PI*2);c.fill()}
+  function lzDraw(){lzRaf=0;if(!lzEl)return;const now=performance.now(),d=devicePixelRatio||1,W=chartEl.clientWidth,H=chartEl.clientHeight;
+    if(lzEl.width!==Math.round(W*d)||lzEl.height!==Math.round(H*d)){lzEl.width=Math.round(W*d);lzEl.height=Math.round(H*d);lzEl.style.width=W+"px";lzEl.style.height=H+"px"}
+    lzCx.setTransform(d,0,0,d,0,0);lzCx.clearRect(0,0,W,H);
+    lzPts=lzPts.filter(p=>now-p.t<LZ_LIFE*1.6);lzTrail(lzPts,now,LZ_LIFE);
+    lzRem=lzRem.filter(p=>now-p.t<LZ_REM*1.6);
+    if(lzRem.length){const P=lzRem.map(lzRemPx).filter(Boolean);
+      /* el punto del profe se desliza suave entre una posición y la siguiente */
+      let head=null;if(P.length>1){const a=P[P.length-2],b=P[P.length-1],k=Math.min(1,(now-b.t)/140);head={x:a.x+(b.x-a.x)*k,y:a.y+(b.y-a.y)*k,t:b.t}}
+      lzTrail(P,now,LZ_REM,head)}
+    if(lzPts.length||lzRem.length||laserOn)lzKick();else lzDrop()}
+  chartEl.addEventListener("pointermove",e=>{if(!laserOn)return;const r=chartEl.getBoundingClientRect(),x=e.clientX-r.left,y=e.clientY-r.top,now=performance.now();
+    lzPts.push({x,y,t:now});if(lzPts.length>60)lzPts.shift();lzEnsure();lzKick();
+    if(o.onLaser&&now-lzEmit>150){lzEmit=now;try{const c=chart.convertFromPixel([{x,y}],{paneId:"candle_pane"})[0];const ts=c&&tsOf(c);
+      if(ts&&isFinite(c.value)){let f=0;try{const cx=chart.convertToPixel({timestamp:ts,value:c.value},{paneId:"candle_pane"}).x,bs=chart.getBarSpace()||0;if(bs>0)f=+((x-cx)/bs).toFixed(3)}catch(e){}
+        o.onLaser({ts,v:+c.value,f,sym:sym&&sym.ticker})}}catch(e){}}},{passive:true});
+  chartEl.addEventListener("pointerleave",()=>{if(laserOn&&o.onLaser)o.onLaser({off:1,sym:sym&&sym.ticker})});
+  function setLaser(on){laserOn=!!on;chartEl.classList.toggle("lzon",laserOn);try{chart.setStyles({crosshair:{show:!laserOn}})}catch(e){}if(laserOn){lzEnsure();lzKick()}else{lzPts=[];lzKick()}return laserOn}
+  function laserRemote(q){if(!q)return;if(q.off){lzRem=[];lzKick();return}if(!q.ts||!isFinite(q.v))return;lzRem.push({ts:q.ts,v:q.v,f:q.f||0,t:performance.now()});if(lzRem.length>30)lzRem.shift();lzEnsure();lzKick()}
+  let brushOn=false,brushEl=null,movSnap=null,ptrDown=null;
+  /* cuánto se movió realmente el mouse o el dedo desde que se presionó */
+  chartEl.addEventListener("pointerdown",e=>{ptrDown={x:e.clientX,y:e.clientY,max:0,touch:e.pointerType!=="mouse"}},true);
+  chartEl.addEventListener("pointermove",e=>{if(ptrDown&&e.buttons)ptrDown.max=Math.max(ptrDown.max,Math.hypot(e.clientX-ptrDown.x,e.clientY-ptrDown.y))},true);
   function startBrush(){cancelDraw();if(brushOn)return;brushOn=true;setTimeout(syncPan,0);
     brushEl=document.createElement("canvas");brushEl.className="wbrush";chartEl.appendChild(brushEl);
     const fit=()=>{const r=chartEl.getBoundingClientRect(),d=devicePixelRatio||1;brushEl.width=r.width*d;brushEl.height=r.height*d;brushEl.style.width=r.width+"px";brushEl.style.height=r.height+"px"};fit();
@@ -606,10 +644,16 @@ window.EAGWidget=function(o){
       const bs=((o.getToolStyle&&o.getToolStyle("eagBrush"))||{}).ex||{};cx.setTransform(d,0,0,d,0,0);cx.strokeStyle=bs.color||GOLD;cx.lineWidth=bs.size||2;cx.lineCap="round";cx.lineJoin="round";cx.beginPath();cx.moveTo(pts[0].x,pts[0].y)};
     brushEl.onpointermove=e=>{if(!pts)return;const p=pos(e),l=pts[pts.length-1];if(Math.hypot(p.x-l.x,p.y-l.y)<2.5)return;pts.push(p);cx.lineTo(p.x,p.y);cx.stroke()};
     brushEl.onpointerup=()=>{if(!pts)return;const P=pts;pts=null;cx.clearRect(0,0,brushEl.width,brushEl.height);if(P.length<2)return;
-      let step=Math.ceil(P.length/300);const sel=P.filter((p,i)=>i%step===0||i===P.length-1);
+      let step=Math.ceil(P.length/400);const sel=P.filter((p,i)=>i%step===0||i===P.length-1);
       let conv=[];try{conv=chart.convertFromPixel(sel,{paneId:"candle_pane"})}catch(x){}
-      const points=(conv||[]).map(c=>({timestamp:tsOf(c),value:c.value})).filter(p=>isFinite(p.value)&&p.timestamp);
-      if(points.length<2)return;const bs2=((o.getToolStyle&&o.getToolStyle("eagBrush"))||{}).ex||{};const id=makeOverlay({name:"eagBrush",points,extendData:{color:bs2.color||GOLD,size:bs2.size||2}},false);if(id){const v=ovs.get(id);v.done=true;v.points=points;persist()}};
+      if(!conv||conv.length<2)return;
+      /* el trazo se guarda con su posición exacta entre velas (antes se pegaba al centro de cada vela y quedaba en escalones) */
+      const c0=conv[0],ts0=tsOf(c0),v0=c0.value;if(!ts0||!isFinite(v0))return;
+      let xc=null,bs=null;try{const i0=c0.dataIndex;const a=chart.convertToPixel({dataIndex:i0,value:v0},{paneId:"candle_pane"}),b=chart.convertToPixel({dataIndex:i0+1,value:v0},{paneId:"candle_pane"});xc=a.x;bs=b.x-a.x}catch(x){}
+      if(!(bs>0)||!isFinite(xc))return;
+      const rel=sel.map((p,i)=>[+((p.x-xc)/bs).toFixed(3),+((conv[i]&&isFinite(conv[i].value)?conv[i].value:v0)-v0).toPrecision(8)]);
+      const cl=conv[conv.length-1],points=[{timestamp:ts0,value:v0},{timestamp:tsOf(cl)||ts0,value:isFinite(cl.value)?cl.value:v0}];
+      const bs2=((o.getToolStyle&&o.getToolStyle("eagBrush"))||{}).ex||{};const id=makeOverlay({name:"eagBrush",points,extendData:{color:bs2.color||GOLD,size:bs2.size||2,rel}},false);if(id){const v=ovs.get(id);v.done=true;v.points=points;persist()}};
     brushEl.oncontextmenu=e=>{e.preventDefault();stopBrush()};
     dbar.querySelector("[data-b]")&&dbar.querySelector("[data-b]").classList.add("act");o.onToast&&o.onToast("✏️ Pincel activo: dibuja o escribe sobre el gráfico. Esc o clic derecho para salir.")}
   function stopBrush(){if(!brushOn)return;brushOn=false;setTimeout(syncPan,0);if(brushEl){brushEl.remove();brushEl=null}const b=dbar.querySelector('.dt[data-k="eagBrush"]');b&&b.classList.remove("act")}
@@ -640,8 +684,12 @@ window.EAGWidget=function(o){
         if((e.overlay.name==="eagLong"||e.overlay.name==="eagShort")&&e.overlay.points.length<3)autoPos(e.overlay);
         if(BOX.test(e.overlay.name)&&e.overlay.points.length<8&&e.overlay.points.length>=2){const ps=e.overlay.points;chart.overrideOverlay({id:e.overlay.id,points:boxPts({timestamp:tsOf(ps[0]),dataIndex:ps[0].dataIndex,value:ps[0].value},{timestamp:tsOf(ps[1]),dataIndex:ps[1].dataIndex,value:ps[1].value})})}
         capture(chart.getOverlayById(e.overlay.id)||e.overlay);if(e.overlay.name==="eagText"||e.overlay.name==="eagNote")setTimeout(()=>editText(e.overlay.id),30);return false},
-      onPressedMoveStart:()=>{movingOv=true;chartEl.classList.add("ovdrag");return false},
-      onPressedMoveEnd:e=>{movingOv=false;chartEl.classList.remove("ovdrag");capture(e.overlay);return false},
+      onPressedMoveStart:e=>{movingOv=true;chartEl.classList.add("ovdrag");try{movSnap={id:e.overlay.id,points:JSON.parse(JSON.stringify(e.overlay.points||[]))}}catch(x){movSnap=null}return false},
+      onPressedMoveEnd:e=>{movingOv=false;chartEl.classList.remove("ovdrag");
+        /* un clic con un temblor de pocos píxeles no mueve el dibujo: vuelve exacto a su lugar (antes se corría al darle clic) */
+        const tiny=ptrDown&&(ptrDown.max||0)<(ptrDown.touch?12:6);
+        if(tiny&&movSnap&&movSnap.id===e.overlay.id&&movSnap.points.length){try{chart.overrideOverlay({id:e.overlay.id,points:movSnap.points})}catch(x){}movSnap=null;return false}
+        movSnap=null;capture(e.overlay);return false},
       onMouseEnter:()=>{chartEl.classList.add("ovh");return false},onMouseLeave:()=>{chartEl.classList.remove("ovh");return false},
       onSelected:e=>{const lv=ovs.get(e.overlay.id);if(lastTouch&&lv&&lv.lock)return false;selId=e.overlay.id;showStyleBar(e.overlay.id);syncPan();return false},
       onDeselected:e=>{if(selId===e.overlay.id){selId=null;hideStyleBar()}syncPan();return false},
@@ -969,7 +1017,7 @@ window.EAGWidget=function(o){
   ind.main.forEach(n=>addInd(n,"main",true));const subs=Object.keys(ind.sub);ind.sub={};subs.forEach(n=>addInd(n,"sub",true));
   loadData();
 
-  return{chart,el:root,startTool:n=>{stopBrush();startTool(n)},stopBrush:()=>stopBrush(),startBrush:()=>startBrush(),undo,redo,renderAlerts,cancelDraw:()=>cancelDraw(),
+  return{chart,el:root,laser:on=>setLaser(on),laserOn:()=>laserOn,laserRemote,startTool:n=>{stopBrush();startTool(n)},stopBrush:()=>stopBrush(),startBrush:()=>startBrush(),undo,redo,renderAlerts,cancelDraw:()=>cancelDraw(),
     getSymbol:()=>sym,setSymbol(s,p){if(!s||(sym&&s.ticker===sym.ticker&&s.pricePrecision===sym.pricePrecision))return;sym=s;if(p&&p.text)per=p;loadData();try{paintBar()}catch(e){}},
     getPeriod:()=>per,getData:()=>chart.getDataList(),getRaw:()=>RAW,
     refreshXform(){if(xfNow()!==XF||XF==="renko")loadData()},setPeriod(p){if(!p||p.text===per.text)return;per=p;loadData()},

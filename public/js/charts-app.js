@@ -192,6 +192,7 @@ function start(){
       <span class="grow"></span>
       <span class="who">${esc(prof.username||"")}</span>
       ${window.__free?`<a class="btn ic freeb" href="${MAIN}#premium" title="${window.__affKeys&&window.__affKeys.size?"Miembro verificado: tienes funciones extra desbloqueadas. Mejora a Plata, Oro o Diamond para tenerlo todo":"Estás en la versión gratis. Mejora a Plata, Oro o Diamond para tenerlo todo"}"><span class="pi">⭐</span><span class="t">${window.__affKeys&&window.__affKeys.size?"Miembro · Mejorar":"Gratis · Mejorar"}</span></a>`:""}
+      <button class="btn ic lzb" id="lzb" title="Puntero láser (para explicar). En Modo Clase tus alumnos lo ven. Esc para apagarlo." aria-pressed="false"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3" fill="currentColor"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1"/></svg></button>
       <button class="btn ic clb" id="clb" title="Modo Clase y Zonas del profe"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="12" rx="1.5"/><path d="m7 12 3-3 2 2 4-4"/><path d="M9 20l3-4 3 4"/></svg><span class="t">Clase</span><i class="cdot"></i></button>
       <button class="btn ic prob" id="prob" title="Estudio: Replay del mercado y Práctica guiada (Premium)"><span class="pi">🎓</span><span class="t">Estudio</span><em>PRO</em></button>
       <button class="btn ic inst" id="instb" data-inst title="Instalar EAG Charts como app" hidden><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg><span class="t">Instalar app</span></button>
@@ -326,7 +327,9 @@ function start(){
     pop.style.left=x+"px";pop.style.top=y+"px"}
   function closePop(){pop.hidden=true;pop.dataset.for="";pop.classList.remove("wide");if(shownPick&&shownPick.length){shownPick=[];watch()}}
   document.addEventListener("pointerdown",e=>{if(!pop.hidden&&!pop.contains(e.target)&&!e.target.closest("#vb,#fab,#fteye,#cfgb,.tfdd,.wsym,.wtf,.dmini"))closePop()});
-  addEventListener("keydown",e=>{if(e.key!=="Escape")return;panes.forEach(p=>{try{p.kc.stopBrush()}catch(x){}});if(!pop.hidden){closePop();return}
+  let laserOn=false;window.__eagPanes=()=>panes;
+  function setLaserAll(on){laserOn=!!on;panes.forEach(p=>{try{p.kc.laser(laserOn)}catch(x){}});const b=$("#lzb");if(b){b.classList.toggle("on",laserOn);b.setAttribute("aria-pressed",String(laserOn))}}
+  addEventListener("keydown",e=>{if(e.key!=="Escape")return;panes.forEach(p=>{try{p.kc.stopBrush()}catch(x){}});if(laserOn){setLaserAll(false)}if(!pop.hidden){closePop();return}
     if(/input|textarea/i.test((document.activeElement||{}).tagName||""))return;
     if(SAVE.hide.top&&SAVE.hide.ft){PARTS.forEach(([k])=>SAVE.hide[k]=false);save();applyHide()}});
   let tt=null;function toast(h){const t=$("#toast");t.innerHTML=h;t.hidden=false;t.classList.remove("out");clearTimeout(tt);tt=setTimeout(()=>{t.classList.add("out");setTimeout(()=>t.hidden=true,400)},4200)}
@@ -495,6 +498,7 @@ function start(){
     const sv=SAVE.panes[i]||{},sym=sv.s||DEF[i%DEF.length],per=perOf(sv.p||(i===0?"5m":"1m"));
     const p={el,kc:null};
     const kc=window.EAGWidget({container:el.firstChild,symbol:findInfo(sym),period:per,datafeed:Datafeed(),theme:CF().theme,timezone:TZ,
+      onLaser:pt=>{try{window.EAGClase&&window.EAGClase.laser&&window.EAGClase.laser(pt)}catch(e){}},
       indicators:LOCK.ind?trimInd(sv.ind):sv.ind,magnet:SAVE.magnet,lastTools:SAVE.lastTools,
       toolAllowed:LOCK.tools?(n=>FREE_TOOLS.has(n)):null,maxIndicators:LOCK.ind?FREE_IND:null,alertsAllowed:LOCK.alerts?(()=>false):null,onLocked:(k,what)=>upsell(what),
       getFavTF:()=>SAVE.tfFav,getXform:()=>CF().type==="ha"||CF().type==="renko"?CF().type:"",getRenkoBox:()=>+CF().rbox||0,autoZones:()=>!!CF().az&&!LOCK.az,ticksOn:()=>CF().ticks!==false,
@@ -763,6 +767,8 @@ function start(){
         const pp=tf?perFind(tf):null;try{p.kc.setSymbol(findInfo(s),pp||undefined);if(pp&&p.kc.getPeriod().text!==pp.text)p.kc.setPeriod(pp)}catch(e){}
         SAVE.panes[active]=Object.assign({},SAVE.panes[active],{s},pp?{p:pp.text}:{});save();setTimeout(()=>{try{if(MTFS[active])buildMTF(active);paintList();paintTabs();afterTF()}catch(e){}},80)}})}
   else{const cb=$("#clb");cb&&(cb.hidden=true)}
+  /* puntero láser: en todos los gráficos visibles; Esc o el mismo botón lo apagan */
+  {const lb=$("#lzb");if(lb)lb.onclick=()=>{setLaserAll(!laserOn);if(laserOn)toast(window.EAGClase&&window.EAGClase.isTx&&window.EAGClase.isTx()?"🔴 Láser activo: tus alumnos en Modo Clase lo ven. Esc para apagarlo.":"Láser activo: mueve el mouse sobre el gráfico. Esc para apagarlo.")}}
   /* Operar con Deriv (multiplicadores) para todos; cTrader solo el admin */
   if(window.EAGTrade){const tb=$("#trb");tb.hidden=false;tb.title="Operar con tu cuenta de Deriv (multiplicadores) desde el gráfico";
     window.EAGTrade.init({admin:API.isAdmin(),toast,syms:()=>SYMS,cur:()=>{try{const p=panes[active],s=p.kc.getSymbol();return{sym:s.ticker,name:s.name||s.shortName,tf:p.kc.getPeriod().text}}catch(e){return{}}},chart:()=>{try{return panes[active].kc.chart}catch(e){return null}},autoConnect:true});

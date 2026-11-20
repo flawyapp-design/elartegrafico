@@ -8,7 +8,7 @@
 const $=(s,r)=>(r||document).querySelector(s);
 const esc=s=>String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[c]);
 const STALE=15*60*1000; /* si el profe cierra la página sin apagar, la clase se da por terminada a los 15 min */
-let X=null,live=null,zones={},rt=null,joined=false,txOn=false,txT=0,lastTx="",lastFollow="",polT=0,hb=0,tokT=0,keepT=0,tick=0,shown={};
+let rtSend=null,X=null,live=null,zones={},rt=null,joined=false,txOn=false,txT=0,lastTx="",lastFollow="",polT=0,hb=0,tokT=0,keepT=0,tick=0,shown={};
 
 const cfg=()=>{X.SAVE.clase=Object.assign({on:false,follow:true,zones:true},X.SAVE.clase||{});return X.SAVE.clase};
 const onAir=()=>!!(live&&live.on_air&&live.updated_at&&Date.now()-new Date(live.updated_at).getTime()<STALE);
@@ -19,6 +19,7 @@ const ago=t=>{const m=Math.round((Date.now()-new Date(t).getTime())/60000);if(m<
 function connect(){if(!X.API.rt||rt)return;let ref=0;const topic="realtime:eag-clase";
   let ws;try{ws=new WebSocket(X.API.rt.url)}catch(e){return}rt=ws;joined=false;
   const send=(event,payload,t)=>{try{ws.readyState===1&&ws.send(JSON.stringify({topic:t||topic,event,payload,ref:String(++ref)}))}catch(e){}};
+  rtSend=send;
   ws.onopen=async()=>{const tok=await X.API.accessToken().catch(()=>null);
     send("phx_join",{config:{broadcast:{ack:false,self:false},presence:{key:""},private:false,
       postgres_changes:[{event:"*",schema:"public",table:"live_class"},{event:"*",schema:"public",table:"teacher_zones"}]},access_token:tok||undefined});
@@ -27,11 +28,14 @@ function connect(){if(!X.API.rt||rt)return;let ref=0;const topic="realtime:eag-c
   ws.onmessage=e=>{let m;try{m=JSON.parse(e.data)}catch(x){return}if(m.topic!==topic)return;
     if(m.event==="phx_reply"&&m.payload&&m.payload.status==="ok"&&m.payload.response&&m.payload.response.postgres_changes){joined=true;refresh()}
     else if(m.event==="system"&&m.payload&&m.payload.status==="error")joined=false;
+    /* láser del profe: solo se muestra si de verdad está en vivo y tienes el Modo Clase activo */
+    else if(m.event==="broadcast"&&m.payload&&m.payload.event==="laser"){const q=m.payload.payload||{};
+      if(!X.isAdmin()&&cfg().on&&onAir()&&q.sym)X.panes().forEach(p=>{try{if(p.kc.getSymbol().ticker===q.sym)p.kc.laserRemote(q)}catch(e){}})}
     else if(m.event==="postgres_changes"){const d=(m.payload&&m.payload.data)||{},tb=d.table,ty=d.eventType||d.type,rec=d.new||d.record,old=d.old||d.old_record;
       if(tb==="live_class"&&rec){const was=onAir();live=rec;liveChanged(was)}
       else if(tb==="teacher_zones"){if(ty==="DELETE"){if(old&&old.sym)delete zones[old.sym]}else if(rec&&rec.sym){const nw=!zones[rec.sym]||zones[rec.sym].updated_at!==rec.updated_at;zones[rec.sym]=rec;
           if(nw&&!X.isAdmin()&&cfg().zones&&canZones())X.toast(`📌 El profe actualizó sus zonas en <b>${esc(rec.sym_name||rec.sym)}</b>`)}apply();paintPanel()}}};
-  ws.onclose=()=>{clearInterval(hb);clearInterval(tokT);joined=false;rt=null;setTimeout(()=>{if(needRt())connect()},4000+Math.random()*4000)};
+  ws.onclose=()=>{rtSend=null;clearInterval(hb);clearInterval(tokT);joined=false;rt=null;setTimeout(()=>{if(needRt())connect()},4000+Math.random()*4000)};
   ws.onerror=()=>{try{ws.close()}catch(e){}}}
 /* conexión en tiempo real solo para quien la usa (Modo Clase activo, zonas con plan, o el profe) */
 const needRt=()=>cfg().on||txOn||X.isAdmin()||(cfg().zones&&canZones());
@@ -168,5 +172,8 @@ window.EAGClase={
     window.addEventListener("ag-local-live",()=>refresh());
     paintBtn()},
   drawingsChanged(){txKick()},
+  /* el profe mueve el láser: se manda a los alumnos (máximo ~7 veces por segundo, solo mientras transmite) */
+  laser(pt){if(!txOn||!rtSend||!pt||!pt.sym)return;rtSend("broadcast",{type:"broadcast",event:"laser",payload:pt})},
+  isTx:()=>txOn,
   isLive:onAir};
 })();
