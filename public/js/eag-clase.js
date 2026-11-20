@@ -30,7 +30,7 @@ function connect(){if(!X.API.rt||rt)return;let ref=0;const topic="realtime:eag-c
     else if(m.event==="system"&&m.payload&&m.payload.status==="error")joined=false;
     /* láser del profe: solo se muestra si de verdad está en vivo y tienes el Modo Clase activo */
     else if(m.event==="broadcast"&&m.payload&&m.payload.event==="laser"){const q=m.payload.payload||{};
-      if(!X.isAdmin()&&cfg().on&&onAir()&&q.sym)X.panes().forEach(p=>{try{if(p.kc.getSymbol().ticker===q.sym)p.kc.laserRemote(q)}catch(e){}})}
+      if(!X.isAdmin()&&cfg().on&&onAir()&&q.sym){X.panes().forEach(p=>{try{if(p.kc.getSymbol().ticker===q.sym)p.kc.laserRemote(q)}catch(e){}});try{window.__eagMiniLaser&&window.__eagMiniLaser(q)}catch(e){}}}
     else if(m.event==="postgres_changes"){const d=(m.payload&&m.payload.data)||{},tb=d.table,ty=d.eventType||d.type,rec=d.new||d.record,old=d.old||d.old_record;
       if(tb==="live_class"&&rec){const was=onAir();live=rec;liveChanged(was)}
       else if(tb==="teacher_zones"){if(ty==="DELETE"){if(old&&old.sym)delete zones[old.sym]}else if(rec&&rec.sym){const nw=!zones[rec.sym]||zones[rec.sym].updated_at!==rec.updated_at;zones[rec.sym]=rec;

@@ -328,7 +328,21 @@ function start(){
   function closePop(){pop.hidden=true;pop.dataset.for="";pop.classList.remove("wide");if(shownPick&&shownPick.length){shownPick=[];watch()}}
   document.addEventListener("pointerdown",e=>{if(!pop.hidden&&!pop.contains(e.target)&&!e.target.closest("#vb,#fab,#fteye,#cfgb,.tfdd,.wsym,.wtf,.dmini"))closePop()});
   let laserOn=false;window.__eagPanes=()=>panes;
-  function setLaserAll(on){laserOn=!!on;panes.forEach(p=>{try{p.kc.laser(laserOn)}catch(x){}});const b=$("#lzb");if(b){b.classList.toggle("on",laserOn);b.setAttribute("aria-pressed",String(laserOn))}}
+  /* láser también en los gráficos pequeños (multi-temporalidad): punto rojo propio y el del profe para los alumnos */
+  const miniAll=()=>{const A=[];Object.values(MTFS).forEach(M=>M&&(M.minis||[]).forEach(m=>A.push([M,m])));return A};
+  const mlzDot=m=>{if(!m.lz||!m.lz.isConnected){m.lz=document.createElement("i");m.lz.className="mlz";m.lz.hidden=true;m.mc.appendChild(m.lz)}return m.lz};
+  const mlzAt=(m,x,y)=>{const d=mlzDot(m);d.style.left=x+"px";d.style.top=y+"px";d.hidden=false};
+  const mlzOff=m=>{if(m.lz)m.lz.hidden=true};
+  function miniLaserWire(M,m,sym){let em=0;
+    m.mc.addEventListener("pointermove",e=>{if(!laserOn)return;const r=m.mc.getBoundingClientRect(),x=e.clientX-r.left,y=e.clientY-r.top;mlzAt(m,x,y);
+      const now=performance.now();if(now-em<150)return;em=now;
+      try{const c=m.c.convertFromPixel([{x,y}],{paneId:"candle_pane"})[0],L=m.c.getDataList();if(!c||!isFinite(c.value)||!L.length)return;
+        const i=Math.max(0,Math.min(L.length-1,c.dataIndex)),ts=L[i].timestamp;window.EAGClase&&window.EAGClase.laser&&window.EAGClase.laser({ts,v:+c.value,f:0,sym})}catch(x){}},{passive:true});
+    m.mc.addEventListener("pointerleave",()=>{if(!laserOn)return;mlzOff(m);try{window.EAGClase&&window.EAGClase.laser&&window.EAGClase.laser({off:1,sym})}catch(x){}})}
+  window.__eagMiniLaser=q=>{if(!q||!q.sym)return;miniAll().forEach(([M,m])=>{if(M.sym!==q.sym)return;clearTimeout(m.lzT);
+    if(q.off){mlzOff(m);return}try{const a=m.c.convertToPixel({timestamp:q.ts,value:q.v},{paneId:"candle_pane"});if(a&&isFinite(a.x)&&isFinite(a.y)){mlzAt(m,a.x,a.y);m.lzT=setTimeout(()=>mlzOff(m),2800)}}catch(x){}})};
+  function setLaserAll(on){laserOn=!!on;panes.forEach(p=>{try{p.kc.laser(laserOn)}catch(x){}});document.body.classList.toggle("lzall",laserOn);
+    miniAll().forEach(([M,m])=>{try{m.c.setStyles({crosshair:{show:!laserOn}})}catch(x){}if(!laserOn)mlzOff(m)});const b=$("#lzb");if(b){b.classList.toggle("on",laserOn);b.setAttribute("aria-pressed",String(laserOn))}}
   addEventListener("keydown",e=>{if(e.key!=="Escape")return;panes.forEach(p=>{try{p.kc.stopBrush()}catch(x){}});if(laserOn){setLaserAll(false)}if(!pop.hidden){closePop();return}
     if(/input|textarea/i.test((document.activeElement||{}).tagName||""))return;
     if(SAVE.hide.top&&SAVE.hide.ft){PARTS.forEach(([k])=>SAVE.hide[k]=false);save();applyHide()}});
@@ -513,6 +527,7 @@ function start(){
     p.kc=kc;
     setTimeout(()=>{try{kc.setStyles(styFor())}catch(e){}},0);
     el.addEventListener("pointerdown",()=>{if(active!==i)setActive(i)},true);
+    if(laserOn)setTimeout(()=>{try{p.kc&&p.kc.laser(true)}catch(x){}},0);
     return p;
   }
   const curSym=i=>{try{return panes[i].kc.getSymbol().ticker}catch(e){return null}};
@@ -567,7 +582,7 @@ function start(){
       const box=document.createElement("div");box.className="mini";box.innerHTML=`<button class="mh" title="Ver ${tfName(per)} en el gráfico grande"><b>${t}</b><span class="mcd" title="Tiempo para que cierre la vela de ${tfName(per)}" hidden></span><span class="mp"></span><em></em><i class="mz">⤢</i></button><span class="mc" title="Toca o desliza hacia arriba: ver en grande · rueda o pellizco: acercar · arrastra a los lados: mover"></span>`;el.appendChild(box);
       const mc=box.querySelector(".mc"),c=KC.init(mc,{locale:"es-ES",timezone:TZ,styles:MINI()});
       try{c.setPriceVolumePrecision(sym.pricePrecision||3,0);c.setScrollEnabled(true);c.setZoomEnabled(true);c.setOffsetRightDistance(6)}catch(e){}
-      const m={t,g,cd:box.querySelector(".mcd"),box,mc,c,key:sym.ticker+":"+g,who:"mtf"+pi+"-"+i+":"+Date.now()};M.minis.push(m);
+      const m={t,g,cd:box.querySelector(".mcd"),box,mc,c,key:sym.ticker+":"+g,who:"mtf"+pi+"-"+i+":"+Date.now()};M.minis.push(m);miniLaserWire(M,m,sym.ticker);if(laserOn)try{c.setStyles({crosshair:{show:false}})}catch(x){}
       /* más pasado: 300 velas, y si arrastras a la izquierda carga más */
       let miniNoMore=false;
       try{c.setLoadDataCallback(async({type,data,callback})=>{if(type!=="forward"||!data||miniNoMore){callback([],false);return}
