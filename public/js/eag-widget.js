@@ -608,29 +608,30 @@ window.EAGWidget=function(o){
   function lzDrop(){if(lzEl&&!laserOn&&!lzRem.length){lzEl.remove();lzEl=null;lzCx=null}}
   function lzKick(){if(!lzRaf)lzRaf=requestAnimationFrame(lzDraw)}
   function lzRemPx(q){try{const a=chart.convertToPixel({timestamp:q.ts,value:q.v},{paneId:"candle_pane"});if(!a||!isFinite(a.x)||!isFinite(a.y))return null;return{x:a.x+(q.f||0)*(chart.getBarSpace()||0),y:a.y,t:q.t}}catch(e){return null}}
-  function lzTrail(P,now,life,head){const c=lzCx;if(!P.length)return;
-    for(let i=1;i<P.length;i++){const a=P[i-1],b=P[i],k=1-(now-b.t)/life;if(k<=0)continue;c.strokeStyle=`rgba(255,40,40,${(0.55*k).toFixed(3)})`;c.lineWidth=2+5*k;c.lineCap="round";c.beginPath();c.moveTo(a.x,a.y);c.lineTo(b.x,b.y);c.stroke()}
-    const h=head||P[P.length-1];const k=Math.max(0,1-(now-h.t)/(life*1.6));if(k<=0)return;
-    c.save();c.shadowColor="rgba(255,30,30,.95)";c.shadowBlur=18;c.fillStyle=`rgba(255,45,45,${(0.95*k).toFixed(3)})`;c.beginPath();c.arc(h.x,h.y,6.5,0,Math.PI*2);c.fill();c.restore();
+  /* solo la bolita roja (sin estela) */
+  function lzDot(h,k){const c=lzCx;if(!h||k<=0)return;
+    c.save();c.shadowColor="rgba(255,30,30,.95)";c.shadowBlur=16;c.fillStyle=`rgba(255,45,45,${(0.95*k).toFixed(3)})`;c.beginPath();c.arc(h.x,h.y,6.5,0,Math.PI*2);c.fill();c.restore();
     c.fillStyle=`rgba(255,235,235,${k.toFixed(3)})`;c.beginPath();c.arc(h.x,h.y,2.4,0,Math.PI*2);c.fill()}
   function lzDraw(){lzRaf=0;if(!lzEl)return;const now=performance.now(),d=devicePixelRatio||1,W=chartEl.clientWidth,H=chartEl.clientHeight;
     if(lzEl.width!==Math.round(W*d)||lzEl.height!==Math.round(H*d)){lzEl.width=Math.round(W*d);lzEl.height=Math.round(H*d);lzEl.style.width=W+"px";lzEl.style.height=H+"px"}
     lzCx.setTransform(d,0,0,d,0,0);lzCx.clearRect(0,0,W,H);
-    lzPts=lzPts.filter(p=>now-p.t<LZ_LIFE*1.6);lzTrail(lzPts,now,LZ_LIFE);
-    lzRem=lzRem.filter(p=>now-p.t<LZ_REM*1.6);
-    if(lzRem.length){const P=lzRem.map(lzRemPx).filter(Boolean);
-      /* el punto del profe se desliza suave entre una posición y la siguiente */
-      let head=null;if(P.length>1){const a=P[P.length-2],b=P[P.length-1],k=Math.min(1,(now-b.t)/140);head={x:a.x+(b.x-a.x)*k,y:a.y+(b.y-a.y)*k,t:b.t}}
-      lzTrail(P,now,LZ_REM,head)}
-    if(lzPts.length||lzRem.length||laserOn)lzKick();else lzDrop()}
+    /* la tuya: mientras el mouse está sobre el gráfico */
+    if(laserOn&&lzPts.length)lzDot(lzPts[lzPts.length-1],1);
+    /* la del profe: se desliza suave entre posiciones y se apaga si deja de moverla un rato */
+    lzRem=lzRem.slice(-2);let busy=false;
+    if(lzRem.length){const P=lzRem.map(lzRemPx).filter(Boolean);const b=P[P.length-1];
+      if(b){const a=P.length>1?P[0]:b,k=Math.min(1,(now-b.t)/140),idle=now-b.t,al=idle<2500?1:Math.max(0,1-(idle-2500)/400);
+        lzDot({x:a.x+(b.x-a.x)*k,y:a.y+(b.y-a.y)*k},al);busy=al>0}
+      if(!busy)lzRem=[]}
+    if(busy||(lzRem.length&&performance.now()-lzRem[lzRem.length-1].t<3000))lzKick();else lzDrop()}
   chartEl.addEventListener("pointermove",e=>{if(!laserOn)return;const r=chartEl.getBoundingClientRect(),x=e.clientX-r.left,y=e.clientY-r.top,now=performance.now();
-    lzPts.push({x,y,t:now});if(lzPts.length>60)lzPts.shift();lzEnsure();lzKick();
+    lzPts=[{x,y,t:now}];lzEnsure();lzKick();
     if(o.onLaser&&now-lzEmit>150){lzEmit=now;try{const c=chart.convertFromPixel([{x,y}],{paneId:"candle_pane"})[0];const ts=c&&tsOf(c);
       if(ts&&isFinite(c.value)){let f=0;try{const cx=chart.convertToPixel({timestamp:ts,value:c.value},{paneId:"candle_pane"}).x,bs=chart.getBarSpace()||0;if(bs>0)f=+((x-cx)/bs).toFixed(3)}catch(e){}
         o.onLaser({ts,v:+c.value,f,sym:sym&&sym.ticker})}}catch(e){}}},{passive:true});
-  chartEl.addEventListener("pointerleave",()=>{if(laserOn&&o.onLaser)o.onLaser({off:1,sym:sym&&sym.ticker})});
-  function setLaser(on){laserOn=!!on;chartEl.classList.toggle("lzon",laserOn);try{chart.setStyles({crosshair:{show:!laserOn}})}catch(e){}if(laserOn){lzEnsure();lzKick()}else{lzPts=[];lzKick()}return laserOn}
-  function laserRemote(q){if(!q)return;if(q.off){lzRem=[];lzKick();return}if(!q.ts||!isFinite(q.v))return;lzRem.push({ts:q.ts,v:q.v,f:q.f||0,t:performance.now()});if(lzRem.length>30)lzRem.shift();lzEnsure();lzKick()}
+  chartEl.addEventListener("pointerleave",()=>{if(!laserOn)return;lzPts=[];lzKick();if(o.onLaser)o.onLaser({off:1,sym:sym&&sym.ticker})});
+  function setLaser(on){laserOn=!!on;chartEl.classList.toggle("lzon",laserOn);try{chart.setStyles({crosshair:{show:!laserOn}})}catch(e){}if(laserOn){lzEnsure();lzKick()}else{lzPts=[];if(!lzRem.length&&lzEl){lzEl.remove();lzEl=null;lzCx=null}else lzKick()}return laserOn}
+  function laserRemote(q){if(!q)return;if(q.off){lzRem=[];lzKick();return}if(!q.ts||!isFinite(q.v))return;lzRem.push({ts:q.ts,v:q.v,f:q.f||0,t:performance.now()});if(lzRem.length>2)lzRem.shift();lzEnsure();lzKick()}
   let brushOn=false,brushEl=null,movSnap=null,ptrDown=null;
   /* cuánto se movió realmente el mouse o el dedo desde que se presionó */
   chartEl.addEventListener("pointerdown",e=>{ptrDown={x:e.clientX,y:e.clientY,max:0,touch:e.pointerType!=="mouse"}},true);
