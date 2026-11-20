@@ -172,8 +172,8 @@ function registerAll(){
     const F=[];
     if(kind==="buy"||kind==="sell"){const top=kind==="buy"?(ex.up||"#089981"):(ex.dn||"#f23645"),bot=kind==="buy"?(ex.dn||"#f23645"):(ex.up||"#089981"),col=ex.color||"#b46cff",lw=ex.size||2;
       F.push({type:"rect",attrs:{x:x1,y:y1,width:x2-x1,height:h},styles:{style:"stroke_fill",color:hexA(col,.16),borderColor:col,borderSize:1}});
-      F.push({type:"line",ignoreEvent:true,attrs:{coordinates:[{x:0,y:y1},{x:bounding.width,y:y1}]},styles:{color:top,size:lw}});
-      F.push({type:"line",ignoreEvent:true,attrs:{coordinates:[{x:0,y:y2},{x:bounding.width,y:y2}]},styles:{color:bot,size:lw}});
+      F.push({type:"line",key:"edgeT",attrs:{coordinates:[{x:0,y:y1},{x:bounding.width,y:y1}]},styles:{color:top,size:lw}});
+      F.push({type:"line",key:"edgeB",attrs:{coordinates:[{x:0,y:y2},{x:bounding.width,y:y2}]},styles:{color:bot,size:lw}});
       const tv=overlay.points&&overlay.points.length?Math.max(...overlay.points.map(q=>q.value)):null,bv=overlay.points&&overlay.points.length?Math.min(...overlay.points.map(q=>q.value)):null;
       const lot=tv!=null?lotOf(overlay.id,kind==="buy"?tv:bv,kind==="buy"?bv:tv):"";
       F.push({type:"text",ignoreEvent:true,attrs:{x:x1+6,y:y1+6,text:(ex.text||(kind==="buy"?"Compra":"Venta"))+(lot?" · "+lot:""),baseline:"top"},styles:{color:"#fff",size:11,backgroundColor:kind==="buy"?top:top,paddingLeft:6,paddingRight:6,paddingTop:2,paddingBottom:2,borderRadius:4}});
@@ -632,7 +632,30 @@ window.EAGWidget=function(o){
   chartEl.addEventListener("pointerleave",()=>{if(!laserOn)return;lzPts=[];lzKick();if(o.onLaser)o.onLaser({off:1,sym:sym&&sym.ticker})});
   function setLaser(on){laserOn=!!on;chartEl.classList.toggle("lzon",laserOn);try{chart.setStyles({crosshair:{show:!laserOn}})}catch(e){}if(laserOn){lzEnsure();lzKick()}else{lzPts=[];if(!lzRem.length&&lzEl){lzEl.remove();lzEl=null;lzCx=null}else lzKick()}return laserOn}
   function laserRemote(q){if(!q)return;if(q.off){lzRem=[];lzKick();return}if(!q.ts||!isFinite(q.v))return;lzRem.push({ts:q.ts,v:q.v,f:q.f||0,t:performance.now()});if(lzRem.length>2)lzRem.shift();lzEnsure();lzKick()}
-  let brushOn=false,brushEl=null,movSnap=null,ptrDown=null;
+  let brushOn=false,brushEl=null,movSnap=null,ptrDown=null,boxDrag=null;
+  /* ---------- zonas y rectángulos: estirar desde las líneas y los bordes; por dentro no se corren ----------
+     · línea de arriba / de abajo (en cualquier parte, también fuera del recuadro): cambia ese precio
+     · borde izquierdo / derecho: cambia el ancho
+     · zona de compra o venta por dentro: no se mueve (solo se selecciona); para moverla entera se arrastra su etiqueta */
+  function boxHit(e){const ov=e.overlay,P=ov.points||[];if(P.length<4)return null;
+    if(String(e.figureKey||"").indexOf("point_")>=0)return null;   /* puntos: los maneja boxMove */
+    const tol=ptrDown&&ptrDown.touch?14:7;let cs;try{cs=chart.convertToPixel(P.slice(0,4).map(q=>({timestamp:q.timestamp,dataIndex:q.dataIndex,value:q.value})),{paneId:"candle_pane"})}catch(x){return null}
+    if(!cs||cs.length<4)return null;const ys=cs.map(c=>c.y),xs=cs.map(c=>c.x),yT=Math.min(...ys),yB=Math.max(...ys),xL=Math.min(...xs),xR=ov.name==="eagZone"?Infinity:Math.max(...xs);
+    const k=String(e.figureKey||""),x=e.x,y=e.y,bs=ov.name==="eagBuyZone"||ov.name==="eagSellZone";
+    if(/edgeT$/.test(k)||Math.abs(y-yT)<=tol)return{id:ov.id,m:4};
+    if(/edgeB$/.test(k)||Math.abs(y-yB)<=tol)return{id:ov.id,m:6};
+    if(y>yT&&y<yB&&Math.abs(x-xL)<=tol)return{id:ov.id,m:7};
+    if(y>yT&&y<yB&&isFinite(xR)&&Math.abs(x-xR)<=tol)return{id:ov.id,m:5};
+    if(bs){if(x>=xL&&x<=xL+110&&y>=yT&&y<=yT+26)return{id:ov.id,m:"move"};return{id:ov.id,m:"lock"}}
+    return null}
+  function boxDragMove(e){if(!boxDrag||boxDrag.id!==e.overlay.id)return false;const m=boxDrag.m;if(m==="move")return false;if(m==="lock")return true;
+    let c=null;try{c=chart.convertFromPixel([{x:e.x,y:e.y}],{paneId:"candle_pane"})[0]}catch(x){}if(!c||!isFinite(c.value))return true;
+    const pts=(e.overlay.points||[]).map(q=>Object.assign({},q));if(pts.length<8)return true;
+    const pp={timestamp:tsOf(c),dataIndex:c.dataIndex,value:c.value};pts[m]=Object.assign({},pts[m],pp);
+    {let Lp={timestamp:pts[0].timestamp,dataIndex:pts[0].dataIndex},Rp={timestamp:pts[1].timestamp,dataIndex:pts[1].dataIndex},T=pts[0].value,B=pts[2].value;const X={timestamp:pp.timestamp,dataIndex:pp.dataIndex};
+      if(m===7)Lp=X;if(m===5)Rp=X;if(m===4)T=pp.value;if(m===6)B=pp.value;
+      const np=boxPts(Object.assign({},Lp,{value:T}),Object.assign({},Rp,{value:B}));np.forEach((q,k)=>{pts[k]={value:q.value};if(q.timestamp!=null)pts[k].timestamp=q.timestamp;if(q.dataIndex!=null)pts[k].dataIndex=q.dataIndex})}
+    try{chart.overrideOverlay({id:e.overlay.id,points:pts})}catch(x){}return true}
   /* cuánto se movió realmente el mouse o el dedo desde que se presionó */
   chartEl.addEventListener("pointerdown",e=>{ptrDown={x:e.clientX,y:e.clientY,max:0,touch:e.pointerType!=="mouse"}},true);
   chartEl.addEventListener("pointermove",e=>{if(ptrDown&&e.buttons)ptrDown.max=Math.max(ptrDown.max,Math.hypot(e.clientX-ptrDown.x,e.clientY-ptrDown.y))},true);
@@ -685,12 +708,14 @@ window.EAGWidget=function(o){
         if((e.overlay.name==="eagLong"||e.overlay.name==="eagShort")&&e.overlay.points.length<3)autoPos(e.overlay);
         if(BOX.test(e.overlay.name)&&e.overlay.points.length<8&&e.overlay.points.length>=2){const ps=e.overlay.points;chart.overrideOverlay({id:e.overlay.id,points:boxPts({timestamp:tsOf(ps[0]),dataIndex:ps[0].dataIndex,value:ps[0].value},{timestamp:tsOf(ps[1]),dataIndex:ps[1].dataIndex,value:ps[1].value})})}
         capture(chart.getOverlayById(e.overlay.id)||e.overlay);if(e.overlay.name==="eagText"||e.overlay.name==="eagNote")setTimeout(()=>editText(e.overlay.id),30);return false},
-      onPressedMoveStart:e=>{movingOv=true;chartEl.classList.add("ovdrag");try{movSnap={id:e.overlay.id,points:JSON.parse(JSON.stringify(e.overlay.points||[]))}}catch(x){movSnap=null}return false},
+      onPressedMoveStart:e=>{movingOv=true;chartEl.classList.add("ovdrag");try{movSnap={id:e.overlay.id,points:JSON.parse(JSON.stringify(e.overlay.points||[]))}}catch(x){movSnap=null}
+        boxDrag=BOX.test(e.overlay.name)?boxHit(e):null;return false},
+      onPressedMoving:e=>boxDragMove(e),
       onPressedMoveEnd:e=>{movingOv=false;chartEl.classList.remove("ovdrag");
         /* un clic con un temblor de pocos píxeles no mueve el dibujo: vuelve exacto a su lugar (antes se corría al darle clic) */
         const tiny=ptrDown&&(ptrDown.max||0)<(ptrDown.touch?12:6);
-        if(tiny&&movSnap&&movSnap.id===e.overlay.id&&movSnap.points.length){try{chart.overrideOverlay({id:e.overlay.id,points:movSnap.points})}catch(x){}movSnap=null;return false}
-        movSnap=null;capture(e.overlay);return false},
+        if(tiny&&movSnap&&movSnap.id===e.overlay.id&&movSnap.points.length){try{chart.overrideOverlay({id:e.overlay.id,points:movSnap.points})}catch(x){}movSnap=null;boxDrag=null;return false}
+        movSnap=null;boxDrag=null;capture(chart.getOverlayById(e.overlay.id)||e.overlay);return false},
       onMouseEnter:()=>{chartEl.classList.add("ovh");return false},onMouseLeave:()=>{chartEl.classList.remove("ovh");return false},
       onSelected:e=>{const lv=ovs.get(e.overlay.id);if(lastTouch&&lv&&lv.lock)return false;selId=e.overlay.id;showStyleBar(e.overlay.id);syncPan();return false},
       onDeselected:e=>{if(selId===e.overlay.id){selId=null;hideStyleBar()}syncPan();return false},
