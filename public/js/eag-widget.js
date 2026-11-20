@@ -22,6 +22,17 @@ const lotOf=(id,entry,sl)=>{try{const f=window.__eagLot;return f?f(OVSYM.get(id)
 /* rectángulo/zonas: 2 esquinas → 8 puntos. Ojo: un punto dibujado a la derecha de la última vela no trae hora (solo índice);
    antes se tomaba como hora 0 y el cuadro "se iba" años atrás al estirarlo. */
 const okT=t=>typeof t==="number"&&t>1e11;
+/* hora exacta ⇄ posición fraccionaria en las velas: así una zona queda EXACTA en cualquier temporalidad
+   (antes cada esquina se pegaba a la vela más cercana: en H1/H4 la caja se encogía o desaparecía) */
+const perMs=L=>{const n=L.length;if(n<2)return 60000;const d=[];for(let k=Math.max(1,n-30);k<n;k++)d.push(L[k].timestamp-L[k-1].timestamp);d.sort((a,b)=>a-b);return d[d.length>>1]||60000};
+function fiOfTs(L,ts){const n=L.length;if(!n||!okT(ts))return null;const P=perMs(L);
+  if(ts<=L[0].timestamp)return(ts-L[0].timestamp)/P;if(ts>=L[n-1].timestamp)return n-1+(ts-L[n-1].timestamp)/P;
+  let lo=0,hi=n-1;while(hi-lo>1){const m=(lo+hi)>>1;if(L[m].timestamp<=ts)lo=m;else hi=m}
+  const a=L[lo].timestamp,b=L[hi].timestamp;return lo+(b>a?(ts-a)/(b-a):0)}
+function tsOfFi(L,fi){const n=L.length;if(!n||!isFinite(fi))return null;const P=perMs(L);
+  if(fi<=0)return Math.round(L[0].timestamp+fi*P);if(fi>=n-1)return Math.round(L[n-1].timestamp+(fi-(n-1))*P);
+  const j=Math.floor(fi);return Math.round(L[j].timestamp+(fi-j)*(L[j+1].timestamp-L[j].timestamp))}
+const SELBOX=new Set();
 function boxPts(a,b){const both=a.dataIndex!=null&&b.dataIndex!=null;
   const aFirst=both?a.dataIndex<=b.dataIndex:(okT(a.timestamp)&&okT(b.timestamp)?a.timestamp<=b.timestamp:(okT(a.timestamp)?true:!okT(b.timestamp)));
   const L=aFirst?a:b,R=aFirst?b:a,T=Math.max(a.value,b.value),B=Math.min(a.value,b.value);
@@ -165,11 +176,16 @@ function registerAll(){
   /* Zona: rectángulo que se extiende a la derecha (ideal para zonas de oferta y demanda) */
   /* ===== Cajas con 8 puntos (4 esquinas + 4 a la mitad de cada lado) ===== */
   /* orden: 0 sup-izq · 1 sup-der · 2 inf-der · 3 inf-izq · 4 mitad arriba · 5 mitad derecha · 6 mitad abajo · 7 mitad izquierda */
-  const boxFig=kind=>({overlay,coordinates,bounding})=>{
+  const exactXs=(overlay,coordinates,xAxis)=>{try{const L=xAxis.getParent().getChart().getDataList();const P=overlay.points||[];
+      return coordinates.map((c,k)=>{const q=P[k];const fi=q&&okT(q.timestamp)?fiOfTs(L,q.timestamp):null;return fi==null?c.x:xAxis.convertToPixel(fi)})}catch(e){return coordinates.map(c=>c.x)}};
+  const boxFig=kind=>({overlay,coordinates,bounding,xAxis})=>{
     if(coordinates.length<2)return[];const ex=overlay.extendData||{};
-    const xs=coordinates.map(c=>c.x),ys=coordinates.map(c=>c.y);let x1=Math.min(...xs),x2=Math.max(...xs);const y1=Math.min(...ys),y2=Math.max(...ys),h=y2-y1;
+    const xs0=exactXs(overlay,coordinates,xAxis),ys=coordinates.map(c=>c.y);let x1=Math.min(...xs0),x2=Math.max(...xs0);if(x2-x1<2)x2=x1+2;const xR=x2;const y1=Math.min(...ys),y2=Math.max(...ys),h=y2-y1;
     if(kind==="zoneR")x2=bounding.width;
     const F=[];
+    /* manijas propias (en la posición exacta), solo con el dibujo seleccionado */
+    const hdl=()=>{if(!SELBOX.has(overlay.id)||coordinates.length<8)return;const xm=(x1+xR)/2,ym=(y1+y2)/2,c=ex.color||((overlay.styles||{}).point||{}).borderColor||GOLD;
+      [[x1,y1],[xR,y1],[xR,y2],[x1,y2],[xm,y1],[xR,ym],[xm,y2],[x1,ym]].forEach(([x,y],k)=>F.push({type:"circle",key:"hdl_"+k,attrs:{x,y,r:5},styles:{style:"stroke_fill",color:"#0b1220",borderColor:"#d9b25a",borderSize:1.5}}))};
     if(kind==="buy"||kind==="sell"){const top=kind==="buy"?(ex.up||"#089981"):(ex.dn||"#f23645"),bot=kind==="buy"?(ex.dn||"#f23645"):(ex.up||"#089981"),col=ex.color||"#b46cff",lw=ex.size||2;
       F.push({type:"rect",attrs:{x:x1,y:y1,width:x2-x1,height:h},styles:{style:"stroke_fill",color:hexA(col,.16),borderColor:col,borderSize:1}});
       F.push({type:"line",key:"edgeT",attrs:{coordinates:[{x:0,y:y1},{x:bounding.width,y:y1}]},styles:{color:top,size:lw}});
@@ -180,11 +196,11 @@ function registerAll(){
       /* etiquetas en cada línea: verde = Entrada, roja = SL (a la derecha, junto a la regla de precios) */
       const tag=(y,txt,c,above)=>F.push({type:"text",ignoreEvent:true,attrs:{x:bounding.width-6,y:above?y-4:y+4,text:txt,align:"right",baseline:above?"bottom":"top"},styles:{color:"#fff",size:AXF-.5,weight:"bold",backgroundColor:c,paddingLeft:Math.round(AXF*.45),paddingRight:Math.round(AXF*.45),paddingTop:2,paddingBottom:2,borderRadius:3}});
       tag(y1,kind==="buy"?"Entrada":"SL",top,true);tag(y2,kind==="buy"?"SL":"Entrada",bot,false);
-      return F}
+      hdl();return F}
     const col=ex.color||GOLD;
     F.push({type:"rect",attrs:{x:x1,y:y1,width:x2-x1,height:h},styles:{style:"stroke_fill",color:ex.fill||hexA(col,.16),borderColor:col,borderSize:ex.size||1}});
     if(ex.text)F.push({type:"text",ignoreEvent:true,attrs:{x:x1+6,y:y1+h/2,text:ex.text,baseline:"middle"},styles:{color:col,size:12,backgroundColor:"transparent"}});
-    return F};
+    hdl();return F};
   const boxMove=({points,performPointIndex:i,performPoint:pp})=>{if(!points||points.length<8||i==null||!pp)return;
     let Lp={timestamp:points[0].timestamp,dataIndex:points[0].dataIndex},Rp={timestamp:points[1].timestamp,dataIndex:points[1].dataIndex},T=points[0].value,B=points[2].value;
     const X={timestamp:pp.timestamp,dataIndex:pp.dataIndex};
@@ -204,7 +220,7 @@ function registerAll(){
   /* zona y rectángulo: precio de arriba y de abajo siempre marcados en la regla */
   const zoneAxis=({overlay,coordinates,precision})=>{if(coordinates.length<4||!overlay.points||overlay.points.length<4)return[];const c=(overlay.extendData||{}).color||GOLD;
     return[axY(coordinates[0].y,overlay.points[0].value,c,precision),axY(coordinates[3].y,overlay.points[3].value,c,precision)]};
-  [["eagZone","zoneR"],["eagRect","rect"],["eagBuyZone","buy"],["eagSellZone","sell"]].forEach(([n,k])=>KC.registerOverlay(Object.assign({name:n,totalStep:3,needDefaultPointFigure:true,needDefaultXAxisFigure:false,needDefaultYAxisFigure:false,
+  [["eagZone","zoneR"],["eagRect","rect"],["eagBuyZone","buy"],["eagSellZone","sell"]].forEach(([n,k])=>KC.registerOverlay(Object.assign({name:n,totalStep:3,needDefaultPointFigure:false,needDefaultXAxisFigure:false,needDefaultYAxisFigure:false,
     createPointFigures:boxFig(k),performEventPressedMove:boxMove},(k==="buy"||k==="sell")?{createYAxisFigures:boxAxis(k)}:{createYAxisFigures:zoneAxis})));
   /* líneas horizontales y verticales: su precio (en la regla) o su hora (abajo) siempre marcados, no solo al seleccionarlas */
   try{const lc=o=>((o.styles||{}).line||{}).color||GOLD;
@@ -637,24 +653,39 @@ window.EAGWidget=function(o){
      · línea de arriba / de abajo (en cualquier parte, también fuera del recuadro): cambia ese precio
      · borde izquierdo / derecho: cambia el ancho
      · zona de compra o venta por dentro: no se mueve (solo se selecciona); para moverla entera se arrastra su etiqueta */
+  /* posición exacta (fraccionaria) de una hora y de un pixel, con las velas de la temporalidad actual */
+  const bxFi=q=>{const L=chart.getDataList();return okT(q.timestamp)?fiOfTs(L,q.timestamp):(q.dataIndex!=null?q.dataIndex:null)};
+  const bxX=fi=>{try{return chart.convertToPixel([{dataIndex:fi,value:0}],{paneId:"candle_pane"})[0].x}catch(e){return NaN}};
+  const bxY=v=>{try{return chart.convertToPixel([{dataIndex:0,value:v}],{paneId:"candle_pane"})[0].y}catch(e){return NaN}};
+  function pxAt(x,y){let c=null;try{c=chart.convertFromPixel([{x,y}],{paneId:"candle_pane"})[0]}catch(e){}if(!c||!isFinite(c.value)||c.dataIndex==null)return null;
+    let bs=10;try{const b=chart.getBarSpace();bs=typeof b==="number"?b:(b&&b.bar)||10}catch(e){}
+    const xi=bxX(c.dataIndex);return{fi:c.dataIndex+(isFinite(xi)?(x-xi)/bs:0),value:c.value}}
+  /* qué parte de la caja se tocó: manija (0-7), línea de arriba/abajo, borde, etiqueta (mover) o el interior */
   function boxHit(e){const ov=e.overlay,P=ov.points||[];if(P.length<4)return null;
-    if(String(e.figureKey||"").indexOf("point_")>=0)return null;   /* puntos: los maneja boxMove */
-    const tol=ptrDown&&ptrDown.touch?14:7;let cs;try{cs=chart.convertToPixel(P.slice(0,4).map(q=>({timestamp:q.timestamp,dataIndex:q.dataIndex,value:q.value})),{paneId:"candle_pane"})}catch(x){return null}
-    if(!cs||cs.length<4)return null;const ys=cs.map(c=>c.y),xs=cs.map(c=>c.x),yT=Math.min(...ys),yB=Math.max(...ys),xL=Math.min(...xs),xR=ov.name==="eagZone"?Infinity:Math.max(...xs);
-    const k=String(e.figureKey||""),x=e.x,y=e.y,bs=ov.name==="eagBuyZone"||ov.name==="eagSellZone";
-    if(/edgeT$/.test(k)||Math.abs(y-yT)<=tol)return{id:ov.id,m:4};
-    if(/edgeB$/.test(k)||Math.abs(y-yB)<=tol)return{id:ov.id,m:6};
-    if(y>yT&&y<yB&&Math.abs(x-xL)<=tol)return{id:ov.id,m:7};
-    if(y>yT&&y<yB&&isFinite(xR)&&Math.abs(x-xR)<=tol)return{id:ov.id,m:5};
-    if(bs){if(x>=xL&&x<=xL+110&&y>=yT&&y<=yT+26)return{id:ov.id,m:"move"};return{id:ov.id,m:"lock"}}
-    return null}
-  function boxDragMove(e){if(!boxDrag||boxDrag.id!==e.overlay.id)return false;const m=boxDrag.m;if(m==="move")return false;if(m==="lock")return true;
-    let c=null;try{c=chart.convertFromPixel([{x:e.x,y:e.y}],{paneId:"candle_pane"})[0]}catch(x){}if(!c||!isFinite(c.value))return true;
-    const pts=(e.overlay.points||[]).map(q=>Object.assign({},q));if(pts.length<8)return true;
-    const pp={timestamp:tsOf(c),dataIndex:c.dataIndex,value:c.value};pts[m]=Object.assign({},pts[m],pp);
-    {let Lp={timestamp:pts[0].timestamp,dataIndex:pts[0].dataIndex},Rp={timestamp:pts[1].timestamp,dataIndex:pts[1].dataIndex},T=pts[0].value,B=pts[2].value;const X={timestamp:pp.timestamp,dataIndex:pp.dataIndex};
-      if(m===7)Lp=X;if(m===5)Rp=X;if(m===4)T=pp.value;if(m===6)B=pp.value;
-      const np=boxPts(Object.assign({},Lp,{value:T}),Object.assign({},Rp,{value:B}));np.forEach((q,k)=>{pts[k]={value:q.value};if(q.timestamp!=null)pts[k].timestamp=q.timestamp;if(q.dataIndex!=null)pts[k].dataIndex=q.dataIndex})}
+    const snap=P.map(q=>Object.assign({},q)),fL=bxFi(P[0]),fR=bxFi(P[1]);if(fL==null||fR==null)return null;
+    const xL=bxX(fL),xR0=bxX(fR),yT=bxY(Math.max(P[0].value,P[3].value)),yB=bxY(Math.min(P[0].value,P[3].value));
+    const xR=ov.name==="eagZone"?Infinity:xR0,xM=(xL+xR0)/2,yM=(yT+yB)/2;
+    const tol=ptrDown&&ptrDown.touch?14:7,ht=ptrDown&&ptrDown.touch?16:9;
+    const k=String(e.figureKey||""),x=e.x,y=e.y,bs=ov.name==="eagBuyZone"||ov.name==="eagSellZone",st=pxAt(x,y);
+    const R=m=>({id:ov.id,m,snap,fL,fR,st});
+    const hk=/hdl_(\d)/.exec(k);if(hk)return R(+hk[1]);
+    const H=[[xL,yT],[xR0,yT],[xR0,yB],[xL,yB],[xM,yT],[xR0,yM],[xM,yB],[xL,yM]];
+    for(let i=0;i<8;i++)if(Math.hypot(x-H[i][0],y-H[i][1])<=ht)return R(i);
+    if(/edgeT$/.test(k)||Math.abs(y-yT)<=tol)return R(4);
+    if(/edgeB$/.test(k)||Math.abs(y-yB)<=tol)return R(6);
+    if(y>yT&&y<yB&&Math.abs(x-xL)<=tol)return R(7);
+    if(y>yT&&y<yB&&isFinite(xR)&&Math.abs(x-xR)<=tol)return R(5);
+    if(bs)return R(x>=xL&&x<=xL+110&&y>=yT&&y<=yT+26?"move":"lock");
+    return R("move")}
+  function boxDragMove(e){if(!boxDrag||boxDrag.id!==e.overlay.id)return false;const d=boxDrag,m=d.m;if(m==="lock")return true;
+    const now=pxAt(e.x,e.y);if(!now||!d.st)return true;const L=chart.getDataList(),S=d.snap;
+    let fL=d.fL,fR=d.fR,T=Math.max(S[0].value,S[3].value),B=Math.min(S[0].value,S[3].value);
+    if(m==="move"){const df=Math.round(now.fi-d.st.fi),dv=now.value-d.st.value;fL+=df;fR+=df;T+=dv;B+=dv}
+    else{const fx=Math.round(now.fi);if([0,3,7].includes(m))fL=fx;if([1,2,5].includes(m))fR=fx;if([0,1,4].includes(m))T=now.value;if([2,3,6].includes(m))B=now.value}
+    if(m==="move"){/* al mover entera conserva su posición exacta (no se pega a otra vela) */}
+    const tL=m==="move"||[0,3,7].includes(m)?tsOfFi(L,fL):S[0].timestamp,tR=m==="move"||[1,2,5].includes(m)?tsOfFi(L,fR):S[1].timestamp;
+    const a={value:T},b={value:B};if(okT(tL))a.timestamp=tL;else a.dataIndex=Math.round(fL);if(okT(tR))b.timestamp=tR;else b.dataIndex=Math.round(fR);
+    const pts=boxPts(a,b);
     try{chart.overrideOverlay({id:e.overlay.id,points:pts})}catch(x){}return true}
   /* cuánto se movió realmente el mouse o el dedo desde que se presionó */
   chartEl.addEventListener("pointerdown",e=>{ptrDown={x:e.clientX,y:e.clientY,max:0,touch:e.pointerType!=="mouse"}},true);
@@ -717,9 +748,9 @@ window.EAGWidget=function(o){
         if(tiny&&movSnap&&movSnap.id===e.overlay.id&&movSnap.points.length){try{chart.overrideOverlay({id:e.overlay.id,points:movSnap.points})}catch(x){}movSnap=null;boxDrag=null;return false}
         movSnap=null;boxDrag=null;capture(chart.getOverlayById(e.overlay.id)||e.overlay);return false},
       onMouseEnter:()=>{chartEl.classList.add("ovh");return false},onMouseLeave:()=>{chartEl.classList.remove("ovh");return false},
-      onSelected:e=>{const lv=ovs.get(e.overlay.id);if(lastTouch&&lv&&lv.lock)return false;selId=e.overlay.id;showStyleBar(e.overlay.id);syncPan();return false},
-      onDeselected:e=>{if(selId===e.overlay.id){selId=null;hideStyleBar()}syncPan();return false},
-      onRemoved:e=>{if(bulk)return false;ovs.delete(e.overlay.id);if(selId===e.overlay.id){selId=null;hideStyleBar()}persist();return false},
+      onSelected:e=>{const lv=ovs.get(e.overlay.id);if(lastTouch&&lv&&lv.lock)return false;selId=e.overlay.id;SELBOX.add(e.overlay.id);showStyleBar(e.overlay.id);syncPan();return false},
+      onDeselected:e=>{SELBOX.delete(e.overlay.id);if(selId===e.overlay.id){selId=null;hideStyleBar()}syncPan();return false},
+      onRemoved:e=>{SELBOX.delete(e.overlay.id);if(bulk)return false;ovs.delete(e.overlay.id);if(selId===e.overlay.id){selId=null;hideStyleBar()}persist();return false},
       onDoubleClick:e=>{if(e.overlay.id!==drawingId)openCtx(e.overlay.id,e,true);return false},
       onRightClick:e=>{try{if(e.overlay.id===drawingId){cancelDraw();return true}openCtx(e.overlay.id,e)}catch(x){}return true}});
     if(id){OVSYM.set(id,sym&&sym.ticker);ovs.set(id,{name:def.name,styles:def.styles||null,extendData:def.extendData||null,lock:!!def.lock,points:def.points||null});if(!drawing)ovs.get(id).done=true}
