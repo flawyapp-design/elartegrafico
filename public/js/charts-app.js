@@ -368,6 +368,16 @@ function start(){
     showPop(anchor,"left")}
   $("#pfb").onclick=e=>{e.stopPropagation();if(!pop.hidden&&pop.dataset.for==="prof")return closePop();openProf($("#pfb"))};
   paintProf();
+  /* ---------- en vivo: avisa al panel de admin que esta persona está usando los charts (cada 45 s, y al cambiar de mercado) ---------- */
+  {const dev=()=>{const ua=navigator.userAgent,m=/iPad|Tablet/i.test(ua)?"Tablet":/Mobi|Android|iPhone/i.test(ua)?"Celular":"PC";return m+(standalone()?" · app":"")};
+    let lastK="",lastT=0;
+    const info=()=>{let sy=null,nm=null,tf=null;try{const k=panes[active]&&panes[active].kc;const S0=k&&k.getSymbol();sy=S0&&S0.ticker;nm=S0&&(S0.name||S0.ticker);tf=k&&k.getPeriod().text}catch(e){}
+      return{symbol:sy,name:nm,tf,layout:SAVE.layout||"",device:dev(),profile:(profCur()||{}).n||"",panes:visible?visible():panes.length}};
+    const ping=force=>{if(document.hidden||!API.chartPing)return;const o=info(),k=[o.symbol,o.tf,o.layout,o.profile].join("|"),now=Date.now();
+      if(!force&&k===lastK&&now-lastT<45000)return;if(!force&&k!==lastK&&now-lastT<8000)return;lastK=k;lastT=now;API.chartPing(o).catch(()=>{})};
+    setTimeout(()=>ping(true),4000);setInterval(()=>ping(false),10000);
+    document.addEventListener("visibilitychange",()=>{if(!document.hidden)ping(true)});
+    addEventListener("pagehide",()=>{try{API.chartBye&&API.chartBye()}catch(e){}})}
   try{if(sessionStorage.getItem("eag_prof_msg")){sessionStorage.removeItem("eag_prof_msg");setTimeout(()=>toast(`Perfil <b>${esc(profCur().n)}</b>`),900)}}catch(e){}
   function closePop(){pop.hidden=true;pop.dataset.for="";pop.classList.remove("wide");if(shownPick&&shownPick.length){shownPick=[];watch()}}
   document.addEventListener("pointerdown",e=>{if(!pop.hidden&&!pop.contains(e.target)&&!e.target.closest("#vb,#fab,#fteye,#cfgb,#pfb,.tfdd,.wsym,.wtf,.dmini"))closePop()});

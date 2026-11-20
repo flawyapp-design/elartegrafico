@@ -172,6 +172,10 @@ function SupabaseAPI(url,key){
     adminSetDiscordHooks(g,m,p){return rpc("admin_set_discord_hooks",{p_general:g,p_miembros:m,p_premium:p})},
     async discordTest(){const r=await raw("/functions/v1/send-push",{method:"POST",body:{action:"discord-test"}});if(!r.ok)throw new Error((r.j&&r.j.error)||"No se pudo probar ("+r.status+")");return r.j},
     adminDiscordStats(){return rpc("admin_discord_stats").then(r=>Array.isArray(r)?r[0]:r)},
+    /* EAG Charts en vivo: quién los está usando ahora */
+    chartPing(o){if(!sess||!sess.user)return Promise.resolve(null);return rpc("chart_ping",{p_symbol:o.symbol||null,p_name:o.name||null,p_tf:o.tf||null,p_layout:o.layout||null,p_device:o.device||null,p_profile:o.profile||null,p_panes:o.panes||null})},
+    chartBye(){if(!sess||!sess.user||!sess.access_token)return;try{fetch(url+"/rest/v1/rpc/chart_bye",{method:"POST",keepalive:true,headers:{apikey:key,Authorization:"Bearer "+sess.access_token,"Content-Type":"application/json"},body:"{}"})}catch(e){}},
+    adminChartOnline(){return rpc("admin_chart_online")},
     async updateMyProfile(o){await rpc("update_my_profile",{p_avatar:o.avatar_url||"",p_bio:o.bio||"",p_country:o.country||""});await this.loadProfile()},
     publicStats(){return rpc("public_stats")},
     publicReviews(){return rpc("public_reviews")},
@@ -354,6 +358,9 @@ function LocalAPI(){
     async discordTest(){throw new Error("En el modo de prueba no se envían mensajes a Discord. Pruébalo en la web real.")},
     async dmMemberStart(){const p=me();if(!p)throw new Error("Inicia sesión");if(p.affiliate)throw new Error("Ya eres miembro verificado de la comunidad");db.dms=db.dms||{};const t=db.dms[uid]=db.dms[uid]||{open:true,topic:"",messages:[]};t.open=true;t.topic="Miembro verificado";t.messages=t.messages||[];t.last_at=now();
       t.messages.push({id:uuid(),from_admin:false,body:"Hola, quiero ser miembro verificado de la comunidad.",created_at:now()});t.messages.push({id:uuid(),from_admin:true,body:"¡Qué bueno que quieras ser parte de la comunidad! Así te haces miembro verificado:\n\n1. Abre tu cuenta de Deriv con el enlace de la comunidad: "+((db.site||{}).derivRefUrl||"(te lo enviamos en un momento)")+"\n2. Copia tu ID de cliente de Deriv y pégalo en el recuadro de arriba. Se verifica solo.",created_at:now()});save();return{ok:true}},
+    async chartPing(o){db.presence=db.presence||{};const p=db.presence[uid]||{started_at:new Date().toISOString()};if(Date.now()-new Date(p.last_seen||0).getTime()>18e4)p.started_at=new Date().toISOString();Object.assign(p,o,{last_seen:new Date().toISOString()});db.presence[uid]=p;save();return null},
+    chartBye(){},
+    async adminChartOnline(){const P=db.presence||{},now=Date.now();return Object.keys(P).map(id=>{const x=P[id],pr=db.profiles.find(q=>q.id===id)||{};return{user_id:id,username:pr.username,avatar_url:pr.avatar_url,country:pr.country,plan:pr.plan||"",premium:!!(pr.premium_until&&new Date(pr.premium_until)>now),affiliate:!!pr.affiliate,role:pr.role,online:now-new Date(x.last_seen).getTime()<12e4,started_at:x.started_at,last_seen:x.last_seen,symbol:x.symbol,symbol_name:x.name,tf:x.tf,layout:x.layout,device:x.device,profile:x.profile,panes:x.panes}}).filter(r=>now-new Date(r.last_seen).getTime()<864e5).sort((a,b)=>(b.online-a.online)||(new Date(b.last_seen)-new Date(a.last_seen)))},
     async adminDiscordStats(){return{conectados:db.profiles.filter(x=>x.discord_id).length,con_rol:db.profiles.filter(x=>x.discord_role).length,afiliados_sin_discord:db.profiles.filter(x=>x.affiliate&&!x.discord_id).length}},
     async updateMyProfile(o){const p=me();if(!p)throw new Error("Inicia sesión");p.avatar_url=o.avatar_url||null;p.bio=String(o.bio||"").slice(0,160);p.country=String(o.country||"").slice(0,40);save()},
     async publicStats(){const ap=db.reviews.filter(r=>r.approved);return{students:db.profiles.length,lessons:db.lessons.filter(l=>l.status==="publicado").length,exercises:db.exercises.length,rating:ap.length?Math.round(10*ap.reduce((s,r)=>s+r.rating,0)/ap.length)/10:null,reviews:ap.length}},

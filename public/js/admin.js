@@ -4,14 +4,14 @@
 "use strict";
 const A=window.AGAPP;const {$,$$,esc,API,S,toast,busy,fmtT,fmtDate,fmtDT,TZ,MARKETS,MNAME,h1Bars,m5Bars,idxAt,avgRange,toC,Chart,app}=A;
 let tab="resumen";
-const GROUPS=[["General",["resumen","chat"]],["Academia",["cursos","contenido","ejercicios","banners","noticias","archivos"]],["Retos y puntos",["top","retos","afiliados","canjes","rpuntos"]],["Alumnos",["alumnos","pagos","resenas","opiniones","chartsop","notif"]],["Sitio",["sitio","legal"]]];
-const TICO={top:"star",chat:"chat",cursos:"acad",retos:"bolt",afiliados:"users",canjes:"card",rpuntos:"gear",resumen:"chart",sitio:"site",banners:"image",contenido:"layers",ejercicios:"acad",noticias:"news",opiniones:"star",chartsop:"chart",resenas:"msg",pagos:"card",alumnos:"users",archivos:"folder",notif:"bell",legal:"scale"};
-const TDESC={chat:"Conversaciones privadas con cada alumno. Se borran solas a los días que definas, o al instante con Finalizar.",cursos:"Cursos que se venden sueltos (de por vida) y cómo se ven los planes Cobre, Plata y Oro.",retos:"Crea el reto del día: cuestionario, ¿sube o baja? o marcar la zona. Los primeros en acertar ganan puntos.",afiliados:"Verifica quién abrió su cuenta de Deriv con tu enlace de socio: ganan los puntos completos.",
+const GROUPS=[["General",["resumen","chartslive","chat"]],["Academia",["cursos","contenido","ejercicios","banners","noticias","archivos"]],["Retos y puntos",["top","retos","afiliados","canjes","rpuntos"]],["Alumnos",["alumnos","pagos","resenas","opiniones","chartsop","notif"]],["Sitio",["sitio","legal"]]];
+const TICO={chartslive:"chart",top:"star",chat:"chat",cursos:"acad",retos:"bolt",afiliados:"users",canjes:"card",rpuntos:"gear",resumen:"chart",sitio:"site",banners:"image",contenido:"layers",ejercicios:"acad",noticias:"news",opiniones:"star",chartsop:"chart",resenas:"msg",pagos:"card",alumnos:"users",archivos:"folder",notif:"bell",legal:"scale"};
+const TDESC={chartslive:"Quién está usando EAG Charts ahora mismo: mercado, temporalidad, dispositivo y hace cuánto entró. Se actualiza solo.",chat:"Conversaciones privadas con cada alumno. Se borran solas a los días que definas, o al instante con Finalizar.",cursos:"Cursos que se venden sueltos (de por vida) y cómo se ven los planes Cobre, Plata y Oro.",retos:"Crea el reto del día: cuestionario, ¿sube o baja? o marcar la zona. Los primeros en acertar ganan puntos.",afiliados:"Verifica quién abrió su cuenta de Deriv con tu enlace de socio: ganan los puntos completos.",
   top:"Los 10 primeros del ranking. Suma o quita puntos o saldo en dólares a cualquier alumno.",canjes:"Retiros de saldo de los retos express y canjes de puntos: paga y márcalos.",rpuntos:"Activa los retos, define cuánto vale cada punto y el mínimo para canjear.",resumen:"Cómo va la academia: alumnos, visitas y actividad.",sitio:"Textos, portada, precios, enlaces y datos de contacto de la web.",banners:"Imágenes y mensajes del carrusel de la portada y del ingreso.",
   contenido:"Módulos, lecciones, videos y el orden del temario.",ejercicios:"Gráficas, cálculos y preguntas de cada lección y de la práctica.",noticias:"Publicaciones de la comunidad y avisos.",
   opiniones:"Opiniones públicas de los alumnos: aprueba u oculta.",chartsop:"Quién está probando EAG Charts (3 días gratis) y qué recomiendan mejorar.",resenas:"Lo que dicen los alumnos al terminar cada módulo (privado).",pagos:"Pagos de Binance por confirmar y el historial.",
   alumnos:"Cuentas, premium, puntos y avance de cada alumno.",archivos:"Imágenes y archivos subidos.",notif:"Envía avisos al celular de los alumnos.",legal:"Términos, privacidad y avisos legales."};
-const TABS=[["chat","Mensajes"],["cursos","Cursos y planes"],["top","Top, puntos y saldo"],["retos","Retos diarios"],["afiliados","Miembros verificados"],["canjes","Canjes"],["rpuntos","Ajustes de puntos"],["resumen","Estadísticas"],["sitio","Sitio y textos"],["banners","Banners"],["contenido","Módulos y lecciones"],["ejercicios","Ejercicios"],["noticias","Noticias"],["opiniones","Opiniones"],["chartsop","EAG Charts: prueba y opiniones"],["resenas","Reseñas de módulos"],["pagos","Pagos"],["alumnos","Alumnos"],["archivos","Archivos"],["notif","Notificaciones"],["legal","Legal"]];
+const TABS=[["chartslive","Charts en vivo"],["chat","Mensajes"],["cursos","Cursos y planes"],["top","Top, puntos y saldo"],["retos","Retos diarios"],["afiliados","Miembros verificados"],["canjes","Canjes"],["rpuntos","Ajustes de puntos"],["resumen","Estadísticas"],["sitio","Sitio y textos"],["banners","Banners"],["contenido","Módulos y lecciones"],["ejercicios","Ejercicios"],["noticias","Noticias"],["opiniones","Opiniones"],["chartsop","EAG Charts: prueba y opiniones"],["resenas","Reseñas de módulos"],["pagos","Pagos"],["alumnos","Alumnos"],["archivos","Archivos"],["notif","Notificaciones"],["legal","Legal"]];
 A.ROUTES.admin=sub=>{
   if(!A.admin()){app.innerHTML=`<div class="empty">Esta sección es solo para administradores.<a class="btn sm" href="#inicio">Volver</a></div>`;return}
   let chatU=null;if(sub&&/^chat-/.test(sub)){tab="chat";chatU=sub.slice(5)}else if(sub&&TABS.some(t=>t[0]===sub))tab=sub;
@@ -50,7 +50,7 @@ A.ROUTES.admin=sub=>{
     acL.onsubmit=e=>{e.preventDefault();const v=fromLoc($("#acAt").value);if(!v){toast("Elige la fecha y la hora");return}if(new Date(v)<=new Date()){toast("Elige una fecha futura");return}sv(v)};
     const x=$("#acX");if(x)x.onclick=()=>sv(null)}
   if(tab==="chat")return chat(chatU);
-  ({cursos,resumen,sitio,banners,contenido,ejercicios,noticias,opiniones,chartsop,resenas,pagos,alumnos,archivos,notif,legal,retos,afiliados,canjes,rpuntos,top})[tab]();
+  ({chartslive,cursos,resumen,sitio,banners,contenido,ejercicios,noticias,opiniones,chartsop,resenas,pagos,alumnos,archivos,notif,legal,retos,afiliados,canjes,rpuntos,top})[tab]();
   const badge=(k,n)=>{const b=document.querySelector(`[data-badge="${k}"]`);if(b&&n){b.textContent=n;b.classList.add("on")}};
   if(API.dmBadge)API.dmBadge().then(b=>badge("chat",b&&b.unread)).catch(()=>{});
   if(API.adminAffiliates)API.adminAffiliates().then(l=>badge("afiliados",(l||[]).filter(x=>x.status==="pendiente").length)).catch(()=>{});
@@ -477,6 +477,35 @@ async function noticias(){
 }
 
 /* ---------- EAG Charts: prueba y opiniones ---------- */
+/* ---------- EAG Charts en vivo ---------- */
+let clvT=null;
+async function chartslive(){clearInterval(clvT);let f="on";
+  const dur=ms=>{const m=Math.max(0,Math.round(ms/6e4));return m<1?"menos de 1 min":m<60?m+" min":Math.floor(m/60)+" h "+(m%60?m%60+" min":"")};
+  const planTag=r=>r.role==="admin"?'<span class="tag pub">Admin</span>':r.premium?`<span class="tag pub">${esc((r.plan||"Premium").replace(/^./,c=>c.toUpperCase()))}</span>`:r.affiliate?'<span class="tag">Miembro verificado</span>':'<span class="tag">Gratis</span>';
+  const LAY={l1:"1 gráfico",l2:"2 gráficos",l3:"3 gráficos",l4:"4 gráficos",l6:"6 gráficos",mtf:"Multi-TF"};
+  H().innerHTML=`<div class="clv" id="clv"><div class="clv-top"><div class="clv-big"><span class="clv-dot"></span><b id="clvN">—</b><span>usando EAG Charts ahora</span></div>
+      <div class="seg" id="clvF"><button data-f="on" class="on">En línea</button><button data-f="hoy">Últimas 24 h</button></div></div>
+    <div class="clv-chips" id="clvC"></div><div id="clvL" class="clv-list"><p class="muted">Cargando…</p></div>
+    <p class="dim clv-note">Se actualiza cada 15 segundos. Cuenta como "en línea" quien tiene los charts abiertos (no en segundo plano) en los últimos 2 minutos.</p></div>`;
+  let rows=[];
+  const draw=()=>{const now=Date.now(),on=rows.filter(r=>r.online),L=f==="on"?on:rows;
+    $("#clvN").textContent=on.length;
+    const cnt=(arr,k)=>{const m={};arr.forEach(r=>{const v=k(r);if(v)m[v]=(m[v]||0)+1});return Object.entries(m).sort((a,b)=>b[1]-a[1])};
+    const mk=cnt(on,r=>r.symbol_name||r.symbol).slice(0,6),dv=cnt(on,r=>(r.device||"").split(" ·")[0]),pl=cnt(on,r=>r.role==="admin"?"Admin":r.premium?"Con plan":r.affiliate?"Miembro":"Gratis");
+    $("#clvC").innerHTML=on.length?[...mk.map(([k,v])=>`<span class="tag">📈 ${esc(k)} · ${v}</span>`),...dv.map(([k,v])=>`<span class="tag">${k==="Celular"?"📱":k==="Tablet"?"📟":"💻"} ${esc(k)} · ${v}</span>`),...pl.map(([k,v])=>`<span class="tag">${esc(k)} · ${v}</span>`)].join("")
+      :`<span class="dim">${rows.length} usaron los charts en las últimas 24 horas.</span>`;
+    $("#clvL").innerHTML=L.length?L.map(r=>`<div class="item clv-it${r.online?" on":""}">
+        <span class="clv-av">${r.avatar_url?`<img src="${esc(r.avatar_url)}" alt="">`:esc((r.username||"?")[0].toUpperCase())}<i></i></span>
+        <span class="txt"><b>${esc(r.username||"alumno")}${r.country?" · "+esc(r.country):""} ${planTag(r)}</b>
+          <span>${r.symbol_name||r.symbol?`📈 <em class="clv-m">${esc(r.symbol_name||r.symbol)}${r.tf?" · "+esc(r.tf):""}</em>`:"Sin mercado"}${r.layout?" · "+esc(LAY[r.layout]||r.layout):""}${r.profile?" · perfil "+esc(r.profile):""}</span>
+          <span class="dim">${esc(r.device||"")}${r.online?` · conectado hace ${dur(now-new Date(r.started_at).getTime())}`:` · visto hace ${dur(now-new Date(r.last_seen).getTime())} (${fmtDT(r.last_seen)})`}</span></span>
+        <a class="btn sm" href="#admin-chat-${esc(r.user_id)}" title="Escribirle">Chat</a></div>`).join("")
+      :`<p class="muted">${f==="on"?"Nadie está usando los charts en este momento.":"Nadie usó los charts en las últimas 24 horas."}</p>`};
+  const load=async()=>{if(!document.getElementById("clv")){clearInterval(clvT);return}
+    try{rows=await API.adminChartOnline()||[]}catch(e){$("#clvL").innerHTML=`<div class="panel"><p class="muted">Corre <b>charts_en_vivo.sql</b> en el SQL Editor de Supabase para activar esta sección.</p></div>`;$("#clvN").textContent="—";return}
+    draw()};
+  $("#clvF").querySelectorAll("[data-f]").forEach(b=>b.onclick=()=>{f=b.dataset.f;$("#clvF").querySelectorAll("[data-f]").forEach(x=>x.classList.toggle("on",x===b));draw()});
+  await load();clvT=setInterval(load,15000)}
 async function chartsop(){
   let list=[];try{list=await API.adminChartFeedback()||[]}catch(e){H().innerHTML=`<div class="panel"><p class="muted">Corre <b>charts_prueba.sql</b> en Supabase para activar la prueba de EAG Charts.</p></div>`;return}
   const fb=list.filter(r=>r.feedback_at),avg=fb.length?(fb.reduce((a,r)=>a+(+r.rating||0),0)/fb.length):0,now=Date.now(),act=list.filter(r=>new Date(r.started_at).getTime()+3*864e5>now).length;
