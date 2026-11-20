@@ -572,17 +572,32 @@ function temarioBlock(host){if(!host)return;const pub=new Set((S.modules||[]).fi
     +head(paid?paid.icon||"🎯":"🎯",paid?paid.title:"Boom y Crash",`<span class="tag sc-lock">Con plan${paid&&paid.price?` o ${esc(paid.price)}`:""}</span>`)+TEMARIO.slice(TEMARIO_F).map((x,i)=>row(x,i+TEMARIO_F)).join("")
     +`<a class="btn ghost sm tm-more" href="${toAcad("academia")}">Ver el temario completo</a><p class="dim tm-foot">Los módulos se van publicando a medida que se graban, cada uno con ejercicios en gráficas reales. Empiezas gratis con ${esc(base.title)} y sigues con la estrategia de tu mercado.</p>`}
 /* mini tutorial: pasar una cuenta de Deriv existente al socio de El Arte Gráfico (retag) */
-function retagGuide(){const s=S.site||{},link=(s.derivRefUrl||"").trim(),code=(s.derivPartnerCode||"").trim();
-  const msg=`Hola, quiero hacer un retag de mi cuenta de Deriv (mi ID es CR…) para que quede con el socio El Arte Gráfico.${code?` Código de socio: ${code}.`:""}${link?` Este es su enlace: ${link}`:""}`;
-  setTimeout(()=>{const b=$("#rtgCp");if(b)b.onclick=async()=>{try{await navigator.clipboard.writeText(msg);toast("Mensaje copiado")}catch(e){toast("Cópialo a mano")}}},0);
-  return `<details class="retag"><summary><b>¿Ya tenías cuenta de Deriv con otro enlace?</b><span class="muted">Puedes pasarla a El Arte Gráfico (se llama "retag"). Así:</span></summary>
-    <ol class="steps">
-      <li><b>Abre el chat de soporte de Deriv.</b> En deriv.com o en la app, toca el chat de ayuda (Live chat) y pide hablar con un agente.</li>
-      <li><b>Pide el retag.</b> Copia este mensaje, cambia CR… por tu ID y envíalo:<div class="rtg-msg">${esc(msg)}</div><button type="button" class="btn sm" id="rtgCp">Copiar mensaje</button></li>
-      <li><b>Espera la confirmación de Deriv.</b> Ellos te avisan por el chat o por correo cuando quede hecho.</li>
-      <li><b>Vuelve aquí y envía tu ID</b> en el formulario de arriba. Si ya está en nuestra lista de socios, quedas verificado al instante; si no, lo revisamos en pocos días.</li>
-    </ol>
-    ${link?`<a class="btn ghost sm" href="${esc(link)}" target="_blank" rel="noopener sponsored">Ver nuestro enlace de socio</a>`:""}</details>`}
+/* ---------- cómo hacerse miembro: dos caminos claros (no tengo cuenta de Deriv / ya tengo cuenta) ---------- */
+const DERIV_LINK_DEF="https://t.deriv.link/?t=ZX9736UCRTEQ";
+const derivLink=()=>{const u=((S.site||{}).derivRefUrl||"").trim();return /^https:\/\//.test(u)?u:DERIV_LINK_DEF};
+const retagMsg=()=>`Hola, quiero solicitar el cambio de afiliado/IB (retagging) de mi cuenta de Deriv. Quiero asociar mi cuenta al siguiente Partner: ${derivLink()}`;
+function memPaths(open){const L=derivLink(),id="mp"+Math.random().toString(36).slice(2,7);
+  setTimeout(()=>{const box=document.getElementById(id);if(!box)return;
+    box.querySelectorAll("[data-mp]").forEach(b=>b.onclick=()=>{const k=b.dataset.mp;box.querySelectorAll("[data-mp]").forEach(x=>x.classList.toggle("on",x===b));box.querySelectorAll("[data-mpv]").forEach(v=>v.hidden=v.dataset.mpv!==k)});
+    const cp=box.querySelector("[data-rcp]");if(cp)cp.onclick=async()=>{try{await navigator.clipboard.writeText(retagMsg());toast("Mensaje copiado: pégalo en el chat de Deriv")}catch(e){toast("No se pudo copiar: selecciónalo y cópialo a mano")}};
+    const cl=box.querySelector("[data-lcp]");if(cl)cl.onclick=async()=>{try{await navigator.clipboard.writeText(L);toast("Enlace copiado")}catch(e){toast("Cópialo a mano")}}},0);
+  return`<div class="mpaths" id="${id}">
+    <p class="mp-q"><b>¿Ya tienes cuenta en Deriv?</b> Elige tu caso:</p>
+    <div class="mp-tabs" role="tablist"><button type="button" data-mp="new" class="${open==="new"?"on":""}">${ico("plus",16)}<span><b>No tengo cuenta</b><small>Voy a abrirla</small></span></button><button type="button" data-mp="old" class="${open==="old"?"on":""}">${ico("refresh",16)}<span><b>Ya tengo cuenta</b><small>Quiero pasarla a la comunidad</small></span></button></div>
+    <div data-mpv="new"${open==="new"?"":" hidden"}><ol class="mp-steps">
+      <li><b class="mps-t">Abre tu cuenta de Deriv con el enlace de la comunidad.</b><a class="btn gold sm" href="${esc(L)}" target="_blank" rel="noopener sponsored">Abrir cuenta en Deriv</a></li>
+      <li><b class="mps-t">Copia tu ID de cliente.</b> Lo ves en Deriv, arriba a la derecha (empieza por CR…, o es un código como d-k3skg7d).</li>
+      <li><b class="mps-t">Pégalo abajo y toca «Verificarme».</b> Si todo está bien, quedas verificado al instante.</li></ol></div>
+    <div data-mpv="old"${open==="old"?"":" hidden"}>
+      <div class="note mp-warn">${ico("info",16)}<span>Si ya tienes cuenta, <b>no te registres otra vez</b>: Deriv no deja tener dos cuentas. Lo que hay que hacer es pedirle a Deriv que cambie tu cuenta al afiliado de la comunidad (se llama <b>retagging</b>).</span></div>
+      <ol class="mp-steps">
+      <li><b class="mps-t">Entra a Deriv y abre el chat de soporte.</b> Ingresa a tu cuenta en deriv.com o en la app y abre el <b>Live Chat</b> (el globito de ayuda). Pide hablar con un agente.</li>
+      <li><b class="mps-t">Pide el cambio de afiliado/IB.</b> Copia este mensaje y envíaselo al agente:
+        <div class="rtg-msg">${esc(retagMsg())}</div><div class="row mp-cp"><button type="button" class="btn sm gold" data-rcp>${ico("copy",15)}Copiar mensaje</button><button type="button" class="btn sm" data-lcp>Copiar solo el enlace</button></div></li>
+      <li><b class="mps-t">Si te piden el enlace, envíaselo.</b> Deriv pide el enlace del nuevo afiliado/IB para hacer el cambio. Ya va dentro del mensaje, pero si lo piden aparte, usa «Copiar solo el enlace».</li>
+      <li><b class="mps-t">Espera la confirmación de Deriv.</b> Ellos revisan la solicitud y te avisan por el chat o por correo cuando quede hecho (puede tardar unos días).</li>
+      <li><b class="mps-t">Cuando te confirmen, pega tu ID abajo y toca «Verificarme».</b> Si ya aparece con la comunidad, quedas verificado al instante; si todavía no, lo revisamos y te avisamos.</li></ol></div>
+  </div>`}
 const noEmo=t=>String(t).replace(/^[\p{Extended_Pictographic}\uFE0F\u200D\s]+/u,"");
 function freeCard(o={}){const bc=(S.courses||[]).find(c=>c.base&&c.status!=="borrador");
   if(bc&&!premium()){const cta=!logged()?`<a class="btn" href="${toMain("registro")}">Crear cuenta gratis</a>`:closedAcad()?'<span class="btn disabled" aria-disabled="true">Empieza cuando abra la academia</span>':`<a class="btn" href="${toAcad("academia")}">Ir a ${esc(bc.title)}</a>`;
@@ -660,6 +675,10 @@ function faqBlock(host){if(!host)return;const f=(S.site.faq||[]).length?S.site.f
 
 /* ---------- inicio para quien ya ingresó (panel personal) ---------- */
 const IC={
+  plus:'<path d="M12 5v14M5 12h14"/>',
+  refresh:'<path d="M20 12a8 8 0 1 1-2.3-5.6"/><path d="M20 4v4.5h-4.5"/>',
+  copy:'<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/>',
+  info:'<circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/>',
   send:'<path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4 20-7z"/>',
   menu:'<path d="M4 7h16M4 12h16M4 17h16"/>',
   acad:'<path d="M3 9l9-5 9 5-9 5-9-5z"/><path d="M7 11.5V16c0 1.2 2.2 2.5 5 2.5s5-1.3 5-2.5v-4.5"/>',
@@ -1168,9 +1187,9 @@ async function memberBox(h,r,done,noChat){if(!h)return;const p=API.profile()||{}
   h.innerHTML=`<h3>${p.affiliate||st==="verificado"?"Miembro verificado "+affTag():st==="pendiente"?"Solicitud enviada":"Envía tu solicitud de miembro verificado"}</h3>`+
     (st==="verificado"||p.affiliate?`<div class="note ok-note">Eres miembro verificado de la comunidad${r.deriv_id?` · ID de Deriv <b class="mono">${esc(r.deriv_id)}</b>`:""}. ¡Gracias por ayudarnos a crecer!</div>${p.discord_id?(p.discord_role?'<div class="note">Rol de Miembro verificado activo en Discord.</div>':""):`<div class="note dc-note"><span>Conecta tu Discord y te damos el rol de <b>Miembro verificado</b> solo.</span><a class="btn sm gold" href="${toMain("perfil-discord")}">Conectar Discord</a></div>`}`
     :st==="pendiente"?`<div class="note">Estamos revisando tu ID <b class="mono">${esc(r.deriv_id||"")}</b>. Te avisamos apenas quedes verificado.</div>`
-    :`<p class="muted">Hacerte miembro es gratis: abres tu cuenta de Deriv con el enlace de la comunidad y nos ayudas a crecer. Escríbenos por chat y te guiamos, o si ya la abriste con el enlace, pega tu ID aquí.</p>
+    :`<p class="muted">Hacerte miembro es gratis: tu cuenta de Deriv queda con el enlace de la comunidad y así nos ayudas a crecer.</p>${memPaths()}
       ${st==="rechazado"?`<div class="note">No pudimos verificar el ID <b class="mono">${esc(r.deriv_id||"")}</b>${r.affiliate_note?`: ${esc(r.affiliate_note)}`:""}. Revísalo o escríbenos por chat.</div>`:""}
-      <form class="form mem-form"><label>Tu ID de cliente de Deriv<input name="d" maxlength="40" required placeholder="Ej.: CR1234567, d-k3skg7d o 019c0ed8-61dc-…" autocomplete="off"></label><button class="btn gold">Verificarme</button>
+      <form class="form mem-form"><label>Tu ID de cliente de Deriv (cuando ya tengas la cuenta con el enlace de la comunidad)<input name="d" maxlength="40" required placeholder="Ej.: CR1234567, d-k3skg7d o 019c0ed8-61dc-…" autocomplete="off"></label><button class="btn gold">Verificarme</button>
       <p class="dim" style="font-size:13px;margin:0">Lo encuentras en Deriv, arriba a la derecha.</p></form>
       ${noChat?"":`<div class="row mem-chat"><button type="button" class="btn" data-mchat>${ico("chat",16)}Hablar por chat</button></div>`}`);
   const f=$(".mem-form",h);if(f)f.onsubmit=async e=>{e.preventDefault();const b=$("button",f);try{busy(b,true);const rr=await API.requestAffiliate(f.d.value);
@@ -1186,9 +1205,9 @@ ROUTES.miembro=arg=>{const p=API.profile()||{},m=!!p.affiliate,u=logged();
     <div class="hx-v"><div class="live-card mem-perks"><div class="lc-h"><b>Lo que desbloqueas</b>${m?'<span class="lc-live">✓ Activo</span>':""}</div>${MEM_PERKS().map(([i,t,d])=>`<div class="lc-row"><span class="lc-i">${ico(i,20)}</span><span><b>${t}</b><small>${d}</small></span><i>${m?"✓":""}</i></div>`).join("")}</div></div></section>
   ${!m&&u?`<section class="sx" id="mem-id"><div class="panel mem-panel mem-first" id="memBox"><div class="muted">Cargando…</div></div></section>`:""}
   ${m?"":`<section class="sx"><div class="sx-h"><span class="eyebrow">Cómo te haces miembro</span><h2>Tres pasos, por chat</h2></div>
-    <ol class="steps3">${[["Escríbenos por chat","Toca \"Quiero ser miembro\" y se abre tu chat privado con El Arte Gráfico, con los pasos y el enlace de la comunidad."],["Abre tu cuenta de Deriv","Con el enlace de la comunidad. Si ya tenías cuenta, cuéntanos por el chat y te decimos cómo hacerlo."],["Pega tu ID y listo","Tu ID de cliente de Deriv se verifica solo y se desbloquea todo al instante."]].map(([t,d],i)=>`<li><span class="st-n">${i+1}</span><h3>${t}</h3><p>${d}</p></li>`).join("")}</ol></section>
+    <ol class="steps3">${[["¿No tienes cuenta de Deriv?","Ábrela con el enlace de la comunidad. Es gratis y toma un par de minutos."],["¿Ya tienes cuenta de Deriv?","No te registres de nuevo: pídele a Deriv por su Live Chat el cambio de afiliado/IB (retagging) al enlace de la comunidad. Abajo te dejamos el mensaje listo para copiar."],["Pega tu ID y listo","Con tu cuenta ya en la comunidad, pegas tu ID de cliente de Deriv y se desbloquea todo. Si tienes dudas, escríbenos por chat."]].map(([t,d],i)=>`<li><span class="st-n">${i+1}</span><h3>${t}</h3><p>${d}</p></li>`).join("")}</ol></section>
 `}
-  <section class="sx"><div class="faq">${[["¿Me cuesta algo?","No. Hacerte miembro es gratis: solo abres tu cuenta de Deriv con el enlace de la comunidad."],["¿Por qué con el enlace?","Así Deriv reconoce que llegaste por El Arte Gráfico y eso nos ayuda a seguir creciendo y a pagar los premios de los retos."],["¿Y si ya tenía cuenta en Deriv?","Escríbenos por el chat y te explicamos cómo hacerlo."],["¿Cuándo me llega el rol de Discord?","Al instante, si ya conectaste tu Discord en Configuración. Si no, conéctalo y te llega solo."]].map(([q,a])=>`<details class="fq"><summary>${q}</summary><p class="muted">${a}</p></details>`).join("")}</div></section>`;
+  <section class="sx"><div class="faq">${[["¿Me cuesta algo?","No. Hacerte miembro es gratis: solo abres tu cuenta de Deriv con el enlace de la comunidad."],["¿Por qué con el enlace?","Así Deriv reconoce que llegaste por El Arte Gráfico y eso nos ayuda a seguir creciendo y a pagar los premios de los retos."],["¿Y si ya tenía cuenta en Deriv?","No abras otra cuenta. Entra a Deriv, abre el Live Chat de soporte y pide el cambio de afiliado/IB (retagging) con el enlace de la comunidad: "+derivLink()+". Cuando Deriv te confirme, pega tu ID aquí y quedas verificado."],["¿Cuándo me llega el rol de Discord?","Al instante, si ya conectaste tu Discord en Configuración. Si no, conéctalo y te llega solo."]].map(([q,a])=>`<details class="fq"><summary>${q}</summary><p class="muted">${a}</p></details>`).join("")}</div></section>`;
   goLinks();const g=$("#mGo");if(g)g.onclick=()=>memberStart(g);if(u&&!m){memberBox($("#memBox"),null,()=>ROUTES.miembro());if(arg==="solicitud")setTimeout(()=>{const t=$("#mem-id");if(t){t.scrollIntoView({block:"start"});const i=$("#mem-id input");if(i&&matchMedia("(min-width:861px)").matches)i.focus()}},350)}};
 
 /* ---------- Discord: conectar la cuenta para recibir el rol de Afiliado solo ---------- */

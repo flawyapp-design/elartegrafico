@@ -45,10 +45,16 @@ begin
   if not exists (select 1 from public.dm_messages where user_id = u and from_admin and body like '¡Qué bueno que quieras ser parte%' and created_at > now() - interval '1 day') then
     select nullif(trim(data->>'derivRefUrl'), '') into link from public.site_settings where id = 1;
     reply := '¡Qué bueno que quieras ser parte de la comunidad! Así te haces miembro verificado:' || chr(10) || chr(10)
-      || '1. Abre tu cuenta de Deriv con el enlace de la comunidad: ' || coalesce(link, '(te lo enviamos en un momento)') || chr(10)
-      || '2. Copia tu ID de cliente de Deriv (está arriba a la derecha en Deriv) y pégalo en el recuadro que ves arriba de este chat. Se verifica solo.' || chr(10) || chr(10)
+      || '🆕 SI NO TIENES CUENTA DE DERIV' || chr(10)
+      || '1. Ábrela con el enlace de la comunidad: ' || coalesce(link, 'https://t.deriv.link/?t=ZX9736UCRTEQ') || chr(10)
+      || '2. Copia tu ID de cliente (está arriba a la derecha en Deriv) y pégalo en el recuadro de arriba de este chat. Se verifica solo.' || chr(10) || chr(10)
+      || '🔁 SI YA TIENES CUENTA DE DERIV (no te registres otra vez)' || chr(10)
+      || '1. Entra a Deriv y abre el Live Chat de soporte.' || chr(10)
+      || '2. Pide el cambio de afiliado/IB (retagging). Puedes escribir: "Hola, quiero solicitar el cambio de afiliado/IB de mi cuenta de Deriv. Quiero asociar mi cuenta al siguiente Partner: ' || coalesce(link, 'https://t.deriv.link/?t=ZX9736UCRTEQ') || '"' || chr(10)
+      || '3. Si te piden el enlace del nuevo afiliado, envíaselo (es el mismo de arriba).' || chr(10)
+      || '4. Espera la confirmación de Deriv y luego pega tu ID en el recuadro de arriba.' || chr(10) || chr(10)
       || 'Con eso nos ayudas a crecer y desbloqueas: retos express con premios en dólares, puntos completos en todos los retos, funciones extra de EAG Charts y el rol de Miembro verificado en Discord.' || chr(10) || chr(10)
-      || 'Si ya tenías cuenta de Deriv, escríbenos aquí y te decimos cómo hacerlo.';
+      || 'Cualquier duda, escríbenos aquí.';
     insert into public.dm_messages (user_id, from_admin, body, notified) values (u, true, reply, true);
   end if;
   return jsonb_build_object('ok', true);
