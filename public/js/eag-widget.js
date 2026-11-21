@@ -148,14 +148,14 @@ function registerAll(){
       /* trazo nuevo: puntos relativos al primero (en velas y precio) → sigue la forma exacta al hacer zoom o mover el gráfico */
       if(Array.isArray(ex.rel)&&ex.rel.length>1&&yAxis&&barSpace&&barSpace.bar){const x0=coordinates[0].x,v0=overlay.points[0].value,b=barSpace.bar;
         cs=ex.rel.map(([dx,dv])=>({x:x0+dx*b,y:yAxis.convertToPixel(v0+dv)}))}
-      return[{type:"line",attrs:{coordinates:cs},styles:{color:ex.color||GOLD,size:ex.size||2,smooth:false}}]}});
+      return[{type:"line",attrs:{coordinates:cs},styles:{color:ex.hl?hexA(ex.color||"#ffeb3b",.4):(ex.color||GOLD),size:ex.size||2,smooth:false}}]}});
   /* Medir: diferencia de precio, %, velas y tiempo */
   KC.registerOverlay({name:"eagMeasure",totalStep:3,needDefaultPointFigure:true,needDefaultXAxisFigure:true,needDefaultYAxisFigure:true,
-    createPointFigures:({overlay,coordinates,precision})=>{
+    createPointFigures:({overlay,coordinates,precision,xAxis})=>{
       if(coordinates.length<2)return[];
       const[a,b]=coordinates,p=overlay.points,pp=(precision&&precision.price)||3;
       const d=p[1].value-p[0].value,up=d>=0,col=up?"#2962ff":"#f23645",pip=Math.pow(10,-pp),ticks=Math.round(Math.abs(d)/pip);
-      const bars=(p[1].dataIndex!=null&&p[0].dataIndex!=null)?p[1].dataIndex-p[0].dataIndex:0;
+      let bars=0;try{const L=xAxis.getParent().getChart().getDataList(),f0=fiOfTs(L,p[0].timestamp),f1=fiOfTs(L,p[1].timestamp);bars=f0!=null&&f1!=null?Math.round(f1-f0):((p[1].dataIndex!=null&&p[0].dataIndex!=null)?p[1].dataIndex-p[0].dataIndex:0)}catch(e){}
       const ms=Math.abs((p[1].timestamp||0)-(p[0].timestamp||0)),mins=Math.round(ms/6e4);
       const tt=mins>=1440?Math.floor(mins/1440)+"d "+Math.floor(mins%1440/60)+"h":mins>=60?Math.floor(mins/60)+"h "+(mins%60)+"m":mins+"m";
       const x=Math.min(a.x,b.x),y=Math.min(a.y,b.y),w=Math.abs(b.x-a.x),h=Math.abs(b.y-a.y),mx=(a.x+b.x)/2;
@@ -174,6 +174,99 @@ function registerAll(){
       return[{type:"line",attrs:{coordinates:[{x:c.x,y:up?c.y-28:c.y+28},{x:c.x,y:up?c.y-7:c.y+7}]},styles:{color:col,size:1.5}},
         {type:"polygon",attrs:{coordinates:up?[{x:c.x,y:c.y-3},{x:c.x-4.5,y:c.y-10},{x:c.x+4.5,y:c.y-10}]:[{x:c.x,y:c.y+3},{x:c.x-4.5,y:c.y+10},{x:c.x+4.5,y:c.y+10}]},styles:{style:"fill",color:col}},
         {type:"text",attrs:{x:c.x,y:ty,text:ex.text||"Nota",align:"center",baseline:"middle"},styles:{color:ex.tc||"#fff",size:ex.size||12,weight:"600",backgroundColor:col,borderColor:col,borderSize:1,paddingLeft:8,paddingRight:8,paddingTop:5,paddingBottom:5,borderRadius:6}}]}});
+  /* ===================== Herramientas extra (como TradingView) ===================== */
+  {
+    const LC=ov=>(((ov.styles||{}).line||{}).color)||GOLD;
+    const LN=(a,b,st)=>({type:"line",attrs:{coordinates:[a,b]},styles:st});
+    const PL=(pts,st)=>({type:"line",attrs:{coordinates:pts},styles:st});
+    const TX=(x,y,t,o2)=>({type:"text",ignoreEvent:true,attrs:{x,y,text:t,align:(o2&&o2.al)||"center",baseline:(o2&&o2.bl)||"middle"},styles:Object.assign({color:"#fff",size:11,backgroundColor:"transparent",paddingLeft:5,paddingRight:5,paddingTop:3,paddingBottom:3,borderRadius:4},(o2&&o2.st)||{})});
+    const BOXT=(x,y,t,col,o2)=>TX(x,y,t,Object.assign({},o2,{st:Object.assign({color:"#fff",backgroundColor:col,size:11,weight:"600"},(o2&&o2.st)||{})}));
+    const ext=(a,b,W,H)=>{/* extiende el segmento a→b hasta el borde */const dx=b.x-a.x,dy=b.y-a.y;if(!dx&&!dy)return b;let t=1e6;if(dx>0)t=Math.min(t,(W-a.x)/dx);if(dx<0)t=Math.min(t,-a.x/dx);if(dy>0)t=Math.min(t,(H-a.y)/dy);if(dy<0)t=Math.min(t,-a.y/dy);return{x:a.x+dx*t,y:a.y+dy*t}};
+    const dataOf=xAxis=>{try{return xAxis.getParent().getChart().getDataList()}catch(e){return[]}};
+    const idxOf=(L,p)=>{if(!p)return null;if(p.timestamp!=null&&L.length){const fi=fiOfTs(L,p.timestamp);if(fi!=null)return Math.round(fi)}return p.dataIndex!=null?p.dataIndex:null};
+    const barsOf=(xAxis,P)=>{const L=dataOf(xAxis);const a=idxOf(L,P[0]),b=idxOf(L,P[1]);return a!=null&&b!=null?Math.abs(b-a):0};
+    const durTxt=ms=>{const m=Math.round(Math.abs(ms)/6e4);return m>=1440?Math.floor(m/1440)+"d "+Math.floor(m%1440/60)+"h":m>=60?Math.floor(m/60)+"h "+(m%60)+"m":m+"m"};
+    const R=(n,t)=>KC.registerOverlay(Object.assign({name:n,needDefaultPointFigure:true,needDefaultXAxisFigure:false,needDefaultYAxisFigure:false},t));
+    /* Línea de información: tendencia con el cambio de precio, %, velas, tiempo y ángulo */
+    R("infoLine",{totalStep:3,createPointFigures:({overlay,coordinates,precision,xAxis})=>{if(coordinates.length<2)return[];const[a,b]=coordinates,P=overlay.points,pp=(precision&&precision.price)||3,col=LC(overlay);
+      const d=P[1].value-P[0].value,bars=barsOf(xAxis,P),ang=Math.round(Math.atan2(a.y-b.y,b.x-a.x)*180/Math.PI);
+      const t=`${d>=0?"+":""}${d.toFixed(pp)} (${(d/P[0].value*100).toFixed(2)}%) · ${bars} velas · ${durTxt((P[1].timestamp||0)-(P[0].timestamp||0))} · ${ang}°`;
+      return[LN(a,b),BOXT(b.x,b.y+(b.y<a.y?-16:16),t,hexA(col,.92),{al:b.x>=a.x?"left":"right"})]}});
+    /* Ángulo de tendencia */
+    R("trendAngle",{totalStep:3,createPointFigures:({coordinates})=>{if(coordinates.length<2)return[];const[a,b]=coordinates,ang=Math.atan2(a.y-b.y,b.x-a.x),r=Math.min(60,Math.hypot(b.x-a.x,b.y-a.y)*.6);
+      const arc=[];for(let k=0;k<=16;k++){const t=-ang*k/16;arc.push({x:a.x+r*Math.cos(t),y:a.y+r*Math.sin(t)})}
+      return[LN(a,b),LN(a,{x:a.x+r+20,y:a.y},{style:"dashed",dashedValue:[3,3]}),PL(arc),TX(a.x+r+24,a.y+(ang>0?-10:10),Math.round(ang*180/Math.PI)+"°",{al:"left",st:{color:"#fff",size:12,weight:"600"}})]}});
+    /* Línea cruzada: horizontal + vertical */
+    R("crossLine",{totalStep:2,needDefaultXAxisFigure:true,needDefaultYAxisFigure:true,createPointFigures:({coordinates,bounding})=>{const c=coordinates[0];if(!c)return[];
+      return[LN({x:0,y:c.y},{x:bounding.width,y:c.y}),LN({x:c.x,y:0},{x:c.x,y:bounding.height})]}});
+    /* Tendencia de regresión lineal (cierres entre los 2 puntos) con bandas de ±2 desviaciones */
+    R("regressionTrend",{totalStep:3,createPointFigures:({overlay,coordinates,xAxis,yAxis})=>{if(coordinates.length<2)return[];const L=dataOf(xAxis);let i0=idxOf(L,overlay.points[0]),i1=idxOf(L,overlay.points[1]);
+      if(i0==null||i1==null||!L.length)return[LN(coordinates[0],coordinates[1])];if(i0>i1){const t=i0;i0=i1;i1=t}i0=Math.max(0,i0);i1=Math.min(L.length-1,i1);const n=i1-i0+1;if(n<3)return[LN(coordinates[0],coordinates[1])];
+      let sx=0,sy=0,sxy=0,sxx=0;for(let i=i0;i<=i1;i++){const x=i-i0,y=L[i].close;sx+=x;sy+=y;sxy+=x*y;sxx+=x*x}const m=(n*sxy-sx*sy)/(n*sxx-sx*sx||1),q=(sy-m*sx)/n;
+      let ss=0;for(let i=i0;i<=i1;i++){const e=L[i].close-(m*(i-i0)+q);ss+=e*e}const sd=Math.sqrt(ss/n)*2;
+      const X0=xAxis.convertToPixel(i0),X1=xAxis.convertToPixel(i1),Y=v=>yAxis.convertToPixel(v),v0=q,v1=m*(n-1)+q,col=LC(overlay);
+      return[{type:"polygon",ignoreEvent:true,attrs:{coordinates:[{x:X0,y:Y(v0+sd)},{x:X1,y:Y(v1+sd)},{x:X1,y:Y(v1-sd)},{x:X0,y:Y(v0-sd)}]},styles:{style:"fill",color:hexA(col,.1)}},
+        LN({x:X0,y:Y(v0)},{x:X1,y:Y(v1)}),LN({x:X0,y:Y(v0+sd)},{x:X1,y:Y(v1+sd)},{style:"dashed",dashedValue:[4,3]}),LN({x:X0,y:Y(v0-sd)},{x:X1,y:Y(v1-sd)},{style:"dashed",dashedValue:[4,3]})]}});
+    /* Tridente de Andrews */
+    R("pitchfork",{totalStep:4,createPointFigures:({coordinates,bounding})=>{const c=coordinates;if(c.length<2)return[];if(c.length<3)return[LN(c[0],c[1])];
+      const m={x:(c[1].x+c[2].x)/2,y:(c[1].y+c[2].y)/2},dx=m.x-c[0].x,dy=m.y-c[0].y,W=bounding.width,H=bounding.height;
+      const far=p=>ext(p,{x:p.x+dx,y:p.y+dy},W,H);
+      return[LN(c[0],far(c[0])),LN(c[1],far(c[1])),LN(c[2],far(c[2])),LN(c[1],c[2],{style:"dashed",dashedValue:[3,3]})]}});
+    /* Zonas de tiempo de Fibonacci */
+    R("fibTimeZone",{totalStep:3,createPointFigures:({coordinates,bounding})=>{if(coordinates.length<2)return[];const x0=coordinates[0].x,d=coordinates[1].x-x0;if(Math.abs(d)<2)return[];const F=[];
+      [0,1,2,3,5,8,13,21,34,55,89,144].forEach(n=>{const x=x0+d*n;if(x<-5||x>bounding.width+5)return;F.push(LN({x,y:0},{x,y:bounding.height},n>1?{style:"dashed",dashedValue:[4,3]}:undefined),TX(x+3,12,String(n),{al:"left",st:{color:"#9da1aa",size:10}}))});return F}});
+    /* Abanico de Gann */
+    R("gannFan",{totalStep:3,createPointFigures:({coordinates,bounding})=>{if(coordinates.length<2)return[];const[a,b]=coordinates,dx=b.x-a.x,dy=b.y-a.y;if(!dx)return[LN(a,b)];const F=[];
+      [[8,1,"1x8"],[4,1,"1x4"],[3,1,"1x3"],[2,1,"1x2"],[1,1,"1x1"],[1,2,"2x1"],[1,3,"3x1"],[1,4,"4x1"],[1,8,"8x1"]].forEach(([kx,ky,t])=>{const e=ext(a,{x:a.x+dx*kx,y:a.y+dy*ky},bounding.width,bounding.height);
+        F.push(LN(a,e,t==="1x1"?undefined:{style:"dashed",dashedValue:[4,3]}),TX(a.x+(e.x-a.x)*.92,a.y+(e.y-a.y)*.92,t,{st:{color:"#9da1aa",size:10}}))});return F}});
+    /* Líneas cíclicas, ciclos de tiempo y línea sinusoidal */
+    R("cyclicLines",{totalStep:3,createPointFigures:({coordinates,bounding})=>{if(coordinates.length<2)return[];const x0=coordinates[0].x,d=Math.abs(coordinates[1].x-x0);if(d<4)return[];const F=[];
+      for(let x=x0;x<=bounding.width;x+=d)F.push(LN({x,y:0},{x,y:bounding.height},x===x0?undefined:{style:"dashed",dashedValue:[4,3]}));return F}});
+    R("timeCycles",{totalStep:3,createPointFigures:({coordinates,bounding})=>{if(coordinates.length<2)return[];const x0=coordinates[0].x,y=coordinates[0].y,d=Math.abs(coordinates[1].x-x0);if(d<6)return[];const F=[];
+      for(let x=x0;x<=bounding.width;x+=d){const P=[];for(let k=0;k<=20;k++){const t=Math.PI*k/20;P.push({x:x+d/2-d/2*Math.cos(t),y:y-d/2*Math.sin(t)})}F.push(PL(P))}return F}});
+    R("sineLine",{totalStep:3,createPointFigures:({coordinates,bounding})=>{if(coordinates.length<2)return[];const[a,b]=coordinates,hw=b.x-a.x,amp=(b.y-a.y)/2,mid=(a.y+b.y)/2;if(Math.abs(hw)<4)return[LN(a,b)];const P=[];
+      for(let x=0;x<=bounding.width;x+=3)P.push({x,y:mid-amp*Math.cos(Math.PI*(x-a.x)/hw)});return[PL(P)]}});
+    /* Patrones con etiquetas */
+    const PAT=(n,steps,labs,extra)=>R(n,{totalStep:steps,createPointFigures:({overlay,coordinates})=>{const c=coordinates;if(c.length<2)return[];const col=LC(overlay),F=[PL(c)];
+      c.forEach((p,i)=>{if(!labs[i])return;const up=i===0?(c[1]&&c[1].y>p.y):(c[i-1].y>p.y);F.push(BOXT(p.x,p.y+(up?-14:14),labs[i],hexA(col,.85),{st:{size:10,paddingTop:2,paddingBottom:2}}))});
+      if(extra)F.push(...extra(c));return F}});
+    PAT("headShoulders",8,["","Hombro izq.","","Cabeza","","Hombro der.",""],c=>c.length>=5?[LN(c[2],c[4],{style:"dashed",dashedValue:[5,3]})]:[]);
+    PAT("trianglePattern",5,["A","B","C","D"],c=>{const F=[];if(c.length>=3)F.push(LN(c[0],c[2],{style:"dashed",dashedValue:[4,3]}));if(c.length>=4)F.push(LN(c[1],c[3],{style:"dashed",dashedValue:[4,3]}));return F});
+    PAT("threeDrives",8,["0","1","A","2","B","3",""]);
+    PAT("elliottCorrection",5,["0","A","B","C"]);
+    PAT("elliottTriangle",7,["0","A","B","C","D","E"]);
+    PAT("elliottDouble",5,["0","W","X","Y"]);
+    PAT("cypherPattern",6,["X","A","B","C","D"],c=>{const F=[];if(c.length>=3)F.push(LN(c[0],c[2],{style:"dashed",dashedValue:[4,3]}));if(c.length>=5)F.push(LN(c[2],c[4],{style:"dashed",dashedValue:[4,3]}));return F});
+    /* Rango de fechas y rango de precios */
+    R("dateRange",{totalStep:3,createPointFigures:({overlay,coordinates,bounding,xAxis})=>{if(coordinates.length<2)return[];const[a,b]=coordinates,P=overlay.points,x0=Math.min(a.x,b.x),x1=Math.max(a.x,b.x),col="#2962ff";
+      const bars=barsOf(xAxis,P),ym=(a.y+b.y)/2;
+      return[{type:"rect",ignoreEvent:true,attrs:{x:x0,y:0,width:x1-x0,height:bounding.height},styles:{style:"fill",color:hexA(col,.1)}},LN({x:x0,y:0},{x:x0,y:bounding.height},{color:col}),LN({x:x1,y:0},{x:x1,y:bounding.height},{color:col}),
+        LN({x:x0,y:ym},{x:x1,y:ym},{color:col}),BOXT((x0+x1)/2,Math.max(16,Math.min(a.y,b.y)-16),`${bars} velas · ${durTxt((P[1].timestamp||0)-(P[0].timestamp||0))}`,col)]}});
+    R("priceRange",{totalStep:3,createPointFigures:({overlay,coordinates,bounding,precision})=>{if(coordinates.length<2)return[];const[a,b]=coordinates,P=overlay.points,pp=(precision&&precision.price)||3,y0=Math.min(a.y,b.y),y1=Math.max(a.y,b.y),d=P[1].value-P[0].value,col=d>=0?"#2962ff":"#f23645";
+      return[{type:"rect",ignoreEvent:true,attrs:{x:0,y:y0,width:bounding.width,height:y1-y0},styles:{style:"fill",color:hexA(col,.1)}},LN({x:0,y:y0},{x:bounding.width,y:y0},{color:col}),LN({x:0,y:y1},{x:bounding.width,y:y1},{color:col}),
+        LN({x:(a.x+b.x)/2,y:a.y},{x:(a.x+b.x)/2,y:b.y},{color:col}),BOXT((a.x+b.x)/2,y0-14,`${d>=0?"+":""}${d.toFixed(pp)} pts (${(d/P[0].value*100).toFixed(2)}%)`,col)]}});
+    /* VWAP anclado: desde la vela que eliges hasta la última (sin volumen real usa el precio típico) */
+    R("anchoredVWAP",{totalStep:2,needDefaultPointFigure:true,createPointFigures:({overlay,xAxis,yAxis})=>{const L=dataOf(xAxis),i0=idxOf(L,overlay.points[0]);if(i0==null||!L.length||i0>=L.length)return[];
+      let pv=0,vv=0;const P=[];for(let i=Math.max(0,i0);i<L.length;i++){const k=L[i],tp=(k.high+k.low+k.close)/3,v=k.volume>0?k.volume:1;pv+=tp*v;vv+=v;P.push({x:xAxis.convertToPixel(i),y:yAxis.convertToPixel(pv/vv)})}
+      const last=P[P.length-1];return[PL(P),TX(last.x+4,last.y,"VWAP",{al:"left",st:{color:LC(overlay),size:10}})]}});
+    /* Formas: elipse y curva */
+    R("ellipse",{totalStep:3,createPointFigures:({overlay,coordinates})=>{if(coordinates.length<2)return[];const[a,b]=coordinates,cx=(a.x+b.x)/2,cy=(a.y+b.y)/2,rx=Math.abs(b.x-a.x)/2,ry=Math.abs(b.y-a.y)/2,P=[];
+      for(let k=0;k<=48;k++){const t=k/48*Math.PI*2;P.push({x:cx+rx*Math.cos(t),y:cy+ry*Math.sin(t)})}const col=LC(overlay);
+      return[{type:"polygon",attrs:{coordinates:P},styles:{style:"stroke_fill",color:hexA(col,.12),borderColor:col,borderSize:(((overlay.styles||{}).line||{}).size)||1}}]}});
+    R("curve",{totalStep:4,createPointFigures:({coordinates})=>{const c=coordinates;if(c.length<2)return[];if(c.length<3)return[LN(c[0],c[1])];const P=[];
+      for(let k=0;k<=30;k++){const t=k/30,u=1-t;P.push({x:u*u*c[0].x+2*u*t*c[1].x+t*t*c[2].x,y:u*u*c[0].y+2*u*t*c[1].y+t*t*c[2].y})}return[PL(P)]}});
+    R("polyLine",{totalStep:Number.MAX_SAFE_INTEGER,createPointFigures:({coordinates})=>coordinates.length>1?[PL(coordinates)]:[]});
+    /* Marcas: flechas arriba/abajo, bandera, etiqueta de precio y emoji */
+    const ARW=(n,up)=>R(n,{totalStep:2,needDefaultPointFigure:false,createPointFigures:({overlay,coordinates})=>{const c=coordinates[0];if(!c)return[];const ex=overlay.extendData||{},col=ex.color||(up?"#089981":"#f23645"),s=up?1:-1,y=c.y+s*6;
+      return[{type:"polygon",attrs:{coordinates:[{x:c.x,y},{x:c.x-9,y:y+s*11},{x:c.x-4,y:y+s*11},{x:c.x-4,y:y+s*24},{x:c.x+4,y:y+s*24},{x:c.x+4,y:y+s*11},{x:c.x+9,y:y+s*11}]},styles:{style:"fill",color:col}}]}});
+    ARW("arrowMarkUp",true);ARW("arrowMarkDown",false);
+    R("flagMark",{totalStep:2,needDefaultPointFigure:false,createPointFigures:({overlay,coordinates})=>{const c=coordinates[0];if(!c)return[];const col=(overlay.extendData||{}).color||"#f23645";
+      return[LN({x:c.x,y:c.y},{x:c.x,y:c.y-30},{color:col,size:2}),{type:"polygon",attrs:{coordinates:[{x:c.x,y:c.y-30},{x:c.x+18,y:c.y-25},{x:c.x,y:c.y-19}]},styles:{style:"fill",color:col}}]}});
+    R("priceLabel",{totalStep:2,needDefaultPointFigure:false,createPointFigures:({overlay,coordinates,precision})=>{const c=coordinates[0],p=overlay.points[0];if(!c||!p)return[];const pp=(precision&&precision.price)||3,col=(overlay.extendData||{}).color||GOLD;
+      return[LN({x:c.x,y:c.y},{x:c.x+12,y:c.y-16},{color:col,size:1}),{type:"circle",attrs:{x:c.x,y:c.y,r:2.5},styles:{style:"fill",color:col}},BOXT(c.x+10,c.y-22,(+p.value).toFixed(pp),col,{al:"left",st:{color:"#111",size:11}})]}});
+    R("eagEmoji",{totalStep:2,needDefaultPointFigure:false,createPointFigures:({overlay,coordinates})=>{const c=coordinates[0];if(!c)return[];const ex=overlay.extendData||{};
+      return[{type:"text",attrs:{x:c.x,y:c.y,text:ex.text||"🚀",align:"center",baseline:"middle"},styles:{color:"#fff",size:ex.size||28,backgroundColor:"transparent",paddingLeft:2,paddingRight:2,paddingTop:2,paddingBottom:2}}]}});
+  }
   /* Zona: rectángulo que se extiende a la derecha (ideal para zonas de oferta y demanda) */
   /* ===== Cajas con 8 puntos (4 esquinas + 4 a la mitad de cada lado) ===== */
   /* orden: 0 sup-izq · 1 sup-der · 2 inf-der · 3 inf-izq · 4 mitad arriba · 5 mitad derecha · 6 mitad abajo · 7 mitad izquierda */
@@ -263,7 +356,7 @@ function registerAll(){
       /* el resto (Fibonacci, patrones, formas): por encima o por debajo de todo el dibujo */
       const tx=h==="left"?x0:h==="center"?(x0+x1)/2:x1,ty=v==="top"?y0-6:v==="bottom"?y1+6:(y0+y1)/2;
       return F(tx,ty,h,v==="top"?"bottom":v==="bottom"?"top":"middle")};
-    const SKIP=/^(eagText|eagNote|eagMeasure|eagLong|eagShort|eagPosition|eagAlert|eagLastPx|eagBrush)$/;
+    const SKIP=/^(eagText|eagNote|eagMeasure|eagLong|eagShort|eagPosition|eagAlert|eagLastPx|eagBrush|eagHighlighter|eagEmoji|priceLabel)$/;
     const KEYS=["totalStep","lock","needDefaultPointFigure","needDefaultXAxisFigure","needDefaultYAxisFigure","mode","modeSensitivity","styles","createXAxisFigures","createYAxisFigures","performEventPressedMove","performEventMoveForDrawing",
       "onDrawStart","onDrawing","onDrawEnd","onClick","onDoubleClick","onRightClick","onPressedMoveStart","onPressedMoving","onPressedMoveEnd","onMouseEnter","onMouseLeave","onRemoved","onSelected","onDeselected"];
     TOOLS.forEach(g=>g.items.forEach(([n])=>{if(n==="-"||SKIP.test(n))return;const C=KC.getOverlayClass&&KC.getOverlayClass(n);if(!C)return;const t=new C(),orig=t.createPointFigures;
@@ -294,12 +387,18 @@ function registerAll(){
 
 /* ===================== Catálogo ===================== */
 const TOOLS=[
-  {g:"lines",t:"Líneas y canales",items:[["segment","Línea de tendencia"],["rayLine","Rayo"],["straightLine","Línea extendida"],["arrow","Flecha"],["horizontalStraightLine","Línea horizontal"],["horizontalRayLine","Rayo horizontal"],["horizontalSegment","Segmento horizontal"],["verticalStraightLine","Línea vertical"],["priceLine","Línea de precio"],["-","Canales"],["parallelStraightLine","Canal paralelo"],["priceChannelLine","Canal de precio"]]},
-    {g:"fib",t:"Fibonacci y Gann",items:[["fibonacciLine","Retroceso de Fibonacci"],["fibonacciExtension","Extensión de Fibonacci"],["fibonacciSegment","Segmentos de Fibonacci"],["fibonacciSpeedResistanceFan","Abanico de Fibonacci"],["fibonacciCircle","Círculos de Fibonacci"],["fibonacciSpiral","Espiral de Fibonacci"],["gannBox","Caja de Gann"]]},
-  {g:"shape",t:"Formas, zonas y pincel",items:[["eagBuyZone","Zona de compra (verde arriba, roja abajo)"],["eagSellZone","Zona de venta (roja arriba, verde abajo)"],["eagZone","Zona (se extiende a la derecha)"],["eagRect","Rectángulo"],["circle","Círculo"],["triangle","Triángulo"],["parallelogram","Paralelogramo"],["-","A mano alzada"],["eagBrush","Pincel (dibujo libre)"]]},
-  {g:"pat",t:"Patrones y ondas",items:[["xabcd","Patrón XABCD"],["abcd","Patrón ABCD"],["threeWaves","Tres ondas"],["fiveWaves","Cinco ondas (Elliott)"],["eightWaves","Ocho ondas"],["anyWaves","Ondas libres"]]},
-  {g:"pos",t:"Posición y medición",items:[["eagLong","Posición larga (compra)"],["eagShort","Posición corta (venta)"],["eagMeasure","Regla: medir puntos, %, velas y tiempo"]]},
-  {g:"txt",t:"Texto y notas",items:[["eagText","Texto"],["eagNote","Nota con flecha"]]}];
+  {g:"lines",t:"Líneas",items:[["segment","Línea de tendencia"],["rayLine","Rayo"],["infoLine","Línea de información (precio, %, velas, ángulo)"],["straightLine","Línea extendida"],["trendAngle","Ángulo de tendencia"],["arrow","Flecha"],
+    ["-","Horizontales y verticales"],["horizontalStraightLine","Línea horizontal"],["horizontalRayLine","Rayo horizontal"],["horizontalSegment","Segmento horizontal"],["verticalStraightLine","Línea vertical"],["crossLine","Línea cruzada"],["priceLine","Línea de precio"],
+    ["-","Canales y tridentes"],["parallelStraightLine","Canal paralelo"],["priceChannelLine","Canal de precio"],["regressionTrend","Tendencia de regresión"],["pitchfork","Tridente (Andrews)"]]},
+  {g:"fib",t:"Fibonacci y Gann",items:[["fibonacciLine","Retroceso de Fibonacci"],["fibonacciExtension","Extensión de Fibonacci"],["fibonacciSegment","Segmentos de Fibonacci"],["fibTimeZone","Zonas de tiempo de Fibonacci"],["fibonacciSpeedResistanceFan","Abanico de Fibonacci"],["fibonacciCircle","Círculos de Fibonacci"],["fibonacciSpiral","Espiral de Fibonacci"],
+    ["-","Gann"],["gannBox","Caja de Gann"],["gannFan","Abanico de Gann"]]},
+  {g:"pat",t:"Patrones",items:[["xabcd","Patrón XABCD"],["cypherPattern","Patrón Cypher"],["abcd","Patrón ABCD"],["headShoulders","Hombro-Cabeza-Hombro"],["trianglePattern","Patrón triángulo"],["threeDrives","Tres impulsos"],
+    ["-","Ondas de Elliott"],["fiveWaves","Onda de impulso (12345)"],["elliottCorrection","Onda de corrección (ABC)"],["elliottTriangle","Onda triángulo (ABCDE)"],["elliottDouble","Combinación doble (WXY)"],["threeWaves","Tres ondas"],["eightWaves","Ocho ondas"],["anyWaves","Ondas libres"],
+    ["-","Ciclos"],["cyclicLines","Líneas cíclicas"],["timeCycles","Ciclos de tiempo"],["sineLine","Línea sinusoidal"]]},
+  {g:"pos",t:"Predicción y medición",items:[["eagLong","Posición larga (compra)"],["eagShort","Posición corta (venta)"],["-","Medir"],["eagMeasure","Rango de fecha y precio (regla)"],["dateRange","Rango de fechas"],["priceRange","Rango de precios"],["-","Indicador"],["anchoredVWAP","VWAP anclado"]]},
+  {g:"shape",t:"Formas, zonas y pincel",items:[["eagBuyZone","Zona de compra (verde arriba, roja abajo)"],["eagSellZone","Zona de venta (roja arriba, verde abajo)"],["eagZone","Zona (se extiende a la derecha)"],["eagRect","Rectángulo"],
+    ["-","Formas"],["circle","Círculo"],["ellipse","Elipse"],["triangle","Triángulo"],["parallelogram","Paralelogramo"],["curve","Curva"],["polyLine","Polilínea"],["-","A mano alzada"],["eagBrush","Pincel (dibujo libre)"],["eagHighlighter","Resaltador"]]},
+  {g:"txt",t:"Texto y marcas",items:[["eagText","Texto"],["eagNote","Nota con flecha"],["priceLabel","Etiqueta de precio"],["-","Marcas"],["arrowMarkUp","Flecha hacia arriba"],["arrowMarkDown","Flecha hacia abajo"],["flagMark","Bandera"],["eagEmoji","Emoji / sticker"]]}];
 const TNAME={eagPosition:"Posición (antigua)",eagBrush:"Pincel (dibujo libre)",simpleAnnotation:"Nota (antigua)",simpleTag:"Etiqueta (antigua)"};TOOLS.forEach(g=>g.items.forEach(([k,t])=>{if(k!=="-")TNAME[k]=t}));
 const IC={
   lines:'<path d="M4 20 20 4"/><circle cx="4" cy="20" r="1.6"/><circle cx="20" cy="4" r="1.6"/>',
@@ -337,6 +436,26 @@ const IC={
 /* íconos de cada herramienta (24×24) */
 const P=(x,y)=>`<circle cx="${x}" cy="${y}" r="1.7" fill="currentColor" stroke="none"/>`;
 const TI={
+  infoLine:'<path d="M4 18 15 7"/><rect x="14" y="3" width="8" height="5" rx="1"/>'+P(4,18),
+  trendAngle:'<path d="M4 18 18 6M4 18h15"/><path d="M11 18a7 7 0 0 0-1.6-4.4"/>',
+  crossLine:'<path d="M12 2v20M2 12h20"/>'+P(12,12),
+  regressionTrend:'<path d="M3 17 21 7M3 13 21 3M3 21 21 11" stroke-dasharray="0"/>',
+  pitchfork:'<path d="M3 20 12 11M8 6l13 0M12 11h9M8 16h13M8 6v10"/>',
+  fibTimeZone:'<path d="M3 3v18M6 3v18M9 3v18M13 3v18M19 3v18"/>',
+  gannFan:'<path d="M3 21 21 3M3 21 21 9M3 21 21 15M3 21 15 3M3 21 9 3"/>',
+  cypherPattern:'<path d="m2 17 5-11 4 8 5-10 6 15"/>',
+  headShoulders:'<path d="m2 18 4-7 3 4 3-11 3 11 3-4 4 7"/><path d="M5 15h14" stroke-dasharray="2 2"/>',
+  trianglePattern:'<path d="m3 6 5 12 5-9 5 7 3-3"/><path d="M3 6 21 13M8 18 21 13" stroke-dasharray="2 2"/>',
+  threeDrives:'<path d="m2 20 4-6 3 3 4-8 3 3 6-10"/>',
+  elliottCorrection:'<path d="m3 5 6 11 5-6 7 11"/>',elliottTriangle:'<path d="m2 4 4 15 4-11 4 8 4-5 4 3"/>',elliottDouble:'<path d="m2 4 5 10 4-5 5 11 6-6"/>',
+  cyclicLines:'<path d="M4 3v18M10 3v18M16 3v18M22 3v18"/>',timeCycles:'<path d="M2 18a5 5 0 0 1 10 0a5 5 0 0 1 10 0"/>',sineLine:'<path d="M2 12c3-8 6-8 9 0s6 8 9 0"/>',
+  dateRange:'<path d="M5 3v18M19 3v18M5 12h14M15 9l4 3-4 3M9 9l-4 3 4 3"/>',priceRange:'<path d="M3 5h18M3 19h18M12 5v14M9 9l3-4 3 4M9 15l3 4 3-4"/>',
+  anchoredVWAP:'<path d="M3 18c4-1 5-8 9-8s5 4 9 3"/><circle cx="3" cy="18" r="2"/>',
+  ellipse:'<ellipse cx="12" cy="12" rx="10" ry="6"/>',curve:'<path d="M3 19C5 5 19 5 21 19"/>',polyLine:'<path d="m3 18 5-9 5 5 4-9 4 5"/>'+P(3,18)+P(21,10),
+  eagHighlighter:'<path d="m14 4 6 6-9 9H5v-6z" /><path d="M4 22h16" stroke-width="3" opacity=".5"/>',
+  priceLabel:'<path d="M4 20 9 15"/><rect x="9" y="6" width="12" height="8" rx="2"/>'+P(4,20),
+  arrowMarkUp:'<path d="M12 4 5 12h4v8h6v-8h4z"/>',arrowMarkDown:'<path d="M12 20 5 12h4V4h6v8h4z"/>',
+  flagMark:'<path d="M5 22V3M5 4h12l-3 4 3 4H5"/>',eagEmoji:'<circle cx="12" cy="12" r="9"/><path d="M8.5 14.5a4 4 0 0 0 7 0M9 9.5h.01M15 9.5h.01"/>',
   segment:'<path d="M5 19 19 5"/>'+P(5,19)+P(19,5),
   rayLine:'<path d="M5 19 22 2"/>'+P(5,19)+P(13,11),
   straightLine:'<path d="M1 23 23 1"/>'+P(8,16)+P(16,8),
@@ -410,7 +529,7 @@ window.EAGWidget=function(o){
   root.innerHTML=`<div class="wbar"><button class="wsym" title="Cambiar mercado"><b></b>${svg("caret",12)}</button><button class="wtf" title="Todas las temporalidades"><b></b>${svg("caret",11)}</button><span class="wfav"></span><span class="wsp"></span>
       <button class="wb wmtf" data-a="mtf" title="Multitemporalidad de este gráfico" hidden>${svg("mtf",17)}<span>Multi-TF</span></button><button class="wb" data-a="ind" title="Indicadores">${svg("fx")}<span>Indicadores</span></button><button class="wb" data-a="cfg" title="Ajustes del gráfico">${svg("gear")}</button><button class="wb" data-a="shot" title="Captura (descargar imagen)">${svg("cam")}</button></div>
     <div class="wbody"><div class="dbar"></div><div class="wchart"><div class="wwm"><div class="wm-s"></div><div class="wm-b">EL ARTE GRÁFICO</div></div>
-      <button class="wnavt" title="Mostrar u ocultar los botones de navegación">${svg("eye",15)}</button>${o.onTracker?`<button class="wtrk" title="Marcador de operaciones (ganadas, perdidas y total en US$)">${svg("score",15)}<span>Marcador</span></button>`:""}<div class="wnav"><button data-n="left" title="Mover a la izquierda">${svg("chevl",16)}</button><button data-n="right" title="Mover a la derecha">${svg("chevr",16)}</button><i></i><button data-n="reset" title="Volver al precio actual (zoom normal)">${svg("reset",16)}</button><button data-n="reload" title="Recargar el gráfico (si se traba)">${svg("reload",16)}</button></div></div></div>
+${o.onTracker?`<button class="wtrk" title="Marcador de operaciones (ganadas, perdidas y total en US$)">${svg("score",15)}<span>Marcador</span></button>`:""}<div class="wnav"><button data-n="left" title="Mover a la izquierda">${svg("chevl",16)}</button><button data-n="right" title="Mover a la derecha">${svg("chevr",16)}</button><i></i><button data-n="reset" title="Volver al precio actual (zoom normal)">${svg("reset",16)}</button><button data-n="reload" title="Recargar el gráfico (si se traba)">${svg("reload",16)}</button></div></div></div>
     <div class="wfoot"><span class="wrng">${[["1D",1],["5D",5],["1M",30],["3M",90],["6M",180],["1A",365],["Todo",0]].map(([t,d])=>`<button data-d="${d}" title="${d?"Ver "+t:"Ver todo el historial cargado"}">${t}</button>`).join("")}</span><span class="wsp"></span>
       <span class="wcd" title="Tiempo para el cierre de la vela"></span><span class="wclk" title="Hora de Colombia (UTC-5)"></span><i class="wsep"></i><button class="wax" data-ax="percentage" title="Escala en porcentaje">%</button><button class="wax" data-ax="log" title="Escala logarítmica">log</button><button class="wax" data-ax="normal" title="Escala normal (automática)">auto</button></div>`;
   const $=s=>root.querySelector(s),chartEl=$(".wchart"),dbar=$(".dbar");
@@ -602,10 +721,13 @@ window.EAGWidget=function(o){
 
   /* ---------- navegación rápida (abajo al centro) ---------- */
   let bs0=null;setTimeout(()=>{try{bs0=chart.getBarSpace()}catch(e){}},0);
-  {const wc=root.querySelector(".wnav").parentNode,nt=root.querySelector(".wnavt");let off=false;try{off=localStorage.getItem("eag_nav_off")==="1"}catch(e){}
-    const paint=()=>{wc.classList.toggle("nonav",off);nt.innerHTML=svg(off?"eyeoff":"eye",15);nt.title=off?"Mostrar botones (mover, recargar)":"Ocultar botones (mover, recargar)"};paint();
-    nt.onclick=e=>{e.stopPropagation();off=!off;try{localStorage.setItem("eag_nav_off",off?"1":"0")}catch(x){}document.querySelectorAll(".wchart").forEach(c=>{c.classList.toggle("nonav",off);const t=c.querySelector(".wnavt");if(t){t.innerHTML=svg(off?"eyeoff":"eye",15)}})};
-    nt.addEventListener("pointerdown",e=>e.stopPropagation())}
+  /* botones de navegación (mover, acercar, recargar): aparecen solo al pasar el mouse por la parte de abajo del gráfico, como en TradingView */
+  {const wc=root.querySelector(".wnav").parentNode,nv=root.querySelector(".wnav");let hT=null;
+    const show=on=>{clearTimeout(hT);if(on)wc.classList.add("navshow");else hT=setTimeout(()=>wc.classList.remove("navshow"),450)};
+    wc.addEventListener("mousemove",e=>{const r=wc.getBoundingClientRect(),y=e.clientY-r.top;show(y>r.height-130&&e.clientX-r.left<r.width-60)},{passive:true});
+    wc.addEventListener("mouseleave",()=>show(false));nv.addEventListener("mouseenter",()=>show(true));
+    /* en celular: aparecen unos segundos al tocar la parte de abajo */
+    wc.addEventListener("touchstart",e=>{const r=wc.getBoundingClientRect(),t=e.touches[0];if(t&&t.clientY-r.top>r.height-150){clearTimeout(hT);wc.classList.add("navshow");hT=setTimeout(()=>wc.classList.remove("navshow"),3500)}},{passive:true})}
   {const tb=root.querySelector(".wtrk");if(tb){tb.onclick=e=>{e.stopPropagation();o.onTracker()};tb.addEventListener("pointerdown",e=>e.stopPropagation())}}
   root.querySelectorAll(".wnav button").forEach(b=>b.onclick=e=>{e.stopPropagation();const n=b.dataset.n,w=chartEl.clientWidth;
     try{if(n==="left")chart.scrollByDistance(w*.35,250);else if(n==="right")chart.scrollByDistance(-w*.35,250);
@@ -635,7 +757,7 @@ window.EAGWidget=function(o){
     dbar.querySelector(".dtf").onclick=e=>{e.stopPropagation();o.onTFClick&&o.onTFClick(e.currentTarget)};
     dbar.querySelector('[data-mi="sym"]').onclick=e=>{e.stopPropagation();o.onSymbolClick&&o.onSymbolClick(e.currentTarget)};
     dbar.querySelector('[data-mi="ind"]').onclick=e=>{e.stopPropagation();openInd()};
-    dbar.querySelectorAll(".dt[data-k]").forEach(b=>b.onclick=()=>{if(b.dataset.k==="eagBrush"&&brushOn){stopBrush();return}stopBrush();b.dataset.k==="cross"?cancelDraw():startTool(b.dataset.k)});
+    dbar.querySelectorAll(".dt[data-k]").forEach(b=>b.onclick=()=>{if((b.dataset.k==="eagBrush"||b.dataset.k==="eagHighlighter")&&brushOn){stopBrush();return}stopBrush();b.dataset.k==="cross"?cancelDraw():startTool(b.dataset.k)});
     /* doble clic sobre un grupo: abre la lista completa */
     /* doble clic o doble toque (también en celular) */
     dbar.querySelectorAll(".dg>.dt").forEach(b=>{let lt=0;b.addEventListener("click",e=>{const n=Date.now();if(n-lt<380){e.stopImmediatePropagation();e.preventDefault();lt=0;cancelDraw();const g=TOOLS.find(x=>x.g===b.parentNode.dataset.g);openToolMenu(g,b.parentNode)}else lt=n},true)});
@@ -740,13 +862,14 @@ window.EAGWidget=function(o){
   /* cuánto se movió realmente el mouse o el dedo desde que se presionó */
   chartEl.addEventListener("pointerdown",e=>{ptrDown={x:e.clientX,y:e.clientY,max:0,touch:e.pointerType!=="mouse"}},true);
   chartEl.addEventListener("pointermove",e=>{if(ptrDown&&e.buttons)ptrDown.max=Math.max(ptrDown.max,Math.hypot(e.clientX-ptrDown.x,e.clientY-ptrDown.y))},true);
-  function startBrush(){cancelDraw();if(brushOn)return;brushOn=true;setTimeout(syncPan,0);
+  let brushHl=false;
+  function startBrush(hl){cancelDraw();if(brushOn){if(!!hl===brushHl)return;stopBrush()}brushHl=!!hl;brushOn=true;setTimeout(syncPan,0);
     brushEl=document.createElement("canvas");brushEl.className="wbrush";chartEl.appendChild(brushEl);
     const fit=()=>{const r=chartEl.getBoundingClientRect(),d=devicePixelRatio||1;brushEl.width=r.width*d;brushEl.height=r.height*d;brushEl.style.width=r.width+"px";brushEl.style.height=r.height+"px"};fit();
     const cx=brushEl.getContext("2d");let pts=null;
     const pos=e=>{const r=brushEl.getBoundingClientRect();return{x:e.clientX-r.left,y:e.clientY-r.top}};
     brushEl.onpointerdown=e=>{if(e.button===2){stopBrush();return}e.preventDefault();try{brushEl.setPointerCapture(e.pointerId)}catch(x){}pts=[pos(e)];const d=devicePixelRatio||1;
-      const bs=((o.getToolStyle&&o.getToolStyle("eagBrush"))||{}).ex||{};cx.setTransform(d,0,0,d,0,0);cx.strokeStyle=bs.color||GOLD;cx.lineWidth=bs.size||2;cx.lineCap="round";cx.lineJoin="round";cx.beginPath();cx.moveTo(pts[0].x,pts[0].y)};
+      const bs=((o.getToolStyle&&o.getToolStyle("eagBrush"))||{}).ex||{};cx.setTransform(d,0,0,d,0,0);cx.strokeStyle=brushHl?hexA(bs.color||"#ffeb3b",.4):(bs.color||GOLD);cx.lineWidth=brushHl?14:(bs.size||2);cx.lineCap="round";cx.lineJoin="round";cx.beginPath();cx.moveTo(pts[0].x,pts[0].y)};
     brushEl.onpointermove=e=>{if(!pts)return;const p=pos(e),l=pts[pts.length-1];if(Math.hypot(p.x-l.x,p.y-l.y)<2.5)return;pts.push(p);cx.lineTo(p.x,p.y);cx.stroke()};
     brushEl.onpointerup=()=>{if(!pts)return;const P=pts;pts=null;cx.clearRect(0,0,brushEl.width,brushEl.height);if(P.length<2)return;
       let step=Math.ceil(P.length/400);const sel=P.filter((p,i)=>i%step===0||i===P.length-1);
@@ -758,10 +881,10 @@ window.EAGWidget=function(o){
       if(!(bs>0)||!isFinite(xc))return;
       const rel=sel.map((p,i)=>[+((p.x-xc)/bs).toFixed(3),+((conv[i]&&isFinite(conv[i].value)?conv[i].value:v0)-v0).toPrecision(8)]);
       const cl=conv[conv.length-1],points=[{timestamp:ts0,value:v0},{timestamp:tsOf(cl)||ts0,value:isFinite(cl.value)?cl.value:v0}];
-      const bs2=((o.getToolStyle&&o.getToolStyle("eagBrush"))||{}).ex||{};const id=makeOverlay({name:"eagBrush",points,extendData:{color:bs2.color||GOLD,size:bs2.size||2,rel}},false);if(id){const v=ovs.get(id);v.done=true;v.points=points;persist()}};
+      const bs2=((o.getToolStyle&&o.getToolStyle("eagBrush"))||{}).ex||{};const id=makeOverlay({name:"eagBrush",points,extendData:brushHl?{color:bs2.hlColor||"#ffeb3b",size:14,hl:true,rel}:{color:bs2.color||GOLD,size:bs2.size||2,rel}},false);if(id){const v=ovs.get(id);v.done=true;v.points=points;persist()}};
     brushEl.oncontextmenu=e=>{e.preventDefault();stopBrush()};
     dbar.querySelector("[data-b]")&&dbar.querySelector("[data-b]").classList.add("act");o.onToast&&o.onToast("✏️ Pincel activo: dibuja o escribe sobre el gráfico. Esc o clic derecho para salir.")}
-  function stopBrush(){if(!brushOn)return;brushOn=false;setTimeout(syncPan,0);if(brushEl){brushEl.remove();brushEl=null}const b=dbar.querySelector('.dt[data-k="eagBrush"]');b&&b.classList.remove("act")}
+  function stopBrush(){if(!brushOn)return;brushOn=false;setTimeout(syncPan,0);if(brushEl){brushEl.remove();brushEl=null}dbar.querySelectorAll('.dt[data-k="eagBrush"],.dt[data-k="eagHighlighter"]').forEach(b=>b.classList.remove("act"))}
   /* celular: mientras dibujas o tienes un dibujo seleccionado, el gráfico no se mueve (así se coloca mejor con el dedo).
      PC (mouse): como en los charts de Deriv, un dibujo seleccionado NO bloquea el gráfico: se puede arrastrar y hacer zoom
      con la rueda; el dibujo se mueve solo si lo agarras a él. Mientras dibujas, la rueda sigue haciendo zoom. */
@@ -782,9 +905,9 @@ window.EAGWidget=function(o){
     try{ov.onDrawEnd&&ov.onDrawEnd({overlay:ov})}catch(e){}drawingId=null;hideFin();syncPan();return true}
   function showFin(){hideFin();finBtn=document.createElement("button");finBtn.className="wfin";finBtn.textContent="✓ Terminar";finBtn.onclick=e=>{e.stopPropagation();finishFree()};chartEl.appendChild(finBtn)}
   function hideFin(){if(finBtn){finBtn.remove();finBtn=null}}
-  function startTool(name){hideFin();if(!toolOK(name)){cancelDraw();o.onLocked&&o.onLocked("tool",TNAME[name]||name);return}if(name==="eagBrush"){startBrush();const bb=dbar.querySelector('.dt[data-k="eagBrush"]');bb&&bb.classList.add("act");return}cancelDraw();
+  function startTool(name){hideFin();if(!toolOK(name)){cancelDraw();o.onLocked&&o.onLocked("tool",TNAME[name]||name);return}if(name==="eagHighlighter"){startBrush(true);const bb=dbar.querySelector('.dt[data-k="eagHighlighter"]');bb&&bb.classList.add("act");return}if(name==="eagBrush"){startBrush();const bb=dbar.querySelector('.dt[data-k="eagBrush"]');bb&&bb.classList.add("act");return}cancelDraw();
     const ts=(o.getToolStyle&&o.getToolStyle(name))||{};
-    const ex=Object.assign(name==="eagText"?{text:"Texto"}:name==="eagNote"?{text:"Nota"}:{},ts.ex||{});
+    const ex=Object.assign(name==="eagText"?{text:"Texto"}:name==="eagNote"?{text:"Nota"}:name==="eagEmoji"?{text:"🚀",size:28}:{},ts.ex||{});
     const id=makeOverlay({name,extendData:Object.keys(ex).length?ex:undefined,styles:ts.styles||undefined},true);if(!id)return;drawingId=id;syncPan();
     if(FREE(name)){showFin();o.onToast&&o.onToast("Toca cada punto. Para terminar: doble clic, clic derecho o «✓ Terminar»")}
     dbar.querySelectorAll(".dt[data-k]").forEach(b=>b.classList.toggle("act",b.dataset.k===name))}
@@ -799,7 +922,8 @@ window.EAGWidget=function(o){
       onDrawEnd:e=>{drawingId=null;hideFin();dbar.querySelectorAll(".dt").forEach(b=>b.classList.remove("act"));setTimeout(syncPan,0);
         if((e.overlay.name==="eagLong"||e.overlay.name==="eagShort")&&e.overlay.points.length<3)autoPos(e.overlay);
         if(BOX.test(e.overlay.name)&&e.overlay.points.length<8&&e.overlay.points.length>=2){const ps=e.overlay.points;chart.overrideOverlay({id:e.overlay.id,points:boxPts({timestamp:tsOf(ps[0]),dataIndex:ps[0].dataIndex,value:ps[0].value},{timestamp:tsOf(ps[1]),dataIndex:ps[1].dataIndex,value:ps[1].value})})}
-        capture(chart.getOverlayById(e.overlay.id)||e.overlay);if(e.overlay.name==="eagText"||e.overlay.name==="eagNote")setTimeout(()=>editText(e.overlay.id),30);return false},
+        capture(chart.getOverlayById(e.overlay.id)||e.overlay);if(e.overlay.name==="eagText"||e.overlay.name==="eagNote")setTimeout(()=>editText(e.overlay.id),30);
+        if(e.overlay.name==="eagEmoji")setTimeout(()=>{const pt=chart.convertToPixel(e.overlay.points[0],{paneId:"candle_pane"})||{x:60,y:60};panelPos=null;openCtx(e.overlay.id,{x:pt.x+20,y:pt.y-20},true,"texto")},30);return false},
       onPressedMoveStart:e=>{movingOv=true;chartEl.classList.add("ovdrag");try{movSnap={id:e.overlay.id,points:JSON.parse(JSON.stringify(e.overlay.points||[]))}}catch(x){movSnap=null}
         boxDrag=BOX.test(e.overlay.name)?boxHit(e):null;return false},
       onPressedMoving:e=>boxDragMove(e),
@@ -933,7 +1057,7 @@ window.EAGWidget=function(o){
     sbar.innerHTML=`<span class="sn">${tsvg(v.name,16)}${esc(TNAME[v.name]||v.name)}</span><label class="cc" title="Color"><i style="background:${c.color}"></i><input type="color" value="${/^#/.test(c.color)?c.color.slice(0,7):GOLD}"></label>
       ${/^eag(Position|Long|Short)$/.test(v.name)?"":`<select title="Grosor">${[1,2,3,4].map(n=>`<option value="${n}" ${+c.size===n?"selected":""}>${n}px</option>`).join("")}</select>
       <select title="Tipo de línea"><option value="solid" ${c.dash==="solid"?"selected":""}>━ Sólida</option><option value="dash" ${c.dash==="dash"?"selected":""}>╍ Guiones</option><option value="dot" ${c.dash==="dot"?"selected":""}>┈ Puntos</option></select>`}
-      ${v.name==="eagText"||v.name==="eagNote"?`<button data-a="txt" title="Editar texto">Aa</button>`:!LBLX.test(v.name)?`<button data-a="ptx" title="Texto en este dibujo">Aa</button>`:""}<button data-a="pvs" class="${v.tfv&&v.tfv.length?"on":""}" title="En qué temporalidades se ve">${svg("eye",16)}</button>
+      ${v.name==="eagText"||v.name==="eagNote"?`<button data-a="txt" title="Editar texto">Aa</button>`:v.name==="eagEmoji"?`<button data-a="ptx" title="Cambiar emoji">🙂</button>`:!LBLX.test(v.name)?`<button data-a="ptx" title="Texto en este dibujo">Aa</button>`:""}<button data-a="pvs" class="${v.tfv&&v.tfv.length?"on":""}" title="En qué temporalidades se ve">${svg("eye",16)}</button>
       ${alertable(v)?`<button data-a="alert" title="Crear alerta en este nivel">🔔</button>`:""}<button data-a="lock" title="${v.lock?"Desbloquear":"Bloquear"}">${svg(v.lock?"lock":"unlock",16)}</button><button data-a="dup" title="Duplicar">${svg("copy",16)}</button><button data-a="del" title="Eliminar (Supr)">${svg("trash",16)}</button><button data-a="cfg" title="Configurar este dibujo">${svg("gear",16)}</button>`;
     sbar.hidden=false;
     sbar.querySelector("input[type=color]").oninput=e=>{sbar.querySelector(".cc i").style.background=e.target.value};
@@ -947,7 +1071,7 @@ window.EAGWidget=function(o){
   /* menú de clic derecho sobre un dibujo */
   let panelPos=null;
   let panelTab="estilo";
-  const LBLX=/^(eagText|eagNote|eagMeasure|eagLong|eagShort|eagPosition|eagBrush)$/;
+  const LBLX=/^(eagText|eagNote|eagMeasure|eagLong|eagShort|eagPosition|eagBrush|eagEmoji|priceLabel)$/;
   const lblOf=v=>{const ex=v.extendData||{};const lb=Object.assign({t:"",c:null,s:13,b:false,i:false,h:BOX.test(v.name)?"left":"center",v:"top"},ex.lbl||{});if(!lb.hx&&!BOX.test(v.name))lb.h="center";if(!ex.lbl&&ex.text&&BOX.test(v.name)){lb.t=ex.text;lb.v="middle"}return lb};
   function setLbl(id,ch,quiet){const v=ovs.get(id);if(!v)return;const lb=Object.assign(lblOf(v),ch);const ex=Object.assign({},v.extendData||{},{lbl:lb});if(BOX.test(v.name)&&ex.text)delete ex.text;
     v.extendData=ex;try{chart.overrideOverlay({id,extendData:ex})}catch(e){}if(!quiet)persist()}
@@ -964,7 +1088,11 @@ window.EAGWidget=function(o){
       <div class="ml">Línea</div><div class="mrow">${[["solid","Sólida"],["dash","Guiones"],["dot","Puntos"]].map(([k,t])=>`<button class="ls${c.dash===k?" on":""}" data-d="${k}" title="${t}"><i class="${k}"></i></button>`).join("")}</div>`}
       ${isFill(v.name)?`<div class="ml">Relleno</div><div class="mrow">${[0,.08,.16,.3,.5].map(a=>`<button class="fa" data-f="${a}" title="${Math.round(a*100)}%"><i style="background:${hexA(c.color,a||.0001)};${a?"":"border:1px dashed var(--dim)"}"></i></button>`).join("")}</div>`:""}`;
     const lb=lblOf(v);
-    const textHTML=isOldTxt?`<div class="ml">Texto</div><div class="mrow"><input class="ptxt" data-ot maxlength="80" value="${esc((v.extendData||{}).text||"")}" placeholder="Escribe aquí"></div>`
+    const EMO=["🚀","🔥","💰","💎","✅","❌","⚠️","🎯","📈","📉","👀","⭐","🟢","🔴","⏰","🐂","🐻","💥"];
+    const textHTML=v.name==="eagEmoji"?`<div class="ml">Elige un emoji</div><div class="mrow emo">${EMO.map(k=>`<button class="tbn emj${(v.extendData||{}).text===k?" on":""}" data-emo="${k}">${k}</button>`).join("")}</div>
+      <div class="ml">O escribe el tuyo</div><div class="mrow"><input class="ptxt" data-ot maxlength="8" value="${esc((v.extendData||{}).text||"")}"></div>
+      <div class="ml">Tamaño</div><div class="mrow">${[20,28,36,48,64].map(n=>`<button class="tbn${+((v.extendData||{}).size||28)===n?" on":""}" data-esz="${n}">${n}</button>`).join("")}</div>`
+      :isOldTxt?`<div class="ml">Texto</div><div class="mrow"><input class="ptxt" data-ot maxlength="80" value="${esc((v.extendData||{}).text||"")}" placeholder="Escribe aquí"></div>`
       :canLbl?`<div class="mrow"><input class="ptxt" data-lt maxlength="120" value="${esc(lb.t)}" placeholder="Escribe un texto para este dibujo"></div>
       <div class="ml">Color del texto</div><div class="mrow"><button class="sw${!lb.c?" on":""} auto" data-lc="" title="Igual que el dibujo">A</button>${COLORS.slice(0,10).map(k=>`<button class="sw${lb.c===k?" on":""}" data-lc="${k}" style="background:${k}"></button>`).join("")}</div>
       <div class="ml">Tamaño y estilo</div><div class="mrow"><select class="psel" data-ls>${[10,11,12,13,14,16,18,20,24,28].map(n=>`<option value="${n}"${+lb.s===n?" selected":""}>${n}</option>`).join("")}</select>
@@ -1012,6 +1140,8 @@ window.EAGWidget=function(o){
     const lbI=menu.querySelector("[data-li]");lbI&&(lbI.onclick=()=>{setLbl(id,{i:!lblOf(v).i});again()});
     menu.querySelectorAll("[data-lh]").forEach(b=>b.onclick=()=>{setLbl(id,{h:b.dataset.lh,hx:true});again()});
     menu.querySelectorAll("[data-lv]").forEach(b=>b.onclick=()=>{setLbl(id,{v:b.dataset.lv});again()});
+    menu.querySelectorAll("[data-emo]").forEach(b=>b.onclick=()=>{v.extendData=Object.assign({},v.extendData||{},{text:b.dataset.emo});chart.overrideOverlay({id,extendData:v.extendData});persist();again()});
+    menu.querySelectorAll("[data-esz]").forEach(b=>b.onclick=()=>{v.extendData=Object.assign({},v.extendData||{},{size:+b.dataset.esz});chart.overrideOverlay({id,extendData:v.extendData});persist();again()});
     /* visibilidad */
     const visDone=ok=>{if(ok)again();else{closeMenu();hideStyleBar();selId=null;o.onToast&&o.onToast(`Listo: este dibujo ya no se ve en ${tf} (sigue guardado; aparece en las temporalidades que marcaste)`)}};
     menu.querySelectorAll("[data-tf]").forEach(b=>b.onclick=()=>{const t=b.dataset.tf,cur=new Set(v.tfv&&v.tfv.length?v.tfv:STDTF.map(x=>x[0]));if(cur.has(t))cur.delete(t);else cur.add(t);
@@ -1157,7 +1287,7 @@ window.EAGWidget=function(o){
     chartEl.addEventListener("pointerup",()=>clearTimeout(lp),true);chartEl.addEventListener("pointercancel",()=>{clearTimeout(lp);tdn=null},true);
     chartEl.addEventListener("pointerup",e=>{if(e.pointerType==="mouse"||!tdn)return;const d=tdn;tdn=null;
       if(Date.now()-d.t>350||Math.hypot(e.clientX-d.x,e.clientY-d.y)>10||drawingId||brushOn)return;
-      if(e.target.closest(".wnav,.wnavt,.wstyle,.wcdl,.wmenu"))return;
+      if(e.target.closest(".wnav,.wstyle,.wcdl,.wmenu"))return;
       const r=chartEl.getBoundingClientRect(),x=e.clientX-r.left,y=e.clientY-r.top;
       setTimeout(()=>{let id=selId;const near=nearOv(x,y,24,true);
         if(!near&&id&&id===manual&&ovDist(id,x,y)>24){selId=null;manual=null;hideStyleBar();syncPan();lastTap=null;return}

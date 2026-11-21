@@ -162,7 +162,7 @@ function start(){
   const AFF_NAMES={tools:"herramientas avanzadas de dibujo",ind:"indicadores sin límite",alerts:"alertas al celular",az:"zonas automáticas de soporte y resistencia",replay:"Replay del mercado",prac:"Práctica guiada"};
   const affOffer=()=>{if(S0.chartAffOn===false)return"";const k=(Array.isArray(S0.chartAff)?S0.chartAff:AFF_DEF).filter(x=>AFF_NAMES[x]);if(!k.length)return"";const L=k.map(x=>AFF_NAMES[x]);return L.length>1?L.slice(0,-1).join(", ")+" y "+L[L.length-1]:L[0]};
   const FREE_IND=S0.chartFreeInd!=null&&S0.chartFreeInd!==""?Math.max(0,+S0.chartFreeInd||0):2;
-  const FREE_TOOLS=new Set(["segment","rayLine","straightLine","horizontalStraightLine","horizontalRayLine","horizontalSegment","verticalStraightLine","priceLine","eagZone","eagRect","eagText","eagNote","eagMeasure"]);
+  const FREE_TOOLS=new Set(["segment","rayLine","straightLine","horizontalStraightLine","horizontalRayLine","horizontalSegment","verticalStraightLine","priceLine","eagZone","eagRect","eagText","eagNote","eagMeasure","crossLine","dateRange","priceRange","arrowMarkUp","arrowMarkDown","flagMark","eagEmoji","priceLabel","eagHighlighter"]);
   const PLAN_URL=MAIN+"#premium";
   function upsell(what){if(!FREE)return;const off=window.__aff?"":affOffer();let m=document.querySelector(".upsell");if(m)m.remove();m=document.createElement("div");m.className="upsell";
     m.innerHTML=`<div class="ups-card" role="dialog" aria-modal="true"><div class="ups-ic">🔒</div><h3>${esc(what)}</h3><p class="ups-sub">Disponible en EAG Charts completo: planes Plata, Oro y Diamond</p>
