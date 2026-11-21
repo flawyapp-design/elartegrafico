@@ -212,9 +212,6 @@ function registerAll(){
       const m={x:(c[1].x+c[2].x)/2,y:(c[1].y+c[2].y)/2},dx=m.x-c[0].x,dy=m.y-c[0].y,W=bounding.width,H=bounding.height;
       const far=p=>ext(p,{x:p.x+dx,y:p.y+dy},W,H);
       return[LN(c[0],far(c[0])),LN(c[1],far(c[1])),LN(c[2],far(c[2])),LN(c[1],c[2],{style:"dashed",dashedValue:[3,3]})]}});
-    /* Zonas de tiempo de Fibonacci */
-    R("fibTimeZone",{totalStep:3,createPointFigures:({coordinates,bounding})=>{if(coordinates.length<2)return[];const x0=coordinates[0].x,d=coordinates[1].x-x0;if(Math.abs(d)<2)return[];const F=[];
-      [0,1,2,3,5,8,13,21,34,55,89,144].forEach(n=>{const x=x0+d*n;if(x<-5||x>bounding.width+5)return;F.push(LN({x,y:0},{x,y:bounding.height},n>1?{style:"dashed",dashedValue:[4,3]}:undefined),TX(x+3,12,String(n),{al:"left",st:{color:"#9da1aa",size:10}}))});return F}});
     /* Abanico de Gann */
     R("gannFan",{totalStep:3,createPointFigures:({coordinates,bounding})=>{if(coordinates.length<2)return[];const[a,b]=coordinates,dx=b.x-a.x,dy=b.y-a.y;if(!dx)return[LN(a,b)];const F=[];
       [[8,1,"1x8"],[4,1,"1x4"],[3,1,"1x3"],[2,1,"1x2"],[1,1,"1x1"],[1,2,"2x1"],[1,3,"3x1"],[1,4,"4x1"],[1,8,"8x1"]].forEach(([kx,ky,t])=>{const e=ext(a,{x:a.x+dx*kx,y:a.y+dy*ky},bounding.width,bounding.height);
@@ -266,6 +263,57 @@ function registerAll(){
       return[LN({x:c.x,y:c.y},{x:c.x+12,y:c.y-16},{color:col,size:1}),{type:"circle",attrs:{x:c.x,y:c.y,r:2.5},styles:{style:"fill",color:col}},BOXT(c.x+10,c.y-22,(+p.value).toFixed(pp),col,{al:"left",st:{color:"#111",size:11}})]}});
     R("eagEmoji",{totalStep:2,needDefaultPointFigure:false,createPointFigures:({overlay,coordinates})=>{const c=coordinates[0];if(!c)return[];const ex=overlay.extendData||{};
       return[{type:"text",attrs:{x:c.x,y:c.y,text:ex.text||"🚀",align:"center",baseline:"middle"},styles:{color:"#fff",size:ex.size||28,backgroundColor:"transparent",paddingLeft:2,paddingRight:2,paddingTop:2,paddingBottom:2}}]}});
+  }
+  /* ===================== Fibonacci profesional: niveles editables, colores por nivel, sin salir de lado a lado ===================== */
+  {
+    const FC={0:"#787b86",.236:"#f23645",.382:"#ff9800",.5:"#4caf50",.618:"#089981",.786:"#00bcd4",1:"#787b86",1.272:"#9c27b0",1.414:"#e91e63",1.618:"#2962ff",2:"#ff9800",2.618:"#f23645",3.618:"#9c27b0",4.236:"#e91e63"};
+    const L=(arr,on)=>arr.map(v=>({v,c:FC[v]||GOLD,on:on?on.includes(v):true}));
+    window.__eagFibDef={
+      fibonacciLine:{levels:L([0,.236,.382,.5,.618,.786,1,1.618,2.618,3.618,4.236],[0,.236,.382,.5,.618,.786,1,1.618]),ext:"none",fill:.08,prices:true,lvl:true,side:"left",trend:true,rev:false},
+      fibonacciExtension:{levels:L([0,.236,.382,.5,.618,.786,1,1.272,1.414,1.618,2,2.618,3.618,4.236],[0,.382,.618,1,1.272,1.618,2,2.618]),ext:"none",fill:.08,prices:true,lvl:true,side:"left",trend:true,rev:false},
+      fibonacciSpeedResistanceFan:{levels:L([0,.25,.382,.5,.618,.75,1]),ext:"right",fill:.05,prices:false,lvl:true,side:"right",trend:true,rev:false},
+      fibonacciCircle:{levels:L([.236,.382,.5,.618,.786,1,1.618,2.618],[.382,.5,.618,1,1.618]),ext:"none",fill:.04,prices:false,lvl:true,side:"right",trend:true,rev:false},
+      fibTimeZone:{levels:L([0,1,2,3,5,8,13,21,34,55,89,144]).map(l=>Object.assign(l,{c:l.v<2?"#787b86":"#2962ff"})),ext:"none",fill:0,prices:false,lvl:true,side:"top",trend:false,rev:false}};
+    const cfgOf=ov=>{const d=window.__eagFibDef[ov.name]||{},f=(ov.extendData||{}).fib||{};const o2=Object.assign({},d,f);o2.levels=(f.levels&&f.levels.length?f.levels:d.levels||[]).filter(l=>l&&l.on!==false&&isFinite(+l.v)).map(l=>({v:+l.v,c:l.c||GOLD}));return o2};
+    const lsz=ov=>(((ov.styles||{}).line||{}).size)||1;
+    const fmtL=v=>(+v).toFixed(3).replace(/\.?0+$/,"")||"0";
+    const T=(x,y,t,c,al,bl,o2)=>({type:"text",ignoreEvent:true,attrs:{x,y,text:t,align:al,baseline:bl},styles:Object.assign({color:c,size:11,backgroundColor:"transparent",paddingLeft:2,paddingRight:2,paddingTop:1,paddingBottom:1},o2||{})});
+    const lvTxt=(cf,l,price,pp)=>[cf.lvl?fmtL(l.v):"",cf.prices&&price!=null?`(${(+price).toFixed(pp)})`:""].filter(Boolean).join(" ");
+    /* retroceso y extensión: líneas solo entre los puntos (o extendidas si lo eliges), relleno por bandas y etiqueta por nivel */
+    const band=(ov,cs,bd,yAxis,pp,base,dif,xa,xb,extra)=>{const cf=cfgOf(ov);let x0=Math.min(xa,xb),x1=Math.max(xa,xb);if(x1-x0<30)x1=x0+30;
+      if(cf.ext==="right"||cf.ext==="both")x1=bd.width;if(cf.ext==="left"||cf.ext==="both")x0=0;
+      const lv=cf.levels.slice().sort((a,b)=>a.v-b.v).map(l=>{const val=base+dif*(cf.rev?1-l.v:l.v);return Object.assign({},l,{val,y:yAxis.convertToPixel(val)})}),F=[];
+      if(cf.fill>0)for(let i=0;i<lv.length-1;i++){const a=lv[i],b=lv[i+1];F.push({type:"rect",ignoreEvent:true,attrs:{x:x0,y:Math.min(a.y,b.y),width:x1-x0,height:Math.abs(b.y-a.y)},styles:{style:"fill",color:hexA(b.c,cf.fill)}})}
+      const sz=lsz(ov);lv.forEach(l=>{F.push({type:"line",attrs:{coordinates:[{x:x0,y:l.y},{x:x1,y:l.y}]},styles:{color:l.c,size:sz,style:"solid"}});
+        const t=lvTxt(cf,l,l.val,pp);if(t)F.push(cf.side==="right"?T(x1+4,l.y,t,l.c,"left","middle"):T(x0-4,l.y,t,l.c,"right","middle"))});
+      if(extra)F.push(...extra(cf));return F};
+    KC.registerOverlay({name:"fibonacciLine",totalStep:3,needDefaultPointFigure:true,needDefaultXAxisFigure:true,needDefaultYAxisFigure:true,
+      createPointFigures:({overlay,coordinates,bounding,yAxis,precision})=>{const c=coordinates,P=overlay.points;if(c.length<2||!yAxis||!P[1]||!isFinite(P[0].value)||!isFinite(P[1].value))return[];
+        const pp=(precision&&precision.price)||3;
+        return band(overlay,c,bounding,yAxis,pp,P[1].value,P[0].value-P[1].value,c[0].x,c[1].x,cf=>cf.trend?[{type:"line",ignoreEvent:true,attrs:{coordinates:[c[0],c[1]]},styles:{color:"#787b86",size:1,style:"dashed",dashedValue:[4,4]}}]:[])}});
+    KC.registerOverlay({name:"fibonacciExtension",totalStep:4,needDefaultPointFigure:true,needDefaultXAxisFigure:true,needDefaultYAxisFigure:true,
+      createPointFigures:({overlay,coordinates,bounding,yAxis,precision})=>{const c=coordinates,P=overlay.points;if(c.length<2)return[];
+        const tl={type:"line",ignoreEvent:true,attrs:{coordinates:c.slice(0,3)},styles:{color:"#787b86",size:1,style:"dashed",dashedValue:[4,4]}};if(c.length<3||!yAxis)return[tl];
+        const pp=(precision&&precision.price)||3,w=Math.max(60,Math.abs(c[1].x-c[0].x));
+        return band(overlay,c,bounding,yAxis,pp,P[2].value,P[1].value-P[0].value,c[2].x,c[2].x+(c[2].x>=c[1].x?w:-w),cf=>cf.trend?[tl]:[])}});
+    /* abanico de Fibonacci: rayos desde el primer punto por cada nivel */
+    KC.registerOverlay({name:"fibonacciSpeedResistanceFan",totalStep:3,needDefaultPointFigure:true,needDefaultXAxisFigure:false,needDefaultYAxisFigure:false,
+      createPointFigures:({overlay,coordinates,bounding})=>{const c=coordinates;if(c.length<2)return[];const[a,b]=c,cf=cfgOf(overlay),F=[],sz=lsz(overlay),W=bounding.width,H=bounding.height;
+        const ext=(p,q)=>{const dx=q.x-p.x,dy=q.y-p.y;if(!dx&&!dy)return q;let t=1e6;if(dx>0)t=Math.min(t,(W-p.x)/dx);if(dx<0)t=Math.min(t,-p.x/dx);if(dy>0)t=Math.min(t,(H-p.y)/dy);if(dy<0)t=Math.min(t,-p.y/dy);return{x:p.x+dx*t,y:p.y+dy*t}};
+        const lv=cf.levels.slice().sort((x,y)=>x.v-y.v);const pts=[];
+        lv.forEach(l=>{const q={x:b.x,y:a.y+(b.y-a.y)*l.v},e=cf.ext==="none"?q:ext(a,q);pts.push(e);F.push({type:"line",attrs:{coordinates:[a,e]},styles:{color:l.c,size:sz}});if(cf.lvl)F.push(T(e.x+(e.x>=a.x?4:-4),e.y,fmtL(l.v),l.c,e.x>=a.x?"left":"right","middle"))});
+        if(cf.fill>0)for(let i=0;i<pts.length-1;i++)F.unshift({type:"polygon",ignoreEvent:true,attrs:{coordinates:[a,pts[i],pts[i+1]]},styles:{style:"fill",color:hexA(lv[i+1].c,cf.fill)}});
+        if(cf.trend)F.push({type:"line",ignoreEvent:true,attrs:{coordinates:[{x:a.x,y:b.y},{x:b.x,y:b.y},{x:b.x,y:a.y}]},styles:{color:"#787b86",size:1,style:"dashed",dashedValue:[3,3]}});return F}});
+    /* círculos de Fibonacci: centro en el primer punto */
+    KC.registerOverlay({name:"fibonacciCircle",totalStep:3,needDefaultPointFigure:true,needDefaultXAxisFigure:false,needDefaultYAxisFigure:false,
+      createPointFigures:({overlay,coordinates})=>{const c=coordinates;if(c.length<2)return[];const[a,b]=c,R=Math.hypot(b.x-a.x,b.y-a.y),cf=cfgOf(overlay),F=[],sz=lsz(overlay);
+        cf.levels.slice().sort((x,y)=>y.v-x.v).forEach(l=>{const r=R*l.v;if(r<1)return;F.push({type:"circle",attrs:{x:a.x,y:a.y,r},styles:{style:cf.fill>0?"stroke_fill":"stroke",color:hexA(l.c,cf.fill||.0001),borderColor:l.c,borderSize:sz}});
+          if(cf.lvl)F.push(T(a.x+r+3,a.y,fmtL(l.v),l.c,"left","bottom"))});
+        if(cf.trend)F.push({type:"line",ignoreEvent:true,attrs:{coordinates:[a,b]},styles:{color:"#787b86",size:1,style:"dashed",dashedValue:[4,4]}});return F}});
+    /* zonas de tiempo de Fibonacci (con niveles editables) */
+    KC.registerOverlay({name:"fibTimeZone",totalStep:3,needDefaultPointFigure:true,needDefaultXAxisFigure:false,needDefaultYAxisFigure:false,
+      createPointFigures:({overlay,coordinates,bounding})=>{if(coordinates.length<2)return[];const x0=coordinates[0].x,d=coordinates[1].x-x0;if(Math.abs(d)<2)return[];const cf=cfgOf(overlay),F=[],sz=lsz(overlay);
+        cf.levels.forEach(l=>{const x=x0+d*l.v;if(x<-5||x>bounding.width+5)return;F.push({type:"line",attrs:{coordinates:[{x,y:0},{x,y:bounding.height}]},styles:{color:l.c,size:sz}});if(cf.lvl)F.push(T(x+3,12,fmtL(l.v),l.c,"left","middle",{size:10}))});return F}});
   }
   /* Zona: rectángulo que se extiende a la derecha (ideal para zonas de oferta y demanda) */
   /* ===== Cajas con 8 puntos (4 esquinas + 4 a la mitad de cada lado) ===== */
@@ -764,13 +812,14 @@ ${o.onTracker?`<button class="wtrk" title="Marcador de operaciones (ganadas, per
     dbar.querySelectorAll(".dg .more").forEach(b=>b.onclick=e=>{e.stopPropagation();const g=TOOLS.find(x=>x.g===b.parentNode.dataset.g);openToolMenu(g,b.parentNode)});
     /* mantener presionado o deslizar sobre el botón abre la lista; soltar sobre una herramienta la elige */
     dbar.querySelectorAll(".dg>.dt").forEach(b=>{
-      let st=null,tm=null,opened=false;
+      let st=null,tm=null,opened=false,hv=null,hvT=0;
       const open=()=>{if(opened)return;opened=true;clearTimeout(tm);const g=TOOLS.find(x=>x.g===b.parentNode.dataset.g);openToolMenu(g,b.parentNode);b.classList.add("hold")};
       b.addEventListener("pointerdown",e=>{if(e.button!==0)return;st={x:e.clientX,y:e.clientY};opened=false;tm=setTimeout(open,320);try{b.setPointerCapture(e.pointerId)}catch(x){}});
       b.addEventListener("pointermove",e=>{if(!st)return;if(e.pointerType!=="touch"&&Math.hypot(e.clientX-st.x,e.clientY-st.y)>8)open();
-        if(opened&&menu){menu.querySelectorAll("button").forEach(x=>x.classList.remove("hov"));const t=document.elementFromPoint(e.clientX,e.clientY),it=t&&t.closest(".wmenu button");it&&it.classList.add("hov")}});
+        if(opened&&menu){menu.querySelectorAll("button").forEach(x=>x.classList.remove("hov"));const t=document.elementFromPoint(e.clientX,e.clientY),it=t&&t.closest(".wmenu button");it&&it.classList.add("hov");if(it!==hv){hv=it;hvT=Date.now()}}});
       b.addEventListener("pointerup",e=>{clearTimeout(tm);b.classList.remove("hold");if(!st)return;st=null;
-        if(opened){const t=document.elementFromPoint(e.clientX,e.clientY),it=t&&t.closest(".wmenu button");if(it)it.click();b.dataset.skip="1";setTimeout(()=>delete b.dataset.skip,50)}});
+        /* igual en todos los grupos: al soltar, solo elige si te quedaste un momento encima de una herramienta; si no, la lista queda abierta para tocarla */
+        if(opened){const t=document.elementFromPoint(e.clientX,e.clientY),it=t&&t.closest(".wmenu button");if(it&&it===hv&&Date.now()-hvT>=180)it.click();else if(menu)menu.querySelectorAll("button.hov").forEach(x=>x.classList.remove("hov"));hv=null;b.dataset.skip="1";setTimeout(()=>delete b.dataset.skip,50)}});
       b.addEventListener("pointercancel",()=>{clearTimeout(tm);st=null;b.classList.remove("hold")});
       b.addEventListener("click",e=>{if(b.dataset.skip){e.stopImmediatePropagation();e.preventDefault()}},true)});
     dbar.querySelector('[data-x="magnet"]').onclick=()=>{magnet=magnet==="normal"?"weak_magnet":magnet==="weak_magnet"?"strong_magnet":"normal";ovs.forEach((v,id)=>chart.overrideOverlay({id,mode:magnet}));o.onMagnet&&o.onMagnet(magnet);paintDbar()};
@@ -1042,7 +1091,7 @@ ${o.onTracker?`<button class="wtrk" title="Marcador de operaciones (ganadas, per
       v.styles=st;chart.overrideOverlay({id,styles:st})}
     refreshPt(id);persist();if(!sbar.hidden)showStyleBar(id);
     /* recordar el estilo para los próximos dibujos de esta herramienta */
-    if(o.onToolStyle){const ex={};const e2=v.extendData||{};["color","size","up","dn"].forEach(k=>{if(e2[k]!=null)ex[k]=e2[k]});o.onToolStyle(v.name,{styles:v.styles||null,ex})}}
+    if(o.onToolStyle){const ex={};const e2=v.extendData||{};["color","size","up","dn"].forEach(k=>{if(e2[k]!=null)ex[k]=e2[k]});const pv=(o.getToolStyle&&o.getToolStyle(v.name))||{};if(pv.ex&&pv.ex.fib)ex.fib=pv.ex.fib;o.onToolStyle(v.name,{styles:v.styles||null,ex})}}
   const alertable=v=>/^(horizontalStraightLine|horizontalRayLine|horizontalSegment|priceLine|eagZone|eagRect|eagBuyZone|eagSellZone|rect|segment|rayLine|straightLine)$/.test(v.name)&&v.points&&v.points.length;
   function alertFrom(id){if(o.alertsAllowed&&!o.alertsAllowed()){o.onLocked&&o.onLocked("alert","Alertas de precio");return}const v=ovs.get(id);if(!v||!o.onCreateAlert)return;const ps=v.points.map(p=>p.value),pp=sym.pricePrecision||3,r=x=>+(+x).toFixed(pp);
     const zone=/^(eagZone|eagRect|eagBuyZone|eagSellZone|rect)$/.test(v.name)&&ps.length>1;
@@ -1079,6 +1128,11 @@ ${o.onTracker?`<button class="wtrk" title="Marcador de operaciones (ganadas, per
   const ICA={left:'<path d="M4 6h16M4 10h10M4 14h16M4 18h10"/>',center:'<path d="M4 6h16M7 10h10M4 14h16M7 18h10"/>',right:'<path d="M4 6h16M10 10h10M4 14h16M10 18h10"/>',
     top:'<path d="M4 4h16"/><path d="M12 8v12M8 12l4-4 4 4"/>',middle:'<path d="M4 12h16"/><path d="M12 3v5M12 16v5"/>',bottom:'<path d="M4 20h16"/><path d="M12 4v12M8 12l4 4 4-4"/>'};
   const ico=(k,n)=>`<svg width="${n||16}" height="${n||16}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ICA[k]}</svg>`;
+  const FIBK=/^(fibonacciLine|fibonacciExtension|fibonacciSpeedResistanceFan|fibonacciCircle|fibTimeZone)$/;
+  const fibCfg=v=>{const d=(window.__eagFibDef||{})[v.name]||{levels:[]},f=((v.extendData||{}).fib)||{};const c=JSON.parse(JSON.stringify(Object.assign({},d,f)));if(!f.levels||!f.levels.length)c.levels=JSON.parse(JSON.stringify(d.levels));return c};
+  let fibT=null;
+  function setFib(id,cf,quiet){const v=ovs.get(id);if(!v)return;v.extendData=Object.assign({},v.extendData||{},{fib:cf});try{chart.overrideOverlay({id,extendData:v.extendData})}catch(e){}
+    clearTimeout(fibT);if(quiet)fibT=setTimeout(persist,500);else persist()}
   function openCtx(id,e,panel,tab){panel=true;const prev=menu&&menu.classList.contains("panel")?{x:menu.offsetLeft,y:menu.offsetTop}:null;closeMenu();const v=ovs.get(id);if(!v)return;selId=id;showStyleBar(id);const c=curStyle(id);
     if(tab)panelTab=tab;const again=t=>openCtx(id,e,panel,t);
     menu=document.createElement("div");menu.className="wmenu ctx"+(panel?" panel":"");
@@ -1105,14 +1159,25 @@ ${o.onTracker?`<button class="wtrk" title="Marcador de operaciones (ganadas, per
     const visHTML=`<p class="mhint">Marca en qué temporalidades se ve este dibujo. Así puedes marcar cosas distintas en cada temporalidad y cada mercado. Ahora estás en <b>${esc(tf)}</b>.</p>
       <div class="mrow tfq"><button class="tbn wide${all?" on":""}" data-tq="all">Todas</button><button class="tbn wide${qIs("only")?" on":""}" data-tq="only">Solo ${esc(tf)}</button><button class="tbn wide${qIs("up")?" on":""}" data-tq="up">${esc(tf)} y mayores</button><button class="tbn wide${qIs("down")?" on":""}" data-tq="down">${esc(tf)} y menores</button></div>
       <div class="mrow tfc">${STDTF.map(([t])=>`<button class="tfx${sel.has(t)?" on":""}${t===tf?" cur":""}" data-tf="${t}">${t}</button>`).join("")}</div>`;
+    const isFib=FIBK.test(v.name),fc=isFib?fibCfg(v):null;
+    const nivHTML=isFib?`<div class="fibl">${fc.levels.map((l,i)=>`<div class="fibr${l.on===false?" off":""}"><label class="fck"><input type="checkbox" data-fon="${i}"${l.on===false?"":" checked"}></label><input class="fiv" data-fv="${i}" type="number" step="any" value="${l.v}"><label class="fcl" style="background:${l.c}"><input type="color" data-fc="${i}" value="${/^#/.test(l.c)?l.c.slice(0,7):"#e2b55c"}"></label><button class="fix" data-fx="${i}" title="Quitar nivel">×</button></div>`).join("")}</div>
+      <div class="mrow"><button class="tbn wide" data-fa="add">+ Agregar nivel</button><button class="tbn wide" data-fa="one" title="Pone todos los niveles del color del dibujo">Un solo color</button></div>
+      ${v.name==="fibTimeZone"||v.name==="fibonacciCircle"?"":`<div class="ml">Extender líneas</div><div class="mrow">${(v.name==="fibonacciSpeedResistanceFan"?[["none","No"],["right","Sí"]]:[["none","No"],["left","Izquierda"],["right","Derecha"],["both","Ambos"]]).map(([k,t])=>`<button class="tbn wide${fc.ext===k?" on":""}" data-fe="${k}">${t}</button>`).join("")}</div>`}
+      ${v.name==="fibTimeZone"?"":`<div class="ml">Relleno entre niveles</div><div class="mrow">${[0,.05,.08,.15,.25].map(a=>`<button class="tbn${+fc.fill===a?" on":""}" data-ff="${a}">${a?Math.round(a*100)+"%":"No"}</button>`).join("")}</div>`}
+      <div class="ml">Mostrar</div><div class="mrow fopts">
+        <label><input type="checkbox" data-fo="lvl"${fc.lvl?" checked":""}> Niveles</label>
+        ${/^fibonacci(Line|Extension)$/.test(v.name)?`<label><input type="checkbox" data-fo="prices"${fc.prices?" checked":""}> Precios</label><label><input type="checkbox" data-fo="side"${fc.side==="right"?" checked":""}> Etiquetas a la derecha</label>`:""}
+        ${v.name==="fibTimeZone"?"":`<label><input type="checkbox" data-fo="trend"${fc.trend?" checked":""}> Línea de tendencia</label>`}
+        ${v.name==="fibonacciLine"?`<label><input type="checkbox" data-fo="rev"${fc.rev?" checked":""}> Invertir</label>`:""}</div>
+      <div class="msep"></div><div class="mrow"><button class="tbn wide" data-fa="reset">Restablecer</button><button class="tbn wide" data-fa="def" title="Los próximos dibujos de esta herramienta salen con estos niveles y colores">Usar como predeterminado</button></div>`:"";
     const actHTML=`<div class="msep"></div>
       ${alertable(v)?`<button class="mi" data-a="alert">🔔 Crear alerta aquí…</button>`:""}
       <button class="mi" data-a="lock">${v.lock?"Desbloquear":"Bloquear"}</button><button class="mi" data-a="dup">Duplicar</button>
       <button class="mi" data-a="hide">Ocultar este dibujo</button><button class="mi danger" data-a="del">Eliminar</button>`;
-    if(panel){const T=panelTab==="texto"||panelTab==="vis"?panelTab:"estilo";
+    if(panel){const T=panelTab==="texto"||panelTab==="vis"||(panelTab==="niv"&&isFib)?panelTab:(isFib&&tab===undefined&&panelTab==="estilo"&&false?"niv":"estilo");
       menu.innerHTML=`<div class="ph2"><span class="mti">${tsvg(v.name,16)}<b>${esc(TNAME[v.name]||v.name)}</b></span><button class="px" title="Cerrar">×</button></div>
-        <div class="ptabs">${[["estilo","Estilo"],["texto","Texto"],["vis","Visibilidad"]].map(([k,t])=>`<button data-pt="${k}" class="${T===k?"on":""}">${t}${k==="vis"&&!all?" •":""}${k==="texto"&&lb.t&&canLbl?" •":""}</button>`).join("")}</div>
-        <div class="pbody">${T==="estilo"?styleHTML+actHTML:T==="texto"?textHTML:visHTML}</div>`}
+        <div class="ptabs">${(isFib?[["estilo","Estilo"],["niv","Niveles"],["texto","Texto"],["vis","Visibilidad"]]:[["estilo","Estilo"],["texto","Texto"],["vis","Visibilidad"]]).map(([k,t])=>`<button data-pt="${k}" class="${T===k?"on":""}">${t}${k==="vis"&&!all?" •":""}${k==="texto"&&lb.t&&canLbl?" •":""}</button>`).join("")}</div>
+        <div class="pbody">${T==="estilo"?styleHTML+actHTML:T==="niv"?nivHTML:T==="texto"?textHTML:visHTML}</div>`}
     else menu.innerHTML=`<div class="mt mti">${tsvg(v.name,15)}${esc(TNAME[v.name]||v.name)}</div>${styleHTML}<div class="msep"></div>
       ${isOldTxt?`<button class="mi" data-a="txt">Editar texto…</button>`:canLbl?`<button class="mi" data-a="ptexto">Aa  ${lb.t?"Editar texto…":"Agregar texto…"}</button>`:""}
       <button class="mi" data-a="pvis">👁  Visibilidad por temporalidad…${all?"":" <em class=\"mtag\">"+v.tfv.length+"</em>"}</button>${actHTML.replace('<div class="msep"></div>',"")}`;
@@ -1142,6 +1207,20 @@ ${o.onTracker?`<button class="wtrk" title="Marcador de operaciones (ganadas, per
     menu.querySelectorAll("[data-lv]").forEach(b=>b.onclick=()=>{setLbl(id,{v:b.dataset.lv});again()});
     menu.querySelectorAll("[data-emo]").forEach(b=>b.onclick=()=>{v.extendData=Object.assign({},v.extendData||{},{text:b.dataset.emo});chart.overrideOverlay({id,extendData:v.extendData});persist();again()});
     menu.querySelectorAll("[data-esz]").forEach(b=>b.onclick=()=>{v.extendData=Object.assign({},v.extendData||{},{size:+b.dataset.esz});chart.overrideOverlay({id,extendData:v.extendData});persist();again()});
+    /* niveles (Fibonacci) */
+    if(isFib){const cur=()=>fibCfg(ovs.get(id)||v);
+      menu.querySelectorAll("[data-fon]").forEach(i=>i.onchange=()=>{const c=cur();c.levels[+i.dataset.fon].on=i.checked;setFib(id,c);i.closest(".fibr").classList.toggle("off",!i.checked)});
+      menu.querySelectorAll("[data-fv]").forEach(i=>{i.onkeydown=ev=>ev.stopPropagation();i.oninput=()=>{const n=parseFloat(String(i.value).replace(",","."));if(!isFinite(n))return;const c=cur();c.levels[+i.dataset.fv].v=n;setFib(id,c,true)}});
+      menu.querySelectorAll("[data-fc]").forEach(i=>{i.oninput=()=>{i.parentNode.style.background=i.value;const c=cur();c.levels[+i.dataset.fc].c=i.value;setFib(id,c,true)}});
+      menu.querySelectorAll("[data-fx]").forEach(b=>b.onclick=()=>{const c=cur();c.levels.splice(+b.dataset.fx,1);setFib(id,c);again("niv")});
+      menu.querySelectorAll("[data-fe]").forEach(b=>b.onclick=()=>{const c=cur();c.ext=b.dataset.fe;setFib(id,c);again("niv")});
+      menu.querySelectorAll("[data-ff]").forEach(b=>b.onclick=()=>{const c=cur();c.fill=+b.dataset.ff;setFib(id,c);again("niv")});
+      menu.querySelectorAll("[data-fo]").forEach(i=>i.onchange=()=>{const c=cur(),k=i.dataset.fo;if(k==="side")c.side=i.checked?"right":"left";else c[k]=i.checked;setFib(id,c)});
+      menu.querySelectorAll("[data-fa]").forEach(b=>b.onclick=()=>{const a=b.dataset.fa,c=cur();
+        if(a==="add"){const mx=Math.max(0,...c.levels.map(l=>+l.v||0));c.levels.push({v:+(mx+.5).toFixed(3),c:"#2962ff",on:true});setFib(id,c);again("niv");return}
+        if(a==="one"){const col=curStyle(id).color||GOLD;c.levels.forEach(l=>l.c=col);setFib(id,c);again("niv");return}
+        if(a==="reset"){const vv=ovs.get(id);if(vv){const ex=Object.assign({},vv.extendData||{});delete ex.fib;vv.extendData=ex;try{chart.overrideOverlay({id,extendData:ex})}catch(x){}persist()}again("niv");return}
+        if(a==="def"&&o.onToolStyle){const vv=ovs.get(id)||v,prev=(o.getToolStyle&&o.getToolStyle(vv.name))||{};o.onToolStyle(vv.name,{styles:vv.styles||prev.styles||null,ex:Object.assign({},prev.ex||{},{fib:c})});o.onToast&&o.onToast("Listo: tus próximos "+(TNAME[vv.name]||"dibujos")+" salen con estos niveles")}})}
     /* visibilidad */
     const visDone=ok=>{if(ok)again();else{closeMenu();hideStyleBar();selId=null;o.onToast&&o.onToast(`Listo: este dibujo ya no se ve en ${tf} (sigue guardado; aparece en las temporalidades que marcaste)`)}};
     menu.querySelectorAll("[data-tf]").forEach(b=>b.onclick=()=>{const t=b.dataset.tf,cur=new Set(v.tfv&&v.tfv.length?v.tfv:STDTF.map(x=>x[0]));if(cur.has(t))cur.delete(t);else cur.add(t);
