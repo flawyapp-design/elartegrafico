@@ -139,7 +139,8 @@ function registerAll(){
     createYAxisFigures:({overlay,bounding,yAxis})=>{const g=(overlay.extendData||{}).get,r=g&&g();if(!r||!yAxis)return[];
       let y;try{y=yAxis.convertToNicePixel?yAxis.convertToNicePixel(r.v):yAxis.convertToPixel(r.v)}catch(e){return[]}
       if(!isFinite(y))return[];const z=yAxis.isFromZero&&yAxis.isFromZero();
-      return[{type:"text",ignoreEvent:true,attrs:{x:z?0:bounding.width,y,text:r.t,align:z?"left":"right",baseline:"middle"},styles:r.st}]}});
+      const at={x:z?0:bounding.width,y,text:r.t,align:z?"left":"right",baseline:"middle"};if(r.w)at.width=r.w;if(r.draw)r.draw(y,!!z);
+      return[{type:"text",ignoreEvent:true,attrs:at,styles:r.st}]}});
   /* Pincel: trazo libre a mano alzada */
   KC.registerOverlay({name:"eagBrush",totalStep:2,needDefaultPointFigure:false,needDefaultXAxisFigure:false,needDefaultYAxisFigure:false,
     createPointFigures:({overlay,coordinates,barSpace,yAxis})=>{if(coordinates.length<2)return[];const ex=overlay.extendData||{};
@@ -530,7 +531,10 @@ window.EAGWidget=function(o){
       const up=((extra.candle||{}).bar||{}).upColor||"#089981",dn=((extra.candle||{}).bar||{}).downColor||"#f23645",col=last.close>=last.open?up:dn,f=fz();
       if(offMode!==mode)fixOffR();
       if(mode==="regla"){cdc.hidden=true;cdl.textContent=txt;cdl.style.background=col;
-        cdl.style.left=ya.left+"px";cdl.style.width=ya.width+"px";cdl.style.top=(pt.y+f/2+4)+"px";cdl.hidden=false;return}
+        /* pegado justo debajo de la etiqueta del precio, del mismo ancho y color: se ven como una sola pieza */
+        const B=lpBox||{w:Math.ceil(mw("88:88",f)+Math.round(f*.4)*2),h:f+Math.round(f*.3)*2,f};
+        cdl.style.left=(B.z?ya.left:ya.left+ya.width-B.w)+"px";cdl.style.width=B.w+"px";cdl.style.height=B.h+"px";cdl.style.lineHeight=B.h+"px";cdl.style.fontSize=f+"px";
+        const yy=B.y!=null?B.y:pt.y;cdl.style.top=(yy-B.h/2+B.h)+"px";cdl.hidden=false;return}
       /* modo MT5: a la derecha de la última vela, justo debajo de la línea del precio */
       cdl.hidden=true;
       const bw=(()=>{try{return chart.getBarSpace()}catch(e){return 8}})(),x=pt.x+bw/2+8;
@@ -876,12 +880,20 @@ window.EAGWidget=function(o){
   let alertIds=[];
   /* precio actual en la regla, por debajo de todo lo marcado (ver eagLastPx) */
   let lpId=null;
+  const MCX=document.createElement("canvas").getContext("2d");
+  const mw=(t,sz)=>{MCX.font=`normal ${sz}px Helvetica Neue`;return MCX.measureText(String(t)).width};
+  /* ancho común de la etiqueta del precio y del reloj de cierre (cuando va en la regla), para que se vean como una sola pieza */
+  let lpBox=null;
+  function cdTxt(){const L=chart.getDataList(),last=L[L.length-1];if(!last)return"";const left=Math.max(0,last.timestamp+msOf(per)-Date.now()),s2=Math.floor(left/1000),h=Math.floor(s2/3600),m=Math.floor(s2%3600/60);
+    return h?`${h}:${String(m).padStart(2,"0")}:${String(s2%60).padStart(2,"0")}`:`${String(m).padStart(2,"0")}:${String(s2%60).padStart(2,"0")}`}
   function lpGet(){const L=chart.getDataList(),d=L[L.length-1];if(!d)return null;let st;try{st=chart.getStyles().candle.priceMark}catch(e){return null}
     const lm=st&&st.last;if(!st||!st.show||!lm||!lm.show)return null;
     const bg=d.close>d.open?lm.upColor:d.close<d.open?lm.downColor:lm.noChangeColor,pp=dec();let t;
     if(axisType==="percentage"){let f0=null;try{const r=chart.getVisibleRange();f0=(L[Math.max(0,r.from)]||L[0]).close}catch(e){f0=L[0].close}t=f0?((d.close-f0)/f0*100).toFixed(2)+"%":""}
     else t=(+d.close).toLocaleString("en-US",{minimumFractionDigits:pp,maximumFractionDigits:pp});
-    const f=fz();return{v:d.close,t,st:Object.assign({},lm.text,{show:true,size:f,color:"#fff",backgroundColor:bg,borderColor:bg,paddingLeft:Math.round(f*.4),paddingRight:Math.round(f*.4),paddingTop:Math.round(f*.3),paddingBottom:Math.round(f*.3),borderRadius:2})}}
+    const f=fz(),pl=Math.round(f*.4),pt=Math.round(f*.3);let w=null,padL=pl,padR=pl;
+    if(cdMode()==="regla"){const c=cdTxt(),tpl=c.length>5?"8:88:88":"88:88",tw=mw(t,f),cw=Math.max(mw(tpl,f),mw(c,f));w=Math.ceil(Math.max(tw,cw)+pl*2);padL=(w-tw)/2;padR=padL;lpBox={w,h:f+pt*2,f}}else lpBox=null;
+    return{v:d.close,t,w,draw:(y,z)=>{if(lpBox){lpBox.y=y;lpBox.z=z}},st:Object.assign({},lm.text,{show:true,size:f,color:"#fff",backgroundColor:bg,borderColor:bg,paddingLeft:padL,paddingRight:padR,paddingTop:pt,paddingBottom:pt,borderRadius:lpBox?0:2})}}
   function ensureLp(){if(!ready)return;if(lpId&&chart.getOverlayById(lpId))return;const L=chart.getDataList(),d=L[L.length-1];if(!d)return;
     try{lpId=chart.createOverlay({name:"eagLastPx",lock:true,zLevel:-1e6,points:[{timestamp:d.timestamp,value:d.close}],extendData:{get:lpGet}})}catch(e){lpId=null}}
   function renderAlerts(){alertIds.forEach(id=>{try{chart.removeOverlay(id)}catch(e){}});alertIds=[];ensureLp();if(!ready||!o.getAlerts)return;
