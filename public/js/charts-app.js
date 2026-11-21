@@ -375,12 +375,23 @@ function start(){
       return{symbol:sy,name:nm,tf,layout:SAVE.layout||"",device:dev(),profile:(profCur()||{}).n||"",panes:visible?visible():panes.length}};
     const ping=force=>{if(document.hidden||!API.chartPing)return;const o=info(),k=[o.symbol,o.tf,o.layout,o.profile].join("|"),now=Date.now();
       if(!force&&k===lastK&&now-lastT<45000)return;if(!force&&k!==lastK&&now-lastT<8000)return;lastK=k;lastT=now;API.chartPing(o).catch(()=>{})};
-    setTimeout(()=>ping(true),4000);setInterval(()=>ping(false),10000);
+    setTimeout(()=>ping(true),1200);setInterval(()=>ping(false),10000);
     document.addEventListener("visibilitychange",()=>{if(!document.hidden)ping(true)});
     addEventListener("pagehide",()=>{try{API.chartBye&&API.chartBye()}catch(e){}})}
+  /* admin: tocar «En vivo» muestra quién está ahora mismo en los charts (se actualiza solo) */
+  if(API.isAdmin&&API.isAdmin()&&API.adminChartOnline){const st=$("#st");st.classList.add("stadm");st.title="Ver quién está usando los charts ahora";
+    let tm=null,tk=null,rows=[];const LN={l1:"1 gráfico",l2:"2 gráficos",l3:"3 gráficos",l4:"4 gráficos",l6:"6 gráficos",mtf:"Multi-TF"};
+    const dur=ms=>{const s2=Math.max(0,Math.floor(ms/1000)),h=Math.floor(s2/3600),m=Math.floor(s2%3600/60),x=s2%60;return h?`${h}h ${m}m`:m?`${m}m ${String(x).padStart(2,"0")}s`:`${x}s`};
+    const paint=()=>{if(pop.hidden||pop.dataset.for!=="online")return stop();const on=rows.filter(r=>r.online),now=Date.now();
+      pop.innerHTML=`<div class="ph">En los charts ahora · ${on.length}</div>`+(on.length?`<div class="onl">${on.map(r=>`<div class="onr"><i></i><div><b>${esc(r.username||"alumno")}</b><span>${esc(r.symbol_name||r.symbol||"")}${r.tf?" · "+esc(r.tf):""}${r.layout?" · "+esc(LN[r.layout]||r.layout):""} · ${esc((r.device||"").split(" ·")[0])}</span></div><em>${dur(now-new Date(r.started_at).getTime())}</em></div>`).join("")}</div>`
+        :`<div class="pnote" style="border:0">Nadie más está en los charts ahora.</div>`)+`<div class="pnote">Se actualiza solo. Más detalle en Administración → Charts en vivo.</div>`};
+    const load=async()=>{try{rows=(await API.adminChartOnline())||[]}catch(e){rows=[]}paint()};
+    const stop=()=>{clearInterval(tm);clearInterval(tk);tm=tk=null};
+    st.onclick=e=>{e.stopPropagation();if(!pop.hidden&&pop.dataset.for==="online"){closePop();return stop()}pop.dataset.for="online";pop.innerHTML=`<div class="ph">En los charts ahora</div><div class="pnote" style="border:0">Cargando…</div>`;showPop(st,"left");
+      stop();load();tm=setInterval(load,3000);tk=setInterval(paint,1000)}}
   try{if(sessionStorage.getItem("eag_prof_msg")){sessionStorage.removeItem("eag_prof_msg");setTimeout(()=>toast(`Perfil <b>${esc(profCur().n)}</b>`),900)}}catch(e){}
   function closePop(){pop.hidden=true;pop.dataset.for="";pop.classList.remove("wide");if(shownPick&&shownPick.length){shownPick=[];watch()}}
-  document.addEventListener("pointerdown",e=>{if(!pop.hidden&&!pop.contains(e.target)&&!e.target.closest("#vb,#fab,#fteye,#cfgb,#pfb,.tfdd,.wsym,.wtf,.dmini"))closePop()});
+  document.addEventListener("pointerdown",e=>{if(!pop.hidden&&!pop.contains(e.target)&&!e.target.closest("#vb,#fab,#fteye,#cfgb,#pfb,#st,.tfdd,.wsym,.wtf,.dmini"))closePop()});
   let laserOn=false;window.__eagPanes=()=>panes;
   /* láser también en los gráficos pequeños (multi-temporalidad): punto rojo propio y el del profe para los alumnos */
   const miniAll=()=>{const A=[];Object.values(MTFS).forEach(M=>M&&(M.minis||[]).forEach(m=>A.push([M,m])));return A};
