@@ -162,6 +162,7 @@ function SupabaseAPI(url,key){
     savePushSub(sub,ua){const j=sub.toJSON();return rpc("save_push_sub",{p_endpoint:j.endpoint,p_p256dh:j.keys.p256dh,p_auth:j.keys.auth,p_ua:ua||""})},
     async delPushSub(endpoint){if(!sess||!sess.user)return;try{await req(`/rest/v1/push_subs?endpoint=eq.${encodeURIComponent(endpoint)}`,{method:"DELETE"})}catch(e){}},
     adminPushStats(){return rpc("admin_push_stats").then(r=>r&&r[0]||{total:0,premium:0,gratis:0})},
+    myNotifs(){return rpc("my_notifs",{p_limit:40})},
     async sendPush(o){const r=await raw("/functions/v1/send-push",{method:"POST",body:o});
       if(!r.ok)throw new Error((r.j&&(r.j.error||r.j.message))||(r.status===404?"Falta publicar la función send-push en Supabase.":"No se pudo enviar ("+r.status+")"));return r.j},
     async discord(action,o){const r=await raw("/functions/v1/discord",{method:"POST",body:Object.assign({action},o||{})});
@@ -350,7 +351,8 @@ function LocalAPI(){
     async pushKey(){throw new Error("Las notificaciones solo funcionan en la web real (elartegrafico.com).")},
     async savePushSub(){},async delPushSub(){},
     async adminPushStats(){return{total:0,premium:0,gratis:0}},
-    async sendPush(){throw new Error("En el modo de prueba no se envían notificaciones. Pruébalo en la web real.")},
+    async sendPush(o){if(o&&o.title){db.notifs=db.notifs||[];db.notifs.unshift({id:Date.now(),created_at:new Date().toISOString(),title:o.title,body:o.body||"",url:o.url||"",tag:o.tag||"",personal:!!o.user_id,uid:o.user_id||null});save()}return{sent:0,local:true}},
+    async myNotifs(){return(db.notifs||[]).filter(n=>!n.uid||n.uid===uid).slice(0,40)},
     async uploadAvatar(blob){return await new Promise((ok,no)=>{const r=new FileReader();r.onload=()=>ok(r.result);r.onerror=no;r.readAsDataURL(blob)})},
     async discord(action,o){const p=me();if(!p)throw new Error("Inicia sesión");if(action==="config")return{clientId:"local",ready:true};
       if(action==="link"){Object.assign(p,{discord_id:"local-"+p.id.slice(0,6),discord_name:p.username,discord_role:!!p.affiliate});save();return{ok:true,name:p.discord_name,result:p.affiliate?"rol-puesto":"rol-quitado",affiliate:!!p.affiliate}}

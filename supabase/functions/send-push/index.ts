@@ -65,7 +65,19 @@ async function vapid() {
 }
 
 // envía a los suscritos (todos / premium / gratis) y limpia los que ya no existen
+// campana de la web: cada envío queda guardado (una fila por envío) para verlo después en la página
+async function logNotif(aud: string, msg: Record<string, unknown>, only?: string) {
+  try {
+    const row: Record<string, unknown> = { title: String(msg.title || "").slice(0, 120), body: String(msg.body || "").slice(0, 400), url: String(msg.url || "").slice(0, 300), tag: String(msg.tag || "").slice(0, 60), aud };
+    if (only === "admins") row.admins = true; else if (only && /^[0-9a-f-]{36}$/i.test(only)) row.user_id = only;
+    if (!row.title) return;
+    await db("notifs", { method: "POST", body: JSON.stringify(row), headers: { Prefer: "return=minimal" } });
+    if (Math.random() < 0.02) await db("rpc/notifs_cleanup", { method: "POST", body: "{}" });
+  } catch (_) { /* la tabla aún no existe */ }
+}
+
 async function sendAll(keys: any, aud: string, msg: Record<string, unknown>, only?: string) {
+  await logNotif(aud, msg, only);
   webpush.setVapidDetails("mailto:soporte@elartegrafico.com", keys.public_key, keys.private_key);
   const subs = await (await db("push_subs?select=endpoint,p256dh,auth,user_id,profiles!inner(premium_until,banned,role,plan)&profiles.banned=is.false")).json();
   const now = Date.now();

@@ -2378,3 +2378,34 @@ html.v4.side-mini nav.main .nbadge.nb-txt{display:none}
 .chat-imga{display:block;margin:2px 0}
 .chat-img{display:block;max-width:min(260px,100%);max-height:320px;border-radius:12px;object-fit:cover;background:rgba(0,0,0,.15);cursor:zoom-in}
 .chat.drop,#chatHost.drop .chat,#dmBox.drop .chat{outline:2px dashed var(--gold);outline-offset:-6px}
+/* ===== Campana de notificaciones ===== */
+.bell{position:relative;display:flex;align-items:center}
+#bellB{position:relative;display:grid;place-items:center;width:40px;height:40px;border-radius:12px;border:1px solid var(--line2,var(--line));background:var(--card);color:var(--fg2,var(--fg));cursor:pointer}
+#bellB:hover,#bellB[aria-expanded="true"]{border-color:var(--gold);color:var(--gold)}
+#bellB.has svg{animation:bellsw 2.4s ease-in-out 1}
+@keyframes bellsw{0%,100%{transform:rotate(0)}10%{transform:rotate(14deg)}20%{transform:rotate(-12deg)}30%{transform:rotate(8deg)}40%{transform:rotate(-4deg)}50%{transform:rotate(0)}}
+.bell-n{position:absolute;top:-5px;right:-5px;min-width:19px;height:19px;padding:0 5px;border-radius:10px;background:#f23645;color:#fff;font:700 11px/19px Inter,system-ui,sans-serif;font-style:normal;text-align:center;box-shadow:0 0 0 2px var(--bg)}
+.bell-p{position:absolute;right:0;top:calc(100% + 8px);z-index:80;width:min(380px,calc(100vw - 20px));max-height:min(70vh,560px);display:flex;flex-direction:column;background:var(--card);border:1px solid var(--line2,var(--line));border-radius:16px;box-shadow:0 18px 50px rgba(0,0,0,.4);overflow:hidden}
+.bell-h{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:13px 14px;border-bottom:1px solid var(--line)}
+.bell-h b{font-size:15px}
+.bell-x{border:0;background:none;color:var(--gold);font-size:12.5px;cursor:pointer;padding:4px 6px;border-radius:7px}.bell-x:hover{background:var(--card2,rgba(255,255,255,.05))}
+.bell-l{overflow:auto;padding:6px}
+.bell-it{position:relative;display:flex;gap:11px;align-items:flex-start;padding:10px 26px 10px 10px;border-radius:11px;color:var(--fg);text-decoration:none}
+.bell-it:hover{background:var(--card2,rgba(255,255,255,.05))}
+.bell-it.new{background:rgba(216,176,98,.08)}
+.bell-i{flex:0 0 34px;height:34px;border-radius:10px;display:grid;place-items:center;background:var(--bg2,rgba(255,255,255,.05));font-size:17px}
+.bell-t{display:grid;gap:2px;min-width:0}
+.bell-t b{font-size:13.5px;line-height:1.3}
+.bell-t span{font-size:12.5px;color:var(--mut);line-height:1.4;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.bell-t small{font-size:11px;color:var(--dim)}
+.bell-it>i{position:absolute;right:11px;top:16px;width:8px;height:8px;border-radius:50%;background:var(--gold)}
+.bell-e{display:grid;justify-items:center;gap:6px;text-align:center;padding:30px 20px;color:var(--mut)}.bell-e svg{color:var(--dim)}.bell-e b{color:var(--fg)}.bell-e span{font-size:13px}
+.bell-push{margin:6px 10px 10px;padding:10px;border-radius:10px;border:1px dashed var(--gold);background:transparent;color:var(--gold);font-weight:600;cursor:pointer}
+@media (max-width:640px){#bellB{width:38px;height:38px}.bell-p{position:fixed;left:10px;right:10px;top:64px;width:auto}}
+/* campana también en celular (la barra de arriba solo muestra la campana; la cuenta está en «Más») */
+@media (max-width:860px){
+  html.v4 .top-user{display:flex;align-items:center;gap:6px;flex:none;margin-left:6px}
+  html.v4 .top-user>:not(.bell){display:none!important}
+  html.v4 .theme-btn{margin-left:auto!important}
+}
+.bell-it,.bell-it:hover,.bell-it *{text-decoration:none!important}

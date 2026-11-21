@@ -285,6 +285,7 @@ function renderNav(){sideState();viewBar();document.body.classList.toggle("is-ac
     if(!n.contains(e.target)||e.target.closest("a")){n.classList.remove("open");document.body.classList.remove("sheet-open")}})}
   $("#nav").innerHTML=navHTML+mus;
   $("#topUser").innerHTML=
+    (u&&p?`<div class="bell" id="bell"><button type="button" id="bellB" aria-label="Notificaciones" aria-haspopup="true" aria-expanded="false" title="Notificaciones">${ico("bell",19)}<em class="bell-n" hidden></em></button><div class="bell-p" id="bellP" hidden></div></div>`:"")+
     (u&&p&&!p.affiliate&&!admin()&&r!=="miembro"?`<a class="btn top-mem" href="${toMain("miembro-solicitud")}">${ico("medal",16)}<span>Hazte miembro</span></a>`:"")+
     (u&&p?`<div class="dd" id="dd"><button aria-haspopup="true" aria-expanded="false" id="ddb">${avatar(p,28)}<span>${esc(p.username)}</span>${premium()?`<span class="prem-badge t-${myPlan()}">${(TIERS[myPlan()]||{n:"Premium"}).n}</span>`:paidCourses().length?`<span class="prem-badge crs" style="--cc:${esc(paidCourses()[0].color)}">Curso</span>`:""}</button>
       <div class="menu" hidden>
@@ -300,6 +301,7 @@ function renderNav(){sideState();viewBar();document.body.classList.toggle("is-ac
         </div>
         <button id="logout" class="dm-out">Cerrar sesión</button></div></div>`
      :`<div class="userbox"><a class="btn sm ghost" href="${toMain("entrar")}">Ingresar</a><a class="btn sm gold" href="${toMain("registro")}">Crear cuenta</a></div>`);
+  try{bellWire()}catch(e){}
   const dd=$("#dd");if(dd){const b=$("#ddb"),m=$(".menu",dd);b.onclick=e=>{e.stopPropagation();m.hidden=!m.hidden;b.setAttribute("aria-expanded",String(!m.hidden))};document.addEventListener("click",()=>{m.hidden=true},{once:true});
     const di=$("#ddInst");if(di)di.onclick=e=>{e.stopPropagation();m.hidden=true;installApp()};
     const lo2=$("#logout2");if(lo2)lo2.onclick=()=>$("#logout").click();
@@ -410,6 +412,35 @@ document.addEventListener("keydown",e=>{if((e.key==="Enter"||e.key===" ")&&e.tar
 
 /* ---------- chat privado con el admin ---------- */
 let dmLast=-1;
+/* ---------- campana de notificaciones: todo lo enviado como notificación (retos, avisos, alertas, mensajes) + noticias ---------- */
+const BELL={list:[],t:0,seenK:"ag_bell_seen"};
+const bellSeen=()=>+(localStorage.getItem(BELL.seenK)||0);
+const EMO1=/^(\p{Extended_Pictographic}\uFE0F?)\s*/u;
+const bellIco=n=>{const m=String(n.title||"").match(EMO1);if(m)return m[1];const t=(n.tag||"")+" "+(n.title||"");return /^dm|💬/.test(t)?"💬":/reto|🎯|⚡/i.test(t)?"🎯":/alerta|🔔|charts/i.test(t)?"🔔":/launch|🚀/.test(t)?"🚀":n.news?"📰":/🏆|ganad/i.test(t)?"🏆":"📣"};
+const ago=t=>{const s=Math.max(0,(Date.now()-new Date(t).getTime())/1000);return s<60?"ahora":s<3600?Math.floor(s/60)+" min":s<86400?Math.floor(s/3600)+" h":s<7*86400?Math.floor(s/86400)+" d":new Date(t).toLocaleDateString("es-CO",{day:"numeric",month:"short"})};
+async function bellLoad(force){if(!logged()||!API.myNotifs)return;if(!force&&Date.now()-BELL.t<60000)return bellPaint();BELL.t=Date.now();
+  let L=[];try{L=(await API.myNotifs())||[]}catch(e){L=[]}
+  /* noticias recientes de la comunidad (últimos 14 días) */
+  try{if(typeof postsVis==="function"){const P=(await postsVis())||[];P.filter(x=>x&&x.created_at&&Date.now()-new Date(x.created_at).getTime()<14*864e5).slice(0,8).forEach(x=>{
+    if(!L.some(n=>(n.title||"").includes(x.title||"~")))L.push({id:"post-"+x.id,created_at:x.created_at,title:"📰 "+(x.title||"Nueva publicación"),body:String(x.body||x.excerpt||"").replace(/<[^>]+>/g," ").replace(/\s+/g," ").slice(0,140),url:(typeof toMain==="function"?toMain("nota-"+x.id):"#nota-"+x.id),news:true})})}}catch(e){}
+  L.sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));BELL.list=L.slice(0,50);bellPaint()}
+function bellPaint(){const b=$("#bellB");if(!b)return;const seen=bellSeen(),n=BELL.list.filter(x=>new Date(x.created_at).getTime()>seen).length,em=b.querySelector(".bell-n");
+  em.hidden=!n;em.textContent=n>9?"9+":String(n);b.classList.toggle("has",!!n);
+  const P=$("#bellP");if(!P||P.hidden)return;
+  P.innerHTML=`<div class="bell-h"><b>Notificaciones</b>${BELL.list.length?`<button type="button" class="bell-x" id="bellRead">Marcar todo como leído</button>`:""}</div>
+    <div class="bell-l">${BELL.list.length?BELL.list.map(x=>{const nw=new Date(x.created_at).getTime()>seen,ur=String(x.url||"");
+      const href=/^#/.test(ur)?ur:/^https?:\/\/(www\.|academia\.|charts\.)?elartegrafico\.com/.test(ur)?ur:/^\/(#|$)/.test(ur)?ur.slice(1)||"#inicio":ur.startsWith("/")?ur:"#inicio";
+      return`<a class="bell-it${nw?" new":""}" href="${esc(href)}"${/charts\.elartegrafico/.test(href)?' target="_blank" rel="noopener"':""}><span class="bell-i">${bellIco(x)}</span><span class="bell-t"><b>${esc(String(x.title||"").replace(EMO1,""))}</b>${x.body?`<span>${esc(x.body)}</span>`:""}<small>${ago(x.created_at)}${x.personal?" · para ti":""}</small></span>${nw?"<i></i>":""}</a>`}).join("")
+      :`<div class="bell-e">${ico("bell",30)}<b>No tienes notificaciones</b><span>Aquí te quedan guardados los retos, avisos, alertas, mensajes y novedades.</span></div>`}</div>
+    ${"Notification" in window&&Notification.permission!=="granted"?`<button type="button" class="bell-push" id="bellPush">Activar notificaciones en este dispositivo</button>`:""}`;
+  const rd=$("#bellRead");rd&&(rd.onclick=e=>{e.stopPropagation();localStorage.setItem(BELL.seenK,String(Date.now()));bellPaint()});
+  const pu=$("#bellPush");pu&&(pu.onclick=e=>{e.stopPropagation();try{enablePush()}catch(x){}});
+  P.querySelectorAll(".bell-it").forEach(a=>a.addEventListener("click",()=>{P.hidden=true;$("#bellB").setAttribute("aria-expanded","false")}))}
+function bellWire(){const b=$("#bellB"),P=$("#bellP");if(!b||b.dataset.w)return;b.dataset.w=1;
+  b.onclick=e=>{e.stopPropagation();const open=P.hidden;P.hidden=!open;b.setAttribute("aria-expanded",String(open));if(open){bellPaint();bellLoad(true).then(()=>{setTimeout(()=>{localStorage.setItem(BELL.seenK,String(Date.now()));const em=b.querySelector(".bell-n");em.hidden=true;b.classList.remove("has")},1500)})}};
+  P.addEventListener("click",e=>e.stopPropagation());bellPaint();bellLoad()}
+document.addEventListener("click",()=>{const P=$("#bellP");if(P&&!P.hidden){P.hidden=true;const b=$("#bellB");b&&b.setAttribute("aria-expanded","false")}});
+setInterval(()=>{if(!document.hidden)bellLoad()},120000);document.addEventListener("visibilitychange",()=>{if(!document.hidden)bellLoad()});
 async function dmPoll(){if(!logged()||!API.dmBadge)return;let b=null;try{b=await API.dmBadge()}catch(e){return}if(!b)return;
   const prev=S.dm;S.dm=b;const n=b.unread||0;
   if(!prev||prev.unread!==n||prev.exists!==b.exists)renderNav();
