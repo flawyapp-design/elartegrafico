@@ -1389,14 +1389,22 @@ ${o.onTracker?`<button class="wtrk" title="Marcador de operaciones (ganadas, per
     /* computador: eliges la herramienta, haces clic y arrastras → el dibujo se va viendo y queda al soltar (sin otro clic).
        Si solo das clic sin arrastrar, funciona como antes (clic en el primer punto y clic en el segundo). */
     let md=null;
-    chartEl.addEventListener("mousedown",e=>{if(e.button!==0||dd||md||!drawingId||brushOn)return;let ov;try{ov=chart.getOverlayById(drawingId)}catch(x){}
-      if(!ov||ov.totalStep!==3||(ov.points||[]).length>1)return;const t=rel(e),p0=ptAt(t.x,t.y);if(!p0)return;md={x0:t.x,y0:t.y,p0,id:null,name:null}},true);
+    let synth=false;
+    chartEl.addEventListener("mousedown",e=>{if(synth||e.button!==0||dd||md||!drawingId||brushOn)return;let ov;try{ov=chart.getOverlayById(drawingId)}catch(x){}
+      if(!ov||ov.totalStep!==3||(ov.points||[]).length>1)return;const t=rel(e),p0=ptAt(t.x,t.y);if(!p0)return;
+      /* mientras tengas el clic oprimido, el gráfico queda quieto (no se mueve ni se arrastra) */
+      e.stopImmediatePropagation();e.preventDefault();try{chart.setScrollEnabled(false);chart.setZoomEnabled(false)}catch(x){}
+      md={x0:t.x,y0:t.y,p0,id:null,name:null,target:e.target,cx:e.clientX,cy:e.clientY}},true);
     addEventListener("mousemove",e=>{if(!md)return;if(!(e.buttons&1)){md=null;return}const t=rel(e);
       if(!md.id){if(Math.hypot(t.x-md.x0,t.y-md.y0)<7||!drawingId)return;const v=ovs.get(drawingId);if(!v){md=null;return}
         const name=v.name,styles=v.styles,extendData=v.extendData;bulk=true;try{chart.removeOverlay(drawingId)}catch(x){}bulk=false;ovs.delete(drawingId);drawingId=null;
         const id=makeOverlay({name,styles:styles||undefined,extendData:extendData||undefined,points:[md.p0,md.p0]},false);if(!id){md=null;syncPan();return}md.id=id;md.name=name;chartEl.classList.add("ovdrag")}
       const p1=ptAt(t.x,t.y);if(p1)setPts(md.id,md.name,md.p0,p1)},true);
-    addEventListener("mouseup",e=>{if(!md)return;const d=md;md=null;if(!d.id)return;e.stopPropagation();chartEl.classList.remove("ovdrag");
+    addEventListener("mouseup",e=>{if(!md)return;const d=md;md=null;
+      if(!d.id){/* fue solo un clic (sin arrastrar): se le pasa al gráfico como clic normal → sigue el modo clic-clic */
+        panLocked=null;syncPan();synth=true;try{const o2={bubbles:true,cancelable:true,clientX:d.cx,clientY:d.cy,button:0,view:window};
+          d.target.dispatchEvent(new MouseEvent("mousedown",Object.assign({buttons:1},o2)));d.target.dispatchEvent(new MouseEvent("mouseup",Object.assign({buttons:0},o2)))}catch(x){}synth=false;return}
+      e.stopPropagation();chartEl.classList.remove("ovdrag");panLocked=null;
       dbar.querySelectorAll(".dt").forEach(b=>b.classList.remove("act"));
       try{const ov=chart.getOverlayById(d.id);capture(ov);if(ov&&ov.name==="eagText")setTimeout(()=>editText(d.id),30)}catch(x){}
       /* un clic que llegue justo después no debe empezar nada nuevo */
