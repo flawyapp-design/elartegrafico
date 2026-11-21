@@ -4,14 +4,14 @@
 "use strict";
 const A=window.AGAPP;const {$,$$,esc,API,S,toast,busy,fmtT,fmtDate,fmtDT,TZ,MARKETS,MNAME,h1Bars,m5Bars,idxAt,avgRange,toC,Chart,app}=A;
 let tab="resumen";
-const GROUPS=[["General",["resumen","chartslive","chat"]],["Academia",["cursos","contenido","ejercicios","banners","noticias","archivos"]],["Retos y puntos",["top","retos","afiliados","canjes","rpuntos"]],["Alumnos",["alumnos","pagos","resenas","opiniones","chartsop","notif"]],["Sitio",["sitio","legal"]]];
-const TICO={chartslive:"chart",top:"star",chat:"chat",cursos:"acad",retos:"bolt",afiliados:"users",canjes:"card",rpuntos:"gear",resumen:"chart",sitio:"site",banners:"image",contenido:"layers",ejercicios:"acad",noticias:"news",opiniones:"star",chartsop:"chart",resenas:"msg",pagos:"card",alumnos:"users",archivos:"folder",notif:"bell",legal:"scale"};
-const TDESC={chartslive:"Quién está usando EAG Charts ahora mismo: mercado, temporalidad, dispositivo y hace cuánto entró. Se actualiza solo.",chat:"Conversaciones privadas con cada alumno. Se borran solas a los días que definas, o al instante con Finalizar.",cursos:"Cursos que se venden sueltos (de por vida) y cómo se ven los planes Cobre, Plata y Oro.",retos:"Crea el reto del día: cuestionario, ¿sube o baja? o marcar la zona. Los primeros en acertar ganan puntos.",afiliados:"Verifica quién abrió su cuenta de Deriv con tu enlace de socio: ganan los puntos completos.",
+const GROUPS=[["General",["resumen","embudo","chartslive","chat"]],["Academia",["cursos","contenido","ejercicios","banners","noticias","archivos"]],["Retos y puntos",["top","retos","afiliados","canjes","rpuntos"]],["Alumnos",["alumnos","pagos","resenas","opiniones","chartsop","notif"]],["Sitio",["sitio","legal"]]];
+const TICO={embudo:"users",chartslive:"chart",top:"star",chat:"chat",cursos:"acad",retos:"bolt",afiliados:"users",canjes:"card",rpuntos:"gear",resumen:"chart",sitio:"site",banners:"image",contenido:"layers",ejercicios:"acad",noticias:"news",opiniones:"star",chartsop:"chart",resenas:"msg",pagos:"card",alumnos:"users",archivos:"folder",notif:"bell",legal:"scale"};
+const TDESC={embudo:"Dónde se quedan tus alumnos: registrados → abren los charts → se verifican → pagan plan. Con la lista de quién falta y el recordatorio automático para hacerse Miembro verificado.",chartslive:"Quién está usando EAG Charts ahora mismo: mercado, temporalidad, dispositivo y hace cuánto entró. Se actualiza solo.",chat:"Conversaciones privadas con cada alumno. Se borran solas a los días que definas, o al instante con Finalizar.",cursos:"Cursos que se venden sueltos (de por vida) y cómo se ven los planes Cobre, Plata y Oro.",retos:"Crea el reto del día: cuestionario, ¿sube o baja? o marcar la zona. Los primeros en acertar ganan puntos.",afiliados:"Verifica quién abrió su cuenta de Deriv con tu enlace de socio: ganan los puntos completos.",
   top:"Los 10 primeros del ranking. Suma o quita puntos o saldo en dólares a cualquier alumno.",canjes:"Retiros de saldo de los retos express y canjes de puntos: paga y márcalos.",rpuntos:"Activa los retos, define cuánto vale cada punto y el mínimo para canjear.",resumen:"Cómo va la academia: alumnos, visitas y actividad.",sitio:"Textos, portada, precios, enlaces y datos de contacto de la web.",banners:"Imágenes y mensajes del carrusel de la portada y del ingreso.",
   contenido:"Módulos, lecciones, videos y el orden del temario.",ejercicios:"Gráficas, cálculos y preguntas de cada lección y de la práctica.",noticias:"Publicaciones de la comunidad y avisos.",
   opiniones:"Opiniones públicas de los alumnos: aprueba u oculta.",chartsop:"Quién está probando EAG Charts (3 días gratis) y qué recomiendan mejorar.",resenas:"Lo que dicen los alumnos al terminar cada módulo (privado).",pagos:"Pagos de Binance por confirmar y el historial.",
   alumnos:"Cuentas, premium, puntos y avance de cada alumno.",archivos:"Imágenes y archivos subidos.",notif:"Envía avisos al celular de los alumnos.",legal:"Términos, privacidad y avisos legales."};
-const TABS=[["chartslive","Charts en vivo"],["chat","Mensajes"],["cursos","Cursos y planes"],["top","Top, puntos y saldo"],["retos","Retos diarios"],["afiliados","Miembros verificados"],["canjes","Canjes"],["rpuntos","Ajustes de puntos"],["resumen","Estadísticas"],["sitio","Sitio y textos"],["banners","Banners"],["contenido","Módulos y lecciones"],["ejercicios","Ejercicios"],["noticias","Noticias"],["opiniones","Opiniones"],["chartsop","EAG Charts: prueba y opiniones"],["resenas","Reseñas de módulos"],["pagos","Pagos"],["alumnos","Alumnos"],["archivos","Archivos"],["notif","Notificaciones"],["legal","Legal"]];
+const TABS=[["embudo","Embudo de alumnos"],["chartslive","Charts en vivo"],["chat","Mensajes"],["cursos","Cursos y planes"],["top","Top, puntos y saldo"],["retos","Retos diarios"],["afiliados","Miembros verificados"],["canjes","Canjes"],["rpuntos","Ajustes de puntos"],["resumen","Estadísticas"],["sitio","Sitio y textos"],["banners","Banners"],["contenido","Módulos y lecciones"],["ejercicios","Ejercicios"],["noticias","Noticias"],["opiniones","Opiniones"],["chartsop","EAG Charts: prueba y opiniones"],["resenas","Reseñas de módulos"],["pagos","Pagos"],["alumnos","Alumnos"],["archivos","Archivos"],["notif","Notificaciones"],["legal","Legal"]];
 A.ROUTES.admin=sub=>{
   if(!A.admin()){app.innerHTML=`<div class="empty">Esta sección es solo para administradores.<a class="btn sm" href="#inicio">Volver</a></div>`;return}
   let chatU=null;if(sub&&/^chat-/.test(sub)){tab="chat";chatU=sub.slice(5)}else if(sub&&TABS.some(t=>t[0]===sub))tab=sub;
@@ -50,7 +50,7 @@ A.ROUTES.admin=sub=>{
     acL.onsubmit=e=>{e.preventDefault();const v=fromLoc($("#acAt").value);if(!v){toast("Elige la fecha y la hora");return}if(new Date(v)<=new Date()){toast("Elige una fecha futura");return}sv(v)};
     const x=$("#acX");if(x)x.onclick=()=>sv(null)}
   if(tab==="chat")return chat(chatU);
-  ({chartslive,cursos,resumen,sitio,banners,contenido,ejercicios,noticias,opiniones,chartsop,resenas,pagos,alumnos,archivos,notif,legal,retos,afiliados,canjes,rpuntos,top})[tab]();
+  ({embudo,chartslive,cursos,resumen,sitio,banners,contenido,ejercicios,noticias,opiniones,chartsop,resenas,pagos,alumnos,archivos,notif,legal,retos,afiliados,canjes,rpuntos,top})[tab]();
   const badge=(k,n)=>{const b=document.querySelector(`[data-badge="${k}"]`);if(b&&n){b.textContent=n;b.classList.add("on")}};
   if(API.dmBadge)API.dmBadge().then(b=>badge("chat",b&&b.unread)).catch(()=>{});
   if(API.adminAffiliates)API.adminAffiliates().then(l=>badge("afiliados",(l||[]).filter(x=>x.status==="pendiente").length)).catch(()=>{});
@@ -479,6 +479,41 @@ async function noticias(){
 }
 
 /* ---------- EAG Charts: prueba y opiniones ---------- */
+/* ---------- Embudo de alumnos + recordatorio automático para hacerse Miembro verificado ---------- */
+async function embudo(){let days=30,list="sin",sel=new Set(),F=null,C=null,q="";
+  const ago=t=>{if(!t)return"nunca";const d=Math.floor((Date.now()-new Date(t).getTime())/864e5);return d<1?"hoy":d===1?"ayer":`hace ${d} días`};
+  H().innerHTML=`<div class="fun" id="fun"><div class="seg" id="funD">${[[7,"7 días"],[30,"30 días"],[90,"90 días"],[0,"Todo"]].map(([d,t])=>`<button data-d="${d}" class="${d===days?"on":""}">${t}</button>`).join("")}</div>
+    <div class="fun-st" id="funS"><p class="muted">Cargando…</p></div><div class="panel fun-rem" id="funR"></div><div id="funL"></div></div>`;
+  const pct=(a,b)=>b?Math.round(a/b*100):0;
+  const drawS=()=>{const f=F;if(!f)return;const R=f.registrados||0;
+    const steps=[["Se registraron",R,"users","Cuentas nuevas en el periodo"],["Abrieron EAG Charts",f.charts,"chart","Entraron al menos una vez a los charts"],["Miembros verificados",f.miembros,"check","Con su cuenta de Deriv en tu enlace"],["Con plan activo",f.plan,"star","Pagando Plata, Oro o Diamond"]];
+    $("#funS").innerHTML=`<div class="fun-bars">${steps.map(([t,n,ic,d],i)=>`<div class="fun-b"><div class="fun-bt"><b>${n}</b><span>${t}</span>${i?`<em>${pct(n,R)}% de los registrados</em>`:""}</div><div class="fun-bar"><i style="width:${R?Math.max(2,pct(n,R)):0}%"></i></div><small class="dim">${d}</small></div>`).join("")}</div>
+      <div class="fun-mini"><span class="tag">Entraron esta semana: <b>${f.activos7}</b></span><span class="tag">Jugaron retos: <b>${f.retos}</b></span>${f.pendientes?`<span class="tag pub">Solicitudes de verificación pendientes: <b>${f.pendientes}</b></span>`:""}</div>`};
+  const drawR=()=>{const c=C;if(!c){$("#funR").innerHTML=`<p class="muted">Corre <b>embudo_recordatorios.sql</b> en Supabase para activar el recordatorio automático.</p>`;return}
+    $("#funR").innerHTML=`<div class="fun-rh"><div><b>Recordatorio automático para hacerse Miembro verificado</b><p class="dim">Le llega al chat de la persona (y como notificación al celular) con los pasos: si no tiene cuenta de Deriv y si ya tiene (retagging). Se envía todos los días a las 10:20 a. m. a quien aún no es miembro.</p></div>
+      <label class="chk fun-on"><input type="checkbox" id="remOn"${c.enabled?" checked":""}> ${c.enabled?"Activado":"Apagado"}</label></div>
+      <div class="fun-rf"><label>Primer recordatorio<select id="remD1">${[1,2,3,5,7].map(d=>`<option value="${d}"${+c.day1===d?" selected":""}>${d} ${d===1?"día":"días"} después de registrarse</option>`).join("")}</select></label>
+        <label>Segundo recordatorio<select id="remD2">${[[0,"No enviar"],[7,"7 días"],[9,"9 días"],[14,"14 días"],[21,"21 días"]].map(([d,t])=>`<option value="${d}"${+c.day2===d?" selected":""}>${d?t+" después de registrarse":t}</option>`).join("")}</select></label></div>
+      <div class="fun-mini"><span class="tag">Recibirían recordatorio hoy: <b>${c.due}</b></span><span class="tag">Enviados esta semana: <b>${c.sent_7d}</b></span><span class="tag pub">Se verificaron después del recordatorio: <b>${c.converted}</b></span></div>`;
+    const sv=async o=>{try{C=await API.adminReminderCfg(o);drawR();toast("Guardado")}catch(e){toast(e.message)}};
+    $("#remOn").onchange=e=>sv({enabled:e.target.checked});$("#remD1").onchange=e=>sv({day1:+e.target.value});$("#remD2").onchange=e=>sv({day2:+e.target.value})};
+  const drawL=()=>{const f=F;if(!f)return;const L=(list==="sin"?f.sin_verificar:f.miembros_sin_plan)||[];const k=q.trim().toLowerCase();const V=k?L.filter(r=>[r.username,r.email,r.country].join(" ").toLowerCase().includes(k)):L;
+    $("#funL").innerHTML=`<div class="fun-lh"><div class="seg" id="funT"><button data-l="sin" class="${list==="sin"?"on":""}">Sin verificarse (${(f.sin_verificar||[]).length})</button><button data-l="mem" class="${list==="mem"?"on":""}">Verificados sin plan (${(f.miembros_sin_plan||[]).length})</button></div>
+        <input class="fun-q" id="funQ" placeholder="Buscar por nombre, correo o país" value="${esc(q)}"></div>
+      ${list==="sin"&&V.length?`<div class="fun-act"><label><input type="checkbox" id="funAll"${sel.size&&V.every(r=>sel.has(r.id))?" checked":""}> Marcar todos</label><button class="btn sm gold" id="funSend"${sel.size?"":" disabled"}>Enviar recordatorio ahora${sel.size?" ("+sel.size+")":""}</button></div>`:""}
+      <div class="list">${V.length?V.map(r=>`<div class="item fun-it">${list==="sin"?`<input type="checkbox" data-ck="${esc(r.id)}"${sel.has(r.id)?" checked":""}>`:""}
+        <span class="txt"><b>${esc(r.username||"alumno")}${r.country?" · "+esc(r.country):""}</b><span class="dim">${esc(r.email||"")}</span>
+        <span class="fun-tags"><span>Se registró ${ago(r.created_at)}</span><span>Último ingreso: ${ago(r.last_sign_in_at)}</span>${r.charts?"<span class='ok'>Usó los charts</span>":""}${r.retos?"<span class='ok'>Jugó retos</span>":""}${r.aff_status==="pendiente"?"<span class='pend'>Solicitud pendiente</span>":r.aff_status==="rechazado"?"<span class='bad'>Solicitud rechazada</span>":""}${r.member_reminders?`<span>Recordatorios: ${r.member_reminders} (${ago(r.member_reminded_at)})</span>`:""}</span></span>
+        <a class="btn sm" href="#admin-chat-${esc(r.id)}">Chat</a></div>`).join(""):`<p class="muted">${k?"Nadie coincide con la búsqueda.":list==="sin"?"Todos los registrados del periodo ya son miembros o tienen plan. 🎉":"No hay miembros verificados sin plan en el periodo."}</p>`}</div>`;
+    $("#funT").querySelectorAll("[data-l]").forEach(b=>b.onclick=()=>{list=b.dataset.l==="sin"?"sin":"mem";sel.clear();drawL()});
+    const fq=$("#funQ");fq.oninput=()=>{q=fq.value;const pos=fq.selectionStart;drawL();const n=$("#funQ");n.focus();try{n.setSelectionRange(pos,pos)}catch(e){}};
+    $("#funL").querySelectorAll("[data-ck]").forEach(i=>i.onchange=()=>{i.checked?sel.add(i.dataset.ck):sel.delete(i.dataset.ck);drawL()});
+    const fa=$("#funAll");fa&&(fa.onchange=()=>{V.forEach(r=>fa.checked?sel.add(r.id):sel.delete(r.id));drawL()});
+    const fs=$("#funSend");fs&&(fs.onclick=async()=>{if(!sel.size)return;fs.disabled=true;try{const n=await API.adminReminderSend([...sel]);toast(`Recordatorio enviado a ${n} ${n===1?"persona":"personas"}`);sel.clear();await load()}catch(e){toast(e.message);fs.disabled=false}})};
+  const load=async()=>{try{F=await API.adminFunnel(days)}catch(e){$("#funS").innerHTML=`<p class="muted">Corre <b>embudo_recordatorios.sql</b> en el SQL Editor de Supabase para activar esta sección.</p>`;F=null}
+    try{C=await API.adminReminderCfg({})}catch(e){C=null}drawS();drawR();drawL()};
+  $("#funD").querySelectorAll("[data-d]").forEach(b=>b.onclick=()=>{days=+b.dataset.d;$("#funD").querySelectorAll("[data-d]").forEach(x=>x.classList.toggle("on",x===b));sel.clear();load()});
+  await load()}
 /* ---------- EAG Charts en vivo ---------- */
 let clvT=null;
 async function chartslive(){clearInterval(clvT);let f="on";

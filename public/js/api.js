@@ -177,6 +177,9 @@ function SupabaseAPI(url,key){
     chartPing(o){if(!sess||!sess.user)return Promise.resolve(null);return rpc("chart_ping",{p_symbol:o.symbol||null,p_name:o.name||null,p_tf:o.tf||null,p_layout:o.layout||null,p_device:o.device||null,p_profile:o.profile||null,p_panes:o.panes||null})},
     chartBye(){if(!sess||!sess.user||!sess.access_token)return;try{fetch(url+"/rest/v1/rpc/chart_bye",{method:"POST",keepalive:true,headers:{apikey:key,Authorization:"Bearer "+sess.access_token,"Content-Type":"application/json"},body:"{}"})}catch(e){}},
     adminChartOnline(){return rpc("admin_chart_online")},
+    adminFunnel(days){return rpc("admin_funnel",{p_days:days||0})},
+    adminReminderCfg(o){o=o||{};return rpc("admin_reminder_cfg",{p_enabled:o.enabled==null?null:!!o.enabled,p_day1:o.day1||null,p_day2:o.day2==null?null:o.day2})},
+    adminReminderSend(ids){return rpc("admin_reminder_send",{p_users:ids})},
     async updateMyProfile(o){await rpc("update_my_profile",{p_avatar:o.avatar_url||"",p_bio:o.bio||"",p_country:o.country||""});await this.loadProfile()},
     publicStats(){return rpc("public_stats")},
     publicReviews(){return rpc("public_reviews")},
@@ -368,6 +371,13 @@ function LocalAPI(){
     async uploadChat(blob){return URL.createObjectURL(blob)},async chatImgClean(){return 0},
     async chartPing(o){db.presence=db.presence||{};const p=db.presence[uid]||{started_at:new Date().toISOString()};if(Date.now()-new Date(p.last_seen||0).getTime()>18e4)p.started_at=new Date().toISOString();Object.assign(p,o,{last_seen:new Date().toISOString()});db.presence[uid]=p;save();return null},
     chartBye(){},
+    async adminFunnel(days){const since=days?Date.now()-days*864e5:0,P=db.profiles.filter(p=>p.role!=="admin"&&!p.banned&&new Date(p.created_at||0).getTime()>=since);
+      const row=p=>({id:p.id,username:p.username,email:(db.users.find(u=>u.id===p.id)||{}).email,country:p.country,created_at:p.created_at,last_sign_in_at:p.created_at,charts:!!(db.presence||{})[p.id],retos:false,aff_status:null,member_reminders:p.member_reminders||0,member_reminded_at:p.member_reminded_at||null});
+      const prem=p=>p.premium_until&&new Date(p.premium_until)>Date.now();
+      return{registrados:P.length,activos7:P.length,charts:P.filter(p=>(db.presence||{})[p.id]).length,retos:0,pendientes:0,miembros:P.filter(p=>p.affiliate).length,plan:P.filter(prem).length,
+        sin_verificar:P.filter(p=>!p.affiliate&&!prem(p)).map(row),miembros_sin_plan:P.filter(p=>p.affiliate&&!prem(p)).map(row)}},
+    async adminReminderCfg(o){db.remCfg=Object.assign({enabled:true,day1:2,day2:9},db.remCfg||{},Object.fromEntries(Object.entries(o||{}).filter(([k,v])=>v!=null)));save();return Object.assign({due:0,sent_7d:0,converted:0},db.remCfg)},
+    async adminReminderSend(ids){ids.forEach(id=>{const p=db.profiles.find(x=>x.id===id);if(p){p.member_reminders=(p.member_reminders||0)+1;p.member_reminded_at=new Date().toISOString()}});save();return ids.length},
     async adminChartOnline(){const P=db.presence||{},now=Date.now();return Object.keys(P).map(id=>{const x=P[id],pr=db.profiles.find(q=>q.id===id)||{};return{user_id:id,username:pr.username,avatar_url:pr.avatar_url,country:pr.country,plan:pr.plan||"",premium:!!(pr.premium_until&&new Date(pr.premium_until)>now),affiliate:!!pr.affiliate,role:pr.role,online:now-new Date(x.last_seen).getTime()<12e4,started_at:x.started_at,last_seen:x.last_seen,symbol:x.symbol,symbol_name:x.name,tf:x.tf,layout:x.layout,device:x.device,profile:x.profile,panes:x.panes}}).filter(r=>now-new Date(r.last_seen).getTime()<864e5).sort((a,b)=>(b.online-a.online)||(new Date(b.last_seen)-new Date(a.last_seen)))},
     async adminDiscordStats(){return{conectados:db.profiles.filter(x=>x.discord_id).length,con_rol:db.profiles.filter(x=>x.discord_role).length,afiliados_sin_discord:db.profiles.filter(x=>x.affiliate&&!x.discord_id).length}},
     async updateMyProfile(o){const p=me();if(!p)throw new Error("Inicia sesión");p.avatar_url=o.avatar_url||null;p.bio=String(o.bio||"").slice(0,160);p.country=String(o.country||"").slice(0,40);save()},

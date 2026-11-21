@@ -2409,3 +2409,23 @@ html.v4.side-mini nav.main .nbadge.nb-txt{display:none}
   html.v4 .theme-btn{margin-left:auto!important}
 }
 .bell-it,.bell-it:hover,.bell-it *{text-decoration:none!important}
+/* ===== Admin: embudo de alumnos ===== */
+.fun{display:grid;gap:14px}
+#funD,#funT{display:inline-grid;grid-auto-flow:column;grid-template-columns:none;width:auto;justify-self:start}
+#funD button,#funT button{padding:8px 14px;white-space:nowrap}
+.fun-bars{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px}
+.fun-b{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;display:grid;gap:8px}
+.fun-bt{display:grid;gap:2px}.fun-bt b{font-size:28px;line-height:1}.fun-bt span{font-weight:600}.fun-bt em{font-style:normal;font-size:12.5px;color:var(--gold)}
+.fun-bar{height:8px;border-radius:6px;background:var(--bg2);overflow:hidden}.fun-bar i{display:block;height:100%;background:linear-gradient(90deg,var(--gold),#f0d48a);border-radius:6px}
+.fun-mini{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.fun-rh{display:flex;gap:14px;align-items:flex-start;justify-content:space-between}.fun-rh p{margin:4px 0 0;font-size:13px}
+.fun-on{white-space:nowrap;font-weight:700}
+.fun-rf{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin-top:12px}.fun-rf label{display:grid;gap:5px;font-size:13px;color:var(--muted)}
+.fun-rf select{padding:9px 10px;border-radius:10px;border:1px solid var(--line2);background:var(--bg2);color:var(--fg)}
+.fun-lh{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;margin-bottom:8px}
+.fun-q{flex:1;min-width:200px;max-width:340px;padding:9px 12px;border-radius:10px;border:1px solid var(--line2);background:var(--bg2);color:var(--fg)}
+.fun-act{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:4px 0 8px}.fun-act label{display:flex;gap:7px;align-items:center;font-size:13px}
+.fun-it{align-items:center}.fun-it>input{accent-color:var(--gold);flex:0 0 auto}
+.fun-it .txt{display:grid;gap:3px;min-width:0}
+.fun-tags{display:flex;flex-wrap:wrap;gap:5px}.fun-tags span{font-size:11.5px;padding:2px 8px;border-radius:999px;background:var(--bg2);color:var(--muted)}
+.fun-tags .ok{color:#22c55e}.fun-tags .pend{color:var(--gold)}.fun-tags .bad{color:#f23645}
