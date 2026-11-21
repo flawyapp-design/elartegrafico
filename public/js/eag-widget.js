@@ -414,6 +414,13 @@ function registerAll(){
   /* Línea horizontal con precio (como TradingView) */
   /* indicadores extra */
   const sma=(a,n,i)=>{if(i<n-1)return null;let s=0;for(let k=i-n+1;k<=i;k++)s+=a[k];return s/n};
+  /* RSI como en TradingView: 14 periodos (Wilder), línea morada, niveles 70 / 50 / 30 y zona sombreada entre 30 y 70 */
+  KC.registerIndicator({name:"RSI",shortName:"RSI",calcParams:[14],precision:2,minValue:0,maxValue:100,figures:[{key:"rsi",title:"RSI: ",type:"line",styles:()=>({color:"#7e57c2",size:1.5})}],
+    calc:(L,ind)=>{const n=Math.max(2,+ind.calcParams[0]||14);let ag=0,al=0;return L.map((k,i)=>{if(!i)return{};const d=k.close-L[i-1].close,g=Math.max(d,0),l=Math.max(-d,0);
+      if(i<=n){ag+=g/n;al+=l/n;if(i<n)return{}}else{ag=(ag*(n-1)+g)/n;al=(al*(n-1)+l)/n}return{rsi:al===0?100:100-100/(1+ag/al)}})},
+    draw:({ctx,bounding,yAxis})=>{try{const y70=yAxis.convertToPixel(70),y30=yAxis.convertToPixel(30),y50=yAxis.convertToPixel(50),w=bounding.width;ctx.save();
+      ctx.fillStyle="rgba(126,87,194,.08)";ctx.fillRect(0,Math.min(y70,y30),w,Math.abs(y30-y70));ctx.strokeStyle="rgba(120,123,134,.7)";ctx.lineWidth=1;ctx.setLineDash([4,4]);
+      [y70,y30].forEach(y=>{ctx.beginPath();ctx.moveTo(0,Math.round(y)+.5);ctx.lineTo(w,Math.round(y)+.5);ctx.stroke()});ctx.strokeStyle="rgba(120,123,134,.35)";ctx.setLineDash([2,4]);ctx.beginPath();ctx.moveTo(0,Math.round(y50)+.5);ctx.lineTo(w,Math.round(y50)+.5);ctx.stroke();ctx.restore()}catch(e){}return false}});
   KC.registerIndicator({name:"ATR",shortName:"ATR",calcParams:[14],figures:[{key:"atr",title:"ATR: ",type:"line"}],
     calc:(L,ind)=>{const n=ind.calcParams[0];let prev=null;const tr=L.map((k,i)=>{const pc=i?L[i-1].close:k.close;return Math.max(k.high-k.low,Math.abs(k.high-pc),Math.abs(k.low-pc))});
       return L.map((k,i)=>{if(i<n-1)return{};if(prev==null){let s=0;for(let j=0;j<n;j++)s+=tr[j];prev=s/n}else prev=(prev*(n-1)+tr[i])/n;return{atr:prev}})}});
@@ -552,7 +559,7 @@ const COLORS=["#e2b55c","#f3d08a","#ffffff","#9da1aa","#2962ff","#089981","#f236
 const IND=[ // [nombre, nombre en español, dónde]
   ["MA","Media móvil (MA)","main"],["EMA","Media exponencial (EMA)","main"],["SMA","Media suavizada (SMA)","main"],["WMA","Media ponderada (WMA)","main"],
   ["BOLL","Bandas de Bollinger","main"],["DONCHIAN","Canales de Donchian","main"],["SUPERTREND","SuperTrend","main"],["SAR","SAR parabólico","main"],["BBI","BBI (promedio de medias)","main"],
-  ["RSI","RSI (fuerza relativa)","sub"],["MACD","MACD","sub"],["STOCH","Estocástico","sub"],["ATR","ATR (rango verdadero medio)","sub"],["CCI","CCI","sub"],["WR","Williams %R","sub"],["MTM","Momentum","sub"],["ROC","Tasa de cambio (ROC)","sub"],
+  ["RSI","RSI · Relative Strength Index (fuerza relativa)","sub"],["MACD","MACD","sub"],["STOCH","Estocástico","sub"],["ATR","ATR (rango verdadero medio)","sub"],["CCI","CCI","sub"],["WR","Williams %R","sub"],["MTM","Momentum","sub"],["ROC","Tasa de cambio (ROC)","sub"],
   ["KDJ","KDJ","sub"],["DMI","DMI / ADX","sub"],["AO","Awesome Oscillator","sub"],["TRIX","TRIX","sub"],["BIAS","BIAS","sub"],["DMA","DMA","sub"],["PSY","PSY (psicológico)","sub"],["BRAR","BRAR","sub"],["CR","CR","sub"],["EMV","EMV","sub"],["VR","VR","sub"],["OBV","OBV","sub"],["PVT","PVT","sub"]];
 const INDN={};IND.forEach(i=>INDN[i[0]]=i[1]);
 
@@ -832,7 +839,7 @@ ${o.onTracker?`<button class="wtrk" title="Marcador de operaciones (ganadas, per
   function openToolMenu(g,anchor){closeMenu();menu=document.createElement("div");menu.className="wmenu";
     const favs=(o.getToolFav&&o.getToolFav())||[];
     menu.innerHTML=`<div class="mt">${esc(g.t)}</div>`+g.items.map(([k,t])=>k==="-"?`<div class="msec">${esc(t)}</div>`:`<button data-k="${k}" class="${(lastTool[g.g]||g.items[0][0])===k?"on":""}${toolOK(k)?"":" lk"}">${tsvg(k,20)}<span>${esc(t)}${toolOK(k)?"":' <em class="lkb">🔒 Plata</em>'}</span><i class="tst${favs.includes(k)?" on":""}" data-fav="${k}" title="${favs.includes(k)?"Quitar de la barra de favoritos":"Agregar a la barra de favoritos"}">${favs.includes(k)?"★":"☆"}</i></button>`).join("");
-    document.body.appendChild(menu);const r=anchor.getBoundingClientRect();menu.style.left=(r.right+6)+"px";menu.style.top=Math.min(r.top,innerHeight-menu.offsetHeight-8)+"px";
+    document.body.appendChild(menu);const r=anchor.getBoundingClientRect();menu.style.maxWidth="calc(100vw - 16px)";menu.style.left=Math.max(8,Math.min(r.right+6,innerWidth-menu.offsetWidth-8))+"px";menu.style.top=Math.max(safeTop()+8,Math.min(r.top,innerHeight-menu.offsetHeight-8))+"px";
     menu.querySelectorAll("[data-fav]").forEach(f=>f.addEventListener("click",e=>{e.stopPropagation();o.onToolFav&&o.onToolFav(f.dataset.fav);const on=((o.getToolFav&&o.getToolFav())||[]).includes(f.dataset.fav);f.classList.toggle("on",on);f.textContent=on?"★":"☆"},true));
     menu.querySelectorAll("button").forEach(b=>b.onclick=()=>{lastTool[g.g]=b.dataset.k;o.onLastTools&&o.onLastTools(lastTool);closeMenu();stopBrush();paintDbar();startTool(b.dataset.k)})}
   let drawingId=null;

@@ -109,16 +109,23 @@ const gate=(h1,p,btns)=>{app.innerHTML=`<div class="gate"><img src="assets/logo_
   try{await API.init()}catch(e){}
   window.chartsPlan=()=>{try{if(API.isAdmin())return true;if(!API.isPremium())return false;const p=(API.profile&&API.profile())||{};return["plata","oro","diamond"].includes(String(p.plan||"").toLowerCase())}catch(e){return false}};
   if(!API.user())return gate("EAG Charts","Gráficos en vivo de Boom y Crash, sintéticos, forex y más, con herramientas de análisis. Ingresa con tu cuenta de El Arte Gráfico.",`<a class="btn gold" href="${MAIN}#entrar">Ingresar</a><a class="btn" href="${MAIN}#registro">Crear cuenta</a>`);
+  /* la conexión con Deriv arranca ya, mientras se revisa la cuenta (antes esperaba a que todo lo demás terminara) */
+  try{window.__feedSt=null;window.__feedPre=Feed(s=>{window.__feedSt=s;if(window.__feedStCb)window.__feedStCb(s)});
+    window.__symsPre=window.__feedPre.ask({active_symbols:"brief"}).catch(()=>null)}catch(e){}
+
   /* prueba gratis de 3 días para todos los registrados (empieza la primera vez que abren EAG Charts) */
   /* EAG Charts viene con los planes Plata, Oro y Diamond (por el mismo tiempo del plan). Cobre y cuentas gratis: prueba de 3 días */
   /* VERSIÓN GRATIS: los registrados sin plan Plata/Oro/Diamond (y sin prueba activa) usan EAG Charts básico.
      Se puede apagar en Admin → EAG Charts ("Charts gratis para registrados"). */
-  let SITE0={};try{SITE0=(API.site?await API.site():{})||{}}catch(e){SITE0={}}
+  const fastBoot=(()=>{try{const f=sessionStorage.getItem("eag_fast_boot");sessionStorage.removeItem("eag_fast_boot");return f==="1"}catch(e){return false}})();
+  const pSite=API.site?API.site().catch(()=>({})):Promise.resolve({}),pTrial=API.chartTrial?API.chartTrial().catch(()=>null):Promise.resolve(null),
+    pState=(!fastBoot&&API.chartState)?API.chartState().catch(()=>null):Promise.resolve(null);
+  let SITE0={};try{SITE0=(await pSite)||{}}catch(e){SITE0={}}
   window.__site0=SITE0;const freeOn=SITE0.chartFree!==false;
   /* afiliados de Deriv verificados: desbloquean gratis las funciones que elija el admin (Admin → EAG Charts) */
   try{const me=(API.profile&&API.profile())||{};const on=SITE0.chartAffOn!==false;window.__affKeys=new Set(me.affiliate&&on?(Array.isArray(SITE0.chartAff)?SITE0.chartAff:["tools","ind","alerts","az"]):[]);window.__aff=!!me.affiliate}catch(e){window.__affKeys=new Set();window.__aff=false}
   if(!chartsPlan()){
-    let t=null;try{t=API.chartTrial?await API.chartTrial():null}catch(e){t=null}
+    let t=null;try{t=await pTrial}catch(e){t=null}
     if(freeOn&&(!t||!t.ends_at||new Date(t.ends_at).getTime()<=Date.now())){
       if(t&&t.ends_at&&!t.has_feedback&&!localStorage.getItem("eag_fb_skip")){trialEndedFree(t);return}
       window.__free=true}
@@ -127,7 +134,7 @@ const gate=(h1,p,btns)=>{app.innerHTML=`<div class="gate"><img src="assets/logo_
     if(new Date(t.ends_at).getTime()<=Date.now())return trialEnded(t);
     window.__trial=t}}
   /* traer lo guardado en la cuenta si es más nuevo que lo de este navegador */
-  try{if(API.chartState){const r=await API.chartState();const lt=+(localStorage.getItem("eag_sync_ts")||0);
+  try{if(API.chartState){const r=await pState;const lt=+(localStorage.getItem("eag_sync_ts")||0);
     if(r&&r.data&&new Date(r.updated_at).getTime()>lt+1000){const d=r.data;if(d.prefs){Object.keys(SAVE).forEach(k=>delete SAVE[k]);Object.assign(SAVE,d.prefs);localStorage.setItem(LS,JSON.stringify(SAVE))}
       if(d.draw)localStorage.setItem("eag_draw_v1",JSON.stringify(d.draw));localStorage.setItem("eag_sync_ts",String(new Date(r.updated_at).getTime()))}}}catch(e){}
   if(!window.klinecharts||!window.EAGWidget)return gate("No se pudo cargar","Revisa tu conexión y recarga la página.",`<button class="btn gold" onclick="location.reload()">Recargar</button>`);
@@ -218,13 +225,17 @@ function start(){
   </div>`;
 
   const appw=$("#appw"),stEl=$("#st"),main=$("#main"),list=$("#list"),q=$("#q"),ftabs=$("#ftabs"),pop=$("#pop");
-  const feed=Feed(s=>{stEl.className="st "+(s==="live"?"live":s==="off"?"err":"");stEl.lastChild.textContent=s==="live"?"En vivo":s==="off"?"Reconectando…":s==="pause"?"En pausa":"Conectando…"});
+  const feedSt=s=>{stEl.className="st "+(s==="live"?"live":s==="off"?"err":"");stEl.lastChild.textContent=s==="live"?"En vivo":s==="off"?"Reconectando…":s==="pause"?"En pausa":"Conectando…"};
+  const feed=window.__feedPre||Feed(feedSt);if(window.__feedPre){window.__feedStCb=feedSt;if(window.__feedSt)feedSt(window.__feedSt)}
   const relayout=()=>requestAnimationFrame(()=>{window.dispatchEvent(new Event("resize"));mtfResize()});
 
   /* ---------- mercados ---------- */
   let SYMS=FALLBACK.slice(),bySym={};
   const idx=()=>{bySym={};SYMS.forEach(s=>bySym[s.symbol]=s)};idx();
-  const ready=feed.ask({active_symbols:"brief"}).then(m=>{const a=(m.active_symbols||[]).map(norm).filter(s=>s.symbol&&!s.is_trading_suspended);if(a.length){SYMS=a;idx()}}).catch(()=>{});
+  /* lista de mercados: primero la guardada (al instante) y luego la de Deriv */
+  try{const c=JSON.parse(localStorage.getItem("eag_syms_v1")||"null");if(c&&Array.isArray(c.a)&&c.a.length&&Date.now()-c.t<3*864e5){SYMS=c.a;idx()}}catch(e){}
+  const ready=(window.__symsPre||feed.ask({active_symbols:"brief"})).then(m=>{if(!m)return feed.ask({active_symbols:"brief"});return m}).then(m=>{const a=((m&&m.active_symbols)||[]).map(norm).filter(s=>s.symbol&&!s.is_trading_suspended);
+    if(a.length){SYMS=a;idx();try{localStorage.setItem("eag_syms_v1",JSON.stringify({t:Date.now(),a}))}catch(e){}}}).catch(()=>{});
   const findInfo=t=>bySym[t]?info(bySym[t]):{ticker:t,name:t,shortName:t,exchange:"Deriv",pricePrecision:3,volumePrecision:0};
   const short=s=>String((bySym[s]||{}).display_name||s).replace(/ Index$/,"");
 
@@ -343,8 +354,8 @@ function start(){
     try{localStorage.setItem(DRAWK,JSON.stringify(t.draw||{}))}catch(e){}
     delete P.data[id];P.cur=id;save();closePop();try{sessionStorage.setItem("eag_prof_msg","1")}catch(e){}
     toast(`Cambiando a <b>${esc((P.list.find(x=>x.id===id)||{}).n||"")}</b>…`);
-    /* se guarda en la cuenta antes de recargar, para que no se pierda nada */
-    try{clearTimeout(syncT);await Promise.race([new Promise(r=>{lastPush=null;pushSync();setTimeout(r,900)}),new Promise(r=>setTimeout(r,1500))])}catch(e){}
+    /* recarga al instante: lo guardado en este navegador ya es lo más nuevo, y se sube a la cuenta apenas abre */
+    try{clearTimeout(syncT);sessionStorage.setItem("eag_fast_boot","1");sessionStorage.setItem("eag_push_after","1")}catch(e){}
     location.reload()}
   function openProf(anchor,mode){const P=SAVE.prof,cur=P.cur;pop.dataset.for="prof";
     const nameIn=(v,ph)=>`<input class="pfin" maxlength="24" value="${esc(v||"")}" placeholder="${ph}">`;
@@ -390,6 +401,7 @@ function start(){
     const stop=()=>{clearInterval(tm);clearInterval(tk);tm=tk=null};
     st.onclick=e=>{e.stopPropagation();if(!pop.hidden&&pop.dataset.for==="online"){closePop();return stop()}pop.dataset.for="online";pop.innerHTML=`<div class="ph">En los charts ahora</div><div class="pnote" style="border:0">Cargando…</div>`;showPop(st,"left");
       stop();load();tm=setInterval(load,3000);tk=setInterval(paint,1000)}}
+  try{if(sessionStorage.getItem("eag_push_after")){sessionStorage.removeItem("eag_push_after");setTimeout(()=>{try{lastPush=null;pushSync()}catch(e){}},1500)}}catch(e){}
   try{if(sessionStorage.getItem("eag_prof_msg")){sessionStorage.removeItem("eag_prof_msg");setTimeout(()=>toast(`Perfil <b>${esc(profCur().n)}</b>`),900)}}catch(e){}
   function closePop(){pop.hidden=true;pop.dataset.for="";pop.classList.remove("wide");if(shownPick&&shownPick.length){shownPick=[];watch()}}
   document.addEventListener("pointerdown",e=>{if(!pop.hidden&&!pop.contains(e.target)&&!e.target.closest("#vb,#fab,#fteye,#cfgb,#pfb,#st,.tfdd,.wsym,.wtf,.dmini"))closePop()});
