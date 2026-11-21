@@ -591,7 +591,7 @@ ${o.onTracker?`<button class="wtrk" title="Marcador de operaciones (ganadas, per
   const msOf=p=>p.multiplier*({tick:1e3,minute:6e4,hour:36e5,day:864e5,week:6048e5}[p.timespan]||6e4);
   /* ---------- en qué temporalidades se ve cada dibujo (v.tfv = ["5m","15m"]; vacío = todas) ---------- */
   const curTf=()=>{if(!per||per.timespan==="tick")return"Ticks";const g=msOf(per)/1000;let k="1m";for(const[t,gg]of STDTF){if(gg&&gg<=g)k=t}return k};
-  const tfOk=v=>!v||!v.tfv||!v.tfv.length||v.tfv.includes(curTf());
+  const tfOk=v=>!v||(!v.hid&&(!v.tfv||!v.tfv.length||v.tfv.includes(curTf())));
   const isTk=()=>per&&per.timespan==="tick";
   /* ---------- Heikin Ashi y Renko: se calculan a partir de las velas normales (RAW) ---------- */
   let RAW=[],XF="",RBOX=0;
@@ -987,7 +987,7 @@ ${o.onTracker?`<button class="wtrk" title="Marcador de operaciones (ganadas, per
       onRemoved:e=>{SELBOX.delete(e.overlay.id);if(bulk)return false;ovs.delete(e.overlay.id);if(selId===e.overlay.id){selId=null;hideStyleBar()}persist();return false},
       onDoubleClick:e=>{if(e.overlay.id!==drawingId)openCtx(e.overlay.id,e,true);return false},
       onRightClick:e=>{ovCtxAt=Date.now();try{if(e.overlay.id===drawingId){if(!finishFree())cancelDraw();return true}panelPos=null;closeMenu();openCtx(e.overlay.id,e,true,"estilo")}catch(x){}return true}});
-    if(id){OVSYM.set(id,sym&&sym.ticker);ovs.set(id,{name:def.name,styles:def.styles||null,extendData:def.extendData||null,lock:!!def.lock,points:def.points||null,tfv:def.tfv&&def.tfv.length?def.tfv.slice():null});if(!drawing)ovs.get(id).done=true}
+    if(id){OVSYM.set(id,sym&&sym.ticker);ovs.set(id,{name:def.name,styles:def.styles||null,extendData:def.extendData||null,lock:!!def.lock,points:def.points||null,tfv:def.tfv&&def.tfv.length?def.tfv.slice():null,hid:!!def.hid});if(!drawing)ovs.get(id).done=true}
     return id}
   /* ---------- capas de solo lectura (Modo Clase y Zonas del profe): no se guardan ni se pueden mover ---------- */
   let guest={},guestIds=[];
@@ -1040,7 +1040,7 @@ ${o.onTracker?`<button class="wtrk" title="Marcador de operaciones (ganadas, per
   /* guardado por mercado (todas las temporalidades), como en TradingView */
   /* deshacer / rehacer: historial de los dibujos de este mercado */
   let hist=[],fut=[],snap="[]",bulk=false;
-  function persist(){if(!sym)return;const all=loadD();const arr=[];ovs.forEach(v=>{if(v.done&&v.points&&v.points.length){const d={name:v.name,points:v.points,styles:v.styles,extendData:v.extendData,lock:v.lock};if(v.tfv&&v.tfv.length)d.tfv=v.tfv;arr.push(d)}});
+  function persist(){if(!sym)return;const all=loadD();const arr=[];ovs.forEach(v=>{if(v.done&&v.points&&v.points.length){const d={name:v.name,points:v.points,styles:v.styles,extendData:v.extendData,lock:v.lock};if(v.tfv&&v.tfv.length)d.tfv=v.tfv;if(v.hid)d.hid=true;arr.push(d)}});
     const ns=JSON.stringify(arr);if(ns!==snap){hist.push(snap);if(hist.length>60)hist.shift();fut=[];snap=ns}
     if(arr.length)all[sym.ticker]=arr;else delete all[sym.ticker];saveD(all);o.onDrawingsChange&&o.onDrawingsChange(sym.ticker)}
   function applySnap(ns){const all=loadD(),arr=JSON.parse(ns);if(arr.length)all[sym.ticker]=arr;else delete all[sym.ticker];saveD(all);snap=ns;restoreDrawings(true);o.onDrawingsChange&&o.onDrawingsChange(sym.ticker)}
@@ -1231,7 +1231,7 @@ ${o.onTracker?`<button class="wtrk" title="Marcador de operaciones (ganadas, per
     menu.querySelectorAll(".mi").forEach(b=>b.onclick=()=>{const a=b.dataset.a;
       if(a==="ptexto"||a==="pvis"){const rr=chartEl.getBoundingClientRect(),mx=menu.offsetLeft-rr.left,my=menu.offsetTop-rr.top;openCtx(id,{x:mx,y:my},true,a==="ptexto"?"texto":"vis");return}
       if(!(panel&&(a==="lock")))closeMenu();
-      if(a==="alert")alertFrom(id);else if(a==="txt")editText(id);else if(a==="lock"){toggleLock(id);if(panel)again()}else if(a==="dup")dupOv(id);else if(a==="hide"){chart.overrideOverlay({id,visible:false});hideStyleBar()}else if(a==="del")removeOv(id)})}
+      if(a==="alert")alertFrom(id);else if(a==="txt")editText(id);else if(a==="lock"){toggleLock(id);if(panel)again()}else if(a==="dup")dupOv(id);else if(a==="hide"){const vv=ovs.get(id);if(vv){vv.hid=true;persist()}chart.overrideOverlay({id,visible:false});hideStyleBar();o.onToast&&o.onToast("Dibujo oculto · lo vuelves a mostrar desde clic derecho → Lista de dibujos")}else if(a==="del")removeOv(id)})}
   /* editar texto en el mismo gráfico (sin ventanas del navegador) */
   function editText(id){const v=ovs.get(id),ov=chart.getOverlayById(id);if(!v||!ov||!ov.points[0])return;
     const px=chart.convertToPixel({timestamp:ov.points[0].timestamp,value:ov.points[0].value},{paneId:"candle_pane"})||{x:40,y:40};
@@ -1259,6 +1259,7 @@ ${o.onTracker?`<button class="wtrk" title="Marcador de operaciones (ganadas, per
       item("hline","horizontalStraightLine",`Dibujar línea horizontal en ${pv}`)+
       item("vline","verticalStraightLine","Dibujar línea vertical aquí")+`<div class="msep"></div>`+
       item("undo","undo","Deshacer",(mac?"⌘":"Ctrl+")+"Z",hist.length?"":"off")+item("redo","redo","Rehacer",(mac?"⇧⌘":"Ctrl+")+"Y",fut.length?"":"off")+
+      item("list","list",`Lista de dibujos (${nOv})…`)+
       item("hide",hidden?"eye":"eyeoff",hidden?"Mostrar los dibujos":"Ocultar los dibujos")+
       (nOv?item("clear","trash",`Borrar todos los dibujos de ${esc(nm)} (${nOv})`,"", "danger"):"")+`<div class="msep"></div>`+
       item("shot","cam","Captura del gráfico")+item("cfg","gear","Opciones de configuración…");
@@ -1271,11 +1272,63 @@ ${o.onTracker?`<button class="wtrk" title="Marcador de operaciones (ganadas, per
       else if(k==="copy"){try{await navigator.clipboard.writeText(String(+(+v).toFixed(dec())));o.onToast&&o.onToast("Precio copiado: "+pv)}catch(e){o.onToast&&o.onToast("No se pudo copiar")}}
       else if(k==="alert"){if(o.alertsAllowed&&!o.alertsAllowed()){o.onLocked&&o.onLocked("alert","Alertas de precio");return}o.onCreateAlert&&o.onCreateAlert({symbol:sym.ticker,symbol_name:sym.name||sym.ticker,kind:"nivel",price:+(+v).toFixed(dec()),price2:null})}
       else if(k==="hline"||k==="vline")quickLine(k==="hline"?"horizontalStraightLine":"verticalStraightLine",ts,v);
+      else if(k==="list")openObjList();
       else if(k==="undo")undo();else if(k==="redo")redo();
       else if(k==="hide"){const hb=dbar.querySelector('[data-x="hide"]');hb&&hb.click()}
       else if(k==="clear"){bulk=true;ovs.forEach((v2,id)=>{try{chart.removeOverlay(id)}catch(e){}});bulk=false;ovs.clear();selId=null;hideStyleBar();persist();syncPan();o.onToast&&o.onToast("Dibujos borrados · puedes deshacer con Ctrl+Z")}
       else if(k==="shot"){const sb=root.querySelector('[data-a="shot"]');sb&&sb.click()}
       else if(k==="cfg")o.onSettings&&o.onSettings(root.querySelector('[data-a="cfg"]'))})}
+  /* ---------- lista de dibujos (como la lista de objetos de MT5): ver, mostrar/ocultar, bloquear, editar y borrar uno por uno o varios ---------- */
+  let olPos=null,olSel=new Set();
+  const descOf=v=>{const P=v.points||[],pp=dec(),ex=v.extendData||{};const t=(ex.lbl&&ex.lbl.t)||((v.name==="eagText"||v.name==="eagNote"||v.name==="eagEmoji")?ex.text:"")||"";
+    const pr=P.length?P.map(q=>(+q.value).toFixed(pp)).slice(0,2).join(" → "):"";return{t,pr}};
+  const fdt=ts=>{try{const d=new Date(ts);return d.toLocaleDateString("es-CO",{day:"2-digit",month:"short"})+" "+d.toLocaleTimeString("es-CO",{hour:"2-digit",minute:"2-digit",hour12:false})}catch(e){return""}};
+  function openObjList(){const prev=menu&&menu.classList.contains("olist")?{x:menu.offsetLeft,y:menu.offsetTop}:null;closeMenu();
+    const L=[...ovs.entries()].filter(([id,v])=>v.done&&v.points&&v.points.length);[...olSel].forEach(id=>{if(!ovs.has(id))olSel.delete(id)});
+    const others=(()=>{const all=loadD(),o2=[];Object.keys(all).forEach(t=>{if(t!==sym.ticker&&Array.isArray(all[t])&&all[t].length)o2.push([t,all[t].length])});return o2})();
+    menu=document.createElement("div");menu.className="wmenu ctx panel olist";
+    menu.innerHTML=`<div class="ph2"><span class="mti">${svg("list",16)}<b>Dibujos · ${esc(sym.shortName||sym.name||sym.ticker)} (${L.length})</b></span><button class="px" title="Cerrar">×</button></div>
+      ${L.length?`<div class="olbar"><label><input type="checkbox" data-all${olSel.size&&olSel.size===L.length?" checked":""}> Todos</label><span class="grow"></span>
+        <button class="tbn" data-ob="hide" ${olSel.size?"":"disabled"} title="Ocultar / mostrar los marcados">${svg("eye",15)}</button><button class="tbn" data-ob="lock" ${olSel.size?"":"disabled"} title="Bloquear / desbloquear los marcados">${svg("lock",15)}</button>
+        <button class="tbn danger" data-ob="del" ${olSel.size?"":"disabled"}>${svg("trash",15)} Borrar${olSel.size?" ("+olSel.size+")":""}</button></div>
+      <div class="olrows">${L.map(([id,v])=>{const d=descOf(v),onTf=tfOk(v)||v.hid;return`<div class="olr${olSel.has(id)?" sel":""}${v.hid?" hid":""}${selId===id?" cur":""}" data-id="${esc(id)}">
+        <input type="checkbox" data-ck${olSel.has(id)?" checked":""}>
+        <span class="oli" style="color:${esc(curStyle(id).color||GOLD)}">${tsvg(v.name,17)}</span>
+        <span class="olt"><b>${esc(TNAME[v.name]||v.name)}${d.t?` · <em>${esc(d.t)}</em>`:""}</b><small>${d.pr}${v.points[0]&&v.points[0].timestamp?" · "+fdt(v.points[0].timestamp):""}${v.tfv&&v.tfv.length?` · solo ${esc(v.tfv.slice(0,3).join(", "))}${v.tfv.length>3?"…":""}`:""}${!onTf?" · no se ve en "+esc(curTf()):""}</small></span>
+        <button class="olb${v.hid?" off":""}" data-a="hid" title="${v.hid?"Mostrar":"Ocultar"}">${svg(v.hid?"eyeoff":"eye",15)}</button>
+        <button class="olb${v.lock?" on":""}" data-a="lock" title="${v.lock?"Desbloquear":"Bloquear"}">${svg(v.lock?"lock":"unlock",15)}</button>
+        <button class="olb" data-a="cfg" title="Configurar">${svg("gear",15)}</button>
+        <button class="olb del" data-a="del" title="Borrar">${svg("trash",15)}</button></div>`}).join("")}</div>`
+      :`<p class="mhint" style="margin:14px 10px">No hay dibujos en este mercado.</p>`}
+      ${others.length?`<div class="ml">Otros mercados</div><div class="olother">${others.map(([t,n])=>`<div class="olo"><span>${esc(t)} · ${n} ${n===1?"dibujo":"dibujos"}</span><button class="olb del" data-om="${esc(t)}" title="Borrar los dibujos de ${esc(t)}">${svg("trash",14)}</button></div>`).join("")}</div>`:""}`;
+    document.body.appendChild(menu);
+    const r=chartEl.getBoundingClientRect(),pos=prev||olPos||{x:r.left+60,y:r.top+50};menu.style.left=Math.max(8,Math.min(pos.x,innerWidth-menu.offsetWidth-8))+"px";menu.style.top=Math.max(safeTop()+8,Math.min(pos.y,innerHeight-menu.offsetHeight-8))+"px";
+    const h=menu.querySelector(".ph2");menu.querySelector(".px").onclick=()=>closeMenu();
+    h.addEventListener("pointerdown",ev=>{if(ev.target.closest(".px"))return;ev.preventDefault();const dx=ev.clientX-menu.offsetLeft,dy=ev.clientY-menu.offsetTop;try{h.setPointerCapture(ev.pointerId)}catch(x){}
+      const mv=m=>{const nx=Math.max(0,Math.min(innerWidth-60,m.clientX-dx)),ny=Math.max(safeTop()+4,Math.min(innerHeight-40,m.clientY-dy));menu.style.left=nx+"px";menu.style.top=ny+"px";olPos={x:nx,y:ny}};
+      const up=()=>{h.removeEventListener("pointermove",mv);h.removeEventListener("pointerup",up)};h.addEventListener("pointermove",mv);h.addEventListener("pointerup",up)});
+    const re=()=>openObjList();
+    const setHid=(id,on)=>{const v=ovs.get(id);if(!v)return;v.hid=!!on;try{chart.overrideOverlay({id,visible:!hidden&&tfOk(v)})}catch(e){}};
+    const setLock=(id,on)=>{const v=ovs.get(id);if(!v)return;v.lock=!!on;try{chart.overrideOverlay({id,lock:v.lock})}catch(e){}};
+    const delMany=ids=>{bulk=true;ids.forEach(id=>{try{chart.removeOverlay(id)}catch(e){}ovs.delete(id);olSel.delete(id);if(selId===id)selId=null});bulk=false;hideStyleBar();persist();syncPan()};
+    menu.querySelectorAll(".olr").forEach(row=>{const id=row.dataset.id;
+      row.querySelector("[data-ck]").onchange=e=>{e.target.checked?olSel.add(id):olSel.delete(id);re()};
+      row.querySelectorAll("[data-a]").forEach(b=>b.onclick=e=>{e.stopPropagation();const a=b.dataset.a,v=ovs.get(id);if(!v)return;
+        if(a==="hid"){setHid(id,!v.hid);persist();re()}else if(a==="lock"){setLock(id,!v.lock);persist();re()}
+        else if(a==="del"){delMany([id]);o.onToast&&o.onToast("Dibujo borrado · Ctrl+Z para deshacer");re()}
+        else if(a==="cfg"){const rr=chartEl.getBoundingClientRect(),mx=menu.offsetLeft+menu.offsetWidth+8-rr.left,my=menu.offsetTop-rr.top;panelPos=null;openCtx(id,{x:Math.min(mx,rr.width-320),y:my},true,"estilo")}});
+      /* tocar la fila: lleva el gráfico hasta ese dibujo y lo resalta */
+      row.onclick=e=>{if(e.target.closest("input,button"))return;const v=ovs.get(id);if(!v)return;selId=id;showStyleBar(id);
+        try{const ts=v.points[0].timestamp;if(ts)chart.scrollToTimestamp(ts,250)}catch(x){}menu.querySelectorAll(".olr").forEach(x=>x.classList.toggle("cur",x===row))}});
+    const all=menu.querySelector("[data-all]");all&&(all.onchange=()=>{if(all.checked)L.forEach(([id])=>olSel.add(id));else olSel.clear();re()});
+    menu.querySelectorAll("[data-ob]").forEach(b=>b.onclick=()=>{const a=b.dataset.ob,ids=[...olSel];if(!ids.length)return;
+      if(a==="del"){if(!b.classList.contains("sure")){b.classList.add("sure");b.innerHTML=`¿Borrar ${ids.length}?`;return}delMany(ids);o.onToast&&o.onToast(`${ids.length} ${ids.length===1?"dibujo borrado":"dibujos borrados"} · Ctrl+Z para deshacer`);re();return}
+      if(a==="hide"){const anyVis=ids.some(id=>!(ovs.get(id)||{}).hid);ids.forEach(id=>setHid(id,anyVis))}
+      if(a==="lock"){const anyUn=ids.some(id=>!(ovs.get(id)||{}).lock);ids.forEach(id=>setLock(id,anyUn))}
+      persist();re()});
+    menu.querySelectorAll("[data-om]").forEach(b=>b.onclick=()=>{const t=b.dataset.om;if(!b.classList.contains("sure")){b.classList.add("sure");b.title="Toca otra vez para borrar";b.innerHTML="¿Seguro?";return}
+      const all2=loadD();delete all2[t];saveD(all2);o.onDrawingsChange&&o.onDrawingsChange(t);o.onToast&&o.onToast("Dibujos de "+t+" borrados");re()})}
+  o.openObjList=()=>openObjList();
   function resetView(){try{chart.setBarSpace(8);chart.scrollToRealTime(200)}catch(e){}autoScale();fixOffR(true)}
   function quickLine(name,ts,v){if(!toolOK(name)){o.onLocked&&o.onLocked("tool",TNAME[name]||name);return}
     const st=(o.getToolStyle&&o.getToolStyle(name))||{};const id=makeOverlay({name,points:[{timestamp:ts,value:v}],styles:st.styles||undefined,extendData:(st.ex&&Object.keys(st.ex).length)?st.ex:undefined},false);
