@@ -300,6 +300,7 @@ function start(){
   function openVista(anchor){
     pop.innerHTML=`<div class="ph">Vista</div>${PARTS.map(([k,t])=>`<label class="sw"><input type="checkbox" data-k="${k}" ${SAVE.hide[k]?"":"checked"}><i></i><span>${t}</span></label>`).join("")}
       <div class="ph">Posición</div><label class="sw"><input type="checkbox" data-o="wlLeft" ${SAVE.wlLeft?"checked":""}><i></i><span>Lista de mercados a la izquierda</span></label>
+      <label class="sw"><input type="checkbox" data-o="mtfTop" ${SAVE.mtfTop?"checked":""}><i></i><span>Multitemporalidad arriba</span></label>
       <label class="sw"><input type="checkbox" data-o="dbRight" ${SAVE.dbRight?"checked":""}><i></i><span>Barra de dibujo a la derecha</span></label>
       <div class="pnote">Arrastra los bordes para cambiar tamaños: la lista, la multitemporalidad y la división entre gráficos. Arrastra las pestañas y tus favoritos para ordenarlos.</div>
       <div class="pbtns"><button class="btn sm" data-a="clean">${allHidden()?"Mostrar todo":"Modo limpio"}</button> <button class="btn sm" data-a="cfg">Ajustes del gráfico</button> <button class="btn sm" data-a="rs">Restablecer tamaños</button></div>`;
@@ -420,7 +421,7 @@ function start(){
   const safeProbe=document.createElement("div");safeProbe.style.cssText="position:fixed;left:0;top:0;width:0;height:0;visibility:hidden;pointer-events:none;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)";document.body.appendChild(safeProbe);
   const safe=()=>{const c=getComputedStyle(safeProbe);return{t:parseFloat(c.paddingTop)||0,r:parseFloat(c.paddingRight)||0,b:parseFloat(c.paddingBottom)||0,l:parseFloat(c.paddingLeft)||0}};
   function applyLayoutPrefs(){
-    appw.classList.toggle("wl-left",!!SAVE.wlLeft);appw.classList.toggle("db-right",!!SAVE.dbRight);
+    appw.classList.toggle("wl-left",!!SAVE.wlLeft);appw.classList.toggle("mtf-top",!!SAVE.mtfTop);appw.classList.toggle("db-right",!!SAVE.dbRight);
     appw.style.setProperty("--wlw",(SAVE.wlw||300)+"px");appw.style.setProperty("--mtfh",(SAVE.mtfh||168)+"px");appw.style.setProperty("--pmh",(SAVE.pmh||140)+"px");
     const c=SAVE.split.c,r=SAVE.split.r;grid.style.setProperty("--cf",c+"fr");grid.style.setProperty("--cf2",(1-c)+"fr");grid.style.setProperty("--rf",r+"fr");grid.style.setProperty("--rf2",(1-r)+"fr");
     placeSplits();relayout()}
@@ -633,8 +634,8 @@ function start(){
     const inPane=!(lay==="mtf"&&pi===0);
     const el=document.createElement("div");el.className="mtfrow"+(inPane?" pstrip":"");el.style.setProperty("--n",SAVE.tfFav.length);(inPane?P.el:grid).appendChild(el);if(inPane)P.el.classList.add("withmtf");
     const sp=document.createElement("span");sp.className="mtfsp";sp.title="Arrastra para cambiar el alto · doble clic: alto normal";sp.innerHTML="<i></i>";el.appendChild(sp);
-    if(inPane){dragger(sp,e=>{const r=P.el.getBoundingClientRect();SAVE.pmh=Math.round(clamp(r.bottom-e.clientY,90,r.height*.6));appw.style.setProperty("--pmh",SAVE.pmh+"px")})}
-    else dragger(sp,e=>{const r=grid.getBoundingClientRect();SAVE.mtfh=Math.round(clamp(r.bottom-e.clientY,110,r.height*.65));appw.style.setProperty("--mtfh",SAVE.mtfh+"px")});
+    if(inPane){dragger(sp,e=>{const r=P.el.getBoundingClientRect();SAVE.pmh=Math.round(clamp(SAVE.mtfTop?e.clientY-r.top:r.bottom-e.clientY,90,r.height*.6));appw.style.setProperty("--pmh",SAVE.pmh+"px")})}
+    else dragger(sp,e=>{const r=grid.getBoundingClientRect();SAVE.mtfh=Math.round(clamp(SAVE.mtfTop?e.clientY-r.top:r.bottom-e.clientY,110,r.height*.65));appw.style.setProperty("--mtfh",SAVE.mtfh+"px")});
     sp.ondblclick=()=>{delete SAVE.mtfh;save();applyLayoutPrefs()};
     const M={el,sym:sym.ticker,minis:[],pi};MTFS[pi]=M;if(pi===0)mtf=M;
     /* celular: bolitas de página debajo (2 minis por página) */
@@ -974,7 +975,7 @@ function start(){
       <div class="slabel">Color</div><div class="sws">${[["auto","Automático"],["#e2b55c","Dorado"],["#ffffff","Blanco"],["#000000","Negro"],["#2962ff","Azul"]].map(([v,t])=>`<button class="swc${c.wmColor===v?" on":""}" data-wc="${v}" title="${t}" style="background:${v==="auto"?"linear-gradient(135deg,#fff 50%,#15171c 50%)":v}"></button>`).join("")}</div></div>`;
     if(cat==="barras")return`<h3>Barras y paneles</h3><p class="shelp">Activa solo lo que usas. Todo se guarda en tu cuenta.</p>
       ${PARTS.map(([k,t])=>row(t,PDESC[k]||"",tog(`data-h="${k}"`,!SAVE.hide[k]))).join("")}
-      <div class="slabel">Posición</div>${row("Lista de mercados a la izquierda","",tog('data-o="wlLeft"',SAVE.wlLeft))}${row("Barra de dibujo a la derecha","",tog('data-o="dbRight"',SAVE.dbRight))}
+      <div class="slabel">Posición</div>${row("Lista de mercados a la izquierda","",tog('data-o="wlLeft"',SAVE.wlLeft))}${row("Multitemporalidad arriba","Los mini gráficos de las temporalidades van arriba del gráfico grande en vez de abajo.",tog('data-o="mtfTop"',SAVE.mtfTop))}${row("Barra de dibujo a la derecha","",tog('data-o="dbRight"',SAVE.dbRight))}
       ${row("Pestañas de mercados","Arriba (como ahora) o abajo, como en MT5: en la vista Multi-TF quedan justo encima de la multitemporalidad.",`<div class="seg mini2"><button data-ftp="top" class="${SAVE.ftPos!=="bottom"?"on":""}">Arriba</button><button data-ftp="bottom" class="${SAVE.ftPos==="bottom"?"on":""}">Abajo</button></div>`)}
       <p class="shelp">Arrastra los bordes para cambiar tamaños (lista, multitemporalidad y división entre gráficos) y arrastra pestañas y favoritos para ordenarlos.</p>
       <div class="sbtns"><button class="btn sm" data-a="clean">${allHidden()?"Mostrar todo":"Modo limpio (solo gráfico)"}</button><button class="btn sm" data-a="rs">Restablecer tamaños</button></div>`;
