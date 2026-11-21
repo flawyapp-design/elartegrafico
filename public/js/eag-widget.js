@@ -1333,6 +1333,21 @@ ${o.onTracker?`<button class="wtrk" title="Marcador de operaciones (ganadas, per
       dbar.querySelectorAll(".dt").forEach(b=>b.classList.remove("act"));
       try{capture(chart.getOverlayById(d.id))}catch(x){}syncPan()};
     chartEl.addEventListener("touchend",end,{capture:true,passive:false});chartEl.addEventListener("touchcancel",end,{capture:true,passive:false});
+    /* computador: eliges la herramienta, haces clic y arrastras → el dibujo se va viendo y queda al soltar (sin otro clic).
+       Si solo das clic sin arrastrar, funciona como antes (clic en el primer punto y clic en el segundo). */
+    let md=null;
+    chartEl.addEventListener("mousedown",e=>{if(e.button!==0||dd||md||!drawingId||brushOn)return;let ov;try{ov=chart.getOverlayById(drawingId)}catch(x){}
+      if(!ov||ov.totalStep!==3||(ov.points||[]).length>1)return;const t=rel(e),p0=ptAt(t.x,t.y);if(!p0)return;md={x0:t.x,y0:t.y,p0,id:null,name:null}},true);
+    addEventListener("mousemove",e=>{if(!md)return;if(!(e.buttons&1)){md=null;return}const t=rel(e);
+      if(!md.id){if(Math.hypot(t.x-md.x0,t.y-md.y0)<7||!drawingId)return;const v=ovs.get(drawingId);if(!v){md=null;return}
+        const name=v.name,styles=v.styles,extendData=v.extendData;bulk=true;try{chart.removeOverlay(drawingId)}catch(x){}bulk=false;ovs.delete(drawingId);drawingId=null;
+        const id=makeOverlay({name,styles:styles||undefined,extendData:extendData||undefined,points:[md.p0,md.p0]},false);if(!id){md=null;syncPan();return}md.id=id;md.name=name;chartEl.classList.add("ovdrag")}
+      const p1=ptAt(t.x,t.y);if(p1)setPts(md.id,md.name,md.p0,p1)},true);
+    addEventListener("mouseup",e=>{if(!md)return;const d=md;md=null;if(!d.id)return;e.stopPropagation();chartEl.classList.remove("ovdrag");
+      dbar.querySelectorAll(".dt").forEach(b=>b.classList.remove("act"));
+      try{const ov=chart.getOverlayById(d.id);capture(ov);if(ov&&ov.name==="eagText")setTimeout(()=>editText(d.id),30)}catch(x){}
+      /* un clic que llegue justo después no debe empezar nada nuevo */
+      const stop=ev=>{ev.stopPropagation();ev.preventDefault()};chartEl.addEventListener("click",stop,{capture:true,once:true});setTimeout(()=>chartEl.removeEventListener("click",stop,true),60);syncPan()},true);
   }
   /* ---------- celular: tocar un dibujo es fácil (margen amplio) y doble toque abre su configuración ---------- */
   function ovDist(id,x,y){const v=ovs.get(id);if(!v)return 1e9;let ov;try{ov=chart.getOverlayById(id)}catch(e){}const pts=(ov&&ov.points)||v.points||[];if(!pts.length)return 1e9;
