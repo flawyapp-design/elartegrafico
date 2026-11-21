@@ -191,7 +191,8 @@ html.light .mini.on .mh em{color:var(--gold)}
 .wnav{position:absolute;left:50%;bottom:44px;transform:translate(-50%,6px);z-index:4;display:flex;align-items:center;gap:6px;opacity:0;pointer-events:none;transition:opacity .18s,transform .18s}
 .wchart:hover .wnav:focus-within{opacity:1;transform:translate(-50%,0);pointer-events:auto}
 @media (hover:none){.wnav{opacity:0;transform:translate(-50%,6px);pointer-events:none;bottom:40px}
-.navshow .wnav{opacity:1;transform:translate(-50%,0);pointer-events:auto}.wnav button{width:30px;height:30px}}
+.wnav button{width:30px;height:30px}}
+.wchart.navshow .wnav{opacity:1;transform:translate(-50%,0);pointer-events:auto}
 /* ojito en la esquina del gráfico: muestra u oculta los botones de mover/recargar */
 .wnavt{position:absolute;left:8px;bottom:40px;z-index:4;display:grid;place-items:center;width:28px;height:28px;border-radius:50%;border:1px solid var(--line2);background:var(--card);color:var(--dim);cursor:pointer;opacity:.75;box-shadow:0 3px 10px rgba(0,0,0,.2);transition:opacity .15s,color .15s,border-color .15s}
 .wnavt:hover{opacity:1;color:var(--gold);border-color:var(--gold)}
