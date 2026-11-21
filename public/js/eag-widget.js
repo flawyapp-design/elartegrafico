@@ -328,6 +328,8 @@ const IC={
   chevl:'<path d="m15 6-6 6 6 6"/>',chevr:'<path d="m9 6 6 6-6 6"/>',
   reset:'<path d="M4 12a8 8 0 1 0 2.4-5.7"/><path d="M4 4v4h4"/>',
   score:'<rect x="3" y="4" width="18" height="16" rx="3"/><path d="M12 4v16M6.5 12h3M8 10.5v3M14.5 12h3"/>',
+  bell:'<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/>',
+  undo:'<path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/>',redo:'<path d="m15 14 5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"/>',
   reload:'<path d="M20 12a8 8 0 1 1-2.4-5.7"/><path d="M20 4v4h-4"/><circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none"/>',
   copy:'<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M4 16V4h12"/>',
   front:'<rect x="9" y="9" width="11" height="11" rx="1"/><path d="M15 9V4H4v11h5"/>'};
@@ -806,12 +808,12 @@ window.EAGWidget=function(o){
         const tiny=ptrDown&&(ptrDown.max||0)<(ptrDown.touch?12:6);
         if(tiny&&movSnap&&movSnap.id===e.overlay.id&&movSnap.points.length){try{chart.overrideOverlay({id:e.overlay.id,points:movSnap.points})}catch(x){}movSnap=null;boxDrag=null;return false}
         movSnap=null;boxDrag=null;capture(chart.getOverlayById(e.overlay.id)||e.overlay);return false},
-      onMouseEnter:()=>{chartEl.classList.add("ovh");return false},onMouseLeave:()=>{chartEl.classList.remove("ovh");return false},
+      onMouseEnter:e=>{chartEl.classList.add("ovh");hovId=e&&e.overlay&&e.overlay.id;return false},onMouseLeave:e=>{chartEl.classList.remove("ovh");if(e&&e.overlay&&hovId===e.overlay.id)hovId=null;return false},
       onSelected:e=>{const lv=ovs.get(e.overlay.id);if(lastTouch&&lv&&lv.lock)return false;selId=e.overlay.id;SELBOX.add(e.overlay.id);showStyleBar(e.overlay.id);syncPan();return false},
       onDeselected:e=>{SELBOX.delete(e.overlay.id);if(selId===e.overlay.id){selId=null;hideStyleBar()}syncPan();return false},
       onRemoved:e=>{SELBOX.delete(e.overlay.id);if(bulk)return false;ovs.delete(e.overlay.id);if(selId===e.overlay.id){selId=null;hideStyleBar()}persist();return false},
       onDoubleClick:e=>{if(e.overlay.id!==drawingId)openCtx(e.overlay.id,e,true);return false},
-      onRightClick:e=>{try{if(e.overlay.id===drawingId){if(!finishFree())cancelDraw();return true}panelPos=null;closeMenu();openCtx(e.overlay.id,e,true,"estilo")}catch(x){}return true}});
+      onRightClick:e=>{ovCtxAt=Date.now();try{if(e.overlay.id===drawingId){if(!finishFree())cancelDraw();return true}panelPos=null;closeMenu();openCtx(e.overlay.id,e,true,"estilo")}catch(x){}return true}});
     if(id){OVSYM.set(id,sym&&sym.ticker);ovs.set(id,{name:def.name,styles:def.styles||null,extendData:def.extendData||null,lock:!!def.lock,points:def.points||null,tfv:def.tfv&&def.tfv.length?def.tfv.slice():null});if(!drawing)ovs.get(id).done=true}
     return id}
   /* ---------- capas de solo lectura (Modo Clase y Zonas del profe): no se guardan ni se pueden mover ---------- */
@@ -1031,7 +1033,51 @@ window.EAGWidget=function(o){
     inp.onkeydown=e=>{e.stopPropagation();if(e.key==="Enter")done(true);if(e.key==="Escape")done(false)};inp.onblur=()=>done(true)}
   root.tabIndex=-1;
   root.addEventListener("keydown",e=>{if((e.key==="Delete"||e.key==="Backspace")&&selId&&!/input|select|textarea/i.test(e.target.tagName)){removeOv(selId);selId=null}if(e.key==="Escape"){cancelDraw();closeMenu();stopBrush()}});
-  chartEl.addEventListener("contextmenu",e=>{e.preventDefault();if(drawingId){if(finishFree())return;cancelDraw();o.onToast&&o.onToast("Herramienta cancelada")}});
+  /* ---------- clic derecho en el gráfico: menú como TradingView ---------- */
+  let hovId=null,ovCtxAt=0;
+  const pxV=v=>(+v).toLocaleString("en-US",{minimumFractionDigits:dec(),maximumFractionDigits:dec()});
+  function chartMenu(ev){const r=chartEl.getBoundingClientRect(),x=ev.clientX-r.left,y=ev.clientY-r.top;let c=null;
+    try{c=chart.convertFromPixel([{x,y}],{paneId:"candle_pane"})[0]}catch(e){}let ya=null;try{ya=chart.getSize("candle_pane","main")}catch(e){}
+    if(!c||!isFinite(c.value)||(ya&&y>ya.height))return;
+    const L=chart.getDataList(),i=Math.max(0,Math.min(L.length-1,c.dataIndex)),ts=L[i]?L[i].timestamp:Date.now(),v=c.value,pv=pxV(v),nm=sym.shortName||sym.name||sym.ticker;
+    const mac=/Mac|iPhone|iPad/.test(navigator.platform);
+    const item=(k,ic,t,ks,cls)=>`<button class="mi cmi${cls?" "+cls:""}" data-m="${k}">${ic?(IC[ic]?svg(ic,17):tsvg(ic,17)):"<i></i>"}<span>${t}</span>${ks?`<em class="ks">${ks}</em>`:""}</button>`;
+    const nOv=[...ovs.values()].filter(v2=>v2.done).length;
+    closeMenu();menu=document.createElement("div");menu.className="wmenu ctx cmenu";
+    menu.innerHTML=item("reset","reset","Restablecer visualización del gráfico")+`<div class="msep"></div>`+
+      item("copy","copy","Copiar precio "+pv)+`<div class="msep"></div>`+
+      item("alert","bell",`Añadir alerta en ${esc(nm)} a ${pv}`)+
+      item("hline","horizontalStraightLine",`Dibujar línea horizontal en ${pv}`)+
+      item("vline","verticalStraightLine","Dibujar línea vertical aquí")+`<div class="msep"></div>`+
+      item("undo","undo","Deshacer",(mac?"⌘":"Ctrl+")+"Z",hist.length?"":"off")+item("redo","redo","Rehacer",(mac?"⇧⌘":"Ctrl+")+"Y",fut.length?"":"off")+
+      item("hide",hidden?"eye":"eyeoff",hidden?"Mostrar los dibujos":"Ocultar los dibujos")+
+      (nOv?item("clear","trash",`Borrar todos los dibujos de ${esc(nm)} (${nOv})`,"", "danger"):"")+`<div class="msep"></div>`+
+      item("shot","cam","Captura del gráfico")+item("cfg","gear","Opciones de configuración…");
+    document.body.appendChild(menu);
+    menu.style.left=Math.max(8,Math.min(ev.clientX,innerWidth-menu.offsetWidth-8))+"px";menu.style.top=Math.max(safeTop()+8,Math.min(ev.clientY,innerHeight-menu.offsetHeight-8))+"px";
+    menu.querySelectorAll("[data-m]").forEach(b=>b.onclick=async()=>{const k=b.dataset.m;
+      if(k==="clear"&&!b.classList.contains("sure")){b.classList.add("sure");b.querySelector("span").textContent="¿Seguro? Toca otra vez para borrarlos";return}
+      closeMenu();
+      if(k==="reset")resetView();
+      else if(k==="copy"){try{await navigator.clipboard.writeText(String(+(+v).toFixed(dec())));o.onToast&&o.onToast("Precio copiado: "+pv)}catch(e){o.onToast&&o.onToast("No se pudo copiar")}}
+      else if(k==="alert"){if(o.alertsAllowed&&!o.alertsAllowed()){o.onLocked&&o.onLocked("alert","Alertas de precio");return}o.onCreateAlert&&o.onCreateAlert({symbol:sym.ticker,symbol_name:sym.name||sym.ticker,kind:"nivel",price:+(+v).toFixed(dec()),price2:null})}
+      else if(k==="hline"||k==="vline")quickLine(k==="hline"?"horizontalStraightLine":"verticalStraightLine",ts,v);
+      else if(k==="undo")undo();else if(k==="redo")redo();
+      else if(k==="hide"){const hb=dbar.querySelector('[data-x="hide"]');hb&&hb.click()}
+      else if(k==="clear"){bulk=true;ovs.forEach((v2,id)=>{try{chart.removeOverlay(id)}catch(e){}});bulk=false;ovs.clear();selId=null;hideStyleBar();persist();syncPan();o.onToast&&o.onToast("Dibujos borrados · puedes deshacer con Ctrl+Z")}
+      else if(k==="shot"){const sb=root.querySelector('[data-a="shot"]');sb&&sb.click()}
+      else if(k==="cfg")o.onSettings&&o.onSettings(root.querySelector('[data-a="cfg"]'))})}
+  function resetView(){try{chart.setBarSpace(8);chart.scrollToRealTime(200)}catch(e){}autoScale();fixOffR(true)}
+  function quickLine(name,ts,v){if(!toolOK(name)){o.onLocked&&o.onLocked("tool",TNAME[name]||name);return}
+    const st=(o.getToolStyle&&o.getToolStyle(name))||{};const id=makeOverlay({name,points:[{timestamp:ts,value:v}],styles:st.styles||undefined,extendData:(st.ex&&Object.keys(st.ex).length)?st.ex:undefined},false);
+    if(id){const vv=ovs.get(id);if(vv){if(!vv.tfv&&o.drawTfOnly&&o.drawTfOnly())vv.tfv=[curTf()];vv.done=true}persist()}}
+  chartEl.addEventListener("contextmenu",e=>{e.preventDefault();if(drawingId){if(finishFree())return;cancelDraw();o.onToast&&o.onToast("Herramienta cancelada");return}
+    const ev={clientX:e.clientX,clientY:e.clientY};setTimeout(()=>{if(Date.now()-ovCtxAt<250)return;if(lastTouch)return;chartMenu(ev)},30)});
+  /* rueda del mouse (clic del centro) sobre un dibujo: lo borra */
+  chartEl.addEventListener("mousedown",e=>{if(e.button!==1)return;e.preventDefault();if(drawingId)return;const id=hovId;if(!id||!ovs.has(id))return;
+    const v=ovs.get(id);if(v&&v.lock){o.onToast&&o.onToast("Ese dibujo está bloqueado");return}removeOv(id);hovId=null;chartEl.classList.remove("ovh");o.onToast&&o.onToast("Dibujo borrado · Ctrl+Z para deshacer")},true);
+  chartEl.addEventListener("auxclick",e=>{if(e.button===1)e.preventDefault()});
+
   /* escala de precios con el dedo: arrastra arriba/abajo sobre los números de la derecha para estirar o encoger */
   let yDrag=null;
   chartEl.addEventListener("touchstart",e=>{if(e.touches.length!==1)return;let ya;try{ya=chart.getSize("candle_pane","yAxis")}catch(x){return}if(!ya)return;
