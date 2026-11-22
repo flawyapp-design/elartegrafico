@@ -118,21 +118,16 @@ const gate=(h1,p,btns)=>{app.innerHTML=`<div class="gate"><img src="assets/logo_
   /* VERSIÓN GRATIS: los registrados sin plan Plata/Oro/Diamond (y sin prueba activa) usan EAG Charts básico.
      Se puede apagar en Admin → EAG Charts ("Charts gratis para registrados"). */
   const fastBoot=(()=>{try{const f=sessionStorage.getItem("eag_fast_boot");sessionStorage.removeItem("eag_fast_boot");return f==="1"}catch(e){return false}})();
-  const pSite=API.site?API.site().catch(()=>({})):Promise.resolve({}),pTrial=API.chartTrial?API.chartTrial().catch(()=>null):Promise.resolve(null),
+  const pSite=API.site?API.site().catch(()=>({})):Promise.resolve({}),pTrial=Promise.resolve(null),/* la prueba de 3 días se quitó: EAG Charts ya es público (versión gratis + planes) */
     pState=(!fastBoot&&API.chartState)?API.chartState().catch(()=>null):Promise.resolve(null);
   let SITE0={};try{SITE0=(await pSite)||{}}catch(e){SITE0={}}
   window.__site0=SITE0;const freeOn=SITE0.chartFree!==false;
   /* afiliados de Deriv verificados: desbloquean gratis las funciones que elija el admin (Admin → EAG Charts) */
   try{const me=(API.profile&&API.profile())||{};const on=SITE0.chartAffOn!==false;window.__affKeys=new Set(me.affiliate&&on?(Array.isArray(SITE0.chartAff)?SITE0.chartAff:["tools","ind","alerts","az"]):[]);window.__aff=!!me.affiliate}catch(e){window.__affKeys=new Set();window.__aff=false}
   if(!chartsPlan()){
-    let t=null;try{t=await pTrial}catch(e){t=null}
-    if(freeOn&&(!t||!t.ends_at||new Date(t.ends_at).getTime()<=Date.now())){
-      if(t&&t.ends_at&&!t.has_feedback&&!localStorage.getItem("eag_fb_skip")){trialEndedFree(t);return}
-      window.__free=true}
+    if(freeOn)window.__free=true;
     else{
-    if(!t||!t.ends_at)return gate("Incluido en Plata, Oro y Diamond","EAG Charts viene con los planes Plata, Oro y Diamond, por el mismo tiempo de tu plan (Diamond, de por vida). Activa uno de esos planes y vuelve a esta página.",`<a class="btn gold" href="${MAIN}#premium">Ver planes</a><a class="btn" href="${ACAD}">Ir a la academia</a>`);
-    if(new Date(t.ends_at).getTime()<=Date.now())return trialEnded(t);
-    window.__trial=t}}
+    return gate("Incluido en Plata, Oro y Diamond","EAG Charts viene con los planes Plata, Oro y Diamond, por el mismo tiempo de tu plan (Diamond, de por vida). Activa uno de esos planes y vuelve a esta página.",`<a class="btn gold" href="${MAIN}#premium">Ver planes</a><a class="btn" href="${ACAD}">Ir a la academia</a>`)}}
   /* traer lo guardado en la cuenta si es más nuevo que lo de este navegador */
   try{if(API.chartState){const r=await pState;const lt=+(localStorage.getItem("eag_sync_ts")||0);
     if(r&&r.data&&new Date(r.updated_at).getTime()>lt+1000){const d=r.data;if(d.prefs){Object.keys(SAVE).forEach(k=>delete SAVE[k]);Object.assign(SAVE,d.prefs);localStorage.setItem(LS,JSON.stringify(SAVE))}
