@@ -1,6 +1,7 @@
 // Supabase Edge Function "discord": conecta la cuenta de Discord del alumno y le pone/quita el rol de Afiliado.
 // Deploy: Supabase → Edge Functions → Deploy a new function → Via Editor → nombre: discord → pegar este código → Deploy.
 // Secrets (Edge Functions → Secrets):
+//   DISCORD_ADMIN_IDS (opcional)             (tu ID de Discord y el de tu equipo, separados por coma, para avisarles en cada ticket)
 //   DISCORD_CLIENT_ID, DISCORD_CLIENT_SECRET  (Discord Developer Portal → tu app → OAuth2)
 //   DISCORD_BOT_TOKEN                         (tu app → Bot → Reset Token)
 //   DISCORD_GUILD_ID                          (ID del servidor)
@@ -23,6 +24,7 @@ const ROLE = Deno.env.get("DISCORD_ROLE_AFILIADO") || "";
 const READY = !!(CID && CSEC && BOT && GUILD && ROLE);
 const SOPORTE = Deno.env.get("DISCORD_SOPORTE_CHANNEL") || "";   // canal donde se abren los tickets (hilos privados)
 const SOPORTE_ROL = Deno.env.get("DISCORD_SOPORTE_ROL") || "";   // opcional: rol de tu equipo, se menciona al abrir un ticket
+const ADMIN_IDS = (Deno.env.get("DISCORD_ADMIN_IDS") || "").split(/[,\s]+/).filter(Boolean);   // opcional: IDs de Discord del equipo
 const ALLOWED = ["https://elartegrafico.com/", "https://www.elartegrafico.com/", "http://localhost:8766/"];
 
 const cors = {
@@ -89,6 +91,23 @@ async function dcPost(channel: string, payload: unknown) {
   }
   return null;
 }
+// quién atiende el soporte: los admins de la página que conectaron su Discord (+ DISCORD_ADMIN_IDS)
+let staffCache: { at: number; ids: string[] } | null = null;
+async function staffIds(): Promise<string[]> {
+  if (staffCache && Date.now() - staffCache.at < 5 * 60000) return staffCache.ids;
+  let ids: string[] = [...ADMIN_IDS];
+  try {
+    const L = await (await db(`profiles?role=eq.admin&discord_id=not.is.null&select=discord_id`)).json();
+    if (Array.isArray(L)) ids = ids.concat(L.map((x: any) => String(x.discord_id)));
+  } catch { /* sin admins */ }
+  ids = [...new Set(ids.filter(Boolean))];
+  staffCache = { at: Date.now(), ids };
+  return ids;
+}
+// los hilos de soporte son privados: si no estás dentro no ves nada (solo el aviso). Por eso se mete al equipo en cada ticket.
+async function addStaff(thread: string, ids: string[]) {
+  for (const id of ids) { try { await dc(`/channels/${thread}/thread-members/${id}`, { method: "PUT" }); } catch { /* sigue */ } }
+}
 // si ya tenía ticket y conecta su Discord después, lo agrega a su ticket
 async function addToTicket(uid: string, did: string) {
   try {
@@ -114,6 +133,10 @@ async function ticketOpen(uid: string, p: any): Promise<string | null> {
   if (!r.ok) { await db(`dm_threads?user_id=eq.${uid}`, { method: "PATCH", headers: { Prefer: "return=minimal" }, body: JSON.stringify({ dc_thread: null }) }); return null; }
   const th: any = await r.json();
   if (p.discord_id) await dc(`/channels/${th.id}/thread-members/${p.discord_id}`, { method: "PUT" });
+  const staff = await staffIds();
+  await addStaff(th.id, staff);
+  // aviso en el canal de soporte (sin el texto del mensaje): así se ve que llegó un ticket nuevo
+  await dcPost(SOPORTE, { content: `📩 Nuevo mensaje de soporte de **${String(p.username || "alumno").slice(0, 60)}** en la página → <#${th.id}>${staff.length ? " " + staff.map((i) => `<@${i}>`).join(" ") : ""}`, allowed_mentions: { users: staff } });
   const plan = p.premium_until && new Date(p.premium_until) > new Date() ? (p.plan || "premium") : "gratis";
   const intro = await dcPost(th.id, {
     content: `${SOPORTE_ROL ? `<@&${SOPORTE_ROL}> ` : ""}🎫 **Ticket de ${p.username || "alumno"}**${p.discord_id ? ` · <@${p.discord_id}>` : " · (no ha conectado su Discord)"}\nPlan: ${plan}${p.affiliate ? " · Miembro verificado ✅" : ""}\nLo que escriban aquí le llega a su chat en la página, y lo que escriba en la página aparece aquí.\nChat en la página: https://elartegrafico.com/#admin-chat-${uid}`,
@@ -153,7 +176,12 @@ Deno.serve(async (req) => {
       if (!t) return json({ error: "no se pudo abrir el ticket" }, 500);
     }
     const who = m.from_admin ? "🟡 **El Arte Gráfico** (desde la página)" : `🔵 **${p.username || "Alumno"}** (desde la página)`;
-    const r = await dcPost(t, { content: `${who}\n${String(m.body).slice(0, 1800)}`, allowed_mentions: { parse: [] } });
+    // el equipo dentro del hilo y avisado: la notificación de Discord muestra quién escribió y qué dijo
+    const staff = m.from_admin ? [] : await staffIds();
+    if (staff.length) await addStaff(t, staff);
+    const ping = staff.length ? "\n" + staff.map((i) => `<@${i}>`).join(" ") : "";
+    const txt = String(m.body || "").trim() || "(mensaje sin texto: puede ser una foto; ábrelo en la página)";
+    const r = await dcPost(t, { content: `${who}\n${txt.slice(0, 1700)}${ping}`, allowed_mentions: { users: staff } });
     return json({ ok: r });
   }
   if (action === "ticket-poll") {
