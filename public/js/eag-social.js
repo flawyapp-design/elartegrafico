@@ -154,7 +154,7 @@ function paintPanel(){if(!panel)return;{const of=panel.querySelector("[data-find
      <div class="sp-vol">🎤 Micrófono <span class="sp-lvl"><i></i></span><button class="btn sm" data-mic>Probar micrófono</button></div>
      <label class="sp-vol">🔊 Volumen <input type="range" min="10" max="100" step="5" value="${cfg().vol}" data-vol><button class="btn sm" data-tst>Probar</button></label>
      <label class="sp-ck"><input type="checkbox" data-c="hidden"${cfg().hidden?" checked":""}><span><b>Aparecer invisible</b><small>No sales en Conectados. Igual puedes escribir y recibir mensajes.</small></span></label>
-     <p class="sp-note">🔒 Los chats privados solo los ven las 2 personas. En el grupo general escribe con respeto: el profe puede borrar mensajes y silenciar a quien haga spam.</p></div>`}</div>`;
+     <p class="sp-note">🕒 El chat guarda solo los mensajes y fotos de los <b>últimos 3 días</b>; lo más viejo se borra solo.<br>🔒 Los chats privados solo los ven las 2 personas. En el grupo general escribe con respeto: el profe puede borrar mensajes y silenciar a quien haga spam.</p></div>`}</div>`;
   panel.querySelector("[data-x]").onclick=close;panel.querySelector("[data-min]").onclick=minimize;handles();
   panel.querySelectorAll("[data-tab]").forEach(b=>b.onclick=()=>{view.tab=b.dataset.tab;paintPanel();if(view.tab==="people")loadPeople()});
   panel.querySelectorAll("[data-room]").forEach(b=>b.onclick=()=>open(b.dataset.room));
@@ -332,8 +332,9 @@ function roomMenu(anchor,room){const old=document.querySelector(".sp-menu");if(o
   m.querySelectorAll("[data-m]").forEach(b=>b.onclick=async()=>{const k=b.dataset.m;if((k==="hide"||k==="clear")&&!confirmSoft(b,k==="hide"?"Toca otra vez para eliminar":"Toca otra vez para vaciar"))return;m.remove();
     if(k==="hide")hideChat(room);else if(k==="clear")clearGeneral();
     else{try{await X.API.chatBlock(oid,k==="mute");X.toast(k==="mute"?"Silenciado: ya no puede escribir en el chat.":"Listo: ya puede escribir de nuevo.")}catch(e){X.toast("No se pudo.")}}})}
-/* el admin limpia sola las fotos viejas del almacenamiento (1 vez al día) */
-function imgClean(){try{if(!X.isAdmin()||!X.API.chartChatImgClean)return;const k="eag_cc_clean",t=+(localStorage.getItem(k)||0);if(Date.now()-t<864e5)return;localStorage.setItem(k,String(Date.now()));setTimeout(()=>X.API.chartChatImgClean(90).catch(()=>{}),20000)}catch(e){}}
+/* el chat guarda solo 3 días: el admin, al entrar, borra las fotos viejas del almacenamiento y los mensajes viejos (respaldo del cron), cada 6 h */
+function imgClean(){try{if(!X.isAdmin()||!X.API.chartChatImgClean)return;const k="eag_cc_clean",t=+(localStorage.getItem(k)||0);if(Date.now()-t<6*36e5)return;localStorage.setItem(k,String(Date.now()));
+  setTimeout(()=>{X.API.chatCleanup&&X.API.chatCleanup().catch(()=>{});X.API.chartChatImgClean(3).catch(()=>{})},20000)}catch(e){}}
 /* idea de trading: mercado, temporalidad y precio actual del gráfico activo */
 function ideaNow(){try{const p=X.panes()[X.active()];const s=p.kc.getSymbol(),L=p.kc.chart.getDataList(),c=L[L.length-1];const pr=c?+c.close:null;
   return{sym:s.ticker,symName:s.name||s.shortName||s.ticker,tf:p.kc.getPeriod().text,price:pr!=null?pr.toLocaleString("en-US",{maximumFractionDigits:s.pricePrecision!=null?s.pricePrecision:3}):null}}catch(e){return null}}

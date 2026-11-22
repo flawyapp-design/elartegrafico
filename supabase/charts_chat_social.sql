@@ -177,12 +177,12 @@ end $$;
 grant execute on function public.chat_hide(text) to authenticated;
 
 -- fotos viejas del chat de los charts (el admin las borra del almacenamiento)
-create or replace function public.chartchat_img_old(p_days int default 60) returns setof text
+create or replace function public.chartchat_img_old(p_days int default 3) returns setof text
 language plpgsql stable security definer set search_path = public, storage as $$
 begin
   if not public.is_admin() then raise exception 'solo admin'; end if;
   return query select o.name from storage.objects o
-    where o.bucket_id = 'chartchat' and o.created_at < now() - make_interval(days => greatest(coalesce(p_days,60),7)) limit 1000;
+    where o.bucket_id = 'chartchat' and o.created_at < now() - make_interval(days => greatest(coalesce(p_days,3),3)) limit 1000;
 end $$;
 grant execute on function public.chartchat_img_old(int) to authenticated;
 
@@ -286,16 +286,16 @@ begin
 end $$;
 grant execute on function public.chat_block(uuid,boolean) to authenticated;
 
--- limpieza: el grupo general guarda 30 días; los privados 180 días
+-- limpieza: el chat de los charts guarda solo los últimos 3 días (grupo y privados) para no gastar espacio
 create or replace function public.chat_cleanup() returns void
 language sql security definer set search_path = public as $$
-  delete from public.chart_msgs where (room = 'g:general' and created_at < now() - interval '30 days')
-                                   or (room <> 'g:general' and created_at < now() - interval '180 days');
+  delete from public.chart_msgs where created_at < now() - interval '3 days';
 $$;
+grant execute on function public.chat_cleanup() to authenticated;
 do $$ begin
   if exists (select 1 from pg_extension where extname = 'pg_cron') then
     perform cron.unschedule('chat-cleanup') where exists (select 1 from cron.job where jobname = 'chat-cleanup');
-    perform cron.schedule('chat-cleanup', '40 8 * * *', 'select public.chat_cleanup()');
+    perform cron.schedule('chat-cleanup', '17 */6 * * *', 'select public.chat_cleanup()');
   end if;
 end $$;
 
