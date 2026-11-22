@@ -329,7 +329,7 @@ function LocalAPI(){
     async signOut(){uid=null;try{localStorage.removeItem("ag_local_uid")}catch(e){}},
     async recover(){},
     async updatePassword(pw){const u=db.users.find(x=>x.id===uid);if(u){u.password=pw;save()}},
-    async site(){return db.site||{}},
+    async site(){reload();return db.site||{}},
     rt:null,
     async liveGet(){return db.live||null},
     async liveSet(o){db.live=Object.assign({id:1},db.live,o,{updated_at:now()});save();try{window.dispatchEvent(new CustomEvent("ag-local-live"))}catch(e){}},
