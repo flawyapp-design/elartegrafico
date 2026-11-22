@@ -97,13 +97,23 @@ function onMsg(m){if(!m||!m.room)return;if(!(m.room===GEN||(m.room.startsWith("d
   Object.assign(t,{last_id:m.id,last_body:m.body,last_kind:m.kind,last_sender:m.sender,last_at:m.created_at});
   threads.sort((a,b)=>(b.last_id||0)-(a.last_id||0));
   const mine=m.sender===ME.id,open=panel&&view.room===m.room&&!document.hidden;
-  if(!mine&&!open){t.unread=(+t.unread||0)+1;if(m.room!==GEN||mentioned(m)||m.is_admin){headNotify(m);SND.play(m.room!==GEN?"in":mentioned(m)?"mention":"in")}}
+  const inOther=panel&&view.room&&view.room!==m.room&&!document.hidden;
+  if(!mine&&!open){t.unread=(+t.unread||0)+1;if(m.room!==GEN||mentioned(m)||m.is_admin){if(inOther)peek(m);else headNotify(m);SND.play(m.room!==GEN?"in":mentioned(m)?"mention":"in")}}
   else if(!mine&&open)SND.play("inSoft");
   if(!mine&&typers[m.room]){delete typers[m.room][m.sender];paintTyping()}
   if(!mine&&m.kind==="call"&&m.payload&&m.payload.act==="start"&&m.room!==GEN)incoming(m);
   if(!mine&&m.kind==="call"&&m.payload&&m.payload.act==="end"){if(ringing&&ringing.room===m.payload.room)stopRing("La llamada terminó.");if(call&&call.room===m.payload.room){X.toast("La otra persona colgó.");hangup(true)}}
   unread=threads.reduce((a,x)=>a+(x.room===GEN?0:(+x.unread||0)),0);paintBtn();
-  if(open){paintRoom(true);markRead(m.room)}else if(panel&&!view.room)paintPanel()}
+  if(open){paintRoom(true);markRead(m.room)}else if(panel&&!view.room)paintPanel();else if(inOther)backBadge()}
+/* dentro de un chat: número en la flecha de volver con lo que te escribieron en otros chats */
+function backBadge(){if(!panel||!view.room)return;const b=panel.querySelector("[data-back]");if(!b)return;
+  const n=threads.reduce((a,t)=>a+(t.room!==view.room&&t.room!==GEN?(+t.unread||0):0),0),g=view.room!==GEN&&threads.some(t=>t.room===GEN&&+t.unread>0);
+  const e=b.querySelector("em"),d=b.querySelector("i");if(e){e.hidden=!n;e.textContent=n>9?"9+":String(n)}if(d)d.hidden=!!n||!g;
+  b.title=n?`Tienes ${n} mensaje${n>1?"s":""} sin leer en otros chats`:g?"Hay mensajes nuevos en el grupo":"Volver a tus chats"}
+/* aviso dentro del panel cuando te escriben en otro chat */
+function peek(m){if(!panel)return;const old=panel.querySelector(".sp-peek");if(old)old.remove();const who=m.username||nameOf(m.sender);
+  const el=document.createElement("button");el.className="sp-peek";el.innerHTML=`${m.room===GEN?`<span class="sav sm grp">👥</span>`:av({id:m.sender,username:who,avatar_url:m.avatar_url},"sm")}<span><b>${esc(m.room===GEN?"Grupo · "+who:who)}</b><small>${esc(snip(m))}</small></span><em>Ver</em>`;
+  const h=panel.querySelector(".sp-h");h?h.after(el):panel.prepend(el);el.onclick=()=>{el.remove();open(m.room)};setTimeout(()=>{if(el.isConnected){el.classList.add("out");setTimeout(()=>el.remove(),300)}},5000)}
 function onDel(id){Object.keys(msgs).forEach(r=>{const L=msgs[r];const i=L.findIndex(x=>x.id===id);if(i>=0){L.splice(i,1);if(view.room===r)paintRoom()}})}
 const mentioned=m=>new RegExp("@"+String(ME.name).replace(/[.*+?^${}()|[\]\\]/g,"\\$&")+"\\b","i").test(m.body||"");
 
@@ -189,7 +199,7 @@ function paintRoom(toBottom){if(!panel||!view.room)return;const room=view.room,i
   const ota=panel.querySelector(".sp-in textarea");let foc=null;
   if(ota&&ota.dataset.room===room){drafts[room]=ota.value;if(document.activeElement===ota)foc={a:ota.selectionStart,b:ota.selectionEnd}}
   const inShare=share&&share.room&&share.with===room,inCall=call&&call.chat===room;
-  panel.innerHTML=`<div class="sp-h"><button class="sx" data-back title="Volver">‹</button>${isG?`<span class="sav grp">👥</span>`:av({id:oid,username:name,avatar_url:t.avatar_url})}
+  panel.innerHTML=`<div class="sp-h"><button class="sx sp-back" data-back title="Volver a tus chats">‹<em hidden></em><i hidden></i></button>${isG?`<span class="sav grp">👥</span>`:av({id:oid,username:name,avatar_url:t.avatar_url})}
     <div class="sp-ht"><b>${esc(name)}${isG?"":vb(Object.assign({},t,vInfo(oid)||{},{plan:null}))}</b><small class="sp-sub">${isG?`${people.length} conectado${people.length===1?"":"s"} ahora`:online?"🟢 En los charts":"No está conectado"}</small></div>
     <div class="sp-act">${isG?`<button class="btn sm${call&&call.kind==="group"?" on":""}" data-vg title="Sala de voz del grupo (hasta ${VMAX})">🎙</button>`:`<button class="btn sm${inShare?" on":""}" data-sh title="Compartir tu gráfico: tus dibujos salen en el suyo con tu nombre y los suyos en el tuyo">📡</button><button class="btn sm${inCall?" on":""}" data-call title="Llamada de voz">📞</button>`}<button class="sx" data-menu title="Más opciones">⋯</button><button class="sx" data-min title="Minimizar (queda en la burbuja)">—</button><button class="sx" data-x title="Cerrar">✕</button></div></div>
   <div class="sp-msgs">${seenMark(L,t,isG),""}${L.__end||!L.length?"":`<button class="sp-more" data-more>Ver mensajes anteriores</button>`}${L.length?L.map((m,i)=>msgRow(m,L[i-1],isG)).join(""):`<p class="sp-empty">${isG?"Saluda al grupo 👋":"Escríbele el primer mensaje 👋"}</p>`}</div>
@@ -201,7 +211,7 @@ function paintRoom(toBottom){if(!panel||!view.room)return;const room=view.room,i
   box.addEventListener("scroll",()=>{box.__pin=box.scrollHeight-box.scrollTop-box.clientHeight<90},{passive:true});
   box.querySelectorAll("img").forEach(im=>{if(!im.complete)im.addEventListener("load",pin,{once:true})});
   try{const ro=new ResizeObserver(pin);ro.observe(box);box.__ro=ro}catch(e){}
-  panel.querySelector("[data-back]").onclick=()=>{view.room=null;paintPanel();loadThreads()};
+  panel.querySelector("[data-back]").onclick=()=>{view.room=null;typingSub(null);paintPanel();loadThreads()};backBadge();
   panel.querySelector("[data-x]").onclick=close;panel.querySelector("[data-min]").onclick=minimize;handles();
   const mb=panel.querySelector("[data-more]");if(mb)mb.onclick=()=>loadRoom(room,true);
   const ta=panel.querySelector("textarea"),fm=panel.querySelector(".sp-in");ta.dataset.room=room;
