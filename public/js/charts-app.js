@@ -197,6 +197,7 @@ function start(){
       ${window.__free?`<a class="btn ic freeb" href="${MAIN}#premium" title="${window.__affKeys&&window.__affKeys.size?"Miembro verificado: tienes funciones extra desbloqueadas. Mejora a Plata, Oro o Diamond para tenerlo todo":"Estás en la versión gratis. Mejora a Plata, Oro o Diamond para tenerlo todo"}"><span class="pi">⭐</span><span class="t">${window.__affKeys&&window.__affKeys.size?"Miembro · Mejorar":"Gratis · Mejorar"}</span></a>`:""}
       <button class="btn ic lzb" id="lzb" title="Puntero láser (para explicar). En Modo Clase tus alumnos lo ven. Esc para apagarlo." aria-pressed="false"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3" fill="currentColor"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1"/></svg></button>
       <button class="btn ic clb" id="clb" title="Modo Clase y Zonas del profe"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="12" rx="1.5"/><path d="m7 12 3-3 2 2 4-4"/><path d="M9 20l3-4 3 4"/></svg><span class="t">Clase</span><i class="cdot"></i></button>
+      <button class="btn ic chb" id="chb" title="Comunidad: chat privado y grupal, quién está conectado, compartir gráfico y llamadas de voz"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/><path d="M8.5 11h.01M12 11h.01M15.5 11h.01"/></svg><span class="t">Chat</span><b class="scnt"></b><em class="badge" hidden></em></button>
       <button class="btn ic prob" id="prob" title="Estudio: Replay del mercado y Práctica guiada (Premium)"><span class="pi">🎓</span><span class="t">Estudio</span><em>PRO</em></button>
       <button class="btn ic inst" id="instb" data-inst title="Instalar EAG Charts como app" hidden><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg><span class="t">Instalar app</span></button>
       <button class="btn ic" id="alb" title="Alertas de precio"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/></svg><span class="t">Alertas</span><em class="badge" id="alc" hidden></em></button>
@@ -410,8 +411,8 @@ function start(){
     m.mc.addEventListener("pointermove",e=>{if(!laserOn)return;const r=m.mc.getBoundingClientRect(),x=e.clientX-r.left,y=e.clientY-r.top;mlzAt(m,x,y);
       const now=performance.now();if(now-em<150)return;em=now;
       try{const c=m.c.convertFromPixel([{x,y}],{paneId:"candle_pane"})[0],L=m.c.getDataList();if(!c||!isFinite(c.value)||!L.length)return;
-        const i=Math.max(0,Math.min(L.length-1,c.dataIndex)),ts=L[i].timestamp;window.EAGClase&&window.EAGClase.laser&&window.EAGClase.laser({ts,v:+c.value,f:0,sym})}catch(x){}},{passive:true});
-    m.mc.addEventListener("pointerleave",()=>{if(!laserOn)return;mlzOff(m);try{window.EAGClase&&window.EAGClase.laser&&window.EAGClase.laser({off:1,sym})}catch(x){}})}
+        const i=Math.max(0,Math.min(L.length-1,c.dataIndex)),ts=L[i].timestamp;window.EAGClase&&window.EAGClase.laser&&window.EAGClase.laser({ts,v:+c.value,f:0,sym});window.EAGSocial&&window.EAGSocial.laser({ts,v:+c.value,f:0,sym})}catch(x){}},{passive:true});
+    m.mc.addEventListener("pointerleave",()=>{if(!laserOn)return;mlzOff(m);try{window.EAGClase&&window.EAGClase.laser&&window.EAGClase.laser({off:1,sym});window.EAGSocial&&window.EAGSocial.laser({off:1,sym})}catch(x){}})}
   window.__eagMiniLaser=q=>{if(!q||!q.sym)return;miniAll().forEach(([M,m])=>{if(M.sym!==q.sym)return;clearTimeout(m.lzT);
     if(q.off){mlzOff(m);return}try{const a=m.c.convertToPixel({timestamp:q.ts,value:q.v},{paneId:"candle_pane"});if(a&&isFinite(a.x)&&isFinite(a.y)){mlzAt(m,a.x,a.y);m.lzT=setTimeout(()=>mlzOff(m),2800)}}catch(x){}})};
   function setLaserAll(on){laserOn=!!on;panes.forEach(p=>{try{p.kc.laser(laserOn)}catch(x){}});document.body.classList.toggle("lzall",laserOn);
@@ -585,7 +586,7 @@ function start(){
     const sv=SAVE.panes[i]||{},sym=sv.s||DEF[i%DEF.length],per=perOf(sv.p||(i===0?"5m":"1m"));
     const p={el,kc:null};
     const kc=window.EAGWidget({container:el.firstChild,symbol:findInfo(sym),period:per,datafeed:Datafeed(),theme:CF().theme,timezone:TZ,
-      onLaser:pt=>{try{window.EAGClase&&window.EAGClase.laser&&window.EAGClase.laser(pt)}catch(e){}},
+      onLaser:pt=>{try{window.EAGClase&&window.EAGClase.laser&&window.EAGClase.laser(pt);window.EAGSocial&&window.EAGSocial.laser(pt)}catch(e){}},
       indicators:LOCK.ind?trimInd(sv.ind):sv.ind,magnet:SAVE.magnet,lastTools:SAVE.lastTools,
       toolAllowed:LOCK.tools?(n=>FREE_TOOLS.has(n)):null,maxIndicators:LOCK.ind?FREE_IND:null,alertsAllowed:LOCK.alerts?(()=>false):null,onLocked:(k,what)=>upsell(what),
       getFavTF:()=>SAVE.tfFav,getXform:()=>CF().type==="ha"||CF().type==="renko"?CF().type:"",getRenkoBox:()=>+CF().rbox||0,autoZones:()=>!!CF().az&&!LOCK.az,ticksOn:()=>CF().ticks!==false,
@@ -598,7 +599,7 @@ function start(){
       onFullReload:()=>fullReload(),getToolStyle:n=>(SAVE.toolStyles||{})[n],drawTfOnly:()=>!!SAVE.cfg.drawTf,onToolStyle:(n,st)=>{SAVE.toolStyles=Object.assign({},SAVE.toolStyles,{[n]:st});save()},onReload:()=>{if(MTFS[i])buildMTF(i)},onToggleMtf:()=>{SAVE.panes[i]=Object.assign({},SAVE.panes[i],{mtf:!(SAVE.panes[i]||{}).mtf});save();syncStrips()},onToast:t=>toast(t),getAlerts:tk=>ALERTS.filter(a=>a.active&&a.symbol===tk&&a.price!=null&&["nivel","zona","cierre"].includes(a.kind)).map(a=>a.kind==="cierre"?Object.assign({},a,{kind:"nivel",note:`cierre ${a.cond==="abajo"?"↓":"↑"} ${tfTxt(a.tf)}${a.note?" · "+a.note:""}`}):a),onCreateAlert:a=>alertDialog(a),
       onIndicators:d=>{SAVE.panes[i]=Object.assign({},SAVE.panes[i],{ind:d});save()},
       onMagnet:m=>{SAVE.magnet=m;save()},getTfav:()=>!SAVE.hide.tf&&SAVE.toolFav.length>0,onTfav:()=>{if(!SAVE.toolFav.length){SAVE.hide.tf=false;save();applyHide();toast("Aún no tienes favoritas: abre una lista de herramientas (doble toque) y marca la ☆. Aparecen en la barra rápida.");return}SAVE.hide.tf=!SAVE.hide.tf;save();applyHide();panes.forEach(p=>{try{p.kc.refreshBar()}catch(e){}})},axisType:sv.ax,onAxisType:t=>{SAVE.panes[i]=Object.assign({},SAVE.panes[i],{ax:t});save()},getToolFav:()=>SAVE.toolFav,onToolFav:k=>{SAVE.toolFav=SAVE.toolFav.includes(k)?SAVE.toolFav.filter(x=>x!==k):SAVE.toolFav.concat(k);save();renderToolFav()},onLastTools:t=>{SAVE.lastTools=t;save()},
-      onDrawingsChange:tk=>(window.__eagSync&&window.__eagSync(),window.EAGClase&&window.EAGClase.drawingsChanged(),panes).forEach(q2=>{if(q2!==p&&q2.kc&&q2.kc.getSymbol().ticker===tk)q2.kc.reloadDrawings()})});
+      onDrawingsChange:tk=>(window.__eagSync&&window.__eagSync(),window.EAGClase&&window.EAGClase.drawingsChanged(),window.EAGSocial&&window.EAGSocial.drawingsChanged(),panes).forEach(q2=>{if(q2!==p&&q2.kc&&q2.kc.getSymbol().ticker===tk)q2.kc.reloadDrawings()})});
     p.kc=kc;
     setTimeout(()=>{try{kc.setStyles(styFor())}catch(e){}},0);
     el.addEventListener("pointerdown",()=>{if(active!==i)setActive(i)},true);
@@ -857,6 +858,14 @@ function start(){
         const pp=tf?perFind(tf):null;try{p.kc.setSymbol(findInfo(s),pp||undefined);if(pp&&p.kc.getPeriod().text!==pp.text)p.kc.setPeriod(pp)}catch(e){}
         SAVE.panes[active]=Object.assign({},SAVE.panes[active],{s},pp?{p:pp.text}:{});save();setTimeout(()=>{try{if(MTFS[active])buildMTF(active);paintList();paintTabs();afterTF()}catch(e){}},80)}})}
   else{const cb=$("#clb");cb&&(cb.hidden=true)}
+  /* Comunidad: chat privado y grupal, conectados, compartir gráfico y voz */
+  if(window.EAGSocial&&API.chatSend){
+    window.EAGSocial.init({API,toast,SAVE,save,btn:$("#chb"),host:main,isAdmin:()=>API.isAdmin(),
+      panes:()=>panes.slice(0,visible()),active:()=>active,
+      follow:(s,tf)=>{if(!s)return;if(!bySym[s]&&SYMS.length>20){toast("Ese mercado no está disponible ahora.");return}const p=panes[active];if(!p)return;
+        const pp=tf?perFind(tf):null;try{p.kc.setSymbol(findInfo(s),pp||undefined);if(pp&&p.kc.getPeriod().text!==pp.text)p.kc.setPeriod(pp)}catch(e){}
+        SAVE.panes[active]=Object.assign({},SAVE.panes[active],{s},pp?{p:pp.text}:{});save();setTimeout(()=>{try{if(MTFS[active])buildMTF(active);paintList();paintTabs();afterTF();window.EAGSocial.panesChanged()}catch(e){}},80)}})}
+  else{const cb=$("#chb");cb&&(cb.hidden=true)}
   /* puntero láser: en todos los gráficos visibles; Esc o el mismo botón lo apagan */
   {const lb=$("#lzb");if(lb)lb.onclick=()=>{setLaserAll(!laserOn);if(laserOn)toast(window.EAGClase&&window.EAGClase.isTx&&window.EAGClase.isTx()?"🔴 Láser activo: tus alumnos en Modo Clase lo ven. Esc para apagarlo.":"Láser activo: mueve el mouse sobre el gráfico. Esc para apagarlo.")}}
   /* Operar con Deriv (multiplicadores) para todos; cTrader solo el admin */

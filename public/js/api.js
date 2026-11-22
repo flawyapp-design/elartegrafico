@@ -177,6 +177,16 @@ function SupabaseAPI(url,key){
     chartPing(o){if(!sess||!sess.user)return Promise.resolve(null);return rpc("chart_ping",{p_symbol:o.symbol||null,p_name:o.name||null,p_tf:o.tf||null,p_layout:o.layout||null,p_device:o.device||null,p_profile:o.profile||null,p_panes:o.panes||null})},
     chartBye(){if(!sess||!sess.user||!sess.access_token)return;try{fetch(url+"/rest/v1/rpc/chart_bye",{method:"POST",keepalive:true,headers:{apikey:key,Authorization:"Bearer "+sess.access_token,"Content-Type":"application/json"},body:"{}"})}catch(e){}},
     adminChartOnline(){return rpc("admin_chart_online")},
+    /* EAG Charts · chat interno (privado y grupo), conectados */
+    chatSend(room,body,kind,payload){return rpc("chat_send",{p_room:room,p_body:body||"",p_kind:kind||"text",p_payload:payload||null})},
+    chatHistory(room,before){return rpc("chat_history",{p_room:room,p_before:before||null,p_limit:50})},
+    chatThreads(){return rpc("chat_threads")},
+    chatPeople(){return rpc("chat_people")},
+    chatFind(q){return rpc("chat_find",{p_q:q})},
+    chatRead(room,last){return rpc("chat_read",{p_room:room,p_last:last||0})},
+    chatDelete(id){return rpc("chat_delete",{p_id:id})},
+    chatHidden(on){return rpc("chat_set_hidden",{p_on:!!on})},
+    chatBlock(user,on){return rpc("chat_block",{p_user:user,p_on:!!on})},
     adminFunnel(days){return rpc("admin_funnel",{p_days:days||0})},
     adminReminderCfg(o){o=o||{};return rpc("admin_reminder_cfg",{p_enabled:o.enabled==null?null:!!o.enabled,p_day1:o.day1||null,p_day2:o.day2==null?null:o.day2})},
     adminReminderSend(ids){return rpc("admin_reminder_send",{p_users:ids})},
@@ -261,8 +271,28 @@ function LocalAPI(){
     if(!db){const s=JSON.parse(JSON.stringify(window.AG_SEED||{}));db=Object.assign({users:[],profiles:[],site:{},slides:[],modules:[],lessons:[],exercises:[],answers:[],progress:[],posts:[],comments:[],files:[],reviews:[],views:[],watch:[]},s);
       const aid=uuid();db.users.push({id:aid,email:"admin@elartegrafico.com",password:"admin1234"});db.profiles.push({id:aid,username:"elartegrafico",role:"admin",premium_until:null,demo_used:0,banned:false,created_at:now()});save()}};
   const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(db))}catch(e){}};
+  const reload=()=>{try{const d=JSON.parse(localStorage.getItem(KEY));if(d)db=d}catch(e){}};
+  const _chatLocal=()=>{const mine=r=>r==="g:general"||(r.startsWith("dm:")&&r.split(":").slice(1).includes(uid));
+    const pf=id=>db.profiles.find(x=>x.id===id)||{};const on=id=>{const x=(db.presence||{})[id];return!!x&&Date.now()-new Date(x.last_seen).getTime()<9e4};
+    const row=m=>{const p=pf(m.sender);return Object.assign({},m,{username:p.username,avatar_url:p.avatar_url||null,is_admin:p.role==="admin"})};
+    return{
+    async chatSend(room,body,kind,payload){reload();if(!uid)throw new Error("Ingresa con tu cuenta.");if(!mine(room))throw new Error("Sala inválida.");
+      body=String(body||"").trim().slice(0,1000);kind=kind||"text";if(kind==="text"&&!body)throw new Error("Mensaje vacío.");
+      db.cmsgs=db.cmsgs||[];db.cseq=(db.cseq||0)+1;const m={id:db.cseq,room,sender:uid,body,kind,payload:payload||null,created_at:new Date().toISOString()};db.cmsgs.push(m);
+      db.creads=db.creads||{};db.creads[uid+"|"+room]=m.id;save();return m},
+    async chatHistory(room,before){reload();if(!mine(room))return[];return(db.cmsgs||[]).filter(m=>m.room===room&&(!before||m.id<before)).slice(-50).reverse().map(row)},
+    async chatThreads(){reload();const M=db.cmsgs||[],R=db.creads||{};const rooms=["g:general"].concat([...new Set(M.filter(m=>m.room.startsWith("dm:")&&mine(m.room)).map(m=>m.room))]);
+      return rooms.map(r=>{const L=M.filter(m=>m.room===r),l=L[L.length-1]||{},o=r.startsWith("dm:")?r.split(":").slice(1).find(x=>x!==uid):null,p=o?pf(o):{};
+        return{room:r,other:o,username:p.username||null,avatar_url:p.avatar_url||null,is_admin:p.role==="admin",online:o?on(o):false,last_id:l.id||null,last_body:l.body||null,last_kind:l.kind||null,last_sender:l.sender||null,last_at:l.created_at||null,
+          unread:L.filter(m=>m.sender!==uid&&m.id>(R[uid+"|"+r]||0)).length}}).sort((a,b)=>(b.last_id||0)-(a.last_id||0))},
+    async chatPeople(){reload();return Object.keys(db.presence||{}).filter(on).map(id=>{const p=pf(id),x=db.presence[id];return{id,username:p.username,avatar_url:p.avatar_url||null,is_admin:p.role==="admin",symbol:x.symbol,symbol_name:x.name,tf:x.tf,hidden:!!p.chat_hidden}}).filter(x=>!x.hidden||x.id===uid)},
+    async chatFind(q){reload();q=String(q||"").toLowerCase();return q.length<2?[]:db.profiles.filter(p=>!p.banned&&String(p.username||"").toLowerCase().includes(q)).slice(0,15).map(p=>({id:p.id,username:p.username,avatar_url:p.avatar_url||null,is_admin:p.role==="admin"}))},
+    async chatRead(room,last){reload();db.creads=db.creads||{};const k=uid+"|"+room;db.creads[k]=Math.max(db.creads[k]||0,last||0);save()},
+    async chatDelete(id){reload();db.cmsgs=(db.cmsgs||[]).filter(m=>!(m.id===id&&(m.sender===uid||(pf(uid).role==="admin"))));save()},
+    async chatHidden(v){reload();const p=pf(uid);p.chat_hidden=!!v;save()},
+    async chatBlock(u,v){reload();const p=pf(u);p.chat_blocked=!!v;save()}}};
   load();
-  let uid=null;try{uid=localStorage.getItem("ag_local_uid")}catch(e){}
+  let uid=null;try{uid=sessionStorage.getItem("ag_local_uid_tab")||localStorage.getItem("ag_local_uid")}catch(e){}
   const me=()=>db.profiles.find(p=>p.id===uid)||null;
   const adm=()=>{const p=me();return!!p&&p.role==="admin"};
   const need=()=>{if(!adm())throw new Error("Solo el administrador")};
@@ -371,6 +401,8 @@ function LocalAPI(){
     async uploadChat(blob){return URL.createObjectURL(blob)},async chatImgClean(){return 0},
     async chartPing(o){db.presence=db.presence||{};const p=db.presence[uid]||{started_at:new Date().toISOString()};if(Date.now()-new Date(p.last_seen||0).getTime()>18e4)p.started_at=new Date().toISOString();Object.assign(p,o,{last_seen:new Date().toISOString()});db.presence[uid]=p;save();return null},
     chartBye(){},
+    /* chat interno (modo local: se guarda en este navegador; sirve para probar con 2 pestañas) */
+    ..._chatLocal(),
     async adminFunnel(days){const since=days?Date.now()-days*864e5:0,P=db.profiles.filter(p=>p.role!=="admin"&&!p.banned&&new Date(p.created_at||0).getTime()>=since);
       const row=p=>({id:p.id,username:p.username,email:(db.users.find(u=>u.id===p.id)||{}).email,country:p.country,created_at:p.created_at,last_sign_in_at:p.created_at,charts:!!(db.presence||{})[p.id],retos:false,aff_status:null,member_reminders:p.member_reminders||0,member_reminded_at:p.member_reminded_at||null});
       const prem=p=>p.premium_until&&new Date(p.premium_until)>Date.now();

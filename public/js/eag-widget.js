@@ -997,13 +997,15 @@ ${o.onTracker?`<button class="wtrk" title="Marcador de operaciones (ganadas, per
     if(id){OVSYM.set(id,sym&&sym.ticker);ovs.set(id,{name:def.name,styles:def.styles||null,extendData:def.extendData||null,lock:!!def.lock,points:def.points||null,tfv:def.tfv&&def.tfv.length?def.tfv.slice():null,hid:!!def.hid});if(!drawing)ovs.get(id).done=true}
     return id}
   /* ---------- capas de solo lectura (Modo Clase y Zonas del profe): no se guardan ni se pueden mover ---------- */
-  let guest={},guestIds=[];
+  let guest={},guestIds=[];const guestG={};
+  /* capas de otros (solo lectura): grupos independientes → Modo Clase ("clase"), chat/compartir ("social"), zonas automáticas ("__auto") */
+  function rebuildGuest(){guest={};Object.keys(guestG).forEach(g=>{const L=guestG[g]||{};Object.keys(L).forEach(k=>{guest[g==="__auto"?k:g+":"+k]=L[k]})});paintGuest()}
   function paintGuest(){bulk=true;guestIds.forEach(id=>{try{chart.removeOverlay(id)}catch(e){}OVSYM.delete(id)});bulk=false;guestIds=[];if(!ready)return;
     Object.keys(guest).forEach(k=>(guest[k]||[]).forEach(d=>{if(!d||!d.name||!Array.isArray(d.points)||!d.points.length||!d.points.every(p=>p&&p.timestamp))return;
       let pts=d.points;if(BOX.test(d.name)&&pts.length===2)pts=boxPts(pts[0],pts[1]).map(p=>({timestamp:p.timestamp,value:p.value}));
       try{const id=chart.createOverlay({name:d.name,points:pts,styles:withPt(d),extendData:d.extendData,lock:true,visible:!hidden&&tfOk(d),onRightClick:()=>true,onDoubleClick:()=>true,onPressedMoveStart:()=>true});
         if(id){guestIds.push(id);OVSYM.set(id,sym&&sym.ticker)}}catch(e){}}))}
-  function setGuest(layers){const a=guest.auto;guest=layers||{};if(a&&!guest.auto)guest.auto=a;paintGuest()}
+  function setGuest(layers,grp){guestG[grp||"clase"]=layers||{};rebuildGuest()}
   /* ---------- zonas automáticas de soporte y resistencia ----------
      Busca giros (máximos y mínimos locales), junta los que están a casi el mismo precio y marca como zona
      los niveles donde el precio rebotó 2 o más veces. Las más fuertes: hasta 3 arriba (resistencias) y 3 abajo (soportes). */
@@ -1024,7 +1026,7 @@ ${o.onTracker?`<button class="wtrk" title="Marcador de operaciones (ganadas, per
   function refreshAuto(){const on=!!(o.autoZones&&o.autoZones())&&!isTk()&&XF!=="renko";let arr=[];
     if(on&&ready){try{arr=autoZones(XF==="ha"?RAW:chart.getDataList())}catch(e){arr=[]}}
     const k=on?JSON.stringify(arr.map(z=>[z.points[0].value.toFixed(4),z.points[1].value.toFixed(4),z.extendData.text])):"";if(k===azKey)return;azKey=k;
-    if(on)guest.auto=arr;else delete guest.auto;paintGuest()}
+    if(on)guestG.__auto={auto:arr};else delete guestG.__auto;rebuildGuest()}
   setInterval(()=>{if(root.isConnected)refreshAuto()},15000);
   /* copiar dibujos de otro (el profe) a los míos: se pueden deshacer */
   function importDrawings(arr){if(!sym||!Array.isArray(arr)||!arr.length)return 0;const all=loadD(),mine=all[sym.ticker]||[];
