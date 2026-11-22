@@ -326,7 +326,7 @@ async function contenido(){
     const ed=$("#ed"),fmt=d=>d.toLocaleString("es-CO",{timeZone:"America/Bogota",weekday:"short",day:"2-digit",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"});
     ed.innerHTML=`<div class="form"><div class="sec-h"><h3>📅 Salida de módulos · ${esc(c.title||"")}</h3></div>
       <p class="muted" style="font-size:13.5px">El primer módulo marcado se abre en la fecha que elijas y cada cierto número de días se abre el siguiente, en el orden del temario. Los alumnos ven "Abre el …" hasta que llegue su fecha. Los módulos sin marcar no cambian.</p>
-      <div class="two"><label for="scS">El primer módulo sale el (hora Colombia)<input id="scS" type="datetime-local" value="2026-12-01T00:00"></label><label for="scN">Y uno nuevo cada (días)<input id="scN" type="number" min="1" max="60" value="5"></label></div>
+      <div class="two"><label for="scS">El primer módulo sale el (hora Colombia)<input id="scS" type="datetime-local" value="2027-01-05T00:00"></label><label for="scN">Y uno nuevo cada (días)<input id="scN" type="number" min="1" max="60" value="5"></label></div>
       <div class="list" id="scL" style="margin:10px 0"></div>
       <div class="row" style="gap:8px;flex-wrap:wrap"><button class="btn gold" id="scG">Guardar calendario</button><button class="btn ghost" id="scQ">Quitar fechas a los marcados</button></div></div>`;
     const chk=new Set(ms.filter(m=>!/^demo/i.test(m.title||"")).map(m=>m.id));
