@@ -415,7 +415,7 @@ function registerAll(){
   /* indicadores extra */
   const sma=(a,n,i)=>{if(i<n-1)return null;let s=0;for(let k=i-n+1;k<=i;k++)s+=a[k];return s/n};
   /* RSI como en TradingView: 14 periodos (Wilder), línea morada, niveles 70 / 50 / 30 y zona sombreada entre 30 y 70 */
-  KC.registerIndicator({name:"RSI",shortName:"RSI",calcParams:[14],precision:2,minValue:0,maxValue:100,figures:[{key:"rsi",title:"RSI: ",type:"line",styles:()=>({color:"#7e57c2",size:1.5})}],
+  KC.registerIndicator({name:"RSI",shortName:"RSI",calcParams:[14],precision:2,minValue:0,maxValue:100,styles:{lines:[{color:"#7e57c2",size:1.5,style:"solid",smooth:false,dashedValue:[2,2]}]},figures:[{key:"rsi",title:"RSI: ",type:"line"}],
     calc:(L,ind)=>{const n=Math.max(2,+ind.calcParams[0]||14);let ag=0,al=0;return L.map((k,i)=>{if(!i)return{};const d=k.close-L[i-1].close,g=Math.max(d,0),l=Math.max(-d,0);
       if(i<=n){ag+=g/n;al+=l/n;if(i<n)return{}}else{ag=(ag*(n-1)+g)/n;al=(al*(n-1)+l)/n}return{rsi:al===0?100:100-100/(1+ag/al)}})},
     draw:({ctx,bounding,yAxis})=>{try{const y70=yAxis.convertToPixel(70),y30=yAxis.convertToPixel(30),y50=yAxis.convertToPixel(50),w=bounding.width;ctx.save();
@@ -590,7 +590,7 @@ ${o.onTracker?`<button class="wtrk" title="Marcador de operaciones (ganadas, per
   const $=s=>root.querySelector(s),chartEl=$(".wchart"),dbar=$(".dbar");
   if(o.timezone)EAG_TZ=o.timezone;const chart=KC.init(chartEl,{locale:"es-ES",timezone:o.timezone});(window.__eagCharts=window.__eagCharts||[]).push(chart);
   let sym=o.symbol,per=o.period,theme=o.theme||"dark",extra={},gen=0,subKey=null,ready=false,selId=null;let lastTouch=false;
-  const ind=Object.assign({main:[],sub:{},params:{}},o.indicators||{});ind.sub=ind.sub&&!Array.isArray(ind.sub)?ind.sub:{};
+  const ind=Object.assign({main:[],sub:{},params:{},st:{}},o.indicators||{});ind.st=ind.st||{};ind.sub=ind.sub&&!Array.isArray(ind.sub)?ind.sub:{};
   const ovs=new Map(); // id -> definición guardable
   let magnet=o.magnet||"normal",locked=false,hidden=false;
 
@@ -1254,19 +1254,21 @@ ${o.onTracker?`<button class="wtrk" title="Marcador de operaciones (ganadas, per
   const pxV=v=>(+v).toLocaleString("en-US",{minimumFractionDigits:dec(),maximumFractionDigits:dec()});
   function chartMenu(ev){const r=chartEl.getBoundingClientRect(),x=ev.clientX-r.left,y=ev.clientY-r.top;let c=null;
     try{c=chart.convertFromPixel([{x,y}],{paneId:"candle_pane"})[0]}catch(e){}let ya=null;try{ya=chart.getSize("candle_pane","main")}catch(e){}
-    if(!c||!isFinite(c.value)||(ya&&y>ya.height))return;
-    const L=chart.getDataList(),i=Math.max(0,Math.min(L.length-1,c.dataIndex)),ts=L[i]?L[i].timestamp:Date.now(),v=c.value,pv=pxV(v),nm=sym.shortName||sym.name||sym.ticker;
+    const inMain=!!(c&&isFinite(c.value)&&!(ya&&y>ya.height));
+    const L=chart.getDataList(),i=c?Math.max(0,Math.min(L.length-1,c.dataIndex)):0,ts=L[i]?L[i].timestamp:Date.now(),v=c?c.value:0,pv=pxV(v),nm=sym.shortName||sym.name||sym.ticker;
+    const nInd=ind.main.length+Object.keys(ind.sub).length;
     const mac=/Mac|iPhone|iPad/.test(navigator.platform);
     const item=(k,ic,t,ks,cls)=>`<button class="mi cmi${cls?" "+cls:""}" data-m="${k}">${ic?(IC[ic]?svg(ic,17):tsvg(ic,17)):"<i></i>"}<span>${t}</span>${ks?`<em class="ks">${ks}</em>`:""}</button>`;
     const nOv=[...ovs.values()].filter(v2=>v2.done).length;
     closeMenu();menu=document.createElement("div");menu.className="wmenu ctx cmenu";
-    menu.innerHTML=item("reset","reset","Restablecer visualización del gráfico")+`<div class="msep"></div>`+
+    if(!inMain)menu.innerHTML=item("reset","reset","Restablecer visualización del gráfico")+`<div class="msep"></div>`+item("inds","fx",`Lista de indicadores (${nInd})…`)+`<div class="msep"></div>`+item("cfg","gear","Opciones de configuración…");
+    else menu.innerHTML=item("reset","reset","Restablecer visualización del gráfico")+`<div class="msep"></div>`+
       item("copy","copy","Copiar precio "+pv)+`<div class="msep"></div>`+
       item("alert","bell",`Añadir alerta en ${esc(nm)} a ${pv}`)+
       item("hline","horizontalStraightLine",`Dibujar línea horizontal en ${pv}`)+
       item("vline","verticalStraightLine","Dibujar línea vertical aquí")+`<div class="msep"></div>`+
       item("undo","undo","Deshacer",(mac?"⌘":"Ctrl+")+"Z",hist.length?"":"off")+item("redo","redo","Rehacer",(mac?"⇧⌘":"Ctrl+")+"Y",fut.length?"":"off")+
-      item("list","list",`Lista de dibujos (${nOv})…`)+
+      item("list","list",`Lista de dibujos (${nOv})…`)+item("inds","fx",`Lista de indicadores (${nInd})…`)+
       item("hide",hidden?"eye":"eyeoff",hidden?"Mostrar los dibujos":"Ocultar los dibujos")+
       (nOv?item("clear","trash",`Borrar todos los dibujos de ${esc(nm)} (${nOv})`,"", "danger"):"")+`<div class="msep"></div>`+
       item("shot","cam","Captura del gráfico")+item("cfg","gear","Opciones de configuración…");
@@ -1279,7 +1281,7 @@ ${o.onTracker?`<button class="wtrk" title="Marcador de operaciones (ganadas, per
       else if(k==="copy"){try{await navigator.clipboard.writeText(String(+(+v).toFixed(dec())));o.onToast&&o.onToast("Precio copiado: "+pv)}catch(e){o.onToast&&o.onToast("No se pudo copiar")}}
       else if(k==="alert"){if(o.alertsAllowed&&!o.alertsAllowed()){o.onLocked&&o.onLocked("alert","Alertas de precio");return}o.onCreateAlert&&o.onCreateAlert({symbol:sym.ticker,symbol_name:sym.name||sym.ticker,kind:"nivel",price:+(+v).toFixed(dec()),price2:null})}
       else if(k==="hline"||k==="vline")quickLine(k==="hline"?"horizontalStraightLine":"verticalStraightLine",ts,v);
-      else if(k==="list")openObjList();
+      else if(k==="list")openObjList();else if(k==="inds")openInd();
       else if(k==="undo")undo();else if(k==="redo")redo();
       else if(k==="hide"){const hb=dbar.querySelector('[data-x="hide"]');hb&&hb.click()}
       else if(k==="clear"){bulk=true;ovs.forEach((v2,id)=>{try{chart.removeOverlay(id)}catch(e){}});bulk=false;ovs.clear();selId=null;hideStyleBar();persist();syncPan();o.onToast&&o.onToast("Dibujos borrados · puedes deshacer con Ctrl+Z")}
@@ -1468,10 +1470,21 @@ ${o.onTracker?`<button class="wtrk" title="Marcador de operaciones (ganadas, per
       if(mx!=null&&n>=mx){if(!silent)o.onLocked&&o.onLocked("ind",`Más de ${mx} indicador${mx===1?"":"es"}`);return false}}
     if(where==="main"){if(!ind.main.includes(name))ind.main.push(name);chart.createIndicator(params?{name,calcParams:params}:name,true,{id:"candle_pane"})}
     else{if(ind.sub[name])return;const pid=chart.createIndicator(params?{name,calcParams:params}:name,false,{height:110,dragEnabled:true});ind.sub[name]=pid}
+    if(ind.st&&ind.st[name])setTimeout(()=>applyIndSt(name,where),0);
     if(!silent)o.onIndicators&&o.onIndicators(dump())}
   function rmInd(name,where){if(where==="main"){chart.removeIndicator("candle_pane",name);ind.main=ind.main.filter(x=>x!==name)}else{const pid=ind.sub[name];if(pid)chart.removeIndicator(pid,name);delete ind.sub[name]}o.onIndicators&&o.onIndicators(dump())}
-  const dump=()=>({main:ind.main.slice(),sub:Object.keys(ind.sub),params:Object.assign({},ind.params)});
-  function setParams(name,where,arr){ind.params[name]=arr;try{chart.overrideIndicator({name,calcParams:arr},where==="main"?"candle_pane":ind.sub[name])}catch(e){}o.onIndicators&&o.onIndicators(dump())}
+  const dump=()=>({main:ind.main.slice(),sub:Object.keys(ind.sub),params:Object.assign({},ind.params),st:JSON.parse(JSON.stringify(ind.st||{}))});
+  /* colores, grosor, tipo de línea y mostrar/ocultar de cada línea de un indicador (ind.st[nombre] = [{c,w,d,h}]) */
+  const IPAL=["#FF9600","#935EBD","#2962ff","#E11D74","#01C5C4","#089981","#f23645","#e2b55c"];
+  const indInst=(name,where)=>{try{return chart.getIndicatorByPaneId(where==="main"?"candle_pane":ind.sub[name],name)}catch(e){return null}};
+  const indLines=(name,where)=>{const i=indInst(name,where);if(!i)return[];return(i.figures||[]).filter(f=>f.type==="line").map((f,k)=>({k,t:String(f.title||f.key||"").replace(/[:\s]+$/,"")}))};
+  const lineDef=(name,where,k)=>{const i=indInst(name,where),base=((i&&i.styles&&i.styles.lines)||[])[k]||{};const u=((ind.st||{})[name]||[])[k]||{};
+    return{c:u.c||base.__c||base.color||IPAL[k%IPAL.length],w:u.w||base.size||1,d:u.d!=null?u.d:base.style==="dashed",h:!!u.h}};
+  function applyIndSt(name,where){const L=indLines(name,where);if(!L.length)return;const i=indInst(name,where),base=(i&&i.styles&&i.styles.lines)||[];
+    const lines=L.map(({k})=>{const d=lineDef(name,where,k);return{style:d.d?"dashed":"solid",smooth:false,size:d.w,dashedValue:[4,3],color:d.h?"rgba(0,0,0,0)":d.c,__c:d.c}});
+    try{chart.overrideIndicator({name,styles:{lines}},where==="main"?"candle_pane":ind.sub[name])}catch(e){}}
+  function setParams(name,where,arr){ind.params[name]=arr;try{chart.overrideIndicator({name,calcParams:arr},where==="main"?"candle_pane":ind.sub[name])}catch(e){}setTimeout(()=>applyIndSt(name,where),0);o.onIndicators&&o.onIndicators(dump())}
+  function setLineSt(name,where,k,ch){ind.st=ind.st||{};const a=(ind.st[name]=(ind.st[name]||[]).slice());a[k]=Object.assign({},lineDef(name,where,k),a[k]||{},ch);applyIndSt(name,where);o.onIndicators&&o.onIndicators(dump())}
   function openInd(){
     const ov=document.createElement("div");ov.className="wmodal";
     const render=qs=>{const q=(qs||"").toLowerCase();
@@ -1480,15 +1493,26 @@ ${o.onTracker?`<button class="wtrk" title="Marcador de operaciones (ganadas, per
       const act=IND.filter(([n,,w])=>on(n,w));
       return`<div class="mh"><b>Indicadores</b><button class="x" data-a="close">×</button></div><input class="mq" placeholder="Buscar indicador…" value="${esc(qs||"")}">
         ${act.length?`<div class="ml">En el gráfico</div>`+act.map(([n,t,w])=>{let cp="";try{const i=chart.getIndicatorByPaneId(w==="main"?"candle_pane":ind.sub[n],n);cp=(i&&i.calcParams||[]).join(", ")}catch(e){}
-          return`<div class="ir act"><span>${esc(t)}</span><input class="ip" data-n="${n}" data-w="${w}" value="${esc(cp)}" title="Parámetros (separados por coma)"><button class="x" data-rm="${n}" data-w="${w}" title="Quitar">×</button></div>`}).join(""):""}
+          const op=openSet.has(n);const L=op?indLines(n,w):[];
+          return`<div class="ir act${op?" open":""}"><span>${esc(t)}</span><input class="ip" data-n="${n}" data-w="${w}" value="${esc(cp)}" title="Periodos (separados por coma). Ej.: 20, 50, 200"><button class="x ig" data-cfg="${n}" title="Colores y líneas">⚙</button><button class="x" data-rm="${n}" data-w="${w}" title="Quitar">×</button></div>
+          ${op?`<div class="icfg">${L.length?L.map(({k,t:lt})=>{const d=lineDef(n,w,k);return`<div class="icl${d.h?" off":""}"><button class="ieye" data-eye="${k}" data-n="${n}" data-w="${w}" title="${d.h?"Mostrar":"Ocultar"} esta línea">${d.h?"○":"●"}</button><span class="icn">${esc(lt||("Línea "+(k+1)))}</span>
+            <label class="icc" style="background:${esc(d.c)}"><input type="color" data-col="${k}" data-n="${n}" data-w="${w}" value="${/^#[0-9a-f]{6}$/i.test(d.c)?d.c:"#e2b55c"}"></label>
+            <select class="isz" data-sz="${k}" data-n="${n}" data-w="${w}">${[1,1.5,2,3,4].map(z=>`<option value="${z}"${+d.w===z?" selected":""}>${z}px</option>`).join("")}</select>
+            <button class="idash${d.d?" on":""}" data-dash="${k}" data-n="${n}" data-w="${w}" title="Línea punteada">┄</button></div>`}).join(""):`<p class="ihint">Este indicador usa barras o puntos; sus colores van automáticos.</p>`}
+            <p class="ihint">Periodos: escríbelos separados por coma arriba (ej. EMA <b>20, 50, 200</b>) y cada uno sale como una línea con su color.</p></div>`:""}`}).join(""):""}
         <div class="ml">Superpuestos al precio</div>${rows.filter(r=>r[2]==="main").map(([n,t,w])=>`<button class="ir${on(n,w)?" on":""}" data-add="${n}" data-w="${w}"><span>${esc(t)}</span><em>${on(n,w)?"✓":"+"}</em></button>`).join("")}
         <div class="ml">En panel inferior</div>${rows.filter(r=>r[2]==="sub").map(([n,t,w])=>`<button class="ir${on(n,w)?" on":""}" data-add="${n}" data-w="${w}"><span>${esc(t)}</span><em>${on(n,w)?"✓":"+"}</em></button>`).join("")}`};
-    const box=document.createElement("div");box.className="wmbox";ov.appendChild(box);
+    const box=document.createElement("div");box.className="wmbox";ov.appendChild(box);const openSet=new Set();
     const draw=qs=>{box.innerHTML=render(qs);const mq=box.querySelector(".mq");mq.oninput=()=>{const p=mq.selectionStart;draw(mq.value);const m=box.querySelector(".mq");m.focus();m.setSelectionRange(p,p)};
       box.querySelector('[data-a="close"]').onclick=()=>ov.remove();
       box.querySelectorAll("[data-add]").forEach(b=>b.onclick=()=>{const n=b.dataset.add,w=b.dataset.w;(w==="main"?ind.main.includes(n):ind.sub[n])?rmInd(n,w):addInd(n,w);draw(mq.value)});
       box.querySelectorAll("[data-rm]").forEach(b=>b.onclick=()=>{rmInd(b.dataset.rm,b.dataset.w);draw(mq.value)});
-      box.querySelectorAll(".ip").forEach(i=>i.onchange=()=>{const arr=i.value.split(/[,\s]+/).map(Number).filter(x=>isFinite(x)&&x>0);if(arr.length)setParams(i.dataset.n,i.dataset.w,arr)})};
+      box.querySelectorAll(".ip").forEach(i=>{i.onkeydown=e=>e.stopPropagation();i.onchange=()=>{const arr=i.value.split(/[,\s]+/).map(Number).filter(x=>isFinite(x)&&x>0);if(arr.length){setParams(i.dataset.n,i.dataset.w,arr);setTimeout(()=>draw(mq.value),30)}}});
+      box.querySelectorAll("[data-cfg]").forEach(b=>b.onclick=()=>{const n=b.dataset.cfg;openSet.has(n)?openSet.delete(n):openSet.add(n);draw(mq.value)});
+      box.querySelectorAll("[data-col]").forEach(i=>i.oninput=()=>{i.parentNode.style.background=i.value;setLineSt(i.dataset.n,i.dataset.w,+i.dataset.col,{c:i.value})});
+      box.querySelectorAll("[data-sz]").forEach(i=>i.onchange=()=>setLineSt(i.dataset.n,i.dataset.w,+i.dataset.sz,{w:+i.value}));
+      box.querySelectorAll("[data-dash]").forEach(b=>b.onclick=()=>{const k=+b.dataset.dash;setLineSt(b.dataset.n,b.dataset.w,k,{d:!lineDef(b.dataset.n,b.dataset.w,k).d});draw(mq.value)});
+      box.querySelectorAll("[data-eye]").forEach(b=>b.onclick=()=>{const k=+b.dataset.eye;setLineSt(b.dataset.n,b.dataset.w,k,{h:!lineDef(b.dataset.n,b.dataset.w,k).h});draw(mq.value)})};
     draw("");ov.onclick=e=>{if(e.target===ov)ov.remove()};document.body.appendChild(ov);box.querySelector(".mq").focus()}
 
   /* ---------- tema y estilos ---------- */
