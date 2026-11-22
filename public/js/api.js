@@ -296,7 +296,7 @@ function LocalAPI(){
     async chatPeople(){reload();return Object.keys(db.presence||{}).filter(on).map(id=>{const p=pf(id),x=db.presence[id];return{id,username:p.username,avatar_url:p.avatar_url||null,is_admin:p.role==="admin",symbol:x.symbol,symbol_name:x.name,tf:x.tf,hidden:!!p.chat_hidden}}).filter(x=>!x.hidden||x.id===uid)},
     async chatFind(q){reload();q=String(q||"").toLowerCase();return q.length<2?[]:db.profiles.filter(p=>!p.banned&&String(p.username||"").toLowerCase().includes(q)).slice(0,15).map(p=>({id:p.id,username:p.username,avatar_url:p.avatar_url||null,is_admin:p.role==="admin"}))},
     async chatRead(room,last){reload();db.creads=db.creads||{};const k=uid+"|"+room;db.creads[k]=Math.max(db.creads[k]||0,last||0);save()},
-    async chatCleanup(){reload();const lim=Date.now()-3*864e5;db.cmsgs=(db.cmsgs||[]).filter(m=>new Date(m.created_at).getTime()>=lim);save()},
+    async chatCleanup(){reload();const lim=Date.now()-10*864e5;db.cmsgs=(db.cmsgs||[]).filter(m=>new Date(m.created_at).getTime()>=lim);save()},
     async chatHide(room){reload();db.chid=db.chid||{};const mx=Math.max(0,...(db.cmsgs||[]).filter(m=>m.room===room).map(m=>m.id));db.chid[uid+"|"+room]=mx;db.creads=db.creads||{};db.creads[uid+"|"+room]=Math.max(db.creads[uid+"|"+room]||0,mx);save()},
     async chartChatUpload(blob){return await new Promise(ok=>{const r=new FileReader();r.onload=()=>ok(r.result);r.readAsDataURL(blob)})},async chartChatImgDel(){},async chartChatImgClean(){return 0},
     async chatReact(id,e){reload();db.creacts=db.creacts||[];const i=db.creacts.findIndex(r=>r.msg_id===id&&r.user_id===uid&&r.emoji===e);if(i>=0){db.creacts.splice(i,1);save();return false}

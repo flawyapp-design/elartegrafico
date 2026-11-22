@@ -154,7 +154,7 @@ function paintPanel(){if(!panel)return;{const of=panel.querySelector("[data-find
      <div class="sp-vol">🎤 Micrófono <span class="sp-lvl"><i></i></span><button class="btn sm" data-mic>Probar micrófono</button></div>
      <label class="sp-vol">🔊 Volumen <input type="range" min="10" max="100" step="5" value="${cfg().vol}" data-vol><button class="btn sm" data-tst>Probar</button></label>
      <label class="sp-ck"><input type="checkbox" data-c="hidden"${cfg().hidden?" checked":""}><span><b>Aparecer invisible</b><small>No sales en Conectados. Igual puedes escribir y recibir mensajes.</small></span></label>
-     <p class="sp-note">🕒 El chat guarda solo los mensajes y fotos de los <b>últimos 3 días</b>; lo más viejo se borra solo.<br>🔒 Los chats privados solo los ven las 2 personas. En el grupo general escribe con respeto: el profe puede borrar mensajes y silenciar a quien haga spam.</p></div>`}</div>`;
+     <p class="sp-note">🕒 El chat guarda solo los mensajes y fotos de los <b>últimos 10 días</b>; lo más viejo se borra solo.<br>🔒 Los chats privados solo los ven las 2 personas. En el grupo general escribe con respeto: el profe puede borrar mensajes y silenciar a quien haga spam.</p></div>`}</div>`;
   panel.querySelector("[data-x]").onclick=close;panel.querySelector("[data-min]").onclick=minimize;handles();
   panel.querySelectorAll("[data-tab]").forEach(b=>b.onclick=()=>{view.tab=b.dataset.tab;paintPanel();if(view.tab==="people")loadPeople()});
   panel.querySelectorAll("[data-room]").forEach(b=>b.onclick=()=>open(b.dataset.room));
@@ -179,7 +179,8 @@ function startDM(id,name){if(!id||id===ME.id)return;const room=dmRoom(id);if(!th
 
 function paintRoom(toBottom){if(!panel||!view.room)return;const room=view.room,isG=room===GEN,oid=otherOf(room),t=threads.find(x=>x.room===room)||{};
   const name=isG?"Grupo general":(t.username||nameOf(oid)),online=isG||people.some(p=>p.id===oid);const L=msgs[room]||[];
-  const body=panel.querySelector(".sp-msgs");const keep=body&&!toBottom?body.scrollHeight-body.scrollTop:null;
+  const body=panel.querySelector(".sp-msgs");const atBot=!body||body.scrollHeight-body.scrollTop-body.clientHeight<90;
+  if(atBot)toBottom=true;const keep=body&&!toBottom?body.scrollHeight-body.scrollTop:null;
   const ota=panel.querySelector(".sp-in textarea");let foc=null;
   if(ota&&ota.dataset.room===room){drafts[room]=ota.value;if(document.activeElement===ota)foc={a:ota.selectionStart,b:ota.selectionEnd}}
   const inShare=share&&share.room&&share.with===room,inCall=call&&call.chat===room;
@@ -189,7 +190,12 @@ function paintRoom(toBottom){if(!panel||!view.room)return;const room=view.room,i
   <div class="sp-msgs">${seenMark(L,t,isG),""}${L.__end||!L.length?"":`<button class="sp-more" data-more>Ver mensajes anteriores</button>`}${L.length?L.map((m,i)=>msgRow(m,L[i-1],isG)).join(""):`<p class="sp-empty">${isG?"Saluda al grupo 👋":"Escríbele el primer mensaje 👋"}</p>`}</div>
   <div class="sp-typ" data-typ></div>
   <form class="sp-in" data-room="${esc(room)}"><button type="button" class="sp-idea" data-pic title="Enviar una foto o captura (también puedes pegarla con Ctrl+V o arrastrarla aquí)">📷</button><input type="file" accept="image/*" data-file hidden><button type="button" class="sp-idea" data-idea title="Compartir una idea: tu mercado, temporalidad y precio actual (escribe tu análisis y toca aquí)">📈</button><textarea rows="1" maxlength="1000" placeholder="${isG?"Escribe al grupo… (usa @nombre para mencionar)":"Escribe un mensaje…"}"></textarea><button class="btn gold sm" type="submit" title="Enviar">➤</button></form>`;
-  const box=panel.querySelector(".sp-msgs");if(keep!=null)box.scrollTop=box.scrollHeight-keep;else box.scrollTop=box.scrollHeight;
+  const box=panel.querySelector(".sp-msgs");box.__pin=keep==null;const pin=()=>{if(box.__pin)box.scrollTop=box.scrollHeight};
+  if(keep!=null)box.scrollTop=box.scrollHeight-keep;else pin();
+  /* el último mensaje siempre a la vista: al cargar fotos, al crecer la caja de texto o al cambiar el tamaño del panel */
+  box.addEventListener("scroll",()=>{box.__pin=box.scrollHeight-box.scrollTop-box.clientHeight<90},{passive:true});
+  box.querySelectorAll("img").forEach(im=>{if(!im.complete)im.addEventListener("load",pin,{once:true})});
+  try{const ro=new ResizeObserver(pin);ro.observe(box);box.__ro=ro}catch(e){}
   panel.querySelector("[data-back]").onclick=()=>{view.room=null;paintPanel();loadThreads()};
   panel.querySelector("[data-x]").onclick=close;panel.querySelector("[data-min]").onclick=minimize;handles();
   const mb=panel.querySelector("[data-more]");if(mb)mb.onclick=()=>loadRoom(room,true);
@@ -207,6 +213,7 @@ function paintRoom(toBottom){if(!panel||!view.room)return;const room=view.room,i
   ta.onkeydown=e=>{e.stopPropagation();if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();fm.requestSubmit()}};
   fm.onsubmit=async e=>{e.preventDefault();const v=ta.value.trim();if(!v)return;ta.value="";drafts[room]="";ta.style.height="auto";const ok=await send(room,v,"text");
     if(!ok){const t2=panel&&panel.querySelector(".sp-in textarea");if(t2&&!t2.value){t2.value=v;drafts[room]=v}}};
+  requestAnimationFrame(pin);
   if(foc){ta.focus();try{ta.setSelectionRange(foc.a,foc.b)}catch(e){}}
   else if(toBottom&&matchMedia("(hover:hover)").matches&&!document.activeElement.closest(".sp-in"))setTimeout(()=>{if(document.activeElement===document.body||!document.activeElement)ta.focus()},20);
   box.querySelectorAll("[data-del]").forEach(b=>b.onclick=async()=>{if(!confirmSoft(b,"¿Borrar?"))return;const id=+b.dataset.del;const m=(msgs[room]||[]).find(x=>x.id===id);
@@ -332,9 +339,9 @@ function roomMenu(anchor,room){const old=document.querySelector(".sp-menu");if(o
   m.querySelectorAll("[data-m]").forEach(b=>b.onclick=async()=>{const k=b.dataset.m;if((k==="hide"||k==="clear")&&!confirmSoft(b,k==="hide"?"Toca otra vez para eliminar":"Toca otra vez para vaciar"))return;m.remove();
     if(k==="hide")hideChat(room);else if(k==="clear")clearGeneral();
     else{try{await X.API.chatBlock(oid,k==="mute");X.toast(k==="mute"?"Silenciado: ya no puede escribir en el chat.":"Listo: ya puede escribir de nuevo.")}catch(e){X.toast("No se pudo.")}}})}
-/* el chat guarda solo 3 días: el admin, al entrar, borra las fotos viejas del almacenamiento y los mensajes viejos (respaldo del cron), cada 6 h */
+/* el chat guarda solo 10 días: el admin, al entrar, borra las fotos viejas del almacenamiento y los mensajes viejos (respaldo del cron), cada 6 h */
 function imgClean(){try{if(!X.isAdmin()||!X.API.chartChatImgClean)return;const k="eag_cc_clean",t=+(localStorage.getItem(k)||0);if(Date.now()-t<6*36e5)return;localStorage.setItem(k,String(Date.now()));
-  setTimeout(()=>{X.API.chatCleanup&&X.API.chatCleanup().catch(()=>{});X.API.chartChatImgClean(3).catch(()=>{})},20000)}catch(e){}}
+  setTimeout(()=>{X.API.chatCleanup&&X.API.chatCleanup().catch(()=>{});X.API.chartChatImgClean(10).catch(()=>{})},20000)}catch(e){}}
 /* idea de trading: mercado, temporalidad y precio actual del gráfico activo */
 function ideaNow(){try{const p=X.panes()[X.active()];const s=p.kc.getSymbol(),L=p.kc.chart.getDataList(),c=L[L.length-1];const pr=c?+c.close:null;
   return{sym:s.ticker,symName:s.name||s.shortName||s.ticker,tf:p.kc.getPeriod().text,price:pr!=null?pr.toLocaleString("en-US",{maximumFractionDigits:s.pricePrecision!=null?s.pricePrecision:3}):null}}catch(e){return null}}

@@ -177,12 +177,12 @@ end $$;
 grant execute on function public.chat_hide(text) to authenticated;
 
 -- fotos viejas del chat de los charts (el admin las borra del almacenamiento)
-create or replace function public.chartchat_img_old(p_days int default 3) returns setof text
+create or replace function public.chartchat_img_old(p_days int default 10) returns setof text
 language plpgsql stable security definer set search_path = public, storage as $$
 begin
   if not public.is_admin() then raise exception 'solo admin'; end if;
   return query select o.name from storage.objects o
-    where o.bucket_id = 'chartchat' and o.created_at < now() - make_interval(days => greatest(coalesce(p_days,3),3)) limit 1000;
+    where o.bucket_id = 'chartchat' and o.created_at < now() - make_interval(days => greatest(coalesce(p_days,10),3)) limit 1000;
 end $$;
 grant execute on function public.chartchat_img_old(int) to authenticated;
 
@@ -233,7 +233,7 @@ language sql stable security definer set search_path = public as $$
        where x.room = r.room and x.sender <> auth.uid()
          and x.id > greatest(coalesce((select last_id from public.chart_reads cr where cr.user_id = auth.uid() and cr.room = r.room), 0),
                              coalesce((select h.upto from public.chart_hidden h where h.user_id = auth.uid() and h.room = r.room), 0))
-         and (r.room <> 'g:general' or x.created_at > now() - interval '3 days')),
+         and (r.room <> 'g:general' or x.created_at > now() - interval '10 days')),
     (select cr.last_id from public.chart_reads cr where cr.room = r.room and cr.user_id = o.id)
   from rooms r
   left join public.profiles o on o.id = (case when r.room not like 'dm:%' then null when split_part(r.room,':',2) = auth.uid()::text then split_part(r.room,':',3) else split_part(r.room,':',2) end)::uuid
@@ -286,10 +286,10 @@ begin
 end $$;
 grant execute on function public.chat_block(uuid,boolean) to authenticated;
 
--- limpieza: el chat de los charts guarda solo los últimos 3 días (grupo y privados) para no gastar espacio
+-- limpieza: el chat de los charts guarda solo los últimos 10 días (grupo y privados) para no gastar espacio
 create or replace function public.chat_cleanup() returns void
 language sql security definer set search_path = public as $$
-  delete from public.chart_msgs where created_at < now() - interval '3 days';
+  delete from public.chart_msgs where created_at < now() - interval '10 days';
 $$;
 grant execute on function public.chat_cleanup() to authenticated;
 do $$ begin
