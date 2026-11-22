@@ -148,3 +148,9 @@ html.v5.v5.v5 :is(.lc-i,.fx-i,.sc-i,.hx-i,.ic-g){background:var(--blueBg)!import
 html.v5.v5.v5:not([data-theme="light"]) :is(.lc-i,.fx-i,.sc-i,.hx-i,.ic-g){color:var(--blue2)!important}
 /* marca del ítem activo del menú lateral */
 html.v5.v5.v5 nav.main a.nit.on::before{background:var(--blue)!important}
+
+/* barra de arriba: cuando bajas, una sombra suave marca que el contenido pasa por debajo (no parece cortado) */
+html.v5.v5.v5 .top{transition:box-shadow .2s}
+html.v5.v5.v5.scrolled .top{box-shadow:0 8px 20px -12px rgba(13,17,23,.35)!important}
+html.v5.v5.v5.scrolled:not([data-theme="light"]) .top{box-shadow:0 10px 24px -10px rgba(0,0,0,.9)!important;border-bottom-color:#2c2c2e!important}
+@media (max-width:860px){html.v5.v5.v5 main{padding-top:18px}}

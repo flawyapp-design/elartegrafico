@@ -204,6 +204,8 @@ function closedView(){const s=S.site,p=API.profile()||{};
     <p class="muted">${esc(s.closedText||"Estamos terminando de montar las lecciones y los ejercicios. Tu cuenta ya quedó creada: cuando abramos, entras con el mismo usuario y tendrás tus 5 gráficas de prueba.")}</p>
     ${p.username?`<span class="pill ok">Registrado como ${esc(p.username)}</span>`:""}${launchBox(true)}
     <div class="row" style="justify-content:center"><a class="btn gold" href="${toMain("inicio")}">Volver a El Arte Gráfico</a>${s.discordUrl?`<a class="btn ghost" href="${esc(s.discordUrl)}" target="_blank" rel="noopener">Unirme al Discord</a>`:`<a class="btn ghost" href="${toMain("comunidad")}">Ver la comunidad</a>`}</div></section>`}
+/* sombra de la barra superior al bajar */
+{let raf=0;const sc=()=>{raf=0;document.documentElement.classList.toggle("scrolled",scrollY>4)};addEventListener("scroll",()=>{if(!raf)raf=requestAnimationFrame(sc)},{passive:true});sc()}
 /* ---------- modo claro / oscuro ---------- */
 function getTheme(){return document.documentElement.getAttribute("data-theme")==="light"?"light":"dark"}
 function setTheme(t){const r=document.documentElement;if(t==="light")r.setAttribute("data-theme","light");else r.removeAttribute("data-theme");
