@@ -18,7 +18,7 @@ let share=null;   /* {room,with,peers:{id:{name,color,sym,tf,boards,laser,at}},l
 let call=null;    /* {room,kind:'dm'|'group',with,peers:{id:{pc,name,audio,an}},stream,muted,t0} */
 let ringing=null; /* llamada entrante */
 
-const cfg=()=>{X.SAVE.soc=Object.assign({snd:true,psnd:true,vol:60,hidden:false,bub:true,head:true,hp:null},X.SAVE.soc||{});return X.SAVE.soc};
+const cfg=()=>{X.SAVE.soc=Object.assign({snd:true,psnd:true,vol:60,hidden:false,bub:true,head:true,hp:null,hs:56},X.SAVE.soc||{});return X.SAVE.soc};
 const RX=["👍","🔥","😂","😮","🙏","💰","📈","📉","❤️"];
 const dmRoom=id=>{const a=[ME.id,id].sort();return"dm:"+a[0]+":"+a[1]};
 const otherOf=room=>room&&room.startsWith("dm:")?room.split(":").slice(1).find(x=>x!==ME.id):null;
@@ -123,6 +123,8 @@ function paintPanel(){if(!panel)return;const tab=view.tab;const g=threads.find(t
   :tab==="people"?(people.length?people.map(p=>`<div class="sp-row" data-dm="${esc(p.id)}" data-n="${esc(p.username)}">${av(p)}<div class="sp-t"><b>${esc(p.username||"Usuario")}${p.is_admin?' <span class="sp-tag">Profe</span>':""}${p.id===ME.id?' <span class="sp-tag me">Tú</span>':""}</b><small>${p.symbol_name||p.symbol?`📈 ${esc(p.symbol_name||p.symbol)}${p.tf?" · "+esc(p.tf):""}`:"En EAG Charts"}</small></div>${p.id===ME.id?"":`<button class="btn sm" data-dm="${esc(p.id)}" data-n="${esc(p.username)}">💬</button>`}</div>`).join(""):`<p class="sp-empty">Nadie más conectado ahora.</p>`)
   :`<div class="sp-cfg">
      <label class="sp-ck"><input type="checkbox" data-c="head"${cfg().head?" checked":""}><span><b>Burbuja flotante de chat</b><small>Como Messenger: la mueves por toda la pantalla, muestra tus mensajes nuevos y al tocarla abre el chat. Arrástrala a la ✕ de abajo para esconderla.</small></span></label>
+     <label class="sp-vol">🫧 Tamaño de la burbuja <input type="range" min="40" max="88" step="2" value="${hsz()}" data-hs><span class="sp-hsv">${hsz()} px</span></label>
+     <div class="sp-hsbox"><span class="shead sp-hsprev" style="--hs:${hsz()}px"><span class="sh-ic"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/></svg></span><em>2</em></span><small>Así se verá</small></div>
      <label class="sp-ck"><input type="checkbox" data-c="bub"${cfg().bub?" checked":""}><span><b>Avance del mensaje</b><small>Junto a la burbuja sale unos segundos quién te escribió y qué dijo.</small></span></label>
      <label class="sp-ck"><input type="checkbox" data-c="snd"${cfg().snd?" checked":""}><span><b>Sonidos del chat</b><small>Al recibir y enviar mensajes, menciones, reacciones y llamadas.</small></span></label>
      <label class="sp-ck"><input type="checkbox" data-c="psnd"${cfg().psnd?" checked":""}><span><b>Sonidos de la plataforma</b><small>Toquecitos suaves al terminar un dibujo y al entrar o salir de un gráfico compartido.</small></span></label>
@@ -134,6 +136,8 @@ function paintPanel(){if(!panel)return;const tab=view.tab;const g=threads.find(t
   panel.querySelectorAll("[data-room]").forEach(b=>b.onclick=()=>open(b.dataset.room));
   panel.querySelectorAll("[data-hide]").forEach(b=>b.onclick=e=>{e.stopPropagation();if(!confirmSoft(b,"¿Eliminar?"))return;hideChat(b.dataset.hide)});
   panel.querySelectorAll("[data-dm]").forEach(b=>b.onclick=e=>{e.stopPropagation();startDM(b.dataset.dm,b.dataset.n)});
+  const hs=panel.querySelector("[data-hs]");if(hs)hs.oninput=()=>{cfg().hs=+hs.value;X.save();panel.querySelector(".sp-hsv").textContent=hs.value+" px";
+    const pv=panel.querySelector(".sp-hsprev");if(pv)pv.style.setProperty("--hs",hs.value+"px");headPaint()};
   const vl=panel.querySelector("[data-vol]");if(vl){vl.oninput=()=>{cfg().vol=+vl.value;X.save()};vl.onchange=()=>SND.play("in",true);panel.querySelector("[data-tst]").onclick=()=>SND.play("in",true)}
   panel.querySelectorAll("[data-c]").forEach(i=>i.onchange=()=>{cfg()[i.dataset.c]=i.checked;X.save();if(i.dataset.c==="head")headPaint();if(i.dataset.c==="hidden")X.API.chatHidden(i.checked).then(loadPeople).catch(()=>X.toast("No se pudo cambiar."))});
   const f=panel.querySelector("[data-find]");if(f){let ft=0;f.oninput=()=>{clearTimeout(ft);ft=setTimeout(async()=>{const q=f.value.trim(),box=panel.querySelector("[data-res]");if(!box)return;if(q.length<2){box.innerHTML="";return}
@@ -218,7 +222,9 @@ function headPaint(){if(!X)return;const show=cfg().head&&!panel;if(!show){if(hea
   const t=lastFrom?threads.find(x=>x.room===lastFrom.room):null;const who=lastFrom&&unread?lastFrom:null;
   head.innerHTML=`${who?(who.room===GEN?`<span class="sav grp">👥</span>`:av({id:who.sender,username:who.username,avatar_url:who.avatar_url})):`<span class="sh-ic"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/></svg></span>`}
     ${unread?`<em>${unread>9?"9+":unread}</em>`:people.length>1?`<i class="sh-on">${people.length}</i>`:""}${share||call?`<b class="sh-live">${call?"📞":"📡"}</b>`:""}`;
-  const p=cfg().hp;const W=innerWidth,H=innerHeight;let x=p?(p.side==="l"?10:W-66):W-66,y=p?Math.round(p.y*H):H-190;y=Math.max(70,Math.min(H-120,y));head.style.left=x+"px";head.style.top=y+"px";head.dataset.side=p&&p.side==="l"?"l":"r"}
+  const S=hsz();head.style.setProperty("--hs",S+"px");
+  const p=cfg().hp;const W=innerWidth,H=innerHeight;let x=p?(p.side==="l"?10:W-S-10):W-S-10,y=p?Math.round(p.y*H):H-190;y=Math.max(70,Math.min(H-S-64,y));head.style.left=x+"px";head.style.top=y+"px";head.dataset.side=p&&p.side==="l"?"l":"r"}
+const hsz=()=>Math.max(40,Math.min(88,+cfg().hs||56));
 function headNotify(m){lastFrom=m;headPaint();if(!head||!cfg().bub)return;if(headPrev)headPrev.remove();
   const who=m.username||nameOf(m.sender);headPrev=document.createElement("button");headPrev.className="shprev "+(head.dataset.side==="l"?"l":"r");
   headPrev.innerHTML=`<b>${esc(m.room===GEN?"Grupo · "+who:who)}</b><small>${m.kind==="share"?"📡 Compartió su gráfico":m.kind==="call"?"📞 Te está llamando":m.kind==="idea"?"📈 Compartió una idea":m.kind==="img"?"📷 Foto":esc(String(m.body||"").slice(0,90))}</small>`;
@@ -231,13 +237,13 @@ function headDrag(el){let sx=0,sy=0,ox=0,oy=0,moved=false,id=null;
   el.addEventListener("pointerdown",e=>{if(e.button!==0)return;id=e.pointerId;el.setPointerCapture(id);sx=e.clientX;sy=e.clientY;const r=el.getBoundingClientRect();ox=r.left;oy=r.top;moved=false;el.classList.add("drag")});
   el.addEventListener("pointermove",e=>{if(e.pointerId!==id)return;const dx=e.clientX-sx,dy=e.clientY-sy;if(!moved&&Math.hypot(dx,dy)<6)return;
     if(!moved){moved=true;if(headPrev){headPrev.remove();headPrev=null}headDrop=document.createElement("div");headDrop.className="shdrop";headDrop.textContent="✕";document.body.appendChild(headDrop)}
-    el.style.left=Math.max(0,Math.min(innerWidth-56,ox+dx))+"px";el.style.top=Math.max(0,Math.min(innerHeight-56,oy+dy))+"px";
-    const dr=headDrop.getBoundingClientRect(),hr=el.getBoundingClientRect();headDrop.classList.toggle("hot",Math.hypot(dr.left+dr.width/2-(hr.left+28),dr.top+dr.height/2-(hr.top+28))<60)});
+    const S=hsz();el.style.left=Math.max(0,Math.min(innerWidth-S,ox+dx))+"px";el.style.top=Math.max(0,Math.min(innerHeight-S,oy+dy))+"px";
+    const dr=headDrop.getBoundingClientRect(),hr=el.getBoundingClientRect();headDrop.classList.toggle("hot",Math.hypot(dr.left+dr.width/2-(hr.left+hr.width/2),dr.top+dr.height/2-(hr.top+hr.height/2))<60)});
   const up=e=>{if(e.pointerId!==id)return;id=null;el.classList.remove("drag");try{el.releasePointerCapture(e.pointerId)}catch(x){}
     if(!moved){panel?close():open(unread&&lastFrom?lastFrom.room:null);return}
     const hot=headDrop&&headDrop.classList.contains("hot");if(headDrop){headDrop.remove();headDrop=null}
     if(hot){cfg().head=false;X.save();headPaint();X.toast("Burbuja escondida. La vuelves a activar en 💬 Chat → ⚙.");return}
-    const r=el.getBoundingClientRect();cfg().hp={side:r.left+28<innerWidth/2?"l":"r",y:Math.max(0,Math.min(1,r.top/innerHeight))};X.save();SND.play("tick");headPaint()};
+    const r=el.getBoundingClientRect();cfg().hp={side:r.left+r.width/2<innerWidth/2?"l":"r",y:Math.max(0,Math.min(1,r.top/innerHeight))};X.save();SND.play("tick");headPaint()};
   el.addEventListener("pointerup",up);el.addEventListener("pointercancel",up);
   addEventListener("resize",()=>headPaint())}
 
