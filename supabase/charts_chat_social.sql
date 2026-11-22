@@ -199,10 +199,11 @@ grant execute on function public.chat_read(text,bigint) to authenticated;
 -- historial de una sala (con nombre, foto y reacciones)
 drop function if exists public.chat_history(text,bigint,int);
 create or replace function public.chat_history(p_room text, p_before bigint default null, p_limit int default 50)
-returns table (id bigint, room text, sender uuid, username text, avatar_url text, is_admin boolean, body text, kind text, payload jsonb, created_at timestamptz, reacts jsonb)
+returns table (id bigint, room text, sender uuid, username text, avatar_url text, is_admin boolean, body text, kind text, payload jsonb, created_at timestamptz, reacts jsonb, verified boolean)
 language sql stable security definer set search_path = public as $$
   select m.id, m.room, m.sender, p.username, p.avatar_url, (p.role = 'admin'), m.body, m.kind, m.payload, m.created_at,
-    (select jsonb_object_agg(e.emoji, e.users) from (select r.emoji, jsonb_agg(r.user_id) users from public.chart_reacts r where r.msg_id = m.id group by r.emoji) e)
+    (select jsonb_object_agg(e.emoji, e.users) from (select r.emoji, jsonb_agg(r.user_id) users from public.chart_reacts r where r.msg_id = m.id group by r.emoji) e),
+    (case when public.is_admin() then coalesce(p.affiliate,false) end)
   from public.chart_msgs m join public.profiles p on p.id = m.sender
   where m.room = p_room and public.chat_mine(p_room)
     and (p_room <> 'g:general' or public.chat_can() or public.is_admin())
@@ -217,7 +218,7 @@ grant execute on function public.chat_history(text,bigint,int) to authenticated;
 drop function if exists public.chat_threads();
 create or replace function public.chat_threads()
 returns table (room text, other uuid, username text, avatar_url text, is_admin boolean, online boolean,
-               last_id bigint, last_body text, last_kind text, last_sender uuid, last_at timestamptz, unread int, other_read bigint)
+               last_id bigint, last_body text, last_kind text, last_sender uuid, last_at timestamptz, unread int, other_read bigint, verified boolean, plan text)
 language sql stable security definer set search_path = public as $$
   with mine as (
     select distinct m.room from public.chart_msgs m
@@ -234,7 +235,9 @@ language sql stable security definer set search_path = public as $$
          and x.id > greatest(coalesce((select last_id from public.chart_reads cr where cr.user_id = auth.uid() and cr.room = r.room), 0),
                              coalesce((select h.upto from public.chart_hidden h where h.user_id = auth.uid() and h.room = r.room), 0))
          and (r.room <> 'g:general' or x.created_at > now() - interval '10 days')),
-    (select cr.last_id from public.chart_reads cr where cr.room = r.room and cr.user_id = o.id)
+    (select cr.last_id from public.chart_reads cr where cr.room = r.room and cr.user_id = o.id),
+    (case when public.is_admin() and o.id is not null then coalesce(o.affiliate,false) end),
+    (case when public.is_admin() and o.premium_until > now() then lower(o.plan) end)
   from rooms r
   left join public.profiles o on o.id = (case when r.room not like 'dm:%' then null when split_part(r.room,':',2) = auth.uid()::text then split_part(r.room,':',3) else split_part(r.room,':',2) end)::uuid
   left join lateral (select * from public.chart_msgs z where z.room = r.room order by z.id desc limit 1) l on true
@@ -245,10 +248,12 @@ $$;
 grant execute on function public.chat_threads() to authenticated;
 
 -- conectados ahora en EAG Charts (los invisibles no salen, salvo para el admin)
+-- (solo el admin ve si es Miembro verificado y su plan, para saber a quién invitar)
+drop function if exists public.chat_people();
 create or replace function public.chat_people()
-returns table (id uuid, username text, avatar_url text, is_admin boolean, symbol text, symbol_name text, tf text, hidden boolean)
+returns table (id uuid, username text, avatar_url text, is_admin boolean, symbol text, symbol_name text, tf text, hidden boolean, verified boolean, plan text)
 language sql stable security definer set search_path = public as $$
-  select p.id, p.username, p.avatar_url, (p.role = 'admin'), c.symbol, c.symbol_name, c.tf, coalesce(p.chat_hidden,false)
+  select p.id, p.username, p.avatar_url, (p.role = 'admin'), c.symbol, c.symbol_name, c.tf, coalesce(p.chat_hidden,false), (case when public.is_admin() then coalesce(p.affiliate,false) end), (case when public.is_admin() and p.premium_until > now() then lower(p.plan) end)
   from public.chart_presence c join public.profiles p on p.id = c.user_id
   where auth.uid() is not null and c.last_seen > now() - interval '90 seconds' and not coalesce(p.banned,false)
     and (not coalesce(p.chat_hidden,false) or p.id = auth.uid() or public.is_admin())
@@ -258,10 +263,11 @@ $$;
 grant execute on function public.chat_people() to authenticated;
 
 -- buscar a alguien por usuario (para escribirle aunque no esté conectado)
+drop function if exists public.chat_find(text);
 create or replace function public.chat_find(p_q text)
-returns table (id uuid, username text, avatar_url text, is_admin boolean)
+returns table (id uuid, username text, avatar_url text, is_admin boolean, verified boolean, plan text)
 language sql stable security definer set search_path = public as $$
-  select p.id, p.username, p.avatar_url, (p.role = 'admin')
+  select p.id, p.username, p.avatar_url, (p.role = 'admin'), (case when public.is_admin() then coalesce(p.affiliate,false) end), (case when public.is_admin() and p.premium_until > now() then lower(p.plan) end)
   from public.profiles p
   where auth.uid() is not null and length(trim(coalesce(p_q,''))) >= 2 and not coalesce(p.banned,false)
     and p.username ilike '%' || replace(replace(trim(p_q),'%',''),'_','\_') || '%'

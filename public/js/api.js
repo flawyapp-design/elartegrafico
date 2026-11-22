@@ -282,7 +282,8 @@ function LocalAPI(){
   const reload=()=>{try{const d=JSON.parse(localStorage.getItem(KEY));if(d)db=d}catch(e){}};
   const _chatLocal=()=>{const mine=r=>r==="g:general"||(r.startsWith("dm:")&&r.split(":").slice(1).includes(uid));
     const pf=id=>db.profiles.find(x=>x.id===id)||{};const on=id=>{const x=(db.presence||{})[id];return!!x&&Date.now()-new Date(x.last_seen).getTime()<9e4};
-    const row=m=>{const p=pf(m.sender);return Object.assign({},m,{username:p.username,avatar_url:p.avatar_url||null,is_admin:p.role==="admin"})};
+    const amA=()=>pf(uid).role==="admin";const vf=p=>amA()?!!p.affiliate:null;const pl=p=>amA()&&p.premium_until&&new Date(p.premium_until)>Date.now()?String(p.plan||"").toLowerCase()||null:null;
+    const row=m=>{const p=pf(m.sender);return Object.assign({},m,{username:p.username,avatar_url:p.avatar_url||null,is_admin:p.role==="admin",verified:vf(p)})};
     return{
     async chatSend(room,body,kind,payload){reload();if(!uid)throw new Error("Ingresa con tu cuenta.");if(!mine(room))throw new Error("Sala inválida.");
       body=String(body||"").trim().slice(0,1000);kind=kind||"text";if(kind==="text"&&!body)throw new Error("Mensaje vacío.");
@@ -292,9 +293,9 @@ function LocalAPI(){
     async chatThreads(){reload();const M=db.cmsgs||[],R=db.creads||{};const rooms=["g:general"].concat([...new Set(M.filter(m=>m.room.startsWith("dm:")&&mine(m.room)).map(m=>m.room))]);
       return rooms.map(r=>{const L=M.filter(m=>m.room===r),l=L[L.length-1]||{},o=r.startsWith("dm:")?r.split(":").slice(1).find(x=>x!==uid):null,p=o?pf(o):{};
         return{room:r,other:o,username:p.username||null,avatar_url:p.avatar_url||null,is_admin:p.role==="admin",online:o?on(o):false,last_id:l.id||null,last_body:l.body||null,last_kind:l.kind||null,last_sender:l.sender||null,last_at:l.created_at||null,
-          unread:L.filter(m=>m.sender!==uid&&m.id>Math.max(R[uid+"|"+r]||0,(db.chid||{})[uid+"|"+r]||0)).length,other_read:o?(R[o+"|"+r]||0):null,__hid:r!=="g:general"&&(l.id||0)<=((db.chid||{})[uid+"|"+r]||0)}}).filter(t=>!t.__hid).sort((a,b)=>(b.last_id||0)-(a.last_id||0))},
-    async chatPeople(){reload();return Object.keys(db.presence||{}).filter(on).map(id=>{const p=pf(id),x=db.presence[id];return{id,username:p.username,avatar_url:p.avatar_url||null,is_admin:p.role==="admin",symbol:x.symbol,symbol_name:x.name,tf:x.tf,hidden:!!p.chat_hidden}}).filter(x=>!x.hidden||x.id===uid)},
-    async chatFind(q){reload();q=String(q||"").toLowerCase();return q.length<2?[]:db.profiles.filter(p=>!p.banned&&String(p.username||"").toLowerCase().includes(q)).slice(0,15).map(p=>({id:p.id,username:p.username,avatar_url:p.avatar_url||null,is_admin:p.role==="admin"}))},
+          unread:L.filter(m=>m.sender!==uid&&m.id>Math.max(R[uid+"|"+r]||0,(db.chid||{})[uid+"|"+r]||0)).length,other_read:o?(R[o+"|"+r]||0):null,verified:o?vf(p):null,plan:o?pl(p):null,__hid:r!=="g:general"&&(l.id||0)<=((db.chid||{})[uid+"|"+r]||0)}}).filter(t=>!t.__hid).sort((a,b)=>(b.last_id||0)-(a.last_id||0))},
+    async chatPeople(){reload();return Object.keys(db.presence||{}).filter(on).map(id=>{const p=pf(id),x=db.presence[id];return{id,username:p.username,avatar_url:p.avatar_url||null,is_admin:p.role==="admin",symbol:x.symbol,symbol_name:x.name,tf:x.tf,hidden:!!p.chat_hidden,verified:vf(p),plan:pl(p)}}).filter(x=>!x.hidden||x.id===uid)},
+    async chatFind(q){reload();q=String(q||"").toLowerCase();return q.length<2?[]:db.profiles.filter(p=>!p.banned&&String(p.username||"").toLowerCase().includes(q)).slice(0,15).map(p=>({id:p.id,username:p.username,avatar_url:p.avatar_url||null,is_admin:p.role==="admin",verified:vf(p),plan:pl(p)}))},
     async chatRead(room,last){reload();db.creads=db.creads||{};const k=uid+"|"+room;db.creads[k]=Math.max(db.creads[k]||0,last||0);save()},
     async chatCleanup(){reload();const lim=Date.now()-10*864e5;db.cmsgs=(db.cmsgs||[]).filter(m=>new Date(m.created_at).getTime()>=lim);save()},
     async chatHide(room){reload();db.chid=db.chid||{};const mx=Math.max(0,...(db.cmsgs||[]).filter(m=>m.room===room).map(m=>m.id));db.chid[uid+"|"+room]=mx;db.creads=db.creads||{};db.creads[uid+"|"+room]=Math.max(db.creads[uid+"|"+room]||0,mx);save()},

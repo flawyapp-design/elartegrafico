@@ -14,7 +14,7 @@ const VMAX=6; /* máximo de personas en una llamada (malla entre navegadores) */
 const COLORS=["#4fc3f7","#ff8a65","#ba68c8","#81c784","#f06292","#ffd54f","#4dd0e1","#a1887f"];
 let X=null,ME=null,panel=null,view={tab:"chats",room:null},threads=[],people=[],msgs={},unread=0,peopleT=0,thrT=0;
 let rt=null,rtJoined=false,rtRef=0,rtHb=0,rtTok=0,bc=null;const topics={};   /* topic → handler */
-const drafts={};let findQ="";   /* lo que vas escribiendo no se pierde cuando llega algo y el chat se vuelve a dibujar */
+const drafts={},replyTo={};let findQ="";   /* replyTo[room] = {id,n,t} mensaje que estás respondiendo */   /* lo que vas escribiendo no se pierde cuando llega algo y el chat se vuelve a dibujar */
 let share=null;   /* {room,with,peers:{id:{name,color,sym,tf,boards,laser,at}},last,hbT,loopT} */
 let call=null;    /* {room,kind:'dm'|'group',with,peers:{id:{pc,name,audio,an}},stream,muted,t0} */
 let ringing=null; /* llamada entrante */
@@ -25,6 +25,11 @@ const dmRoom=id=>{const a=[ME.id,id].sort();return"dm:"+a[0]+":"+a[1]};
 const otherOf=room=>room&&room.startsWith("dm:")?room.split(":").slice(1).find(x=>x!==ME.id):null;
 const ini=n=>esc(String(n||"?").trim().charAt(0).toUpperCase()||"?");
 const av=(u,cls)=>u&&u.avatar_url?`<img class="sav ${cls||""}" src="${esc(u.avatar_url)}" alt="" loading="lazy">`:`<span class="sav ${cls||""}" style="background:${colorOf(u&&(u.id||u.other||u.sender)||"")}">${ini(u&&u.username)}</span>`;
+/* solo el admin: si es Miembro verificado y su plan (sutil, para saber a quién invitar) */
+const PLN={cobre:"Cobre",plata:"Plata",oro:"Oro",diamond:"Diamond"};
+function vb(u){if(!u||u.verified==null||u.is_admin||!X||!X.isAdmin())return"";
+  return(u.verified?`<span class="sp-vb ok" title="Miembro verificado">✓</span>`:`<span class="sp-vb no" title="No es Miembro verificado: puedes invitarlo (⋯ → Invitar)">○</span>`)+(u.plan?`<span class="sp-vb pl" title="Plan activo">${esc(PLN[u.plan]||u.plan)}</span>`:"")}
+const vInfo=id=>{const p=people.find(x=>x.id===id)||threads.find(x=>x.other===id);return p?{verified:p.verified,plan:p.plan,is_admin:p.is_admin}:null};
 function colorOf(id){let h=0;for(const c of String(id))h=(h*31+c.charCodeAt(0))>>>0;return COLORS[h%COLORS.length]}
 const hhmm=t=>{try{const d=new Date(t),n=new Date();const s=d.toLocaleTimeString("es-CO",{hour:"numeric",minute:"2-digit"});return d.toDateString()===n.toDateString()?s:d.toLocaleDateString("es-CO",{day:"numeric",month:"short"})+" "+s}catch(e){return""}};
 const nameOf=id=>{if(id===ME.id)return ME.name;const p=people.find(x=>x.id===id);if(p)return p.username;const t=threads.find(x=>x.other===id);return t?t.username:"Alguien"};
@@ -142,7 +147,7 @@ function paintPanel(){if(!panel)return;{const of=panel.querySelector("[data-find
     <div class="sp-find"><input type="search" placeholder="Buscar a alguien para escribirle…" data-find autocomplete="off"><div class="sp-res" data-res></div></div>
     ${thRow(Object.assign({username:"Grupo general",grp:true},g))}
     ${dms.length?dms.map(t=>thRow(t)).join(""):`<p class="sp-empty">Aún no tienes chats privados. Ve a <b>Conectados</b> y escríbele a alguien, o búscalo arriba.</p>`}`
-  :tab==="people"?(people.length?people.map(p=>`<div class="sp-row" data-dm="${esc(p.id)}" data-n="${esc(p.username)}">${av(p)}<div class="sp-t"><b>${esc(p.username||"Usuario")}${p.is_admin?' <span class="sp-tag">Profe</span>':""}${p.id===ME.id?' <span class="sp-tag me">Tú</span>':""}</b><small>${p.symbol_name||p.symbol?`📈 ${esc(p.symbol_name||p.symbol)}${p.tf?" · "+esc(p.tf):""}`:"En EAG Charts"}</small></div>${p.id===ME.id?"":`<button class="btn sm" data-dm="${esc(p.id)}" data-n="${esc(p.username)}">💬</button>`}</div>`).join(""):`<p class="sp-empty">Nadie más conectado ahora.</p>`)
+  :tab==="people"?(people.length?people.map(p=>`<div class="sp-row" data-dm="${esc(p.id)}" data-n="${esc(p.username)}">${av(p)}<div class="sp-t"><b>${esc(p.username||"Usuario")}${p.is_admin?' <span class="sp-tag">Profe</span>':""}${p.id===ME.id?' <span class="sp-tag me">Tú</span>':vb(p)}</b><small>${p.symbol_name||p.symbol?`📈 ${esc(p.symbol_name||p.symbol)}${p.tf?" · "+esc(p.tf):""}`:"En EAG Charts"}</small></div>${p.id===ME.id?"":`<button class="btn sm" data-dm="${esc(p.id)}" data-n="${esc(p.username)}">💬</button>`}</div>`).join(""):`<p class="sp-empty">Nadie más conectado ahora.</p>`)
   :`<div class="sp-cfg">
      <label class="sp-ck"><input type="checkbox" data-c="head"${cfg().head?" checked":""}><span><b>Burbuja flotante de chat</b><small>Como Messenger: la mueves por toda la pantalla, muestra tus mensajes nuevos y al tocarla abre el chat. Arrástrala a la ✕ de abajo para esconderla.</small></span></label>
      <div class="sp-vol">🪟 Panel del chat <small class="sp-hsv" style="flex:1;text-align:left;white-space:normal">Arrástralo desde arriba y estíralo desde las esquinas</small><button class="btn sm" data-pprst>Restablecer</button></div>
@@ -168,12 +173,12 @@ function paintPanel(){if(!panel)return;{const of=panel.querySelector("[data-find
   panel.querySelectorAll("[data-c]").forEach(i=>i.onchange=()=>{cfg()[i.dataset.c]=i.checked;X.save();if(i.dataset.c==="head")headPaint();if(i.dataset.c==="hidden")X.API.chatHidden(i.checked).then(loadPeople).catch(()=>X.toast("No se pudo cambiar."))});
   const f=panel.querySelector("[data-find]");if(f&&findQ){f.value=findQ;if(findFoc){f.focus();try{f.setSelectionRange(findQ.length,findQ.length)}catch(e){}}setTimeout(()=>f.oninput&&f.oninput(),0)}
   if(f){let ft=0;f.oninput=()=>{findQ=f.value;clearTimeout(ft);ft=setTimeout(async()=>{const q=f.value.trim(),box=panel.querySelector("[data-res]");if(!box)return;if(q.length<2){box.innerHTML="";return}
-      let r=[];try{r=(await X.API.chatFind(q))||[]}catch(e){}box.innerHTML=r.filter(u=>u.id!==ME.id).map(u=>`<button class="sp-row" data-dm="${esc(u.id)}" data-n="${esc(u.username)}">${av(u)}<div class="sp-t"><b>${esc(u.username)}</b><small>Escribirle</small></div></button>`).join("")||`<p class="sp-empty">No encontramos a nadie con ese nombre.</p>`;
+      let r=[];try{r=(await X.API.chatFind(q))||[]}catch(e){}box.innerHTML=r.filter(u=>u.id!==ME.id).map(u=>`<button class="sp-row" data-dm="${esc(u.id)}" data-n="${esc(u.username)}">${av(u)}<div class="sp-t"><b>${esc(u.username)}${vb(u)}</b><small>Escribirle</small></div></button>`).join("")||`<p class="sp-empty">No encontramos a nadie con ese nombre.</p>`;
       box.querySelectorAll("[data-dm]").forEach(b=>b.onclick=()=>startDM(b.dataset.dm,b.dataset.n))},250)}}}
 function thRow(t){const isG=t.room===GEN,on=!isG&&(people.some(p=>p.id===t.other)||t.online);
   const last=t.last_body!=null||t.last_kind?`${t.last_sender===ME.id?"Tú: ":isG&&t.last_sender?esc(nameOf(t.last_sender))+": ":""}${t.last_kind==="share"?"📡 Compartió su gráfico":t.last_kind==="call"?"📞 Llamada":t.last_kind==="img"?"📷 Foto":t.last_kind==="idea"?"📈 Idea":esc(String(t.last_body||"").slice(0,60))}`:(isG?"Habla con todos los que usan EAG Charts":"");
   return`<button class="sp-row th${t.unread?" un":""}" data-room="${esc(t.room)}">${isG?`<span class="sav grp">👥</span>`:av({id:t.other,username:t.username,avatar_url:t.avatar_url})}${on?'<i class="sp-dot"></i>':""}
-    <div class="sp-t"><b>${esc(isG?"Grupo general":t.username||"Usuario")}${t.is_admin?' <span class="sp-tag">Profe</span>':""}</b><small>${last}</small></div>
+    <div class="sp-t"><b>${esc(isG?"Grupo general":t.username||"Usuario")}${t.is_admin?' <span class="sp-tag">Profe</span>':isG?"":vb(t)}</b><small>${last}</small></div>
     <div class="sp-m">${t.last_at?`<small>${hhmm(t.last_at)}</small>`:""}${t.unread?`<em>${t.unread>9?"9+":t.unread}</em>`:""}</div>${isG?"":`<span class="sp-thx" data-hide="${esc(t.room)}" title="Eliminar este chat (solo para ti)">🗑</span>`}</button>`}
 function startDM(id,name){if(!id||id===ME.id)return;const room=dmRoom(id);if(!threads.find(t=>t.room===room))threads.unshift({room,other:id,username:name||nameOf(id),unread:0});view.tab="chats";open(room)}
 
@@ -185,10 +190,10 @@ function paintRoom(toBottom){if(!panel||!view.room)return;const room=view.room,i
   if(ota&&ota.dataset.room===room){drafts[room]=ota.value;if(document.activeElement===ota)foc={a:ota.selectionStart,b:ota.selectionEnd}}
   const inShare=share&&share.room&&share.with===room,inCall=call&&call.chat===room;
   panel.innerHTML=`<div class="sp-h"><button class="sx" data-back title="Volver">‹</button>${isG?`<span class="sav grp">👥</span>`:av({id:oid,username:name,avatar_url:t.avatar_url})}
-    <div class="sp-ht"><b>${esc(name)}</b><small class="sp-sub">${isG?`${people.length} conectado${people.length===1?"":"s"} ahora`:online?"🟢 En los charts":"No está conectado"}</small></div>
+    <div class="sp-ht"><b>${esc(name)}${isG?"":vb(Object.assign({},t,vInfo(oid)||{},{plan:null}))}</b><small class="sp-sub">${isG?`${people.length} conectado${people.length===1?"":"s"} ahora`:online?"🟢 En los charts":"No está conectado"}</small></div>
     <div class="sp-act">${isG?`<button class="btn sm${call&&call.kind==="group"?" on":""}" data-vg title="Sala de voz del grupo (hasta ${VMAX})">🎙</button>`:`<button class="btn sm${inShare?" on":""}" data-sh title="Compartir tu gráfico: tus dibujos salen en el suyo con tu nombre y los suyos en el tuyo">📡</button><button class="btn sm${inCall?" on":""}" data-call title="Llamada de voz">📞</button>`}<button class="sx" data-menu title="Más opciones">⋯</button><button class="sx" data-min title="Minimizar (queda en la burbuja)">—</button><button class="sx" data-x title="Cerrar">✕</button></div></div>
   <div class="sp-msgs">${seenMark(L,t,isG),""}${L.__end||!L.length?"":`<button class="sp-more" data-more>Ver mensajes anteriores</button>`}${L.length?L.map((m,i)=>msgRow(m,L[i-1],isG)).join(""):`<p class="sp-empty">${isG?"Saluda al grupo 👋":"Escríbele el primer mensaje 👋"}</p>`}</div>
-  <div class="sp-typ" data-typ></div>
+  <div class="sp-typ" data-typ></div>${replyTo[room]?`<div class="sp-rep"><span><b>↩ Respondiendo a ${esc(replyTo[room].n)}</b><small>${esc(replyTo[room].t)}</small></span><button class="sx" data-unrep title="Cancelar respuesta">✕</button></div>`:""}
   <form class="sp-in" data-room="${esc(room)}"><button type="button" class="sp-idea" data-pic title="Enviar una foto o captura (también puedes pegarla con Ctrl+V o arrastrarla aquí)">📷</button><input type="file" accept="image/*" data-file hidden><button type="button" class="sp-idea" data-idea title="Compartir una idea: tu mercado, temporalidad y precio actual (escribe tu análisis y toca aquí)">📈</button><textarea rows="1" maxlength="1000" placeholder="${isG?"Escribe al grupo… (usa @nombre para mencionar)":"Escribe un mensaje…"}"></textarea><button class="btn gold sm" type="submit" title="Enviar">➤</button></form>`;
   const box=panel.querySelector(".sp-msgs");box.__pin=keep==null;const pin=()=>{if(box.__pin)box.scrollTop=box.scrollHeight};
   if(keep!=null)box.scrollTop=box.scrollHeight-keep;else pin();
@@ -202,7 +207,7 @@ function paintRoom(toBottom){if(!panel||!view.room)return;const room=view.room,i
   const ta=panel.querySelector("textarea"),fm=panel.querySelector(".sp-in");ta.dataset.room=room;
   if(drafts[room]){ta.value=drafts[room];ta.style.height="auto";ta.style.height=Math.min(120,ta.scrollHeight)+"px"}
   ta.oninput=()=>{drafts[room]=ta.value;ta.style.height="auto";ta.style.height=Math.min(120,ta.scrollHeight)+"px";typingPing(room)};
-  panel.querySelector("[data-idea]").onclick=async()=>{const i=ideaNow();if(!i)return X.toast("Abre un gráfico primero.");const v=ta.value.trim();ta.value="";drafts[room]="";ta.style.height="auto";await send(room,v,"idea",i)};
+  panel.querySelector("[data-idea]").onclick=async()=>{const i=ideaNow();if(!i)return X.toast("Abre un gráfico primero.");const v=ta.value.trim();ta.value="";drafts[room]="";ta.style.height="auto";const rp=takeReply(room);if(rp)i.reply=rp;await send(room,v,"idea",i)};
   paintTyping();
   const fi=panel.querySelector("[data-file]");panel.querySelector("[data-pic]").onclick=()=>fi.click();fi.onchange=()=>{const f=fi.files&&fi.files[0];fi.value="";if(f)sendImg(room,f,ta)};
   ta.onpaste=e=>{const it=[...(e.clipboardData&&e.clipboardData.items||[])].find(x=>x.type.startsWith("image/"));if(it){e.preventDefault();sendImg(room,it.getAsFile(),ta)}};
@@ -210,8 +215,8 @@ function paintRoom(toBottom){if(!panel||!view.room)return;const room=view.room,i
   drop.ondragleave=()=>drop.classList.remove("over");drop.ondrop=e=>{drop.classList.remove("over");const f=[...(e.dataTransfer.files||[])].find(x=>x.type.startsWith("image/"));if(f){e.preventDefault();sendImg(room,f,ta)}};
   panel.querySelector("[data-menu]").onclick=e=>{e.stopPropagation();roomMenu(e.currentTarget,room)};
   box.querySelectorAll(".sp-img").forEach(im=>im.onclick=()=>lightbox(im.dataset.full||im.src));
-  ta.onkeydown=e=>{e.stopPropagation();if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();fm.requestSubmit()}};
-  fm.onsubmit=async e=>{e.preventDefault();const v=ta.value.trim();if(!v)return;ta.value="";drafts[room]="";ta.style.height="auto";const ok=await send(room,v,"text");
+  ta.onkeydown=e=>{e.stopPropagation();if(e.key==="Escape"&&replyTo[room]){e.preventDefault();delete replyTo[room];paintRoom();return}if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();fm.requestSubmit()}};
+  fm.onsubmit=async e=>{e.preventDefault();const v=ta.value.trim();if(!v)return;ta.value="";drafts[room]="";ta.style.height="auto";const rp=takeReply(room);const ok=await send(room,v,"text",rp?{reply:rp}:null);
     if(!ok){const t2=panel&&panel.querySelector(".sp-in textarea");if(t2&&!t2.value){t2.value=v;drafts[room]=v}}};
   requestAnimationFrame(pin);
   if(foc){ta.focus();try{ta.setSelectionRange(foc.a,foc.b)}catch(e){}}
@@ -227,6 +232,11 @@ function paintRoom(toBottom){if(!panel||!view.room)return;const room=view.room,i
   box.querySelectorAll("[data-go]").forEach(b=>b.onclick=()=>{const[sy,tf]=b.dataset.go.split("|");X.follow(sy,tf||null);if(matchMedia("(max-width:640px)").matches)close()});
   box.ondblclick=e=>{const mm=e.target.closest("[data-mid]");if(mm)react(+mm.dataset.mid,"👍",room)};
   box.querySelectorAll("[data-acc]").forEach(b=>b.onclick=()=>acceptCall(b.dataset.acc,room));
+  box.querySelectorAll("[data-rep]").forEach(b=>b.onclick=e=>{e.stopPropagation();const m=(msgs[room]||[]).find(x=>x.id===+b.dataset.rep);if(!m)return;
+    replyTo[room]={id:m.id,n:m.sender===ME.id?"ti":(m.username||nameOf(m.sender)),t:snip(m)};paintRoom();const t2=panel.querySelector(".sp-in textarea");t2&&t2.focus()});
+  const ur=panel.querySelector("[data-unrep]");if(ur)ur.onclick=()=>{delete replyTo[room];paintRoom()};
+  box.querySelectorAll("[data-goto]").forEach(q=>q.onclick=e=>{e.stopPropagation();const el=box.querySelector(`.sp-msg[data-mid="${q.dataset.goto}"]`);
+    if(el){box.__pin=false;el.scrollIntoView({block:"center",behavior:"smooth"});el.classList.remove("flash");void el.offsetWidth;el.classList.add("flash")}else X.toast("Ese mensaje ya no está (puede que sea viejo o lo borraron).")});
   box.querySelectorAll("[data-pm]").forEach(b=>b.onclick=()=>startDM(b.dataset.pm,b.dataset.n));
   const sh=panel.querySelector("[data-sh]");if(sh)sh.onclick=()=>inShare?leaveShare():startShare(room);
   const cb=panel.querySelector("[data-call]");if(cb)cb.onclick=()=>inCall?hangup():startCall(room);
@@ -248,9 +258,11 @@ function msgRow(m,prev,isG){const mine=m.sender===ME.id,adm=X.isAdmin();const gr
   const mute=adm&&isG&&!mine?`<button class="sp-del" data-mute="${esc(m.sender)}" title="Silenciar a esta persona en el chat">🔇</button>`:"";
   const pm=isG&&!mine?`<button class="sp-del" data-pm="${esc(m.sender)}" data-n="${esc(m.username||"")}" title="Escribirle por privado">💬</button>`:"";
   const rx=m.reacts&&Object.keys(m.reacts).length?`<div class="sp-rx">${Object.keys(m.reacts).map(e=>{const u=m.reacts[e]||[];return`<button class="${u.includes(ME.id)?"on":""}" data-rx="${m.id}|${e}" title="${esc(u.map(nameOf).join(", "))}">${e}${u.length>1?` <small>${u.length}</small>`:""}</button>`}).join("")}</div>`:"";
+  const rp=m.payload&&m.payload.reply;const quote=rp&&rp.id?`<button class="sp-q" data-goto="${+rp.id}" title="Ver el mensaje original"><b>${esc(rp.n===ME.name?"Tú":rp.n||"")}</b><small>${esc(rp.t||"")}</small></button>`:"";
+  const repb=m.id&&["text","idea","share","img"].includes(m.kind)?`<button class="sp-del" data-rep="${m.id}" title="Responder este mensaje">↩</button>`:"";
   const rxb=m.id&&["text","idea","share","img"].includes(m.kind)?`<button class="sp-del" data-rxp="${m.id}" title="Reaccionar (o doble clic = 👍)">😊</button>`:"";
   return`<div class="sp-msg${mine?" me":""}${grp?" grp":""}" data-mid="${m.id}">${!mine&&isG&&!grp?av({id:m.sender,username:m.username,avatar_url:m.avatar_url},"sm"):!mine&&isG?'<span class="sav sm ghost"></span>':""}
-    <div class="sp-bx">${!mine&&isG&&!grp?`<span class="sp-who" style="color:${colorOf(m.sender)}">${esc(m.username||"Usuario")}${m.is_admin?' <span class="sp-tag">Profe</span>':""}</span>`:""}${inner}<span class="sp-time">${hhmm(m.created_at)}${m.__seen?` · <span class="sp-seen">${m.__seen}</span>`:""}</span>${rx}</div><span class="sp-tools">${rxb}${pm}${tools}${mute}</span></div>`}
+    <div class="sp-bx">${!mine&&isG&&!grp?`<span class="sp-who" style="color:${colorOf(m.sender)}">${esc(m.username||"Usuario")}${m.is_admin?' <span class="sp-tag">Profe</span>':vb(m)}</span>`:""}${quote}${inner}<span class="sp-time">${hhmm(m.created_at)}${m.__seen?` · <span class="sp-seen">${m.__seen}</span>`:""}</span>${rx}</div><span class="sp-tools">${repb}${rxb}${pm}${tools}${mute}</span></div>`}
 
 /* ===================== burbuja flotante (estilo Messenger) ===================== */
 let head=null,headPrev=null,headDrop=null,lastFrom=null;
@@ -314,6 +326,8 @@ function typingPing(room){const now=Date.now();if(now-lastPing<2500)return;lastP
 function paintTyping(){if(!panel||!view.room)return;const T=typers[view.room]||{},now=Date.now();Object.keys(T).forEach(k=>{if(now-T[k].at>5000)delete T[k]});
   const ns=Object.values(T).map(x=>x.n||"Alguien");const el=panel.querySelector("[data-typ]");if(el)el.innerHTML=ns.length?`<span class="dots"><i></i><i></i><i></i></span> ${esc(ns.slice(0,2).join(" y "))}${ns.length>2?" y otros":""} ${ns.length>1?"están":"está"} escribiendo…`:"";
   clearTimeout(typT);if(ns.length)typT=setTimeout(paintTyping,1500)}
+function snip(m){return m.kind==="img"?"📷 Foto"+(m.body?" · "+String(m.body).slice(0,60):""):m.kind==="idea"?"📈 Idea"+(m.payload&&m.payload.symName?" · "+m.payload.symName:""):m.kind==="share"?"📡 Gráfico compartido":String(m.body||"").replace(/\s+/g," ").slice(0,90)}
+function takeReply(room){const r=replyTo[room];delete replyTo[room];if(!r)return null;return{id:r.id,n:r.n==="ti"?ME.name:r.n,t:r.t}}
 /* fotos: se comprimen en el navegador (máx. 1280 px, WebP) y se suben al almacenamiento, no a la base de datos */
 async function shrink(file){if(!file||!/^image\//.test(file.type))throw new Error("Eso no es una imagen.");if(file.size>15e6)throw new Error("La imagen es muy pesada (máx. 15 MB).");
   const url=URL.createObjectURL(file);try{const img=await new Promise((ok,no)=>{const i=new Image();i.onload=()=>ok(i);i.onerror=()=>no(new Error("No se pudo leer la imagen."));i.src=url});
@@ -323,7 +337,7 @@ async function shrink(file){if(!file||!/^image\//.test(file.type))throw new Erro
     if(!b)throw new Error("No se pudo preparar la imagen.");return{blob:b,w,h}}finally{URL.revokeObjectURL(url)}}
 let upBusy=false;
 async function sendImg(room,file,ta){if(upBusy)return;upBusy=true;const btn=panel&&panel.querySelector("[data-pic]");btn&&btn.classList.add("busy");X.toast("Subiendo imagen…");
-  try{const r=await shrink(file);const u=await X.API.chartChatUpload(r.blob);const cap=ta?ta.value.trim():"";if(ta){ta.value="";ta.style.height="auto";drafts[room]=""}await send(room,cap,"img",{url:u,w:r.w,h:r.h})}
+  try{const r=await shrink(file);const u=await X.API.chartChatUpload(r.blob);const cap=ta?ta.value.trim():"";if(ta){ta.value="";ta.style.height="auto";drafts[room]=""}const rp=takeReply(room);await send(room,cap,"img",Object.assign({url:u,w:r.w,h:r.h},rp?{reply:rp}:{}))}
   catch(e){X.toast(esc(e.message||"No se pudo enviar la imagen."))}finally{upBusy=false;btn&&btn.classList.remove("busy")}}
 function lightbox(src){const o=document.createElement("div");o.className="sp-lb";o.innerHTML=`<img src="${esc(src)}" alt=""><button class="sx" title="Cerrar">✕</button>`;document.body.appendChild(o);
   const cl=()=>{o.remove();removeEventListener("keydown",k,true)},k=e=>{if(e.key==="Escape"){e.stopPropagation();cl()}};o.onclick=cl;addEventListener("keydown",k,true)}
@@ -333,11 +347,12 @@ async function hideChat(room){try{await X.API.chatHide(room);threads=threads.fil
 async function clearGeneral(){try{await X.API.chatHide(GEN);msgs[GEN]=[];msgs[GEN].__end=true;paintRoom();X.toast("Vaciaste el grupo (solo para ti).")}catch(e){X.toast("No se pudo.")}}
 function roomMenu(anchor,room){const old=document.querySelector(".sp-menu");if(old){old.remove();return}const isG=room===GEN,oid=otherOf(room);
   const m=document.createElement("div");m.className="sp-menu";m.innerHTML=(isG?`<button data-m="clear">🧹 Vaciar el grupo (solo para ti)</button>`:`<button data-m="hide">🗑 Eliminar este chat (solo para ti)</button>`)+
-    (X.isAdmin()&&!isG?`<button data-m="mute">🔇 Silenciar a esta persona en el chat</button><button data-m="unmute">🔈 Quitarle el silencio</button>`:"");
+    (X.isAdmin()&&!isG?`<button data-m="inv">⭐ Invitar a hacerse Miembro verificado</button><button data-m="mute">🔇 Silenciar a esta persona en el chat</button><button data-m="unmute">🔈 Quitarle el silencio</button>`:"");
   panel.appendChild(m);const r=anchor.getBoundingClientRect(),pr=panel.getBoundingClientRect();m.style.top=(r.bottom-pr.top+4)+"px";m.style.right=(pr.right-r.right)+"px";
   const off=e=>{if(!m.contains(e.target)){m.remove();removeEventListener("pointerdown",off,true)}};setTimeout(()=>addEventListener("pointerdown",off,true),0);
   m.querySelectorAll("[data-m]").forEach(b=>b.onclick=async()=>{const k=b.dataset.m;if((k==="hide"||k==="clear")&&!confirmSoft(b,k==="hide"?"Toca otra vez para eliminar":"Toca otra vez para vaciar"))return;m.remove();
     if(k==="hide")hideChat(room);else if(k==="clear")clearGeneral();
+    else if(k==="inv"){const nm=(threads.find(x=>x.room===room)||{}).username||"";send(room,`¡Hola${nm?" "+nm:""}! 👋 ¿Ya eres Miembro verificado de El Arte Gráfico? Es gratis: te desbloquea funciones de EAG Charts y entras a los retos express con premios. Mira cómo hacerlo aquí 👉 https://elartegrafico.com/#miembro-solicitud`,"text")}
     else{try{await X.API.chatBlock(oid,k==="mute");X.toast(k==="mute"?"Silenciado: ya no puede escribir en el chat.":"Listo: ya puede escribir de nuevo.")}catch(e){X.toast("No se pudo.")}}})}
 /* el chat guarda solo 10 días: el admin, al entrar, borra las fotos viejas del almacenamiento y los mensajes viejos (respaldo del cron), cada 6 h */
 function imgClean(){try{if(!X.isAdmin()||!X.API.chartChatImgClean)return;const k="eag_cc_clean",t=+(localStorage.getItem(k)||0);if(Date.now()-t<6*36e5)return;localStorage.setItem(k,String(Date.now()));
