@@ -18,7 +18,22 @@ addEventListener("appinstalled",()=>{INST.evt=null;document.querySelectorAll("[d
 if("serviceWorker" in navigator&&location.protocol!=="file:")navigator.serviceWorker.register("/sw.js",{updateViaCache:"none"}).catch(()=>{});
 const LS="eag_charts_v1";
 const load=()=>{try{return JSON.parse(localStorage.getItem(LS)||"{}")||{}}catch(e){return{}}};
-const SAVE=load();const save=()=>{try{localStorage.setItem(LS,JSON.stringify(SAVE))}catch(e){}window.__eagSync&&window.__eagSync()};
+const SAVE=load();
+/* la vista se guarda aparte en celular y en PC: lo que acomodas en uno no le cambia el otro
+   (barras visibles, diseño, tamaños, posiciones, tamaño de letra de la regla). Lo demás (dibujos, favoritos, colores) sí se comparte. */
+const DEV=(innerWidth<=900||(window.matchMedia&&matchMedia("(hover:none) and (pointer:coarse)").matches))?"cel":"pc";
+const VIEWK=["hide","layout","split","wlw","mtfh","mtfTop","wlLeft","fabPos","ftPos","tfavVert","dbRight","pmh","link"],VIEWC=["font","wmSize"],VIEWS=["hp","pp","hs"];
+const dvKey=()=>DEV+"|"+((SAVE.prof&&SAVE.prof.cur)||"p1");   /* cada perfil (Operativa/Análisis) tiene su vista en celular y en PC */
+function devSnap(){if(window.__noSnap)return;const d={};VIEWK.forEach(k=>{if(SAVE[k]!==undefined)d[k]=JSON.parse(JSON.stringify(SAVE[k]))});d.cfg={};VIEWC.forEach(k=>{if(SAVE.cfg&&SAVE.cfg[k]!==undefined)d.cfg[k]=SAVE.cfg[k]});
+  d.soc={};VIEWS.forEach(k=>{if(SAVE.soc&&SAVE.soc[k]!==undefined)d.soc[k]=JSON.parse(JSON.stringify(SAVE.soc[k]))});
+  SAVE.dv=Object.assign({},SAVE.dv||{});SAVE.dv[dvKey()]=d}
+function devApply(){const d=SAVE.dv&&SAVE.dv[dvKey()];
+  if(d){VIEWK.forEach(k=>{if(d[k]!==undefined)SAVE[k]=JSON.parse(JSON.stringify(d[k]));else delete SAVE[k]});if(SAVE.cfg)VIEWC.forEach(k=>{if(d.cfg&&d.cfg[k]!==undefined)SAVE.cfg[k]=d.cfg[k];else delete SAVE.cfg[k]});
+    if(SAVE.soc)VIEWS.forEach(k=>{if(d.soc&&d.soc[k]!==undefined)SAVE.soc[k]=d.soc[k];else delete SAVE.soc[k]})}
+  else if(DEV==="cel"){/* primera vez en el celular: arranca con la vista del celular, no con la del PC */VIEWK.forEach(k=>delete SAVE[k]);if(SAVE.cfg)VIEWC.forEach(k=>delete SAVE.cfg[k]);if(SAVE.soc)VIEWS.forEach(k=>delete SAVE.soc[k])}
+  devSnap();try{localStorage.setItem(LS,JSON.stringify(SAVE))}catch(e){}}
+devApply();
+const save=()=>{try{devSnap();localStorage.setItem(LS,JSON.stringify(SAVE))}catch(e){}window.__eagSync&&window.__eagSync()};
 
 /* ===================== Idioma ===================== */
 const ES={
@@ -130,7 +145,7 @@ const gate=(h1,p,btns)=>{app.innerHTML=`<div class="gate"><img src="assets/logo_
     return gate("Incluido en Plata, Oro y Diamond","EAG Charts viene con los planes Plata, Oro y Diamond, por el mismo tiempo de tu plan (Diamond, de por vida). Activa uno de esos planes y vuelve a esta página.",`<a class="btn gold" href="${MAIN}#premium">Ver planes</a><a class="btn" href="${ACAD}">Ir a la academia</a>`)}}
   /* traer lo guardado en la cuenta si es más nuevo que lo de este navegador */
   try{if(API.chartState){const r=await pState;const lt=+(localStorage.getItem("eag_sync_ts")||0);
-    if(r&&r.data&&new Date(r.updated_at).getTime()>lt+1000){const d=r.data;if(d.prefs){Object.keys(SAVE).forEach(k=>delete SAVE[k]);Object.assign(SAVE,d.prefs);localStorage.setItem(LS,JSON.stringify(SAVE))}
+    if(r&&r.data&&new Date(r.updated_at).getTime()>lt+1000){const d=r.data;if(d.prefs){Object.keys(SAVE).forEach(k=>delete SAVE[k]);Object.assign(SAVE,d.prefs);devApply();localStorage.setItem(LS,JSON.stringify(SAVE))}
       if(d.draw)localStorage.setItem("eag_draw_v1",JSON.stringify(d.draw));localStorage.setItem("eag_sync_ts",String(new Date(r.updated_at).getTime()))}}}catch(e){}
   if(!window.klinecharts||!window.EAGWidget)return gate("No se pudo cargar","Revisa tu conexión y recarga la página.",`<button class="btn gold" onclick="location.reload()">Recargar</button>`);
   start();
@@ -345,6 +360,7 @@ function start(){
   const profCur=()=>SAVE.prof.list.find(x=>x.id===SAVE.prof.cur)||SAVE.prof.list[0];
   const paintProf=()=>{const n=$("#pfn");if(n)n.textContent=profCur().n};
   async function profGo(id,fresh){const P=SAVE.prof;if(id===P.cur&&!fresh)return closePop();
+    devSnap();window.__noSnap=true;   /* la vista de este dispositivo para el perfil nuevo se arma al abrirlo */
     P.data=P.data||{};P.data[P.cur]=liveSnap();
     const t=fresh||P.data[id]||{ws:{},draw:{}};PKEYS.forEach(k=>{delete SAVE[k]});Object.keys(t.ws||{}).forEach(k=>{if(PKEYS.includes(k))SAVE[k]=clone(t.ws[k])});
     try{localStorage.setItem(DRAWK,JSON.stringify(t.draw||{}))}catch(e){}
@@ -593,7 +609,7 @@ function start(){
       onPickTF:t=>{kc.setPeriod(perOf(t));afterTF()},onTracker:()=>TRK.toggle(),
       onTFClick:a=>{setActive(i);pop.hidden||pop.dataset.for!=="tf"?openTF(p,a):closePop()},
       onSymbolClick:anc=>{setActive(i);const a=anc&&anc.nodeType?anc:el.querySelector(".wsym");pop.hidden||pop.dataset.for!=="sym"?openSymPicker(p,a):closePop()},
-      onSettings:()=>openSettings("apariencia"),getDecimals:()=>CF().dec,getFont:()=>CF().font,getCdMode:()=>{const m=CF().cd||"mtf";if(m!=="mtf")return m;
+      onSettings:()=>openSettings("apariencia"),getDecimals:()=>CF().dec,getFont:()=>DEV==="cel"?Math.min(+CF().font||11,13):CF().font,getCdMode:()=>{const m=CF().cd||"mtf";if(m!=="mtf")return m;
         /* "En Multi-TF": si este gráfico no tiene la multitemporalidad a la vista, el reloj va en la regla del precio */
         const M=MTFS[i];const on=!!(M&&M.el&&M.el.isConnected&&M.el.offsetParent!==null&&M.minis&&M.minis.length);return on?"mtf":"regla"},
       onFullReload:()=>fullReload(),getToolStyle:n=>(SAVE.toolStyles||{})[n],drawTfOnly:()=>!!SAVE.cfg.drawTf,onToolStyle:(n,st)=>{SAVE.toolStyles=Object.assign({},SAVE.toolStyles,{[n]:st});save()},onReload:()=>{if(MTFS[i])buildMTF(i)},onToggleMtf:()=>{SAVE.panes[i]=Object.assign({},SAVE.panes[i],{mtf:!(SAVE.panes[i]||{}).mtf});save();syncStrips()},onToast:t=>toast(t),getAlerts:tk=>ALERTS.filter(a=>a.active&&a.symbol===tk&&a.price!=null&&["nivel","zona","cierre"].includes(a.kind)).map(a=>a.kind==="cierre"?Object.assign({},a,{kind:"nivel",note:`cierre ${a.cond==="abajo"?"↓":"↑"} ${tfTxt(a.tf)}${a.note?" · "+a.note:""}`}):a),onCreateAlert:a=>alertDialog(a),
