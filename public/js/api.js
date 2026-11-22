@@ -185,6 +185,13 @@ function SupabaseAPI(url,key){
     chatFind(q){return rpc("chat_find",{p_q:q})},
     chatRead(room,last){return rpc("chat_read",{p_room:room,p_last:last||0})},
     chatDelete(id){return rpc("chat_delete",{p_id:id})},
+    chatReact(id,emoji){return rpc("chat_react",{p_id:id,p_emoji:emoji})},
+    chatHide(room){return rpc("chat_hide",{p_room:room})},
+    async chartChatUpload(blob){if(!sess||!sess.user)throw new Error("Inicia sesión");const name=`${sess.user.id}/${Date.now().toString(36)}-${Math.random().toString(36).slice(2,10)}.webp`;
+      await req(`/storage/v1/object/chartchat/${name}`,{method:"POST",body:blob,isFile:true,headers:{"Content-Type":blob.type||"image/webp"}});return `${url}/storage/v1/object/public/chartchat/${name}`},
+    async chartChatImgDel(u){const m=String(u||"").match(/\/storage\/v1\/object\/public\/chartchat\/(.+)$/);if(!m)return;try{await req("/storage/v1/object/chartchat",{method:"DELETE",body:{prefixes:[decodeURIComponent(m[1])]}})}catch(e){}},
+    async chartChatImgClean(days){let L=[];try{L=await rpc("chartchat_img_old",{p_days:days||60})||[]}catch(e){return 0}L=L.map(x=>typeof x==="string"?x:(x&&x.chartchat_img_old)||"").filter(Boolean);
+      for(let i=0;i<L.length;i+=100){try{await req("/storage/v1/object/chartchat",{method:"DELETE",body:{prefixes:L.slice(i,i+100)}})}catch(e){}}return L.length},
     chatHidden(on){return rpc("chat_set_hidden",{p_on:!!on})},
     chatBlock(user,on){return rpc("chat_block",{p_user:user,p_on:!!on})},
     adminFunnel(days){return rpc("admin_funnel",{p_days:days||0})},
@@ -280,14 +287,18 @@ function LocalAPI(){
       body=String(body||"").trim().slice(0,1000);kind=kind||"text";if(kind==="text"&&!body)throw new Error("Mensaje vacío.");
       db.cmsgs=db.cmsgs||[];db.cseq=(db.cseq||0)+1;const m={id:db.cseq,room,sender:uid,body,kind,payload:payload||null,created_at:new Date().toISOString()};db.cmsgs.push(m);
       db.creads=db.creads||{};db.creads[uid+"|"+room]=m.id;save();return m},
-    async chatHistory(room,before){reload();if(!mine(room))return[];return(db.cmsgs||[]).filter(m=>m.room===room&&(!before||m.id<before)).slice(-50).reverse().map(row)},
+    async chatHistory(room,before){reload();if(!mine(room))return[];const R=db.creacts||[];const hid=(db.chid||{})[uid+"|"+room]||0;return(db.cmsgs||[]).filter(m=>m.room===room&&m.id>hid&&(!before||m.id<before)).slice(-50).reverse().map(m=>{const r=row(m);const rx={};R.filter(x=>x.msg_id===m.id).forEach(x=>(rx[x.emoji]=rx[x.emoji]||[]).push(x.user_id));r.reacts=Object.keys(rx).length?rx:null;return r})},
     async chatThreads(){reload();const M=db.cmsgs||[],R=db.creads||{};const rooms=["g:general"].concat([...new Set(M.filter(m=>m.room.startsWith("dm:")&&mine(m.room)).map(m=>m.room))]);
       return rooms.map(r=>{const L=M.filter(m=>m.room===r),l=L[L.length-1]||{},o=r.startsWith("dm:")?r.split(":").slice(1).find(x=>x!==uid):null,p=o?pf(o):{};
         return{room:r,other:o,username:p.username||null,avatar_url:p.avatar_url||null,is_admin:p.role==="admin",online:o?on(o):false,last_id:l.id||null,last_body:l.body||null,last_kind:l.kind||null,last_sender:l.sender||null,last_at:l.created_at||null,
-          unread:L.filter(m=>m.sender!==uid&&m.id>(R[uid+"|"+r]||0)).length}}).sort((a,b)=>(b.last_id||0)-(a.last_id||0))},
+          unread:L.filter(m=>m.sender!==uid&&m.id>Math.max(R[uid+"|"+r]||0,(db.chid||{})[uid+"|"+r]||0)).length,other_read:o?(R[o+"|"+r]||0):null,__hid:r!=="g:general"&&(l.id||0)<=((db.chid||{})[uid+"|"+r]||0)}}).filter(t=>!t.__hid).sort((a,b)=>(b.last_id||0)-(a.last_id||0))},
     async chatPeople(){reload();return Object.keys(db.presence||{}).filter(on).map(id=>{const p=pf(id),x=db.presence[id];return{id,username:p.username,avatar_url:p.avatar_url||null,is_admin:p.role==="admin",symbol:x.symbol,symbol_name:x.name,tf:x.tf,hidden:!!p.chat_hidden}}).filter(x=>!x.hidden||x.id===uid)},
     async chatFind(q){reload();q=String(q||"").toLowerCase();return q.length<2?[]:db.profiles.filter(p=>!p.banned&&String(p.username||"").toLowerCase().includes(q)).slice(0,15).map(p=>({id:p.id,username:p.username,avatar_url:p.avatar_url||null,is_admin:p.role==="admin"}))},
     async chatRead(room,last){reload();db.creads=db.creads||{};const k=uid+"|"+room;db.creads[k]=Math.max(db.creads[k]||0,last||0);save()},
+    async chatHide(room){reload();db.chid=db.chid||{};const mx=Math.max(0,...(db.cmsgs||[]).filter(m=>m.room===room).map(m=>m.id));db.chid[uid+"|"+room]=mx;db.creads=db.creads||{};db.creads[uid+"|"+room]=Math.max(db.creads[uid+"|"+room]||0,mx);save()},
+    async chartChatUpload(blob){return await new Promise(ok=>{const r=new FileReader();r.onload=()=>ok(r.result);r.readAsDataURL(blob)})},async chartChatImgDel(){},async chartChatImgClean(){return 0},
+    async chatReact(id,e){reload();db.creacts=db.creacts||[];const i=db.creacts.findIndex(r=>r.msg_id===id&&r.user_id===uid&&r.emoji===e);if(i>=0){db.creacts.splice(i,1);save();return false}
+      const m=(db.cmsgs||[]).find(x=>x.id===id);if(!m)throw new Error("Mensaje no disponible.");db.creacts.push({msg_id:id,user_id:uid,emoji:e,room:m.room});save();return true},
     async chatDelete(id){reload();db.cmsgs=(db.cmsgs||[]).filter(m=>!(m.id===id&&(m.sender===uid||(pf(uid).role==="admin"))));save()},
     async chatHidden(v){reload();const p=pf(uid);p.chat_hidden=!!v;save()},
     async chatBlock(u,v){reload();const p=pf(u);p.chat_blocked=!!v;save()}}};

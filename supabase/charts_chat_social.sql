@@ -19,10 +19,12 @@ create table if not exists public.chart_msgs (
   room text not null check (room = 'g:general' or room ~ '^dm:[0-9a-f-]{36}:[0-9a-f-]{36}$'),
   sender uuid not null references auth.users(id) on delete cascade,
   body text not null default '' check (char_length(body) <= 1000),
-  kind text not null default 'text' check (kind in ('text','share','call','img')),
+  kind text not null default 'text',
   payload jsonb,
   created_at timestamptz not null default now()
 );
+alter table public.chart_msgs drop constraint if exists chart_msgs_kind_check;
+alter table public.chart_msgs add constraint chart_msgs_kind_check check (kind in ('text','share','call','img','idea'));
 create index if not exists chart_msgs_room_idx on public.chart_msgs (room, id desc);
 create index if not exists chart_msgs_sender_idx on public.chart_msgs (sender, created_at desc);
 
@@ -34,8 +36,29 @@ create table if not exists public.chart_reads (
   primary key (user_id, room)
 );
 alter table public.chart_reads enable row level security;
-drop policy if exists "mis lecturas" on public.chart_reads;
-create policy "mis lecturas" on public.chart_reads for select using (user_id = auth.uid());
+
+-- chats borrados por cada uno (solo para esa persona): oculta todo hasta ese mensaje
+create table if not exists public.chart_hidden (
+  user_id uuid not null references auth.users(id) on delete cascade,
+  room text not null,
+  upto bigint not null default 0,
+  primary key (user_id, room)
+);
+alter table public.chart_hidden enable row level security;
+drop policy if exists "mis ocultos" on public.chart_hidden;
+create policy "mis ocultos" on public.chart_hidden for select using (user_id = auth.uid());
+
+-- fotos del chat de los charts: comprimidas, en el almacenamiento de archivos (no en la base de datos)
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('chartchat', 'chartchat', true, 1048576, array['image/jpeg','image/png','image/webp'])
+on conflict (id) do update set public = true, file_size_limit = 1048576, allowed_mime_types = array['image/jpeg','image/png','image/webp'];
+drop policy if exists "chartchat lectura" on storage.objects;
+create policy "chartchat lectura" on storage.objects for select using (bucket_id = 'chartchat');
+drop policy if exists "chartchat sube" on storage.objects;
+create policy "chartchat sube" on storage.objects for insert to authenticated
+  with check (bucket_id = 'chartchat' and (storage.foldername(name))[1] = auth.uid()::text);
+drop policy if exists "chartchat borra" on storage.objects;
+create policy "chartchat borra" on storage.objects for delete using (bucket_id = 'chartchat' and ((storage.foldername(name))[1] = auth.uid()::text or public.is_admin()));
 
 -- ¿puede usar el chat?
 create or replace function public.chat_can() returns boolean
@@ -54,11 +77,44 @@ language sql stable as $$
 $$;
 grant execute on function public.chat_mine(text) to authenticated;
 
+drop policy if exists "mis lecturas" on public.chart_reads;
+-- cada uno ve sus lecturas y, en los privados, hasta dónde leyó la otra persona ("Visto")
+create policy "mis lecturas" on public.chart_reads for select using (user_id = auth.uid() or (room <> 'g:general' and public.chat_mine(room)));
+
 alter table public.chart_msgs enable row level security;
 drop policy if exists "leer mis salas" on public.chart_msgs;
 create policy "leer mis salas" on public.chart_msgs for select
   using (public.chat_mine(room) and (room <> 'g:general' or public.chat_can() or public.is_admin()));
 -- se escribe solo por chat_send (valida y frena el spam); no hay política de insert directa
+
+-- reacciones (👍 🔥 😂 …): una por persona y emoji
+create table if not exists public.chart_reacts (
+  msg_id bigint not null references public.chart_msgs(id) on delete cascade,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  emoji text not null check (char_length(emoji) between 1 and 16),
+  room text not null,
+  created_at timestamptz not null default now(),
+  primary key (msg_id, user_id, emoji)
+);
+alter table public.chart_reacts enable row level security;
+alter table public.chart_reacts replica identity full;
+drop policy if exists "ver reacciones" on public.chart_reacts;
+create policy "ver reacciones" on public.chart_reacts for select using (public.chat_mine(room));
+
+create or replace function public.chat_react(p_id bigint, p_emoji text) returns boolean
+language plpgsql security definer set search_path = public as $$
+declare rm text;
+begin
+  if not public.chat_can() then raise exception 'Tu chat está desactivado.'; end if;
+  select room into rm from public.chart_msgs where id = p_id;
+  if rm is null or not public.chat_mine(rm) then raise exception 'Mensaje no disponible.'; end if;
+  if p_emoji not in ('👍','🔥','😂','😮','🙏','💰','📈','📉','❤️') then raise exception 'Reacción no válida.'; end if;
+  if exists (select 1 from public.chart_reacts where msg_id = p_id and user_id = auth.uid() and emoji = p_emoji) then
+    delete from public.chart_reacts where msg_id = p_id and user_id = auth.uid() and emoji = p_emoji; return false;
+  end if;
+  insert into public.chart_reacts (msg_id, user_id, emoji, room) values (p_id, auth.uid(), p_emoji, rm); return true;
+end $$;
+grant execute on function public.chat_react(bigint,text) to authenticated;
 
 -- ---------------------------------------------------------------------
 -- enviar
@@ -69,7 +125,7 @@ declare u uuid := auth.uid(); r public.chart_msgs; other uuid; n int;
 begin
   if u is null then raise exception 'Ingresa con tu cuenta.'; end if;
   if not public.chat_can() then raise exception 'Tu chat está desactivado.'; end if;
-  if p_kind not in ('text','share','call','img') then raise exception 'Tipo inválido.'; end if;
+  if p_kind not in ('text','share','call','img','idea') then raise exception 'Tipo inválido.'; end if;
   p_body := left(trim(coalesce(p_body,'')), 1000);
   if p_kind = 'text' and p_body = '' then raise exception 'Mensaje vacío.'; end if;
   if p_room = 'g:general' then
@@ -83,6 +139,8 @@ begin
     raise exception 'Sala inválida.';
   end if;
   if p_payload is not null and length(p_payload::text) > 4000 then raise exception 'Mensaje muy grande.'; end if;
+  -- las fotos solo pueden venir de tu carpeta del chat de los charts
+  if p_kind = 'img' and coalesce(p_payload->>'url','') not like '%/storage/v1/object/public/chartchat/' || u::text || '/%' then raise exception 'Imagen no válida.'; end if;
   -- frenar spam: máximo 20 mensajes por minuto (el admin sin límite)
   if not public.is_admin() then
     select count(*) into n from public.chart_msgs where sender = u and created_at > now() - interval '1 minute';
@@ -105,6 +163,29 @@ begin
 end $$;
 grant execute on function public.chat_delete(bigint) to authenticated;
 
+-- borrar un chat (solo para ti): desaparece de tu lista hasta que llegue un mensaje nuevo
+create or replace function public.chat_hide(p_room text) returns void
+language plpgsql security definer set search_path = public as $$
+declare mx bigint;
+begin
+  if auth.uid() is null or not public.chat_mine(p_room) then return; end if;
+  select coalesce(max(id),0) into mx from public.chart_msgs where room = p_room;
+  insert into public.chart_hidden (user_id, room, upto) values (auth.uid(), p_room, mx)
+  on conflict (user_id, room) do update set upto = excluded.upto;
+  perform public.chat_read(p_room, mx);
+end $$;
+grant execute on function public.chat_hide(text) to authenticated;
+
+-- fotos viejas del chat de los charts (el admin las borra del almacenamiento)
+create or replace function public.chartchat_img_old(p_days int default 60) returns setof text
+language plpgsql stable security definer set search_path = public, storage as $$
+begin
+  if not public.is_admin() then raise exception 'solo admin'; end if;
+  return query select o.name from storage.objects o
+    where o.bucket_id = 'chartchat' and o.created_at < now() - make_interval(days => greatest(coalesce(p_days,60),7)) limit 1000;
+end $$;
+grant execute on function public.chartchat_img_old(int) to authenticated;
+
 -- marcar leído
 create or replace function public.chat_read(p_room text, p_last bigint) returns void
 language plpgsql security definer set search_path = public as $$
@@ -115,24 +196,28 @@ begin
 end $$;
 grant execute on function public.chat_read(text,bigint) to authenticated;
 
--- historial de una sala (con nombre y foto de quien escribe)
+-- historial de una sala (con nombre, foto y reacciones)
+drop function if exists public.chat_history(text,bigint,int);
 create or replace function public.chat_history(p_room text, p_before bigint default null, p_limit int default 50)
-returns table (id bigint, room text, sender uuid, username text, avatar_url text, is_admin boolean, body text, kind text, payload jsonb, created_at timestamptz)
+returns table (id bigint, room text, sender uuid, username text, avatar_url text, is_admin boolean, body text, kind text, payload jsonb, created_at timestamptz, reacts jsonb)
 language sql stable security definer set search_path = public as $$
-  select m.id, m.room, m.sender, p.username, p.avatar_url, (p.role = 'admin'), m.body, m.kind, m.payload, m.created_at
+  select m.id, m.room, m.sender, p.username, p.avatar_url, (p.role = 'admin'), m.body, m.kind, m.payload, m.created_at,
+    (select jsonb_object_agg(e.emoji, e.users) from (select r.emoji, jsonb_agg(r.user_id) users from public.chart_reacts r where r.msg_id = m.id group by r.emoji) e)
   from public.chart_msgs m join public.profiles p on p.id = m.sender
   where m.room = p_room and public.chat_mine(p_room)
     and (p_room <> 'g:general' or public.chat_can() or public.is_admin())
     and (p_before is null or m.id < p_before)
+    and m.id > coalesce((select h.upto from public.chart_hidden h where h.user_id = auth.uid() and h.room = p_room), 0)
   order by m.id desc
   limit least(greatest(coalesce(p_limit,50),1),100)
 $$;
 grant execute on function public.chat_history(text,bigint,int) to authenticated;
 
--- mis conversaciones (privadas + el general) con no leídos
+-- mis conversaciones (privadas + el general) con no leídos y hasta dónde leyó la otra persona
+drop function if exists public.chat_threads();
 create or replace function public.chat_threads()
 returns table (room text, other uuid, username text, avatar_url text, is_admin boolean, online boolean,
-               last_id bigint, last_body text, last_kind text, last_sender uuid, last_at timestamptz, unread int)
+               last_id bigint, last_body text, last_kind text, last_sender uuid, last_at timestamptz, unread int, other_read bigint)
 language sql stable security definer set search_path = public as $$
   with mine as (
     select distinct m.room from public.chart_msgs m
@@ -146,12 +231,15 @@ language sql stable security definer set search_path = public as $$
     l.id, l.body, l.kind, l.sender, l.created_at,
     (select count(*)::int from public.chart_msgs x
        where x.room = r.room and x.sender <> auth.uid()
-         and x.id > coalesce((select last_id from public.chart_reads cr where cr.user_id = auth.uid() and cr.room = r.room), 0)
-         and (r.room <> 'g:general' or x.created_at > now() - interval '3 days'))
+         and x.id > greatest(coalesce((select last_id from public.chart_reads cr where cr.user_id = auth.uid() and cr.room = r.room), 0),
+                             coalesce((select h.upto from public.chart_hidden h where h.user_id = auth.uid() and h.room = r.room), 0))
+         and (r.room <> 'g:general' or x.created_at > now() - interval '3 days')),
+    (select cr.last_id from public.chart_reads cr where cr.room = r.room and cr.user_id = o.id)
   from rooms r
   left join public.profiles o on o.id = (case when r.room not like 'dm:%' then null when split_part(r.room,':',2) = auth.uid()::text then split_part(r.room,':',3) else split_part(r.room,':',2) end)::uuid
   left join lateral (select * from public.chart_msgs z where z.room = r.room order by z.id desc limit 1) l on true
   where auth.uid() is not null and (r.room <> 'g:general' or public.chat_can() or public.is_admin())
+    and (r.room = 'g:general' or l.id > coalesce((select h.upto from public.chart_hidden h where h.user_id = auth.uid() and h.room = r.room), 0))
   order by l.id desc nulls last
 $$;
 grant execute on function public.chat_threads() to authenticated;
@@ -214,4 +302,6 @@ end $$;
 -- mensajes nuevos al instante (Supabase Realtime respeta los permisos de lectura)
 do $$ begin
   begin alter publication supabase_realtime add table public.chart_msgs; exception when duplicate_object then null; end;
+  begin alter publication supabase_realtime add table public.chart_reacts; exception when duplicate_object then null; end;
+  begin alter publication supabase_realtime add table public.chart_reads; exception when duplicate_object then null; end;
 end $$;
