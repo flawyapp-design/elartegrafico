@@ -128,6 +128,7 @@ function paintPanel(){if(!panel)return;const tab=view.tab;const g=threads.find(t
      <label class="sp-ck"><input type="checkbox" data-c="bub"${cfg().bub?" checked":""}><span><b>Avance del mensaje</b><small>Junto a la burbuja sale unos segundos quién te escribió y qué dijo.</small></span></label>
      <label class="sp-ck"><input type="checkbox" data-c="snd"${cfg().snd?" checked":""}><span><b>Sonidos del chat</b><small>Al recibir y enviar mensajes, menciones, reacciones y llamadas.</small></span></label>
      <label class="sp-ck"><input type="checkbox" data-c="psnd"${cfg().psnd?" checked":""}><span><b>Sonidos de la plataforma</b><small>Toquecitos suaves al terminar un dibujo y al entrar o salir de un gráfico compartido.</small></span></label>
+     <div class="sp-vol">🎤 Micrófono <span class="sp-lvl"><i></i></span><button class="btn sm" data-mic>Probar micrófono</button></div>
      <label class="sp-vol">🔊 Volumen <input type="range" min="10" max="100" step="5" value="${cfg().vol}" data-vol><button class="btn sm" data-tst>Probar</button></label>
      <label class="sp-ck"><input type="checkbox" data-c="hidden"${cfg().hidden?" checked":""}><span><b>Aparecer invisible</b><small>No sales en Conectados. Igual puedes escribir y recibir mensajes.</small></span></label>
      <p class="sp-note">🔒 Los chats privados solo los ven las 2 personas. En el grupo general escribe con respeto: el profe puede borrar mensajes y silenciar a quien haga spam.</p></div>`}</div>`;
@@ -138,6 +139,7 @@ function paintPanel(){if(!panel)return;const tab=view.tab;const g=threads.find(t
   panel.querySelectorAll("[data-dm]").forEach(b=>b.onclick=e=>{e.stopPropagation();startDM(b.dataset.dm,b.dataset.n)});
   const hs=panel.querySelector("[data-hs]");if(hs)hs.oninput=()=>{cfg().hs=+hs.value;X.save();panel.querySelector(".sp-hsv").textContent=hs.value+" px";
     const pv=panel.querySelector(".sp-hsprev");if(pv)pv.style.setProperty("--hs",hs.value+"px");headPaint()};
+  const mb=panel.querySelector("[data-mic]");if(mb)mb.onclick=async()=>{mb.disabled=true;const ok=await micTest(panel.querySelector(".sp-lvl i"));mb.disabled=false;if(ok)X.toast("🎤 Habla: la barra se mueve si tu micrófono funciona.")};
   const vl=panel.querySelector("[data-vol]");if(vl){vl.oninput=()=>{cfg().vol=+vl.value;X.save()};vl.onchange=()=>SND.play("in",true);panel.querySelector("[data-tst]").onclick=()=>SND.play("in",true)}
   panel.querySelectorAll("[data-c]").forEach(i=>i.onchange=()=>{cfg()[i.dataset.c]=i.checked;X.save();if(i.dataset.c==="head")headPaint();if(i.dataset.c==="hidden")X.API.chatHidden(i.checked).then(loadPeople).catch(()=>X.toast("No se pudo cambiar."))});
   const f=panel.querySelector("[data-find]");if(f){let ft=0;f.oninput=()=>{clearTimeout(ft);ft=setTimeout(async()=>{const q=f.value.trim(),box=panel.querySelector("[data-res]");if(!box)return;if(q.length<2){box.innerHTML="";return}
@@ -351,8 +353,34 @@ function paintShareBar(){if(!share&&!call){if(shBar){shBar.remove();shBar=null}r
 /* ===================== voz (WebRTC) ===================== */
 function ice(){const s=(window.__site0||{});const L=[{urls:["stun:stun.l.google.com:19302","stun:stun1.l.google.com:19302"]}];
   if(Array.isArray(s.iceServers))L.push(...s.iceServers);else if(s.turnUrl)L.push({urls:s.turnUrl,username:s.turnUser||"",credential:s.turnPass||""});return L}
-async function getMic(){try{return await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true},video:false})}
-  catch(e){X.toast("No pudimos usar tu micrófono. Revisa el permiso del navegador (el candado junto a la dirección).");return null}}
+/* micrófono: se pide solo al llamar; si está bloqueado se explica cómo activarlo según el navegador */
+const isIOS=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1);
+const isSafari=/^((?!chrome|android|crios|fxios).)*safari/i.test(navigator.userAgent);
+async function micState(){try{const r=await navigator.permissions.query({name:"microphone"});return r.state}catch(e){return"prompt"}}
+async function getMic(){
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){micHelp(location.protocol!=="https:"&&location.hostname!=="localhost"?"https":"nosup");return null}
+  const st=await micState();if(st==="denied"){micHelp("denied");return null}
+  if(st!=="granted")X.toast("🎤 Tu navegador te va a pedir permiso para el micrófono: toca <b>Permitir</b>.");
+  try{return await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true},video:false})}
+  catch(e){const n=e&&e.name;micHelp(n==="NotAllowedError"||n==="SecurityError"?"denied":n==="NotFoundError"||n==="OverconstrainedError"?"nomic":n==="NotReadableError"||n==="AbortError"?"busy":"other",e);return null}}
+function micHelp(kind,err){const old=document.querySelector(".sp-mic");if(old)old.remove();
+  const how=isIOS?`<li>En iPhone: toca <b>aA</b> (o el candado) en la barra de dirección → <b>Ajustes del sitio web</b> → <b>Micrófono</b> → <b>Permitir</b>.</li><li>Si usas la app instalada: Ajustes del iPhone → Safari → Micrófono → Permitir.</li>`
+    :isSafari?`<li>En Safari: menú <b>Safari → Ajustes → Sitios web → Micrófono</b> → elartegrafico.com → <b>Permitir</b>.</li>`
+    :`<li>Toca el <b>candado 🔒</b> (o el ícono de ajustes) a la izquierda de la dirección <b>${esc(location.host)}</b>.</li><li>Busca <b>Micrófono</b> y cámbialo a <b>Permitir</b>.</li><li>Recarga la página y vuelve a llamar.</li>`;
+  const T={denied:["El micrófono está bloqueado","Tu navegador no deja que EAG Charts use el micrófono. Actívalo así:",`<ol>${how}</ol><p class="sp-note">En Android también revisa: Ajustes del celular → Apps → Chrome → Permisos → Micrófono → Permitir.</p>`],
+    nomic:["No encontramos micrófono","Conecta unos audífonos con micrófono o revisa que el micrófono del computador esté activado.",""],
+    busy:["El micrófono está ocupado","Otra app (Zoom, WhatsApp, OBS, Discord…) lo está usando. Ciérrala o suelta el micrófono allá y vuelve a intentar.",""],
+    https:["Se necesita conexión segura","Las llamadas solo funcionan entrando por https://charts.elartegrafico.com",""],
+    nosup:["Tu navegador no permite llamadas","Usa Chrome, Edge, Firefox o Safari actualizados.",""],
+    other:["No se pudo usar el micrófono",esc((err&&err.message)||"Intenta de nuevo."),""]}[kind]||[];
+  const o=document.createElement("div");o.className="sp-mic";o.innerHTML=`<div class="sp-micb"><b>🎤 ${T[0]}</b><p>${T[1]}</p>${T[2]||""}<div class="sp-mica"><button class="btn sm gold" data-try>Intentar de nuevo</button><button class="btn sm" data-cl>Cerrar</button></div></div>`;
+  document.body.appendChild(o);o.onclick=e=>{if(e.target===o)o.remove()};o.querySelector("[data-cl]").onclick=()=>o.remove();
+  o.querySelector("[data-try]").onclick=async()=>{o.remove();const st=await micTest();if(st)X.toast("✅ Micrófono listo. Ya puedes llamar.")}}
+/* probar el micrófono (Chat → ⚙): pide permiso y muestra el nivel 4 segundos */
+async function micTest(bar){const stream=await getMic();if(!stream)return false;
+  if(bar){try{const c=SND.ctx(),src=c.createMediaStreamSource(stream),an=c.createAnalyser();an.fftSize=256;src.connect(an);const d=new Uint8Array(an.frequencyBinCount),t0=Date.now();
+    const f=()=>{an.getByteFrequencyData(d);const v=Math.min(100,d.reduce((a,b)=>a+b,0)/d.length*2.2);bar.style.width=v+"%";if(Date.now()-t0<4000)requestAnimationFrame(f);else{bar.style.width="0";stream.getTracks().forEach(t=>t.stop())}};f()}catch(e){stream.getTracks().forEach(t=>t.stop())}}
+  else stream.getTracks().forEach(t=>t.stop());return true}
 async function startCall(chatRoom){if(call)return X.toast("Ya estás en una llamada.");const room=uuid();
   if(!await enterVoice(room,"dm",chatRoom))return;await send(chatRoom,"","call",{room,act:"start"});ringOut()}
 async function acceptCall(room,chatRoom){stopRing();if(call&&call.room===room)return;if(call)hangup(true);await enterVoice(room,"dm",chatRoom)}
