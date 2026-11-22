@@ -1,0 +1,150 @@
+/* =====================================================================
+   DISEÑO v5 · El Arte Gráfico (noviembre 2026)
+   Claro: blanco limpio, azul cobalto para las acciones y el dorado del logo
+          solo para lo de marca y lo premium. Como Deriv usa blanco + rojo,
+          aquí es blanco + azul.
+   Oscuro: negro y grises neutros como el modo oscuro del iPhone; el azul
+          solo marca acciones, nada de fondos azul noche.
+   Se carga después de styles.css y solo cambia la piel (colores, tipografía,
+   superficies). El orden de las páginas sigue en styles.css (v4).
+   ===================================================================== */
+
+/* ---------- tokens ---------- */
+html.v5.v5.v5{
+  --f-disp:"Geist","Inter",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-body:"Geist","Inter",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"Geist Mono","IBM Plex Mono",ui-monospace,Menlo,monospace;
+  /* oscuro tipo iPhone */
+  --bg:#000000;--bg2:#0f0f11;--card:#1c1c1e;--card2:#26262a;--line:#2c2c2e;--line2:#3a3a3d;
+  --fg:#f5f5f7;--fg2:#d1d1d6;--muted:#a1a1a8;--dim:#7c7c84;
+  --blue:#3b82f6;--blue2:#60a5fa;--blueBg:rgba(59,130,246,.14);--onBlue:#ffffff;
+  --gold:#d8b062;--gold2:#ecd08f;--gold3:#b08a3e;--gt:#e3c27c;--gt2:#d8b062;--gbg:rgba(216,176,98,.12);
+  --ok:#30d158;--okt:#5fe08a;--bad:#ff453a;--badt:#ff8a80;--warn:#ffb340;
+  --link:var(--blue2);--shadow:0 1px 2px rgba(0,0,0,.4),0 12px 32px -12px rgba(0,0,0,.6);
+  --r:12px;--r2:16px;color-scheme:dark}
+html.v5.v5.v5[data-theme="light"]{
+  --bg:#ffffff;--bg2:#ffffff;--card:#ffffff;--card2:#f5f6f8;--line:#e7e9ee;--line2:#d6dae2;
+  --fg:#0d1117;--fg2:#2d333d;--muted:#5a616d;--dim:#7a808c;
+  --blue:#1f4fd6;--blue2:#1a43b6;--blueBg:#eef3ff;--onBlue:#ffffff;
+  --gold:#c9973a;--gold2:#a77a24;--gold3:#8a6110;--gt:#8a6110;--gt2:#8a6110;--gbg:#fbf4e4;
+  --ok:#14804f;--okt:#14804f;--bad:#d1242f;--badt:#b42318;--warn:#b25e09;
+  --link:var(--blue);--shadow:0 1px 2px rgba(13,17,23,.06),0 10px 28px -14px rgba(13,17,23,.18);
+  color-scheme:light}
+
+/* ---------- base ---------- */
+html.v5.v5.v5 body{background:var(--bg)!important;color:var(--fg);font-family:var(--f-body);font-feature-settings:"ss01","cv11";-webkit-font-smoothing:antialiased}
+html.v5.v5.v5 body::before{background:var(--bg)!important}
+html.v5.v5.v5 body::after{display:none!important}
+html.v5.v5.v5 h1,html.v5.v5.v5 h2,html.v5.v5.v5 h3{font-family:var(--f-disp);color:var(--fg)!important;letter-spacing:-.025em}
+html.v5.v5.v5 h1{font-weight:700}
+html.v5.v5.v5 h2{font-weight:650;letter-spacing:-.02em}
+html.v5.v5.v5 h3{font-weight:600;letter-spacing:-.01em}
+html.v5.v5.v5 a{color:var(--link)}
+html.v5.v5.v5 .muted{color:var(--muted)}html.v5.v5.v5 .dim{color:var(--dim)}
+html.v5.v5.v5 .mono{font-family:var(--f-body);font-variant-numeric:tabular-nums;letter-spacing:0}
+/* etiquetas sobre los títulos: sin mayúsculas forzadas, más discretas */
+html.v5.v5.v5 .eyebrow{text-transform:none!important;letter-spacing:0!important;font-size:13.5px!important;font-weight:600!important;color:var(--blue)!important}
+html.v5.v5.v5:not([data-theme="light"]) .eyebrow{color:var(--blue2)!important}
+/* titular: sin palabra resaltada en dorado */
+html.v5.v5.v5 .hero h1 em,html.v5.v5.v5 h1 em,html.v5.v5.v5 h2 em{background:none!important;-webkit-text-fill-color:currentColor!important;color:inherit!important;font-style:normal}
+html.v5.v5.v5 :focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+html.v5.v5.v5 ::selection{background:var(--blueBg)}
+
+/* ---------- botones: azul = acción principal; dorado = premium/marca ---------- */
+html.v5.v5.v5 .btn{border-radius:10px!important;font-weight:600!important;letter-spacing:-.005em;box-shadow:none!important}
+html.v5.v5.v5 .btn:not(.gold):not(.bad):not(.ok){background:var(--card)!important;color:var(--fg)!important;border:1px solid var(--line2)!important}
+html.v5.v5.v5 .btn:not(.gold):not(.bad):not(.ok):hover{border-color:var(--fg2)!important;background:var(--card2)!important}
+html.v5.v5.v5 .btn.gold{background:var(--blue)!important;border:1px solid var(--blue)!important;color:var(--onBlue)!important;filter:none!important}
+html.v5.v5.v5 .btn.gold:hover{background:var(--blue2)!important;border-color:var(--blue2)!important}
+html.v5.v5.v5 .btn.gold svg{color:currentColor}
+html.v5.v5.v5 .btn.ghost{background:transparent!important}
+/* lo premium sí va en dorado */
+html.v5.v5.v5 :is(.price.fav,.prem-badge,.npl-new) .btn.gold,html.v5.v5.v5 .btn.gold.prem{background:var(--gold)!important;border-color:var(--gold)!important;color:#1a1306!important}
+
+/* ---------- superficies: planas, borde fino, sin brillos ---------- */
+html.v5.v5.v5 :is(.panel,.card,.mt,.price,.tm,.fq,.post,.mod,.about,.path-s,.disc-main,.disc-news,.ach,.mini,.rev,.review,.box,.lesson,.cert,.trialc,.welcome,.mh,.door,.crs-band,.authbox,.rk-cta,.fb-card){
+  background:var(--card)!important;border:1px solid var(--line)!important;box-shadow:none!important;border-radius:var(--r2)}
+html.v5.v5.v5 :is(.mt,.door,.post):hover{border-color:var(--line2)!important;transform:none!important}
+html.v5.v5.v5[data-theme="light"] :is(.panel,.card,.mt,.price,.post,.mh,.door,.crs-band){box-shadow:0 1px 2px rgba(13,17,23,.04)!important}
+html.v5.v5.v5 .mh-bg{display:none!important}
+/* íconos de las tarjetas: cuadrito azul suave en vez de dorado */
+html.v5.v5.v5 .mt-i{background:var(--blueBg)!important;color:var(--blue)!important;border:0!important;box-shadow:none!important}
+html.v5.v5.v5:not([data-theme="light"]) .mt-i{color:var(--blue2)!important}
+html.v5.v5.v5 .mt-i.gold{background:var(--gbg)!important;color:var(--gold)!important}
+html.v5.v5.v5 .pill{background:transparent;border-color:var(--line2);color:var(--muted)}
+html.v5.v5.v5 .pill.gold{color:var(--gt);border-color:color-mix(in srgb,var(--gold) 45%,transparent);background:var(--gbg)}
+html.v5.v5.v5 .pill.ok{color:var(--ok);border-color:color-mix(in srgb,var(--ok) 40%,transparent)}
+html.v5.v5.v5 .tag{border-color:var(--line2)!important;color:var(--muted)!important;background:transparent}
+html.v5.v5.v5 input,html.v5.v5.v5 select,html.v5.v5.v5 textarea{background:var(--card)!important;border:1px solid var(--line2)!important;color:var(--fg)!important;border-radius:10px}
+html.v5.v5.v5 input:focus,html.v5.v5.v5 select:focus,html.v5.v5.v5 textarea:focus{border-color:var(--blue)!important;outline:0;box-shadow:0 0 0 3px var(--blueBg)!important}
+html.v5.v5.v5 .tbl th{color:var(--muted)!important;font-weight:600}
+html.v5.v5.v5 .tbl td{border-color:var(--line)!important}
+html.v5.v5.v5 .tbl tr.me td{background:var(--blueBg)!important}
+html.v5.v5.v5 .empty{background:var(--card2)!important;border:1px dashed var(--line2)!important;color:var(--muted)}
+
+/* ---------- islas: en claro ya no hay bloques azul noche ---------- */
+html.v5.v5.v5[data-theme="light"] :is(.slider,.demo-card,.mh,.onb-card,.statband,footer,.cta-band,.dash){
+  --bg:#ffffff;--bg2:#ffffff;--card:#ffffff;--card2:#f5f6f8;--line:#e7e9ee;--line2:#d6dae2;
+  --fg:#0d1117;--fg2:#2d333d;--muted:#5a616d;--dim:#7a808c;--gt:#8a6110;--gt2:#8a6110;--okt:#14804f;--badt:#b42318;
+  color:var(--fg);color-scheme:light}
+/* el panel de saludo del alumno: blanco con una línea azul arriba */
+html.v5.v5.v5 .mh{border-top:3px solid var(--blue)!important}
+html.v5.v5.v5[data-theme="light"] .mh :is(h1,h2,h3,b){color:var(--fg)!important}
+/* bloque de color de la portada (reto diario): azul cobalto sólido, el único bloque fuerte */
+html.v5.v5.v5 .cta-band,html.v5.v5.v5 .statband,html.v5.v5.v5 .rto,html.v5.v5.v5 .promo{background:var(--blue)!important;border:0!important;box-shadow:none!important;
+  --fg:#ffffff;--fg2:#e8eeff;--muted:#d6e0ff;--dim:#b9c8f5;--card:rgba(255,255,255,.12);--card2:rgba(255,255,255,.18);--line:rgba(255,255,255,.22);--line2:rgba(255,255,255,.35);--gt:#ffffff;--gt2:#ffffff;--link:#ffffff;
+  color:#fff}
+html.v5.v5.v5:not([data-theme="light"]) .cta-band,html.v5.v5.v5:not([data-theme="light"]) .statband,html.v5.v5.v5:not([data-theme="light"]) .rto,html.v5.v5.v5:not([data-theme="light"]) .promo{background:#1c1c1e!important;border:1px solid var(--line)!important;
+  --fg:#f5f5f7;--fg2:#d1d1d6;--muted:#a1a1a8;--dim:#7c7c84;--card:#26262a;--card2:#2c2c2e;--line:#38383a;--line2:#48484a;--gt:#ecd08f;--gt2:#d8b062;--link:#60a5fa}
+html.v5.v5.v5 :is(.cta-band,.statband,.rto,.promo) :is(h1,h2,h3,b){color:var(--fg)!important}
+html.v5.v5.v5[data-theme="light"] :is(.cta-band,.statband,.rto,.promo) .btn.gold{background:#ffffff!important;border-color:#ffffff!important;color:var(--blue)!important}
+html.v5.v5.v5[data-theme="light"] :is(.cta-band,.statband,.rto,.promo) .btn:not(.gold){background:transparent!important;color:#fff!important;border-color:rgba(255,255,255,.5)!important}
+html.v5.v5.v5[data-theme="light"] :is(.cta-band,.statband,.rto,.promo) .eyebrow{color:#dbe5ff!important}
+
+/* ---------- barra superior y menú lateral ---------- */
+html.v5.v5.v5 .top{background:var(--bg)!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;border-bottom:1px solid var(--line)!important}
+html.v5.v5.v5 .top .brand b{color:var(--fg)!important;letter-spacing:-.02em!important}
+html.v5.v5.v5 .top .brand small{color:var(--muted)!important;letter-spacing:.02em!important;text-transform:none}
+html.v5.v5.v5 nav.main a{color:var(--muted)}
+html.v5.v5.v5 :is(.nit,.ngrp a,nav.main a,.mi,.navx a){border-radius:9px}
+html.v5.v5.v5 :is(.nit,nav.main a,.mi):hover{background:var(--card2)!important;color:var(--fg)!important}
+html.v5.v5.v5 :is(.nit.on,nav.main a.on,.mi.on,.top-sw .on,.tabbar .on){background:var(--blueBg)!important;color:var(--blue)!important;box-shadow:none!important;border-color:transparent!important}
+html.v5.v5.v5:not([data-theme="light"]) :is(.nit.on,nav.main a.on,.mi.on,.top-sw .on,.tabbar .on){color:#fff!important;background:#2c2c2e!important}
+html.v5.v5.v5 :is(.nit.on,.mi.on) svg{color:var(--blue)}
+html.v5.v5.v5:not([data-theme="light"]) :is(.nit.on,.mi.on) svg{color:var(--blue2)}
+html.v5.v5.v5 .ngrp>b,html.v5.v5.v5 .ngrp .nt,html.v5.v5.v5 .side h4{text-transform:none!important;letter-spacing:0!important;font-size:12.5px!important;color:var(--dim)!important;font-weight:600}
+html.v5.v5.v5 .nbadge,html.v5.v5.v5 .npl-dot{background:var(--bad)!important;color:#fff!important}
+html.v5.v5.v5 .prem-badge{background:var(--gold)!important;color:#1a1306!important}
+html.v5.v5.v5 .ngold{color:var(--gt)!important}
+html.v5.v5.v5 .theme-btn{border-color:var(--line2)!important;color:var(--fg2)!important}
+
+/* ---------- pie ---------- */
+html.v5.v5.v5 footer{background:var(--card2)!important;border-top:1px solid var(--line)!important;margin-top:56px}
+html.v5.v5.v5:not([data-theme="light"]) footer{background:#0f0f11!important}
+html.v5.v5.v5 footer :is(h1,h2,h3,h4,b){color:var(--fg)!important}
+html.v5.v5.v5 footer :is(.eyebrow,h4){color:var(--fg)!important;font-size:13px!important}
+html.v5.v5.v5 footer a{color:var(--muted)!important}html.v5.v5.v5 footer a:hover{color:var(--fg)!important}
+
+/* ---------- planes ---------- */
+html.v5.v5.v5 .price.fav{border:1.5px solid var(--gold)!important;background:var(--card)!important}
+html.v5.v5.v5 .price .price-v,html.v5.v5.v5 .price-v{color:var(--fg)!important}
+html.v5.v5.v5 .crs-band{border-left:4px solid var(--cc,var(--gold))!important}
+
+/* ---------- avisos internos ---------- */
+html.v5.v5.v5 .attn,html.v5.v5.v5 .pwa-banner,html.v5.v5.v5 .install{background:var(--card)!important;border:1px solid var(--line)!important}
+html.v5.v5.v5 .launch{background:var(--card)!important;border:1px solid var(--line)!important;border-left:4px solid var(--blue)!important}
+
+/* ---------- movimiento: solo lo que responde a una acción ---------- */
+@media (prefers-reduced-motion:reduce){html.v5.v5.v5 *{animation:none!important;transition:none!important}}
+
+/* ---------- etiquetas pequeñas sin mayúsculas forzadas ---------- */
+html.v5.v5.v5 :is(.ngrp,.ngrp span,.lc-sub,.door-k,.crs-k,.hx-k,.free-t,.sc-h,.stat small,.sub-k,footer h4,footer .fh,.tm-foot,.k){text-transform:none!important;letter-spacing:0!important}
+html.v5.v5.v5 :is(.ngrp,.ngrp span){font-size:12.5px!important;font-weight:600!important;color:var(--dim)!important}
+html.v5.v5.v5 :is(.lc-sub,.door-k){font-size:13px!important;font-weight:600!important}
+html.v5.v5.v5 .door-k{color:var(--blue)!important}
+html.v5.v5.v5:not([data-theme="light"]) .door-k{color:var(--blue2)!important}
+/* íconos de filas y funciones: azul suave, como el resto de acciones */
+html.v5.v5.v5 :is(.lc-i,.fx-i,.sc-i,.hx-i,.ic-g){background:var(--blueBg)!important;color:var(--blue)!important;border:0!important}
+html.v5.v5.v5:not([data-theme="light"]) :is(.lc-i,.fx-i,.sc-i,.hx-i,.ic-g){color:var(--blue2)!important}
+/* marca del ítem activo del menú lateral */
+html.v5.v5.v5 nav.main a.nit.on::before{background:var(--blue)!important}

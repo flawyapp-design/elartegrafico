@@ -207,8 +207,8 @@ function closedView(){const s=S.site,p=API.profile()||{};
 /* ---------- modo claro / oscuro ---------- */
 function getTheme(){return document.documentElement.getAttribute("data-theme")==="light"?"light":"dark"}
 function setTheme(t){const r=document.documentElement;if(t==="light")r.setAttribute("data-theme","light");else r.removeAttribute("data-theme");
-  try{localStorage.setItem("ag_theme3",t)}catch(e){}const m=document.querySelector('meta[name=theme-color]');if(m)m.setAttribute("content",t==="light"?"#ffffff":"#060b1a");
-  const b=$("#themeBtn");if(b){b.setAttribute("aria-label",t==="light"?"Cambiar a azul noche":"Cambiar a blanco")}
+  try{localStorage.setItem("ag_theme5",t)}catch(e){}const m=document.querySelector('meta[name=theme-color]');if(m)m.setAttribute("content",t==="light"?"#ffffff":"#000000");
+  const b=$("#themeBtn");if(b){b.setAttribute("aria-label",t==="light"?"Cambiar a modo oscuro":"Cambiar a modo claro")}
   window.dispatchEvent(new Event("ag-theme"))}
 document.addEventListener("click",e=>{if(e.target.closest&&e.target.closest("#themeBtn"))setTheme(getTheme()==="light"?"dark":"light")});
 /* menú lateral tipo Kick: se pliega a una barra de solo íconos (computador) */
