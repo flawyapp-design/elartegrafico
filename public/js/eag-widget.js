@@ -590,7 +590,7 @@ ${o.onTracker?`<button class="wtrk" title="Marcador de operaciones (ganadas, per
   const $=s=>root.querySelector(s),chartEl=$(".wchart"),dbar=$(".dbar");
   if(o.timezone)EAG_TZ=o.timezone;const chart=KC.init(chartEl,{locale:"es-ES",timezone:o.timezone});(window.__eagCharts=window.__eagCharts||[]).push(chart);
   let sym=o.symbol,per=o.period,theme=o.theme||"dark",extra={},gen=0,subKey=null,ready=false,selId=null;let lastTouch=false;
-  const ind=Object.assign({main:[],sub:{},params:{},st:{}},o.indicators||{});ind.st=ind.st||{};ind.sub=ind.sub&&!Array.isArray(ind.sub)?ind.sub:{};
+  const ind=Object.assign({main:[],sub:{},params:{},st:{},hid:{}},o.indicators||{});ind.st=ind.st||{};ind.hid=ind.hid||{};ind.sub=ind.sub&&!Array.isArray(ind.sub)?ind.sub:{};
   const ovs=new Map(); // id -> definición guardable
   let magnet=o.magnet||"normal",locked=false,hidden=false;
 
@@ -1471,9 +1471,10 @@ ${o.onTracker?`<button class="wtrk" title="Marcador de operaciones (ganadas, per
     if(where==="main"){if(!ind.main.includes(name))ind.main.push(name);chart.createIndicator(params?{name,calcParams:params}:name,true,{id:"candle_pane"})}
     else{if(ind.sub[name])return;const pid=chart.createIndicator(params?{name,calcParams:params}:name,false,{height:110,dragEnabled:true});ind.sub[name]=pid}
     if(ind.st&&ind.st[name])setTimeout(()=>applyIndSt(name,where),0);
+    if(ind.hid[name])setTimeout(()=>{try{chart.overrideIndicator({name,visible:false},where==="main"?"candle_pane":ind.sub[name])}catch(e){}},0);
     if(!silent)o.onIndicators&&o.onIndicators(dump())}
-  function rmInd(name,where){if(where==="main"){chart.removeIndicator("candle_pane",name);ind.main=ind.main.filter(x=>x!==name)}else{const pid=ind.sub[name];if(pid)chart.removeIndicator(pid,name);delete ind.sub[name]}o.onIndicators&&o.onIndicators(dump())}
-  const dump=()=>({main:ind.main.slice(),sub:Object.keys(ind.sub),params:Object.assign({},ind.params),st:JSON.parse(JSON.stringify(ind.st||{}))});
+  function rmInd(name,where){if(where==="main"){chart.removeIndicator("candle_pane",name);ind.main=ind.main.filter(x=>x!==name)}else{const pid=ind.sub[name];if(pid)chart.removeIndicator(pid,name);delete ind.sub[name]}delete ind.hid[name];o.onIndicators&&o.onIndicators(dump())}
+  const dump=()=>({main:ind.main.slice(),sub:Object.keys(ind.sub),params:Object.assign({},ind.params),st:JSON.parse(JSON.stringify(ind.st||{})),hid:Object.assign({},ind.hid)});
   /* colores, grosor, tipo de línea y mostrar/ocultar de cada línea de un indicador (ind.st[nombre] = [{c,w,d,h}]) */
   const IPAL=["#FF9600","#935EBD","#2962ff","#E11D74","#01C5C4","#089981","#f23645","#e2b55c"];
   const indInst=(name,where)=>{try{return chart.getIndicatorByPaneId(where==="main"?"candle_pane":ind.sub[name],name)}catch(e){return null}};
@@ -1485,7 +1486,12 @@ ${o.onTracker?`<button class="wtrk" title="Marcador de operaciones (ganadas, per
     try{chart.overrideIndicator({name,styles:{lines}},where==="main"?"candle_pane":ind.sub[name])}catch(e){}}
   function setParams(name,where,arr){ind.params[name]=arr;try{chart.overrideIndicator({name,calcParams:arr},where==="main"?"candle_pane":ind.sub[name])}catch(e){}setTimeout(()=>applyIndSt(name,where),0);o.onIndicators&&o.onIndicators(dump())}
   function setLineSt(name,where,k,ch){ind.st=ind.st||{};const a=(ind.st[name]=(ind.st[name]||[]).slice());a[k]=Object.assign({},lineDef(name,where,k),a[k]||{},ch);applyIndSt(name,where);o.onIndicators&&o.onIndicators(dump())}
-  function openInd(){
+  /* botones en la leyenda de cada indicador (como TradingView): ocultar · configurar · quitar */
+  function indHide(name,where){const h=!ind.hid[name];if(h)ind.hid[name]=1;else delete ind.hid[name];
+    try{chart.overrideIndicator({name,visible:!h},where==="main"?"candle_pane":ind.sub[name])}catch(e){}o.onIndicators&&o.onIndicators(dump())}
+  try{chart.subscribeAction("onTooltipIconClick",d=>{if(!d||!d.indicatorName)return;const n=d.indicatorName,w=d.paneId==="candle_pane"?"main":"sub";
+    if(d.iconId==="eye")indHide(n,w);else if(d.iconId==="cfg")openInd(n);else if(d.iconId==="del")rmInd(n,w)})}catch(e){}
+  function openInd(focus){
     const ov=document.createElement("div");ov.className="wmodal";
     const render=qs=>{const q=(qs||"").toLowerCase();
       const on=(n,w)=>w==="main"?ind.main.includes(n):!!ind.sub[n];
@@ -1502,7 +1508,7 @@ ${o.onTracker?`<button class="wtrk" title="Marcador de operaciones (ganadas, per
             <p class="ihint">Periodos: escríbelos separados por coma arriba (ej. EMA <b>20, 50, 200</b>) y cada uno sale como una línea con su color.</p></div>`:""}`}).join(""):""}
         <div class="ml">Superpuestos al precio</div>${rows.filter(r=>r[2]==="main").map(([n,t,w])=>`<button class="ir${on(n,w)?" on":""}" data-add="${n}" data-w="${w}"><span>${esc(t)}</span><em>${on(n,w)?"✓":"+"}</em></button>`).join("")}
         <div class="ml">En panel inferior</div>${rows.filter(r=>r[2]==="sub").map(([n,t,w])=>`<button class="ir${on(n,w)?" on":""}" data-add="${n}" data-w="${w}"><span>${esc(t)}</span><em>${on(n,w)?"✓":"+"}</em></button>`).join("")}`};
-    const box=document.createElement("div");box.className="wmbox";ov.appendChild(box);const openSet=new Set();
+    const box=document.createElement("div");box.className="wmbox";ov.appendChild(box);const openSet=new Set(typeof focus==="string"?[focus]:[]);
     const draw=qs=>{box.innerHTML=render(qs);const mq=box.querySelector(".mq");mq.oninput=()=>{const p=mq.selectionStart;draw(mq.value);const m=box.querySelector(".mq");m.focus();m.setSelectionRange(p,p)};
       box.querySelector('[data-a="close"]').onclick=()=>ov.remove();
       box.querySelectorAll("[data-add]").forEach(b=>b.onclick=()=>{const n=b.dataset.add,w=b.dataset.w;(w==="main"?ind.main.includes(n):ind.sub[n])?rmInd(n,w):addInd(n,w);draw(mq.value)});
@@ -1535,7 +1541,8 @@ ${o.onTracker?`<button class="wtrk" title="Marcador de operaciones (ganadas, per
   /* el tamaño de letra elegido SOLO agranda la regla de precios (precios, precio actual, etiquetas de dibujos en la regla y la cruz en la regla).
      Eje del tiempo, leyenda, textos dentro del gráfico y botones quedan siempre igual, así el diseño no se desarma. */
   function applyStyles(){const f=fz(),t={size:f},B=11,tb={size:B};axW=axWidth(f);chart.setStyles(deep(deep(themeStyles(theme==="light",theme==="eag"),extra),{yAxis:{type:axisType,tickText:t,size:axW},xAxis:{tickText:tb,size:"auto"},
-    crosshair:{horizontal:{text:t},vertical:{text:tb}},indicator:{tooltip:{text:{size:B}}},overlay:{text:{size:B+1},rectText:{size:B}},
+    crosshair:{horizontal:{text:t},vertical:{text:tb}},indicator:{tooltip:{text:{size:B},icons:[["eye","◉","Ocultar"],["cfg","⚙","Configurar"],["del","✕","Quitar"]].map(([id,icon],k)=>({id,icon,position:"middle",marginLeft:k?2:6,marginTop:3,marginRight:k===2?6:0,marginBottom:0,
+      paddingLeft:4,paddingTop:2,paddingRight:4,paddingBottom:2,size:B+2,fontFamily:"Inter,system-ui,sans-serif",color:"rgba(150,160,180,.75)",activeColor:id==="del"?"#f23645":"#e2b55c",backgroundColor:"rgba(0,0,0,0)",activeBackgroundColor:"rgba(128,128,128,.18)"}))}},overlay:{text:{size:B+1},rectText:{size:B}},
     candle:{priceMark:{last:{text:{size:f,show:false}},high:{textSize:10},low:{textSize:10}},tooltip:{showRule:"always",showType:"standard",custom:legend(),text:{size:B+1,marginLeft:10,marginTop:8,marginRight:10}}}}));
     /* gráfico de ticks: línea (cada punto es un tick) */
     if(isTk()){const lc="#2962ff";chart.setStyles({candle:{type:"area",area:{lineSize:1.6,lineColor:lc,smooth:false,value:"close",backgroundColor:[{offset:0,color:"rgba(41,98,255,0.16)"},{offset:1,color:"rgba(41,98,255,0.01)"}]},
