@@ -109,14 +109,34 @@ async function send(room,body,kind,payload){try{const m=await X.API.chatSend(roo
 /* ===================== botón y panel ===================== */
 function paintBtn(){const b=X.btn;if(!b)return;const n=unread;const e=b.querySelector(".badge");if(e){e.hidden=!n;e.textContent=n>9?"9+":String(n)}
   const on=b.querySelector(".scnt");if(on)on.textContent=people.length?String(people.length):"";b.classList.toggle("live",!!(share||call));headPaint()}
+let lastRoom=null;
+const mobile=()=>matchMedia("(max-width:640px)").matches;
+/* panel movible y de tamaño ajustable (PC): se arrastra desde la barra de arriba y se estira desde las esquinas; se guarda */
+function geo(){if(!panel)return;if(mobile()){panel.style.cssText="";document.body.classList.remove("socfree");return}const g=cfg().pp;
+  if(!g){panel.style.cssText="";document.body.classList.remove("socfree");return}document.body.classList.add("socfree");
+  const W=innerWidth,H=innerHeight,w=Math.max(300,Math.min(W-16,g.w)),h=Math.max(320,Math.min(H-16,g.h));
+  const x=Math.max(8,Math.min(W-w-8,g.x)),y=Math.max(8,Math.min(H-h-8,g.y));
+  Object.assign(panel.style,{left:x+"px",top:y+"px",width:w+"px",height:h+"px",right:"auto",bottom:"auto",maxWidth:"none"})}
+function handles(){if(!panel||mobile())return;["se","sw","ne","nw"].forEach(k=>{if(panel.querySelector(".sp-rs."+k))return;const d=document.createElement("i");d.className="sp-rs "+k;d.title="Arrastra para cambiar el tamaño";panel.appendChild(d)})}
+function panelDrag(){panel.addEventListener("pointerdown",e=>{if(mobile()||e.button!==0)return;const rs=e.target.closest(".sp-rs"),hd=e.target.closest(".sp-h");
+    if(!rs&&(!hd||e.target.closest("button,input,a,textarea,select")))return;e.preventDefault();
+    const r=panel.getBoundingClientRect(),sx=e.clientX,sy=e.clientY,k=rs?rs.className.split(" ")[1]:null;panel.classList.add("moving");
+    const mv=ev=>{const dx=ev.clientX-sx,dy=ev.clientY-sy;let g={x:r.left,y:r.top,w:r.width,h:r.height};
+      if(!k){g.x+=dx;g.y+=dy}else{if(k.includes("e"))g.w+=dx;if(k.includes("s"))g.h+=dy;if(k.includes("w")){g.w-=dx;g.x+=dx}if(k.includes("n")){g.h-=dy;g.y+=dy}
+        if(g.w<300){if(k.includes("w"))g.x-=300-g.w;g.w=300}if(g.h<320){if(k.includes("n"))g.y-=320-g.h;g.h=320}}
+      cfg().pp=g;geo()};
+    const up=()=>{removeEventListener("pointermove",mv);removeEventListener("pointerup",up);panel&&panel.classList.remove("moving");X.save()};
+    addEventListener("pointermove",mv);addEventListener("pointerup",up)});
+  panel.addEventListener("dblclick",e=>{if(e.target.closest(".sp-h")&&!e.target.closest("button,input")){cfg().pp=null;X.save();geo();X.toast("Panel del chat en su lugar original.")}})}
+function minimize(){lastRoom=view.room;close();if(!cfg().head){cfg().head=true;X.save();headPaint()}}
 function open(room){if(!panel){panel=document.createElement("aside");panel.className="socp";document.body.appendChild(panel);document.body.classList.add("socopen");
-    panel.addEventListener("keydown",e=>e.stopPropagation());clearInterval(peopleT);peopleT=setInterval(()=>{if(!document.hidden&&panel&&!view.room)loadPeople()},15000)}
+    panel.addEventListener("keydown",e=>e.stopPropagation());panelDrag();geo();clearInterval(peopleT);peopleT=setInterval(()=>{if(!document.hidden&&panel&&!view.room)loadPeople()},15000)}
   headPaint();if(room){view.room=room;typingSub(room);loadRoom(room);paintRoom(true);loadPeople().then(()=>{if(view.room===room)paintRoom()})}else{view.room=null;paintPanel();loadThreads();loadPeople()}}
 function close(){findQ="";if(panel){panel.remove();panel=null}document.body.classList.remove("socopen");typingSub(null);setTimeout(headPaint,0);view.room=null;clearInterval(peopleT)}
 let findFoc=false;
 function paintPanel(){if(!panel)return;{const of=panel.querySelector("[data-find]");findFoc=!!(of&&document.activeElement===of);if(of)findQ=of.value}const tab=view.tab;const g=threads.find(t=>t.room===GEN)||{room:GEN};
   const dms=threads.filter(t=>t.room!==GEN);
-  panel.innerHTML=`<div class="sp-h"><b>Comunidad</b><span class="sp-on"><i></i>${people.length} en los charts</span><button class="sx" data-x title="Cerrar">✕</button></div>
+  panel.innerHTML=`<div class="sp-h"><b>Comunidad</b><span class="sp-on"><i></i>${people.length} en los charts</span><button class="sx" data-min title="Minimizar (queda en la burbuja)">—</button><button class="sx" data-x title="Cerrar">✕</button></div>
   <div class="sp-tabs"><button data-tab="chats" class="${tab==="chats"?"on":""}">Chats${unread?` <em>${unread>9?"9+":unread}</em>`:""}</button><button data-tab="people" class="${tab==="people"?"on":""}">Conectados <small>${people.length}</small></button><button data-tab="cfg" class="${tab==="cfg"?"on":""}" title="Opciones">⚙</button></div>
   <div class="sp-body">${tab==="chats"?`
     <div class="sp-find"><input type="search" placeholder="Buscar a alguien para escribirle…" data-find autocomplete="off"><div class="sp-res" data-res></div></div>
@@ -125,6 +145,7 @@ function paintPanel(){if(!panel)return;{const of=panel.querySelector("[data-find
   :tab==="people"?(people.length?people.map(p=>`<div class="sp-row" data-dm="${esc(p.id)}" data-n="${esc(p.username)}">${av(p)}<div class="sp-t"><b>${esc(p.username||"Usuario")}${p.is_admin?' <span class="sp-tag">Profe</span>':""}${p.id===ME.id?' <span class="sp-tag me">Tú</span>':""}</b><small>${p.symbol_name||p.symbol?`📈 ${esc(p.symbol_name||p.symbol)}${p.tf?" · "+esc(p.tf):""}`:"En EAG Charts"}</small></div>${p.id===ME.id?"":`<button class="btn sm" data-dm="${esc(p.id)}" data-n="${esc(p.username)}">💬</button>`}</div>`).join(""):`<p class="sp-empty">Nadie más conectado ahora.</p>`)
   :`<div class="sp-cfg">
      <label class="sp-ck"><input type="checkbox" data-c="head"${cfg().head?" checked":""}><span><b>Burbuja flotante de chat</b><small>Como Messenger: la mueves por toda la pantalla, muestra tus mensajes nuevos y al tocarla abre el chat. Arrástrala a la ✕ de abajo para esconderla.</small></span></label>
+     <div class="sp-vol">🪟 Panel del chat <small class="sp-hsv" style="flex:1;text-align:left;white-space:normal">Arrástralo desde arriba y estíralo desde las esquinas</small><button class="btn sm" data-pprst>Restablecer</button></div>
      <label class="sp-vol">🫧 Tamaño de la burbuja <input type="range" min="40" max="88" step="2" value="${hsz()}" data-hs><span class="sp-hsv">${hsz()} px</span></label>
      <div class="sp-hsbox"><span class="shead sp-hsprev" style="--hs:${hsz()}px"><span class="sh-ic"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/></svg></span><em>2</em></span><small>Así se verá</small></div>
      <label class="sp-ck"><input type="checkbox" data-c="bub"${cfg().bub?" checked":""}><span><b>Avance del mensaje</b><small>Junto a la burbuja sale unos segundos quién te escribió y qué dijo.</small></span></label>
@@ -134,11 +155,12 @@ function paintPanel(){if(!panel)return;{const of=panel.querySelector("[data-find
      <label class="sp-vol">🔊 Volumen <input type="range" min="10" max="100" step="5" value="${cfg().vol}" data-vol><button class="btn sm" data-tst>Probar</button></label>
      <label class="sp-ck"><input type="checkbox" data-c="hidden"${cfg().hidden?" checked":""}><span><b>Aparecer invisible</b><small>No sales en Conectados. Igual puedes escribir y recibir mensajes.</small></span></label>
      <p class="sp-note">🔒 Los chats privados solo los ven las 2 personas. En el grupo general escribe con respeto: el profe puede borrar mensajes y silenciar a quien haga spam.</p></div>`}</div>`;
-  panel.querySelector("[data-x]").onclick=close;
+  panel.querySelector("[data-x]").onclick=close;panel.querySelector("[data-min]").onclick=minimize;handles();
   panel.querySelectorAll("[data-tab]").forEach(b=>b.onclick=()=>{view.tab=b.dataset.tab;paintPanel();if(view.tab==="people")loadPeople()});
   panel.querySelectorAll("[data-room]").forEach(b=>b.onclick=()=>open(b.dataset.room));
   panel.querySelectorAll("[data-hide]").forEach(b=>b.onclick=e=>{e.stopPropagation();if(!confirmSoft(b,"¿Eliminar?"))return;hideChat(b.dataset.hide)});
   panel.querySelectorAll("[data-dm]").forEach(b=>b.onclick=e=>{e.stopPropagation();startDM(b.dataset.dm,b.dataset.n)});
+  const pr=panel.querySelector("[data-pprst]");if(pr)pr.onclick=()=>{cfg().pp=null;X.save();geo();X.toast("Panel en su lugar original.")};
   const hs=panel.querySelector("[data-hs]");if(hs)hs.oninput=()=>{cfg().hs=+hs.value;X.save();panel.querySelector(".sp-hsv").textContent=hs.value+" px";
     const pv=panel.querySelector(".sp-hsprev");if(pv)pv.style.setProperty("--hs",hs.value+"px");headPaint()};
   const mb=panel.querySelector("[data-mic]");if(mb)mb.onclick=async()=>{mb.disabled=true;const ok=await micTest(panel.querySelector(".sp-lvl i"));mb.disabled=false;if(ok)X.toast("🎤 Habla: la barra se mueve si tu micrófono funciona.")};
@@ -163,13 +185,13 @@ function paintRoom(toBottom){if(!panel||!view.room)return;const room=view.room,i
   const inShare=share&&share.room&&share.with===room,inCall=call&&call.chat===room;
   panel.innerHTML=`<div class="sp-h"><button class="sx" data-back title="Volver">‹</button>${isG?`<span class="sav grp">👥</span>`:av({id:oid,username:name,avatar_url:t.avatar_url})}
     <div class="sp-ht"><b>${esc(name)}</b><small class="sp-sub">${isG?`${people.length} conectado${people.length===1?"":"s"} ahora`:online?"🟢 En los charts":"No está conectado"}</small></div>
-    <div class="sp-act">${isG?`<button class="btn sm${call&&call.kind==="group"?" on":""}" data-vg title="Sala de voz del grupo (hasta ${VMAX})">🎙</button>`:`<button class="btn sm${inShare?" on":""}" data-sh title="Compartir tu gráfico: tus dibujos salen en el suyo con tu nombre y los suyos en el tuyo">📡</button><button class="btn sm${inCall?" on":""}" data-call title="Llamada de voz">📞</button>`}<button class="sx" data-menu title="Más opciones">⋯</button><button class="sx" data-x title="Cerrar">✕</button></div></div>
+    <div class="sp-act">${isG?`<button class="btn sm${call&&call.kind==="group"?" on":""}" data-vg title="Sala de voz del grupo (hasta ${VMAX})">🎙</button>`:`<button class="btn sm${inShare?" on":""}" data-sh title="Compartir tu gráfico: tus dibujos salen en el suyo con tu nombre y los suyos en el tuyo">📡</button><button class="btn sm${inCall?" on":""}" data-call title="Llamada de voz">📞</button>`}<button class="sx" data-menu title="Más opciones">⋯</button><button class="sx" data-min title="Minimizar (queda en la burbuja)">—</button><button class="sx" data-x title="Cerrar">✕</button></div></div>
   <div class="sp-msgs">${seenMark(L,t,isG),""}${L.__end||!L.length?"":`<button class="sp-more" data-more>Ver mensajes anteriores</button>`}${L.length?L.map((m,i)=>msgRow(m,L[i-1],isG)).join(""):`<p class="sp-empty">${isG?"Saluda al grupo 👋":"Escríbele el primer mensaje 👋"}</p>`}</div>
   <div class="sp-typ" data-typ></div>
   <form class="sp-in" data-room="${esc(room)}"><button type="button" class="sp-idea" data-pic title="Enviar una foto o captura (también puedes pegarla con Ctrl+V o arrastrarla aquí)">📷</button><input type="file" accept="image/*" data-file hidden><button type="button" class="sp-idea" data-idea title="Compartir una idea: tu mercado, temporalidad y precio actual (escribe tu análisis y toca aquí)">📈</button><textarea rows="1" maxlength="1000" placeholder="${isG?"Escribe al grupo… (usa @nombre para mencionar)":"Escribe un mensaje…"}"></textarea><button class="btn gold sm" type="submit" title="Enviar">➤</button></form>`;
   const box=panel.querySelector(".sp-msgs");if(keep!=null)box.scrollTop=box.scrollHeight-keep;else box.scrollTop=box.scrollHeight;
   panel.querySelector("[data-back]").onclick=()=>{view.room=null;paintPanel();loadThreads()};
-  panel.querySelector("[data-x]").onclick=close;
+  panel.querySelector("[data-x]").onclick=close;panel.querySelector("[data-min]").onclick=minimize;handles();
   const mb=panel.querySelector("[data-more]");if(mb)mb.onclick=()=>loadRoom(room,true);
   const ta=panel.querySelector("textarea"),fm=panel.querySelector(".sp-in");ta.dataset.room=room;
   if(drafts[room]){ta.value=drafts[room];ta.style.height="auto";ta.style.height=Math.min(120,ta.scrollHeight)+"px"}
@@ -250,7 +272,7 @@ function headDrag(el){let sx=0,sy=0,ox=0,oy=0,moved=false,id=null;
     const S=hsz();el.style.left=Math.max(0,Math.min(innerWidth-S,ox+dx))+"px";el.style.top=Math.max(0,Math.min(innerHeight-S,oy+dy))+"px";
     const dr=headDrop.getBoundingClientRect(),hr=el.getBoundingClientRect();headDrop.classList.toggle("hot",Math.hypot(dr.left+dr.width/2-(hr.left+hr.width/2),dr.top+dr.height/2-(hr.top+hr.height/2))<60)});
   const up=e=>{if(e.pointerId!==id)return;id=null;el.classList.remove("drag");try{el.releasePointerCapture(e.pointerId)}catch(x){}
-    if(!moved){panel?close():open(unread&&lastFrom?lastFrom.room:null);return}
+    if(!moved){panel?minimize():open(unread&&lastFrom?lastFrom.room:lastRoom);return}
     const hot=headDrop&&headDrop.classList.contains("hot");if(headDrop){headDrop.remove();headDrop=null}
     if(hot){cfg().head=false;X.save();headPaint();X.toast("Burbuja escondida. La vuelves a activar en 💬 Chat → ⚙.");return}
     const r=el.getBoundingClientRect();cfg().hp={side:r.left+r.width/2<innerWidth/2?"l":"r",y:Math.max(0,Math.min(1,r.top/innerHeight))};X.save();SND.play("tick");headPaint()};
@@ -458,7 +480,7 @@ window.EAGSocial={
     /* si recargó la página mientras compartía, vuelve a entrar */
     try{const s=JSON.parse(sessionStorage.getItem("eag_share")||"null");if(s&&s.room)setTimeout(()=>joinShare(s.room,s.with),1500)}catch(e){}
     addEventListener("beforeunload",()=>{if(share)cast(share.room,"bye",{});if(call)cast(call.room,"v-leave",{})});
-    addEventListener("keydown",e=>{if(e.key==="Escape"&&panel&&!view.room)close()})},
+    addEventListener("keydown",e=>{if(e.key==="Escape"&&panel&&!view.room)close()});addEventListener("resize",()=>geo())},
   drawingsChanged(){if(share){clearTimeout(share.dt);share.dt=setTimeout(()=>shareSend(),250)}
     clearTimeout(this.__dc);this.__dc=setTimeout(()=>{let n=0;try{X.panes().forEach(p=>{n+=(p.kc.drawings()||[]).length})}catch(e){return}if(this.__dn!=null&&n>this.__dn)SND.play("tool");this.__dn=n},120)},
   panesChanged(){applyShare()},

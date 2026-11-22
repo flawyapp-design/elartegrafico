@@ -844,6 +844,12 @@ html.light .sb-r{background:rgba(255,255,255,.95)}
 .sp-mic{position:fixed;inset:0;z-index:2100;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;padding:16px}
 .sp-micb{max-width:420px;background:var(--card);border:1px solid var(--line2);border-radius:16px;padding:18px 18px 14px;box-shadow:var(--shadow);display:grid;gap:8px;font-size:13.5px;line-height:1.5}
 .sp-micb b{font-size:16px}.sp-micb p{margin:0;color:var(--fg2)}.sp-micb ol{margin:0;padding-left:20px;display:grid;gap:4px}.sp-mica{display:flex;gap:8px;justify-content:flex-end;margin-top:6px}
+
+.socp .sp-h{cursor:grab;user-select:none}.socp.moving{transition:none;opacity:.96;box-shadow:0 24px 60px rgba(0,0,0,.6)}.socp.moving .sp-h{cursor:grabbing}
+.sp-rs{position:absolute;width:16px;height:16px;z-index:6}.sp-rs.se{right:0;bottom:0;cursor:nwse-resize}.sp-rs.sw{left:0;bottom:0;cursor:nesw-resize}.sp-rs.ne{right:0;top:0;cursor:nesw-resize}.sp-rs.nw{left:0;top:0;cursor:nwse-resize}
+.sp-rs.se:after{content:"";position:absolute;right:4px;bottom:4px;width:8px;height:8px;border-right:2px solid var(--line2);border-bottom:2px solid var(--line2);border-radius:0 0 3px 0}
+@media (max-width:640px){.sp-rs{display:none}.socp .sp-h{cursor:default}}
+body.socfree.socopen .sbar{right:86px}
 </style>
 </head>
 <body>
