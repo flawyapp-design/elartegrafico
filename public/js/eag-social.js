@@ -14,6 +14,7 @@ const VMAX=6; /* máximo de personas en una llamada (malla entre navegadores) */
 const COLORS=["#4fc3f7","#ff8a65","#ba68c8","#81c784","#f06292","#ffd54f","#4dd0e1","#a1887f"];
 let X=null,ME=null,panel=null,view={tab:"chats",room:null},threads=[],people=[],msgs={},unread=0,peopleT=0,thrT=0;
 let rt=null,rtJoined=false,rtRef=0,rtHb=0,rtTok=0,bc=null;const topics={};   /* topic → handler */
+const drafts={};let findQ="";   /* lo que vas escribiendo no se pierde cuando llega algo y el chat se vuelve a dibujar */
 let share=null;   /* {room,with,peers:{id:{name,color,sym,tf,boards,laser,at}},last,hbT,loopT} */
 let call=null;    /* {room,kind:'dm'|'group',with,peers:{id:{pc,name,audio,an}},stream,muted,t0} */
 let ringing=null; /* llamada entrante */
@@ -111,8 +112,9 @@ function paintBtn(){const b=X.btn;if(!b)return;const n=unread;const e=b.querySel
 function open(room){if(!panel){panel=document.createElement("aside");panel.className="socp";document.body.appendChild(panel);document.body.classList.add("socopen");
     panel.addEventListener("keydown",e=>e.stopPropagation());clearInterval(peopleT);peopleT=setInterval(()=>{if(!document.hidden&&panel&&!view.room)loadPeople()},15000)}
   headPaint();if(room){view.room=room;typingSub(room);loadRoom(room);paintRoom(true);loadPeople().then(()=>{if(view.room===room)paintRoom()})}else{view.room=null;paintPanel();loadThreads();loadPeople()}}
-function close(){if(panel){panel.remove();panel=null}document.body.classList.remove("socopen");typingSub(null);setTimeout(headPaint,0);view.room=null;clearInterval(peopleT)}
-function paintPanel(){if(!panel)return;const tab=view.tab;const g=threads.find(t=>t.room===GEN)||{room:GEN};
+function close(){findQ="";if(panel){panel.remove();panel=null}document.body.classList.remove("socopen");typingSub(null);setTimeout(headPaint,0);view.room=null;clearInterval(peopleT)}
+let findFoc=false;
+function paintPanel(){if(!panel)return;{const of=panel.querySelector("[data-find]");findFoc=!!(of&&document.activeElement===of);if(of)findQ=of.value}const tab=view.tab;const g=threads.find(t=>t.room===GEN)||{room:GEN};
   const dms=threads.filter(t=>t.room!==GEN);
   panel.innerHTML=`<div class="sp-h"><b>Comunidad</b><span class="sp-on"><i></i>${people.length} en los charts</span><button class="sx" data-x title="Cerrar">✕</button></div>
   <div class="sp-tabs"><button data-tab="chats" class="${tab==="chats"?"on":""}">Chats${unread?` <em>${unread>9?"9+":unread}</em>`:""}</button><button data-tab="people" class="${tab==="people"?"on":""}">Conectados <small>${people.length}</small></button><button data-tab="cfg" class="${tab==="cfg"?"on":""}" title="Opciones">⚙</button></div>
@@ -142,7 +144,8 @@ function paintPanel(){if(!panel)return;const tab=view.tab;const g=threads.find(t
   const mb=panel.querySelector("[data-mic]");if(mb)mb.onclick=async()=>{mb.disabled=true;const ok=await micTest(panel.querySelector(".sp-lvl i"));mb.disabled=false;if(ok)X.toast("🎤 Habla: la barra se mueve si tu micrófono funciona.")};
   const vl=panel.querySelector("[data-vol]");if(vl){vl.oninput=()=>{cfg().vol=+vl.value;X.save()};vl.onchange=()=>SND.play("in",true);panel.querySelector("[data-tst]").onclick=()=>SND.play("in",true)}
   panel.querySelectorAll("[data-c]").forEach(i=>i.onchange=()=>{cfg()[i.dataset.c]=i.checked;X.save();if(i.dataset.c==="head")headPaint();if(i.dataset.c==="hidden")X.API.chatHidden(i.checked).then(loadPeople).catch(()=>X.toast("No se pudo cambiar."))});
-  const f=panel.querySelector("[data-find]");if(f){let ft=0;f.oninput=()=>{clearTimeout(ft);ft=setTimeout(async()=>{const q=f.value.trim(),box=panel.querySelector("[data-res]");if(!box)return;if(q.length<2){box.innerHTML="";return}
+  const f=panel.querySelector("[data-find]");if(f&&findQ){f.value=findQ;if(findFoc){f.focus();try{f.setSelectionRange(findQ.length,findQ.length)}catch(e){}}setTimeout(()=>f.oninput&&f.oninput(),0)}
+  if(f){let ft=0;f.oninput=()=>{findQ=f.value;clearTimeout(ft);ft=setTimeout(async()=>{const q=f.value.trim(),box=panel.querySelector("[data-res]");if(!box)return;if(q.length<2){box.innerHTML="";return}
       let r=[];try{r=(await X.API.chatFind(q))||[]}catch(e){}box.innerHTML=r.filter(u=>u.id!==ME.id).map(u=>`<button class="sp-row" data-dm="${esc(u.id)}" data-n="${esc(u.username)}">${av(u)}<div class="sp-t"><b>${esc(u.username)}</b><small>Escribirle</small></div></button>`).join("")||`<p class="sp-empty">No encontramos a nadie con ese nombre.</p>`;
       box.querySelectorAll("[data-dm]").forEach(b=>b.onclick=()=>startDM(b.dataset.dm,b.dataset.n))},250)}}}
 function thRow(t){const isG=t.room===GEN,on=!isG&&(people.some(p=>p.id===t.other)||t.online);
@@ -155,20 +158,23 @@ function startDM(id,name){if(!id||id===ME.id)return;const room=dmRoom(id);if(!th
 function paintRoom(toBottom){if(!panel||!view.room)return;const room=view.room,isG=room===GEN,oid=otherOf(room),t=threads.find(x=>x.room===room)||{};
   const name=isG?"Grupo general":(t.username||nameOf(oid)),online=isG||people.some(p=>p.id===oid);const L=msgs[room]||[];
   const body=panel.querySelector(".sp-msgs");const keep=body&&!toBottom?body.scrollHeight-body.scrollTop:null;
+  const ota=panel.querySelector(".sp-in textarea");let foc=null;
+  if(ota&&ota.dataset.room===room){drafts[room]=ota.value;if(document.activeElement===ota)foc={a:ota.selectionStart,b:ota.selectionEnd}}
   const inShare=share&&share.room&&share.with===room,inCall=call&&call.chat===room;
   panel.innerHTML=`<div class="sp-h"><button class="sx" data-back title="Volver">‹</button>${isG?`<span class="sav grp">👥</span>`:av({id:oid,username:name,avatar_url:t.avatar_url})}
     <div class="sp-ht"><b>${esc(name)}</b><small class="sp-sub">${isG?`${people.length} conectado${people.length===1?"":"s"} ahora`:online?"🟢 En los charts":"No está conectado"}</small></div>
     <div class="sp-act">${isG?`<button class="btn sm${call&&call.kind==="group"?" on":""}" data-vg title="Sala de voz del grupo (hasta ${VMAX})">🎙</button>`:`<button class="btn sm${inShare?" on":""}" data-sh title="Compartir tu gráfico: tus dibujos salen en el suyo con tu nombre y los suyos en el tuyo">📡</button><button class="btn sm${inCall?" on":""}" data-call title="Llamada de voz">📞</button>`}<button class="sx" data-menu title="Más opciones">⋯</button><button class="sx" data-x title="Cerrar">✕</button></div></div>
   <div class="sp-msgs">${seenMark(L,t,isG),""}${L.__end||!L.length?"":`<button class="sp-more" data-more>Ver mensajes anteriores</button>`}${L.length?L.map((m,i)=>msgRow(m,L[i-1],isG)).join(""):`<p class="sp-empty">${isG?"Saluda al grupo 👋":"Escríbele el primer mensaje 👋"}</p>`}</div>
   <div class="sp-typ" data-typ></div>
-  <form class="sp-in"><button type="button" class="sp-idea" data-pic title="Enviar una foto o captura (también puedes pegarla con Ctrl+V o arrastrarla aquí)">📷</button><input type="file" accept="image/*" data-file hidden><button type="button" class="sp-idea" data-idea title="Compartir una idea: tu mercado, temporalidad y precio actual (escribe tu análisis y toca aquí)">📈</button><textarea rows="1" maxlength="1000" placeholder="${isG?"Escribe al grupo… (usa @nombre para mencionar)":"Escribe un mensaje…"}"></textarea><button class="btn gold sm" type="submit" title="Enviar">➤</button></form>`;
+  <form class="sp-in" data-room="${esc(room)}"><button type="button" class="sp-idea" data-pic title="Enviar una foto o captura (también puedes pegarla con Ctrl+V o arrastrarla aquí)">📷</button><input type="file" accept="image/*" data-file hidden><button type="button" class="sp-idea" data-idea title="Compartir una idea: tu mercado, temporalidad y precio actual (escribe tu análisis y toca aquí)">📈</button><textarea rows="1" maxlength="1000" placeholder="${isG?"Escribe al grupo… (usa @nombre para mencionar)":"Escribe un mensaje…"}"></textarea><button class="btn gold sm" type="submit" title="Enviar">➤</button></form>`;
   const box=panel.querySelector(".sp-msgs");if(keep!=null)box.scrollTop=box.scrollHeight-keep;else box.scrollTop=box.scrollHeight;
   panel.querySelector("[data-back]").onclick=()=>{view.room=null;paintPanel();loadThreads()};
   panel.querySelector("[data-x]").onclick=close;
   const mb=panel.querySelector("[data-more]");if(mb)mb.onclick=()=>loadRoom(room,true);
-  const ta=panel.querySelector("textarea"),fm=panel.querySelector(".sp-in");
-  ta.oninput=()=>{ta.style.height="auto";ta.style.height=Math.min(120,ta.scrollHeight)+"px";typingPing(room)};
-  panel.querySelector("[data-idea]").onclick=async()=>{const i=ideaNow();if(!i)return X.toast("Abre un gráfico primero.");const v=ta.value.trim();ta.value="";ta.style.height="auto";await send(room,v,"idea",i)};
+  const ta=panel.querySelector("textarea"),fm=panel.querySelector(".sp-in");ta.dataset.room=room;
+  if(drafts[room]){ta.value=drafts[room];ta.style.height="auto";ta.style.height=Math.min(120,ta.scrollHeight)+"px"}
+  ta.oninput=()=>{drafts[room]=ta.value;ta.style.height="auto";ta.style.height=Math.min(120,ta.scrollHeight)+"px";typingPing(room)};
+  panel.querySelector("[data-idea]").onclick=async()=>{const i=ideaNow();if(!i)return X.toast("Abre un gráfico primero.");const v=ta.value.trim();ta.value="";drafts[room]="";ta.style.height="auto";await send(room,v,"idea",i)};
   paintTyping();
   const fi=panel.querySelector("[data-file]");panel.querySelector("[data-pic]").onclick=()=>fi.click();fi.onchange=()=>{const f=fi.files&&fi.files[0];fi.value="";if(f)sendImg(room,f,ta)};
   ta.onpaste=e=>{const it=[...(e.clipboardData&&e.clipboardData.items||[])].find(x=>x.type.startsWith("image/"));if(it){e.preventDefault();sendImg(room,it.getAsFile(),ta)}};
@@ -177,8 +183,10 @@ function paintRoom(toBottom){if(!panel||!view.room)return;const room=view.room,i
   panel.querySelector("[data-menu]").onclick=e=>{e.stopPropagation();roomMenu(e.currentTarget,room)};
   box.querySelectorAll(".sp-img").forEach(im=>im.onclick=()=>lightbox(im.dataset.full||im.src));
   ta.onkeydown=e=>{e.stopPropagation();if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();fm.requestSubmit()}};
-  fm.onsubmit=async e=>{e.preventDefault();const v=ta.value.trim();if(!v)return;ta.value="";ta.style.height="auto";await send(room,v,"text")};
-  if(matchMedia("(hover:hover)").matches)setTimeout(()=>ta.focus(),20);
+  fm.onsubmit=async e=>{e.preventDefault();const v=ta.value.trim();if(!v)return;ta.value="";drafts[room]="";ta.style.height="auto";const ok=await send(room,v,"text");
+    if(!ok){const t2=panel&&panel.querySelector(".sp-in textarea");if(t2&&!t2.value){t2.value=v;drafts[room]=v}}};
+  if(foc){ta.focus();try{ta.setSelectionRange(foc.a,foc.b)}catch(e){}}
+  else if(toBottom&&matchMedia("(hover:hover)").matches&&!document.activeElement.closest(".sp-in"))setTimeout(()=>{if(document.activeElement===document.body||!document.activeElement)ta.focus()},20);
   box.querySelectorAll("[data-del]").forEach(b=>b.onclick=async()=>{if(!confirmSoft(b,"¿Borrar?"))return;const id=+b.dataset.del;const m=(msgs[room]||[]).find(x=>x.id===id);
     try{await X.API.chatDelete(id);if(m&&m.kind==="img"&&m.sender===ME.id&&m.payload)X.API.chartChatImgDel(m.payload.url);onDel(id);if(bc)bc.postMessage({k:"del",id})}catch(e){X.toast("No se pudo borrar.")}});
   box.querySelectorAll("[data-mute]").forEach(b=>b.onclick=async()=>{if(!confirmSoft(b,"¿Silenciar?"))return;try{await X.API.chatBlock(b.dataset.mute,true);X.toast("Listo: esa persona ya no puede escribir en el chat.")}catch(e){X.toast("No se pudo.")}});
@@ -286,7 +294,7 @@ async function shrink(file){if(!file||!/^image\//.test(file.type))throw new Erro
     if(!b)throw new Error("No se pudo preparar la imagen.");return{blob:b,w,h}}finally{URL.revokeObjectURL(url)}}
 let upBusy=false;
 async function sendImg(room,file,ta){if(upBusy)return;upBusy=true;const btn=panel&&panel.querySelector("[data-pic]");btn&&btn.classList.add("busy");X.toast("Subiendo imagen…");
-  try{const r=await shrink(file);const u=await X.API.chartChatUpload(r.blob);const cap=ta?ta.value.trim():"";if(ta){ta.value="";ta.style.height="auto"}await send(room,cap,"img",{url:u,w:r.w,h:r.h})}
+  try{const r=await shrink(file);const u=await X.API.chartChatUpload(r.blob);const cap=ta?ta.value.trim():"";if(ta){ta.value="";ta.style.height="auto";drafts[room]=""}await send(room,cap,"img",{url:u,w:r.w,h:r.h})}
   catch(e){X.toast(esc(e.message||"No se pudo enviar la imagen."))}finally{upBusy=false;btn&&btn.classList.remove("busy")}}
 function lightbox(src){const o=document.createElement("div");o.className="sp-lb";o.innerHTML=`<img src="${esc(src)}" alt=""><button class="sx" title="Cerrar">✕</button>`;document.body.appendChild(o);
   const cl=()=>{o.remove();removeEventListener("keydown",k,true)},k=e=>{if(e.key==="Escape"){e.stopPropagation();cl()}};o.onclick=cl;addEventListener("keydown",k,true)}
