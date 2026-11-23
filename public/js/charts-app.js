@@ -697,7 +697,12 @@ function start(){
         const bl=hl.firstChild,br=hr.firstChild;bl.innerHTML=`‹${L?`<em>${L}</em>`:""}`;br.innerHTML=`›${Rt?`<em>${Rt}</em>`:""}`;bl.disabled=!L;br.disabled=!Rt};
       [hl,hr].forEach(h=>h.firstChild.onclick=e=>{e.stopPropagation();el.scrollBy({left:+h.firstChild.dataset.d*el.clientWidth,behavior:"smooth"})});
       [hl,hr].forEach(h=>h.firstChild.addEventListener("pointerdown",e=>e.stopPropagation()));
-      el.addEventListener("scroll",()=>requestAnimationFrame(arr),{passive:true});addEventListener("resize",()=>setTimeout(arr,200));setTimeout(arr,300);setTimeout(arr,1200)}
+      el.addEventListener("scroll",()=>requestAnimationFrame(arr),{passive:true});addEventListener("resize",()=>setTimeout(arr,200));setTimeout(arr,300);setTimeout(arr,1200);
+      /* ruedita del mouse: cuando no caben todas, pasa a las siguientes / anteriores (Ctrl o ⌘ + rueda sigue haciendo zoom en el mini) */
+      let wT=0,wAcc=0;el.addEventListener("wheel",e=>{if(!el.classList.contains("over")||e.ctrlKey||e.metaKey)return;
+        const d=Math.abs(e.deltaY)>=Math.abs(e.deltaX)?e.deltaY:e.deltaX;if(!d)return;e.preventDefault();e.stopPropagation();
+        const n=performance.now();if(n-wT<380){return}wAcc+=d;if(Math.abs(wAcc)<(e.deltaMode?1:25))return;wT=n;
+        el.scrollBy({left:Math.sign(wAcc)*el.clientWidth,behavior:"smooth"});wAcc=0},{capture:true,passive:false})}
     mtfMark();relayout()}
   /* gesto de la multitemporalidad: un solo juego de escuchadores para todos los mini gráficos */
   let mtfG=null;
