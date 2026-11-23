@@ -155,7 +155,8 @@ function render(el){host=el;const cfg=S.cfg;
   el.innerHTML=`${lastErr?`<div class="trd-err">${esc(lastErr)}</div>`:""}
     ${setup?`<p class="trd-help">Conecta tu <b>MetaTrader 5</b> con el EA <b>EAG Bridge</b>: genera el token, pégalo en el EA y listo.</p>`:`<div data-macc></div>`}
     <div data-mbody>
-    ${setup?"":`<div class="trd-sym"><b>${esc(n||"—")}</b><span class="mt5-q" data-mq></span></div>
+    ${setup?"":`<button class="mt5-qtt${G.qt.on?" on":""}" data-mqtt title="Botones de compra y venta a un clic sobre el gráfico">⚡ Click rápido en el gráfico: <b>${G.qt.on?"visible":"oculto"}</b></button>
+    <div class="trd-sym"><b>${esc(n||"—")}</b><span class="mt5-q" data-mq></span></div>
     <div class="trd-mode"><button data-mtype="market" class="${ui.type==="market"?"on":""}">Mercado</button><button data-mtype="pending" class="${ui.type==="pending"?"on":""}">Pendiente</button></div>
     ${ui.type==="pending"?`<label class="trd-f"><span>Precio <small>(límite o stop según dónde quede respecto al precio)</small></span><input data-mprice type="number" step="any" inputmode="decimal" value="${esc(ui.price)}" placeholder="${i?fmtP((+i.bid+ +i.ask)/2,n):"—"}"></label>`:""}
     <label class="trd-f"><span>Lote${i?` <small>(mín. ${esc(i.vol_min)} · paso ${esc(i.vol_step)})</small>`:""}</span><input data-mlot type="number" min="0" step="0.01" inputmode="decimal" value="${esc(lot)}"></label>
@@ -191,6 +192,7 @@ function render(el){host=el;const cfg=S.cfg;
   const y=q("[data-myes]");y&&(y.onclick=()=>{const d=confirmAsk;confirmAsk=null;order(d,true)});const no=q("[data-mno]");no&&(no.onclick=()=>{confirmAsk=null;rerender()});
   const cc=q("[data-mconfirm]");cc&&(cc.onchange=()=>{cfg.confirmReal=cc.checked;S.saveCfg()});
   const mm=q("[data-mmap]");mm&&(mm.onchange=()=>{const v=mm.value.trim();if(v)map[S.symNow()]=v;else delete map[S.symNow()];ls.set(LS_MAP,map);delete watched[mtSym()];ensureWatch();rerender();S.syncLinesSoon()});
+  const qtt=q("[data-mqtt]");qtt&&(qtt.onclick=()=>{G.qt.on=!G.qt.on;saveG();paintQT();rerender();if(G.qt.on)toast("Click rápido visible en el gráfico")});
   const qq=q("[data-mqt]");qq&&(qq.onchange=()=>{G.qt.on=qq.checked;saveG();paintQT()});
   const tb2=q("[data-mtb2]");tb2&&(tb2.onclick=()=>openTB());
   const tbo=q("[data-mtbopen]");tbo&&(tbo.onclick=()=>openTB());
@@ -222,7 +224,7 @@ function buildQT(){qt=document.createElement("div");qt.className="mt5-qt";qt.inn
   document.body.appendChild(qt);
   const li=qt.querySelector("[data-qlot]");li.value=qtLot();li.oninput=()=>{G.qt.lot=li.value;saveG()};
   qt.querySelector("[data-qs]").onclick=()=>quick("sell");qt.querySelector("[data-qb]").onclick=()=>quick("buy");
-  qt.querySelector("[data-qhide]").onclick=()=>{G.qt.on=false;saveG();paintQT();toast("Botones ocultos. Actívalos en Operar → MT5 → Conexión con MT5.");rerender()};
+  qt.querySelector("[data-qhide]").onclick=()=>{G.qt.on=false;saveG();paintQT();toast("Click rápido oculto. Vuelve a abrirlo con ⚡ en Operar → MT5 o en la Terminal.");rerender()};
   qt.querySelector("[data-qtb]").onclick=()=>openTB();
   makeDrag(qt,qt.querySelector(".mt5-qg"),(x,y)=>{G.qt.x=x;G.qt.y=y;saveG()});
   placeQT()}
@@ -248,12 +250,13 @@ let tb=null;
 function openTB(keep){G.tb.open=true;if(!keep)G.tb.min=false;saveG();if(!tb)buildTB();tb.hidden=false;paintTB();poll().then(schedule)}
 function buildTB(){tb=document.createElement("div");tb.className="mt5-tb";tb.innerHTML=`<div class="mt5-th"><b>Terminal MT5</b>
     <span class="mt5-tt">${[["pos","Operaciones"],["hist","Historial"],["log","Diario"]].map(([k,t])=>`<button data-tt="${k}">${t}</button>`).join("")}</span><span class="mt5-tms" data-tms></span><span class="sp"></span>
-    <button data-tmin title="Minimizar">–</button><button data-tclose title="Cerrar">×</button></div><div class="mt5-tbody" data-tbody></div><div class="mt5-tsum" data-tsum></div>`;
+    <button data-tqt title="Mostrar u ocultar el click rápido">⚡</button><button data-tmin title="Minimizar">–</button><button data-tclose title="Cerrar">×</button></div><div class="mt5-tbody" data-tbody></div><div class="mt5-tsum" data-tsum></div>`;
   document.body.appendChild(tb);
   tb.querySelectorAll("[data-tt]").forEach(b=>b.onclick=()=>{G.tb.tab=b.dataset.tt;G.tb.min=false;saveG();const bd=tb.querySelector("[data-tbody]");bd.scrollTop=0;bd.scrollLeft=0;paintTB()});
   tb.querySelector("[data-tmin]").onclick=()=>{const bot=tb.getBoundingClientRect().bottom;G.tb.min=!G.tb.min;if(!G.tb.min)tb.style.height=Math.min(G.tb.h,innerHeight-80)+"px";paintTB();
     /* como MT5: se encoge hacia abajo y crece hacia arriba, manteniendo el borde de abajo */
     const t=Math.max(0,Math.min(innerHeight-36,bot-tb.offsetHeight));tb.style.top=t+"px";G.tb.y=t;saveG()};
+  tb.querySelector("[data-tqt]").onclick=()=>{G.qt.on=!G.qt.on;saveG();paintQT();paintTB();rerender()};
   tb.querySelector("[data-tclose]").onclick=()=>{G.tb.open=false;saveG();tb.hidden=true};
   makeDrag(tb,tb.querySelector(".mt5-th"),(x,y)=>{G.tb.x=x;G.tb.y=y;saveG()});
   if(window.ResizeObserver){let t=0;new ResizeObserver(()=>{if(G.tb.min||tb.hidden)return;clearTimeout(t);t=setTimeout(()=>{G.tb.w=tb.offsetWidth;G.tb.h=tb.offsetHeight;saveG()},250)}).observe(tb)}
@@ -263,7 +266,7 @@ function buildTB(){tb=document.createElement("div");tb.className="mt5-tb";tb.inn
 const tfmt=s=>{if(!(+s>0))return"";const d=new Date(+s*1000);const p=v=>String(v).padStart(2,"0");return`${p(d.getDate())}.${p(d.getMonth()+1)} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`};
 const tdName=t=>({buy:"buy",sell:"sell"})[t]||(ORDN[t]||t).toLowerCase();
 function paintTB(){if(!tb||tb.hidden)return;const tab=G.tb.tab,a=(st&&st.account)||{},hide=S.cfg.hide,m=v=>hide?"••••":(+v).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2});
-  tb.classList.toggle("min",!!G.tb.min);{const mb=tb.querySelector("[data-tmin]");mb.textContent=G.tb.min?"▢":"–";mb.title=G.tb.min?"Restaurar":"Minimizar"}tb.querySelectorAll("[data-tt]").forEach(b=>b.classList.toggle("on",b.dataset.tt===tab));
+  tb.classList.toggle("min",!!G.tb.min);tb.querySelector("[data-tqt]").classList.toggle("on",!!G.qt.on);{const mb=tb.querySelector("[data-tmin]");mb.textContent=G.tb.min?"▢":"–";mb.title=G.tb.min?"Restaurar":"Minimizar"}tb.querySelectorAll("[data-tt]").forEach(b=>b.classList.toggle("on",b.dataset.tt===tab));
   const ms=tb.querySelector("[data-tms]");
   if(G.tb.min){tb.style.height="";const pf=+a.profit||0;
     ms.innerHTML=st?`<span>Balance: <b>${m(a.balance)} ${esc(a.currency||"")}</b></span><span>Equidad: <b>${m(a.equity)}</b></span><span>Margen: <b>${m(a.margin)}</b></span><span>Margen libre: <b>${m(a.free_margin)}</b></span><span>Nivel de margen: <b>${+a.margin>0?(+a.margin_level).toFixed(2)+" %":"—"}</b></span><span>Flotante: <b class="${pf>=0?"t-up":"t-dn"}">${m(pf)}</b></span>`
