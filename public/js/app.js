@@ -424,6 +424,8 @@ document.addEventListener("keydown",e=>{if((e.key==="Enter"||e.key===" ")&&e.tar
 let dmLast=-1;
 /* ---------- campana de notificaciones: todo lo enviado como notificación (retos, avisos, alertas, mensajes) + noticias ---------- */
 const BELL={list:[],t:0,seenK:"ag_bell_seen"};
+/* preferencias que llegan de la otra parte del sitio (inicio ↔ academia): notificaciones vistas y menú plegado */
+window.addEventListener("ag-prefs",()=>{try{bellPaint()}catch(e){}try{const m=localStorage.getItem("ag_side_mini");if(m!==null&&innerWidth>900){document.documentElement.classList.toggle("side-mini",m==="1");sideState()}}catch(e){}});
 const bellSeen=()=>+(localStorage.getItem(BELL.seenK)||0);
 const EMO1=/^(\p{Extended_Pictographic}\uFE0F?)\s*/u;
 const bellIco=n=>{const m=String(n.title||"").match(EMO1);if(m)return m[1];const t=(n.tag||"")+" "+(n.title||"");return /^dm|💬/.test(t)?"💬":/reto|🎯|⚡/i.test(t)?"🎯":/alerta|🔔|charts/i.test(t)?"🔔":/launch|🚀/.test(t)?"🚀":n.news?"📰":/🏆|ganad/i.test(t)?"🏆":"📣"};

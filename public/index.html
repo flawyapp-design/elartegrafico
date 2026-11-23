@@ -12,6 +12,23 @@
 <link rel="stylesheet" href="theme5.css">
 <link rel="manifest" href="/manifest.webmanifest">
 <meta name="theme-color" content="#000000">
+<script>/* preferencias compartidas entre elartegrafico.com y academia.elartegrafico.com (cada subdominio tiene su propio
+   localStorage, así que estas claves también se guardan en una cookie del dominio): modo claro/oscuro, notificaciones vistas,
+   menú plegado y aviso de cookies. */
+(function(){var K={ag_theme5:1,ag_bell_seen:1,ag_side_mini:1,ag_cookies:1},H=/(^|\.)elartegrafico\.com$/.test(location.hostname),L;try{L=window.localStorage}catch(e){return}
+function rd(){var m=document.cookie.match(/(?:^|; )ag_sp=([^;]*)/);try{return m?JSON.parse(decodeURIComponent(m[1]))||{}:{}}catch(e){return{}}}
+function wr(o){if(H)document.cookie="ag_sp="+encodeURIComponent(JSON.stringify(o))+"; max-age=31536000; domain=.elartegrafico.com; path=/; secure; samesite=lax"}
+var S=Storage.prototype,si=S.setItem,ri=S.removeItem;
+function pull(){var c=rd(),ch=false,k,v;for(k in K){if(!(k in c))continue;v=c[k];try{if(v===null){if(L.getItem(k)!=null){ri.call(L,k);ch=true}}else if(L.getItem(k)!==v){si.call(L,k,v);ch=true}}catch(e){}}return ch}
+/* primera vez: lo que ya tenía este subdominio pasa a la cookie */
+(function(){var c=rd(),add=false,k,v;for(k in K){if(k in c)continue;try{v=L.getItem(k)}catch(e){v=null}if(v!=null){c[k]=v;add=true}}if(add)wr(c)})();
+pull();
+S.setItem=function(k,v){si.call(this,k,v);if(this===L&&K[k]){var o=rd();o[k]=String(v);wr(o)}};
+S.removeItem=function(k){ri.call(this,k);if(this===L&&K[k]){var o=rd();o[k]=null;wr(o)}};
+/* si cambiaste algo en la otra pestaña (academia o inicio), se aplica al volver */
+function sync(){if(document.visibilityState!=="visible"||!pull())return;var t=L.getItem("ag_theme5"),r=document.documentElement;if(t==="dark")r.removeAttribute("data-theme");else r.setAttribute("data-theme","light");
+  var m=document.querySelector('meta[name=theme-color]');if(m)m.setAttribute("content",t==="dark"?"#000000":"#ffffff");window.dispatchEvent(new Event("ag-theme"));window.dispatchEvent(new Event("ag-prefs"))}
+document.addEventListener("visibilitychange",sync);window.addEventListener("focus",sync);window.addEventListener("pageshow",sync)})();</script>
 <script>/* diseño v5: blanco + azul por defecto; oscuro tipo iPhone como opción. Menú lateral plegable. */try{var t=localStorage.getItem("ag_theme5");if(t!=="dark"){document.documentElement.setAttribute("data-theme","light");document.querySelector('meta[name=theme-color]').setAttribute("content","#ffffff")}var m=localStorage.getItem("ag_side_mini");if(m==="1"||(m===null&&innerWidth<1280))document.documentElement.classList.add("side-mini")}catch(e){}document.documentElement.classList.add("v4","v5")</script>
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
