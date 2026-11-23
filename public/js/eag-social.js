@@ -405,17 +405,34 @@ let shBar=null;
 function paintShareBar(){if(!share&&!call){if(shBar){shBar.remove();shBar=null}return}
   if(!shBar){shBar=document.createElement("div");shBar.className="sbar";document.body.appendChild(shBar)}
   const ps=share?Object.keys(share.peers).map(id=>Object.assign({id},share.peers[id])):[];
-  const cps=call?Object.keys(call.peers).map(id=>({id,name:call.peers[id].name,off:!!call.peers[id].off})):[];
+  const cps=call?Object.keys(call.peers).map(id=>({id,name:call.peers[id].name,off:!!call.peers[id].off,rm:!!call.peers[id].rm,vol:vols()[id]})):[];
   const tsec=call?Math.floor((Date.now()-call.t0)/1000):0;
   shBar.innerHTML=`${share?`<div class="sb-r"><span class="sb-ic">📡</span><span class="sb-t">${ps.length?ps.map(p=>`<b style="color:${p.color}">${esc(p.name||"Invitado")}</b>${p.symName?` <small>en ${esc(p.symName)}${p.tf?" · "+esc(p.tf):""}</small> <button class="sb-go" data-go="${esc(p.id)}" title="Ir a su mercado y temporalidad">Ir</button>`:""}`).join(" · "):"<small>Esperando a que se conecte…</small>"}</span><button class="sb-x" data-lsh title="Dejar de compartir">Salir</button></div>`:""}
-  ${call?`<div class="sb-r"><span class="sb-ic">${call.kind==="group"?"🎙":"📞"}</span><span class="sb-t">${cps.length?cps.map(p=>`<button class="vpeer${p.off?" off":""}" data-vp="${esc(p.id)}" title="${p.off?"Volver a escuchar":"Silenciar"} a ${esc(p.name||"esta persona")} (solo para ti)">${p.off?"🔇 ":""}${esc(p.name||"…")}</button>`).join(" · "):"<small>Llamando…</small>"} <small>${Math.floor(tsec/60)}:${String(tsec%60).padStart(2,"0")}</small></span>
-    <button class="sb-go${call.muted?" on":""}" data-mute title="${call.muted?"Activar mi micrófono":"Silenciar mi micrófono"}">${call.muted?"🔇 Silenciado":"🎤"}</button>${call.kind==="group"&&X.isAdmin()&&cps.length?`<button class="sb-go" data-muteall title="Silencia el micrófono de todos; cada uno puede volver a activarlo">🔇 Todos</button>`:""}<button class="sb-x bad" data-hang title="Colgar">Colgar</button></div>`:""}`;
+  ${call?`<div class="sb-r"><span class="sb-ic">${call.kind==="group"?"🎙":"📞"}</span><span class="sb-t">${cps.length?cps.map(p=>`<button class="vpeer${p.off?" off":""}${p.rm?" rm":""}" data-vp="${esc(p.id)}" title="Volumen y silencio de ${esc(p.name||"esta persona")}">${p.rm?"🔇 ":p.off?"🔈 ":""}${esc(p.name||"…")}${p.vol!=null&&p.vol<100&&!p.off?` <small>${p.vol}%</small>`:""}</button>`).join(" · "):"<small>Llamando…</small>"} <small>${Math.floor(tsec/60)}:${String(tsec%60).padStart(2,"0")}</small></span>
+    <button class="sb-go${call.muted?" on":""}" data-mute ${call.lock?"disabled":""} title="${call.lock?"El profe te silenció":call.muted?"Activar mi micrófono":"Silenciar mi micrófono"}">${call.lock?"🔇 Silenciado por el profe":call.muted?"🔇 Silenciado":"🎤"}</button>${call.kind==="group"&&X.isAdmin()&&cps.length?`<button class="sb-go" data-muteall title="Silencia el micrófono de todos; cada uno puede volver a activarlo">🔇 Todos</button>`:""}<button class="sb-x bad" data-hang title="Colgar">Colgar</button></div>`:""}`;
   shBar.querySelectorAll("[data-go]").forEach(b=>b.onclick=()=>{const pr=share&&share.peers[b.dataset.go];if(pr&&pr.sym)X.follow(pr.sym,pr.tf)});
   const l=shBar.querySelector("[data-lsh]");l&&(l.onclick=()=>leaveShare());
-  const mu=shBar.querySelector("[data-mute]");mu&&(mu.onclick=()=>{call.muted=!call.muted;call.stream&&call.stream.getAudioTracks().forEach(t=>t.enabled=!call.muted);paintShareBar()});
+  const mu=shBar.querySelector("[data-mute]");mu&&(mu.onclick=()=>{if(call.lock){X.toast("El profe te silenció. Él te puede dejar hablar.");return}call.muted=!call.muted;setTimeout(()=>call&&cast(call.room,"v-hb",{m:!!call.muted}),50);call.stream&&call.stream.getAudioTracks().forEach(t=>t.enabled=!call.muted);paintShareBar()});
   const hg=shBar.querySelector("[data-hang]");hg&&(hg.onclick=()=>hangup());
-  shBar.querySelectorAll("[data-vp]").forEach(b=>b.onclick=()=>{const pr=call&&call.peers[b.dataset.vp];if(!pr)return;pr.off=!pr.off;if(pr.audio)pr.audio.muted=pr.off;paintShareBar()});
-  const ma=shBar.querySelector("[data-muteall]");ma&&(ma.onclick=()=>{cast(call.room,"v-muteall",{});X.toast("Silenciaste a todos. Cada uno puede volver a activar su micrófono.")})}
+  shBar.querySelectorAll("[data-vp]").forEach(b=>b.onclick=e=>{e.stopPropagation();vpop(b.dataset.vp,b)});
+  const ma=shBar.querySelector("[data-muteall]");ma&&(ma.onclick=()=>{cast(call.room,"v-muteall",{});Object.values(call.peers).forEach(pr=>{pr.rm=true});paintShareBar();X.toast("Silenciaste a todos. Cada uno puede volver a activar su micrófono.")})}
+
+/* volumen de cada persona (se recuerda) y silencio: solo para mí, o para todos si soy el profe */
+const vols=()=>{const c=cfg();c.vols=c.vols||{};return c.vols};
+function applyVol(id){const pr=call&&call.peers[id];if(!pr||!pr.audio)return;const v=vols()[id];pr.audio.volume=v==null?1:Math.max(0,Math.min(1,v/100));pr.audio.muted=!!pr.off}
+function vpop(id,anchor){const old=document.querySelector(".vpop");if(old){old.remove();if(old.dataset.id===id)return}const pr=call&&call.peers[id];if(!pr)return;
+  const adm=X.isAdmin()&&call.kind==="group",v=vols()[id]==null?100:vols()[id];
+  const el=document.createElement("div");el.className="vpop";el.dataset.id=id;el.setAttribute("role","dialog");el.setAttribute("aria-label","Audio de "+(pr.name||""));
+  el.innerHTML=`<b>${esc(pr.name||"Participante")}</b>${pr.rm?`<small>🔇 Tiene el micrófono apagado</small>`:""}
+    <label class="vp-vol"><span>Volumen para ti</span><input type="range" min="0" max="100" step="5" value="${v}" data-vv aria-label="Volumen"><i data-vvt>${v}%</i></label>
+    <button data-vme>${pr.off?"🔈 Volver a escucharlo":"🔇 Silenciar solo para mí"}</button>
+    ${adm?(pr.lock?`<button class="pri" data-vun>🎤 Dejarlo hablar</button>`:`<button class="pri" data-vall>🔇 Silenciarlo para todos</button>`):""}`;
+  document.body.appendChild(el);const r=anchor.getBoundingClientRect();el.style.left=Math.max(8,Math.min(innerWidth-el.offsetWidth-8,r.left))+"px";el.style.top=(r.top-el.offsetHeight-8>=8?r.top-el.offsetHeight-8:Math.min(innerHeight-el.offsetHeight-8,r.bottom+8))+"px";
+  const vv=el.querySelector("[data-vv]");vv.oninput=()=>{vols()[id]=+vv.value;el.querySelector("[data-vvt]").textContent=vv.value+"%";applyVol(id)};vv.onchange=()=>{X.save();paintShareBar()};
+  el.querySelector("[data-vme]").onclick=()=>{pr.off=!pr.off;applyVol(id);el.remove();paintShareBar()};
+  const va=el.querySelector("[data-vall]");va&&(va.onclick=()=>{cast(call.room,"v-mute",{to:id});pr.lock=true;pr.rm=true;el.remove();paintShareBar();X.toast(`Silenciaste a ${esc(pr.name||"esa persona")} para todos.`)});
+  const vu=el.querySelector("[data-vun]");vu&&(vu.onclick=()=>{cast(call.room,"v-unmute",{to:id});pr.lock=false;el.remove();paintShareBar();X.toast(`${esc(pr.name||"Esa persona")} ya puede hablar.`)});
+  setTimeout(()=>addEventListener("pointerdown",function f(e){if(!el.contains(e.target)){el.remove();removeEventListener("pointerdown",f,true)}},true),0)}
 
 /* ===================== voz (WebRTC) ===================== */
 function ice(){const s=(window.__site0||{});const L=[{urls:["stun:stun.l.google.com:19302","stun:stun1.l.google.com:19302"]}];
@@ -470,7 +487,7 @@ async function enterVoice(room,kind,chatRoom){const stream=await getMic();if(!st
   call={room,kind,chat:chatRoom,peers:{},stream,muted:false,t0:Date.now()};
   sub(room,room==="voz-general"?vozHandler:(ev,p)=>onSignal(ev,p));
   [350,1500,4000].forEach(ms=>setTimeout(()=>{if(call&&call.room===room&&!Object.keys(call.peers).length)cast(room,"v-join",{})},ms));
-  clearInterval(call.tick);call.tick=setInterval(()=>{if(!call)return;paintShareBar();cast(call.room,"v-hb",{});
+  clearInterval(call.tick);call.tick=setInterval(()=>{if(!call)return;paintShareBar();cast(call.room,"v-hb",{m:!!call.muted});
     const now=Date.now();Object.keys(call.peers).forEach(id=>{const pr=call.peers[id];if(now-(pr.at||now)>45000)dropPeer(id)});speakTick();
     if(call&&call.kind==="dm"&&!Object.keys(call.peers).length&&now-call.t0>45000){X.toast("No contestó.");hangup()}},1000);
   paintShareBar();paintBtn();if(view.room)paintRoom();
@@ -478,15 +495,19 @@ async function enterVoice(room,kind,chatRoom){const stream=await getMic();if(!st
 function newPC(id,name){const pc=new RTCPeerConnection({iceServers:ice()});const pr=call.peers[id]=Object.assign(call.peers[id]||{},{pc,name,at:Date.now()});
   call.stream.getTracks().forEach(t=>pc.addTrack(t,call.stream));
   pc.onicecandidate=e=>{if(e.candidate&&call)cast(call.room,"v-ice",{to:id,c:e.candidate.toJSON?e.candidate.toJSON():e.candidate})};
-  pc.ontrack=e=>{let a=pr.audio;if(!a){a=pr.audio=new Audio();a.autoplay=true;a.playsInline=true}a.srcObject=e.streams[0];a.muted=!!pr.off;a.play().catch(()=>{});
+  pc.ontrack=e=>{let a=pr.audio;if(!a){a=pr.audio=new Audio();a.autoplay=true;a.playsInline=true}a.srcObject=e.streams[0];a.muted=!!pr.off;{const vv=vols()[id];a.volume=vv==null?1:Math.max(0,Math.min(1,vv/100))}a.play().catch(()=>{});
     try{actx=actx||new(window.AudioContext||window.webkitAudioContext)();const src=actx.createMediaStreamSource(e.streams[0]);const an=actx.createAnalyser();an.fftSize=256;src.connect(an);pr.an=an}catch(x){}};
   pc.onconnectionstatechange=()=>{if(!call)return;if(pc.connectionState==="connected"){stopRingOut();SND.play("join",true);paintShareBar()}
     if(pc.connectionState==="failed"){X.toast(`No se pudo conectar el audio con ${esc(name||"esa persona")} (su red lo bloquea).`);dropPeer(id)}};
   return pr}
 async function onSignal(ev,p){if(!call||!p.from||p.from===ME.id)return;const id=p.from;
-  if(ev==="v-hb"){if(call.peers[id])call.peers[id].at=Date.now();return}
+  if(ev==="v-hb"){const pr=call.peers[id];if(pr){pr.at=Date.now();if(pr.rm!==!!p.m){pr.rm=!!p.m;paintShareBar()}}return}
+  if(ev==="v-mute"||ev==="v-unmute"){if(p.to!==ME.id)return;
+    if(ev==="v-mute"){call.lock=true;call.muted=true;call.stream&&call.stream.getAudioTracks().forEach(t=>t.enabled=false);X.toast("🔇 "+(p.fname||"El profe")+" te silenció en la llamada.")}
+    else{call.lock=false;X.toast("🎤 "+(p.fname||"El profe")+" te dejó hablar. Toca el micrófono para activarlo.")}
+    cast(call.room,"v-hb",{m:!!call.muted});paintShareBar();return}
   if(ev==="v-leave"){dropPeer(id);return}
-  if(ev==="v-muteall"){if(!call.muted){call.muted=true;call.stream&&call.stream.getAudioTracks().forEach(t=>t.enabled=false);paintShareBar()}X.toast("🔇 "+(p.fname||"El profe")+" silenció los micrófonos. Toca 🔇 para volver a hablar.");return}
+  if(ev==="v-muteall"){if(!call.muted){call.muted=true;call.stream&&call.stream.getAudioTracks().forEach(t=>t.enabled=false);paintShareBar()}cast(call.room,"v-hb",{m:true});X.toast("🔇 "+(p.fname||"El profe")+" silenció los micrófonos. Toca 🔇 para volver a hablar.");return}
   if(p.to&&p.to!==ME.id)return;
   if(ev==="v-join"){const ex=call.peers[id];if(ex&&ex.pc&&!["failed","closed"].includes(ex.pc.connectionState))return;if(ex)dropPeer(id,true);
     if(Object.keys(call.peers).length>=VMAX-1){cast(call.room,"v-full",{to:id});return}
