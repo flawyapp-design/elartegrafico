@@ -151,7 +151,7 @@ function registerAll(){
       return[{type:"line",attrs:{coordinates:cs},styles:{color:ex.hl?hexA(ex.color||"#ffeb3b",.4):(ex.color||GOLD),size:ex.size||2,smooth:false}}]}});
   /* Medir: diferencia de precio, %, velas y tiempo */
   KC.registerOverlay({name:"eagMeasure",totalStep:3,needDefaultPointFigure:true,needDefaultXAxisFigure:true,needDefaultYAxisFigure:true,
-    createPointFigures:({overlay,coordinates,precision,xAxis})=>{
+    createPointFigures:({overlay,coordinates,precision,xAxis,bounding})=>{
       if(coordinates.length<2)return[];
       const[a,b]=coordinates,p=overlay.points,pp=(precision&&precision.price)||3;
       const d=p[1].value-p[0].value,up=d>=0,col=up?"#2962ff":"#f23645",pip=Math.pow(10,-pp),ticks=Math.round(Math.abs(d)/pip);
@@ -162,8 +162,14 @@ function registerAll(){
       return[{type:"rect",attrs:{x,y,width:w,height:h},styles:{style:"fill",color:hexA(col,.15)}},
         {type:"line",attrs:{coordinates:[{x:mx,y:a.y},{x:mx,y:b.y}]},styles:{color:col,size:1}},
         {type:"line",attrs:{coordinates:[{x:a.x,y:(a.y+b.y)/2},{x:b.x,y:(a.y+b.y)/2}]},styles:{color:col,size:1,style:"dashed"}},
-        {type:"text",ignoreEvent:true,attrs:{x:mx,y:(up?y:y+h)+(up?-14:14),text:`${d>=0?"+":""}${d.toFixed(pp)} pts (${(d/p[0].value*100).toFixed(2)}%) · ${Math.abs(bars)} velas · ${tt}`,align:"center",baseline:"middle"},
-          styles:{color:"#fff",size:11,backgroundColor:col,paddingLeft:6,paddingRight:6,paddingTop:3,paddingBottom:3,borderRadius:4}}]}});
+        /* la etiqueta nunca se sale de la pantalla (en el celular se cortaba el precio al mover la regla) y en pantallas angostas va en 2 líneas */
+        ...(()=>{const t1=`${d>=0?"+":""}${d.toFixed(pp)} pts (${(d/p[0].value*100).toFixed(2)}%)`,t2=`${Math.abs(bars)} velas · ${tt}`,
+            BW=(bounding&&bounding.width)||9999,BH=(bounding&&bounding.height)||9999,two=BW<520,lines=two?[t1,t2]:[t1+" · "+t2],
+            wOf=t=>t.length*6.3+14,mw=Math.max(...lines.map(wOf)),cx=Math.max(mw/2+4,Math.min(BW-mw/2-4,mx)),lh=19,
+            tot=lines.length*lh;let y0=up?y-8-tot+lh/2:y+h+8+lh/2;
+            if(y0-lh/2<4)y0=up?Math.min(y+h+8+lh/2,BH-tot):4+lh/2;if(y0+tot-lh/2>BH-4)y0=Math.max(4+lh/2,y-8-tot+lh/2);
+            return lines.map((t,i)=>({type:"text",ignoreEvent:true,attrs:{x:cx,y:y0+i*lh,text:t,align:"center",baseline:"middle"},
+              styles:{color:"#fff",size:11,weight:i?"500":"700",backgroundColor:col,paddingLeft:6,paddingRight:6,paddingTop:3,paddingBottom:3,borderRadius:4}}))})()]}});
   /* Texto */
   KC.registerOverlay({name:"eagText",totalStep:2,needDefaultPointFigure:false,needDefaultXAxisFigure:true,needDefaultYAxisFigure:true,
     createPointFigures:({overlay,coordinates})=>{const c=coordinates[0];if(!c)return[];const ex=overlay.extendData||{};
@@ -238,10 +244,12 @@ function registerAll(){
     R("dateRange",{totalStep:3,createPointFigures:({overlay,coordinates,bounding,xAxis})=>{if(coordinates.length<2)return[];const[a,b]=coordinates,P=overlay.points,x0=Math.min(a.x,b.x),x1=Math.max(a.x,b.x),col="#2962ff";
       const bars=barsOf(xAxis,P),ym=(a.y+b.y)/2;
       return[{type:"rect",ignoreEvent:true,attrs:{x:x0,y:0,width:x1-x0,height:bounding.height},styles:{style:"fill",color:hexA(col,.1)}},LN({x:x0,y:0},{x:x0,y:bounding.height},{color:col}),LN({x:x1,y:0},{x:x1,y:bounding.height},{color:col}),
-        LN({x:x0,y:ym},{x:x1,y:ym},{color:col}),BOXT((x0+x1)/2,Math.max(16,Math.min(a.y,b.y)-16),`${bars} velas · ${durTxt((P[1].timestamp||0)-(P[0].timestamp||0))}`,col)]}});
+        LN({x:x0,y:ym},{x:x1,y:ym},{color:col}),(()=>{const t=`${bars} velas · ${durTxt((P[1].timestamp||0)-(P[0].timestamp||0))}`,w=t.length*6.3+14;
+          return BOXT(Math.max(w/2+4,Math.min(bounding.width-w/2-4,(x0+x1)/2)),Math.max(16,Math.min(a.y,b.y)-16),t,col)})()]}});
     R("priceRange",{totalStep:3,createPointFigures:({overlay,coordinates,bounding,precision})=>{if(coordinates.length<2)return[];const[a,b]=coordinates,P=overlay.points,pp=(precision&&precision.price)||3,y0=Math.min(a.y,b.y),y1=Math.max(a.y,b.y),d=P[1].value-P[0].value,col=d>=0?"#2962ff":"#f23645";
       return[{type:"rect",ignoreEvent:true,attrs:{x:0,y:y0,width:bounding.width,height:y1-y0},styles:{style:"fill",color:hexA(col,.1)}},LN({x:0,y:y0},{x:bounding.width,y:y0},{color:col}),LN({x:0,y:y1},{x:bounding.width,y:y1},{color:col}),
-        LN({x:(a.x+b.x)/2,y:a.y},{x:(a.x+b.x)/2,y:b.y},{color:col}),BOXT((a.x+b.x)/2,y0-14,`${d>=0?"+":""}${d.toFixed(pp)} pts (${(d/P[0].value*100).toFixed(2)}%)`,col)]}});
+        LN({x:(a.x+b.x)/2,y:a.y},{x:(a.x+b.x)/2,y:b.y},{color:col}),(()=>{const t=`${d>=0?"+":""}${d.toFixed(pp)} pts (${(d/P[0].value*100).toFixed(2)}%)`,w=t.length*6.3+14;
+          return BOXT(Math.max(w/2+4,Math.min(bounding.width-w/2-4,(a.x+b.x)/2)),y0-14<12?Math.min(y1+14,bounding.height-12):y0-14,t,col)})()]}});
     /* VWAP anclado: desde la vela que eliges hasta la última (sin volumen real usa el precio típico) */
     R("anchoredVWAP",{totalStep:2,needDefaultPointFigure:true,createPointFigures:({overlay,xAxis,yAxis})=>{const L=dataOf(xAxis),i0=idxOf(L,overlay.points[0]);if(i0==null||!L.length||i0>=L.length)return[];
       let pv=0,vv=0;const P=[];for(let i=Math.max(0,i0);i<L.length;i++){const k=L[i],tp=(k.high+k.low+k.close)/3,v=k.volume>0?k.volume:1;pv+=tp*v;vv+=v;P.push({x:xAxis.convertToPixel(i),y:yAxis.convertToPixel(pv/vv)})}
