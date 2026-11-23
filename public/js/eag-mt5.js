@@ -247,11 +247,13 @@ async function quick(side,ok){const n=mtSym(),i=symInfo(n);if(!online()||!i){toa
 let tb=null;
 function openTB(keep){G.tb.open=true;if(!keep)G.tb.min=false;saveG();if(!tb)buildTB();tb.hidden=false;paintTB();poll().then(schedule)}
 function buildTB(){tb=document.createElement("div");tb.className="mt5-tb";tb.innerHTML=`<div class="mt5-th"><b>Terminal MT5</b>
-    <span class="mt5-tt">${[["pos","Operaciones"],["hist","Historial"],["log","Diario"]].map(([k,t])=>`<button data-tt="${k}">${t}</button>`).join("")}</span><span class="sp"></span>
+    <span class="mt5-tt">${[["pos","Operaciones"],["hist","Historial"],["log","Diario"]].map(([k,t])=>`<button data-tt="${k}">${t}</button>`).join("")}</span><span class="mt5-tms" data-tms></span><span class="sp"></span>
     <button data-tmin title="Minimizar">–</button><button data-tclose title="Cerrar">×</button></div><div class="mt5-tbody" data-tbody></div><div class="mt5-tsum" data-tsum></div>`;
   document.body.appendChild(tb);
   tb.querySelectorAll("[data-tt]").forEach(b=>b.onclick=()=>{G.tb.tab=b.dataset.tt;G.tb.min=false;saveG();const bd=tb.querySelector("[data-tbody]");bd.scrollTop=0;bd.scrollLeft=0;paintTB()});
-  tb.querySelector("[data-tmin]").onclick=()=>{G.tb.min=!G.tb.min;saveG();paintTB()};
+  tb.querySelector("[data-tmin]").onclick=()=>{const bot=tb.getBoundingClientRect().bottom;G.tb.min=!G.tb.min;if(!G.tb.min)tb.style.height=Math.min(G.tb.h,innerHeight-80)+"px";paintTB();
+    /* como MT5: se encoge hacia abajo y crece hacia arriba, manteniendo el borde de abajo */
+    const t=Math.max(0,Math.min(innerHeight-36,bot-tb.offsetHeight));tb.style.top=t+"px";G.tb.y=t;saveG()};
   tb.querySelector("[data-tclose]").onclick=()=>{G.tb.open=false;saveG();tb.hidden=true};
   makeDrag(tb,tb.querySelector(".mt5-th"),(x,y)=>{G.tb.x=x;G.tb.y=y;saveG()});
   if(window.ResizeObserver){let t=0;new ResizeObserver(()=>{if(G.tb.min||tb.hidden)return;clearTimeout(t);t=setTimeout(()=>{G.tb.w=tb.offsetWidth;G.tb.h=tb.offsetHeight;saveG()},250)}).observe(tb)}
@@ -261,8 +263,12 @@ function buildTB(){tb=document.createElement("div");tb.className="mt5-tb";tb.inn
 const tfmt=s=>{if(!(+s>0))return"";const d=new Date(+s*1000);const p=v=>String(v).padStart(2,"0");return`${p(d.getDate())}.${p(d.getMonth()+1)} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`};
 const tdName=t=>({buy:"buy",sell:"sell"})[t]||(ORDN[t]||t).toLowerCase();
 function paintTB(){if(!tb||tb.hidden)return;const tab=G.tb.tab,a=(st&&st.account)||{},hide=S.cfg.hide,m=v=>hide?"••••":(+v).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2});
-  tb.classList.toggle("min",!!G.tb.min);tb.querySelectorAll("[data-tt]").forEach(b=>b.classList.toggle("on",b.dataset.tt===tab));
-  if(G.tb.min){tb.style.height="";return}if(!tb.style.height)tb.style.height=Math.min(G.tb.h,innerHeight-80)+"px";
+  tb.classList.toggle("min",!!G.tb.min);{const mb=tb.querySelector("[data-tmin]");mb.textContent=G.tb.min?"▢":"–";mb.title=G.tb.min?"Restaurar":"Minimizar"}tb.querySelectorAll("[data-tt]").forEach(b=>b.classList.toggle("on",b.dataset.tt===tab));
+  const ms=tb.querySelector("[data-tms]");
+  if(G.tb.min){tb.style.height="";const pf=+a.profit||0;
+    ms.innerHTML=st?`<span>Balance: <b>${m(a.balance)} ${esc(a.currency||"")}</b></span><span>Equidad: <b>${m(a.equity)}</b></span><span>Margen: <b>${m(a.margin)}</b></span><span>Margen libre: <b>${m(a.free_margin)}</b></span><span>Nivel de margen: <b>${+a.margin>0?(+a.margin_level).toFixed(2)+" %":"—"}</b></span><span>Flotante: <b class="${pf>=0?"t-up":"t-dn"}">${m(pf)}</b></span>`
+      :`<span>${online()?"…":"MT5 sin conexión"}</span>`;return}
+  ms.innerHTML="";if(!tb.style.height)tb.style.height=Math.min(G.tb.h,innerHeight-80)+"px";
   const body=tb.querySelector("[data-tbody]"),sum=tb.querySelector("[data-tsum]"),sc=body.scrollTop;
   if(tab==="pos"){const P=(st&&st.positions)||[],O=(st&&st.orders)||[];
     body.innerHTML=`<table class="mt5-tbl"><thead><tr><th>Símbolo</th><th>Ticket</th><th>Hora</th><th>Tipo</th><th>Volumen</th><th>Precio</th><th>S / L</th><th>T / P</th><th>Precio actual</th><th>Swap</th><th>Beneficio</th><th></th></tr></thead><tbody>
