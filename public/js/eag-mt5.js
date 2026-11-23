@@ -12,7 +12,7 @@ const norm=s=>String(s||"").toLowerCase().replace(/[^a-z0-9]/g,"");
 const FINAL={done:1,error:1,expired:1,unknown:1};
 
 let S=null,host=null,pollT=null,st=null,accs=[],tokInfo=null,newTok="",lastErr="",busy=false,confirmAsk=null,polling=false,openedOnce=false;
-let account=ls.get(LS_ACC,null);
+let account=ls.get(LS_ACC,null),manualPick=0;
 const cmds={},waiters={},watched={},map=ls.get(LS_MAP,{});
 const ui=Object.assign({type:"market",unit:"pts",lot:null,sl:"",tp:"",price:""},ls.get(LS_UI,{}),{sl:"",tp:"",price:""});
 const saveUi=()=>ls.set(LS_UI,{type:ui.type,unit:ui.unit,lot:ui.lot});
@@ -42,6 +42,8 @@ async function poll(){if(polling)return;polling=true;
   try{const r=await API().mt5Poll(account);accs=r.accounts||[];tokInfo=r.token||null;
     if(r.state&&(!account||String(r.state.login)===String(account)))st=r.state;else if(!r.state)st=null;
     if(!account&&st){account=String(st.login);ls.set(LS_ACC,account)}
+    {const me=accs.find(x=>String(x.login)===String(account)),on=accs.filter(x=>x.online);
+     if(on.length===1&&(!me||!me.online)&&!manualPick&&String(on[0].login)!==String(account)){account=String(on[0].login);ls.set(LS_ACC,account);st=null;toast("MT5: cambié a la cuenta conectada "+account)}}
     (r.commands||[]).forEach(c=>{const prev=cmds[c.id];cmds[c.id]=c;if(FINAL[c.status]&&(!prev||!FINAL[prev.status])&&waiters[c.id]){const w=waiters[c.id];delete waiters[c.id];w(c)}});
     lastErr="";ensureWatch()}
   catch(e){lastErr=e.message||"Sin conexión"}
@@ -100,16 +102,21 @@ function paint(){if(!host||!host.isConnected)return;const setup=!tokInfo||!tokIn
   paintAcc();paintQuote();paintPos();paintLog();host.querySelectorAll("[data-mbuy],[data-msell]").forEach(b=>b.disabled=busy||!online())}
 function paintAcc(){const el=host.querySelector("[data-macc]");if(!el)return;const a=st&&st.account||{},hide=S.cfg.hide,m=v=>hide?"••••":money(v);
   const real=a.trade_mode==="real";el.className="mt5-acc "+(real?"real":"demo");
-  el.innerHTML=`<div class="mt5-ah"><span class="mt5-dot ${online()?"on":""}"></span><b>${online()?"Conectado":"Sin conexión"}</b>
-      ${accs.length>1?`<select data-mpick>${accs.map(x=>`<option value="${esc(x.login)}"${String(x.login)===String(account)?" selected":""}>${esc(x.login)} · ${esc(x.trade_mode||"")}</option>`).join("")}</select>`:`<span class="mt5-lg">${esc(a.login||"")} · ${esc(a.trade_mode==="real"?"Real":a.trade_mode==="demo"?"Demo":(a.trade_mode||""))}</span>`}</div>
+  const old=el.querySelector("[data-mpick]"),keep=old&&(document.activeElement===old||old.dataset.k===accKey());
+  if(keep){const h=el.querySelector("[data-mstat]");h.className="mt5-dot "+(online()?"on":"");el.querySelector("[data-mstxt]").textContent=online()?"Conectado":"Sin conexión";
+    el.querySelectorAll("[data-mrest]").forEach(n=>n.remove());el.insertAdjacentHTML("beforeend",accRest(a,real,hide,m));if(document.activeElement!==old)old.value=String(account);return}
+  el.innerHTML=`<div class="mt5-ah"><span class="mt5-dot ${online()?"on":""}" data-mstat></span><b data-mstxt>${online()?"Conectado":"Sin conexión"}</b>
+      ${accs.length>1?`<select data-mpick data-k="${esc(accKey())}" aria-label="Cuenta de MT5">${accs.map(x=>`<option value="${esc(x.login)}"${String(x.login)===String(account)?" selected":""}>${esc(x.login)} · ${esc(x.trade_mode==="real"?"Real":x.trade_mode==="demo"?"Demo":(x.trade_mode||""))}${x.online?" ●":""}</option>`).join("")}</select>`:`<span class="mt5-lg">${esc(a.login||"")} · ${esc(a.trade_mode==="real"?"Real":a.trade_mode==="demo"?"Demo":(a.trade_mode||""))}</span>`}</div>`+accRest(a,real,hide,m);
+  const pk=el.querySelector("[data-mpick]");pk&&(pk.onchange=()=>{account=pk.value;ls.set(LS_ACC,account);manualPick=Date.now();st=null;poll()})}
+const accKey=()=>accs.map(x=>x.login+(x.online?"1":"0")+(x.trade_mode||"")).join("|");
+function accRest(a,real,hide,m){return `<div data-mrest>
     <div class="mt5-grid"><span><small>Balance</small><b>${m(a.balance)}</b></span><span><small>Equidad</small><b>${m(a.equity)}</b></span>
       <span><small>Flotante</small><b class="${+a.profit>=0?"t-up":"t-dn"}">${hide?"••••":(+a.profit>=0?"+":"")+money(a.profit)}</b></span>
       <span><small>Margen libre</small><b>${m(a.free_margin)}</b></span><span><small>Nivel margen</small><b>${+a.margin>0?Math.round(+a.margin_level)+"%":"—"}</b></span>
       <span><small>Hoy</small><b class="${st&&st.today&&+st.today.pnl>=0?"t-up":"t-dn"}">${st&&st.today?(hide?"••••":(+st.today.pnl>=0?"+":"")+money(st.today.pnl))+` <i>(${st.today.trades})</i>`:"—"}</b></span></div>
     ${real?`<div class="trd-warn">Cuenta REAL de MT5: es dinero de verdad.</div>`:""}
     ${st&&a.algo_trading===false?`<div class="trd-err">En MT5 está apagado <b>Algo Trading</b>: el EA no puede operar.</div>`:""}
-    ${st&&!online()?`<div class="trd-err">El EA no está enviando datos. Revisa que MT5 esté abierto con el EA en un gráfico.</div>`:""}`;
-  const pk=el.querySelector("[data-mpick]");pk&&(pk.onchange=()=>{account=pk.value;ls.set(LS_ACC,account);st=null;poll()})}
+    ${st&&!online()?`<div class="trd-err">Esta cuenta no está enviando datos. En MT5 tiene que estar abierta esta cuenta con el EA en un gráfico.</div>`:""}</div>`}
 function paintQuote(){const el=host&&host.querySelector("[data-mq]");if(!el)return;const n=mtSym(),i=symInfo(n);
   el.innerHTML=i?`<span class="t-dn">${fmtP(i.bid,n)}</span><span class="mt5-sp">${Math.round((+i.ask-+i.bid)/(+i.point||1))} pts</span><span class="t-up">${fmtP(i.ask,n)}</span>`
     :watched[n]==="x"?`<span class="trd-bad">“${esc(n)}” no existe en tu MT5. Escribe el nombre exacto abajo.</span>`:`<span class="mt5-mut">${online()?"Pidiendo cotización a MT5…":"—"}</span>`;
