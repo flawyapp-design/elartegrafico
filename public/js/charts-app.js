@@ -877,6 +877,7 @@ function start(){
   else{const cb=$("#clb");cb&&(cb.hidden=true)}
   /* Comunidad: chat privado y grupal, conectados, compartir gráfico y voz */
   if(window.EAGSocial&&API.chatSend){
+    if(window.EAGJournal)window.EAGJournal.init({SAVE,save,toast,onChange:()=>{try{TRK.paint()}catch(e){}}});
     if(window.EAGPip)window.EAGPip.init({btn:$("#pipb"),toast,panes:()=>panes.slice(0,visible()),active:()=>active});
     window.EAGSocial.init({API,toast,SAVE,save,btn:$("#chb"),host:main,isAdmin:()=>API.isAdmin(),
       panes:()=>panes.slice(0,visible()),active:()=>active,
@@ -939,37 +940,42 @@ function start(){
     const rk=()=>{const t=st();if(t.risk>0)return+t.risk;const u=riskUsd(RISK());return u>0?u:0};
     const money=v=>(v<0?"−":v>0?"+":"")+"US$ "+Math.abs(v).toLocaleString("en-US",{minimumFractionDigits:Math.abs(v)%1?2:0,maximumFractionDigits:2});
     const rTxt=v=>(v>0?"+":v<0?"−":"")+Math.abs(v)+"R";
+    const val=q=>q.v!=null?+q.v:q.r*q.u; /* antes se guardaba en R (r × u); ahora el monto en US$ */
     function place(){const t=st();if(!el)return;const W=innerWidth,H=innerHeight,w=el.offsetWidth||240,h=el.offsetHeight||200;
       let x=t.x==null?W-w-18:t.x,y=t.y==null?Math.max(70,H-h-90):t.y;x=Math.min(Math.max(6,x),W-w-6);y=Math.min(Math.max(6,y),H-h-6);el.style.left=x+"px";el.style.top=y+"px"}
-    function paint(){const t=st();if(!el)return;const O=t.ops,w=O.filter(q=>q.r>0).length,l=O.filter(q=>q.r<0).length,z=O.filter(q=>q.r===0).length;
-      const tot=O.reduce((a,q)=>a+q.r*q.u,0),tr=O.reduce((a,q)=>a+q.r,0),wr=w+l?Math.round(w/(w+l)*100):null,r=rk();
+    function paint(){const t=st();if(!el)return;const O=t.ops,w=O.filter(q=>val(q)>0).length,l=O.filter(q=>val(q)<0).length,z=O.filter(q=>val(q)===0).length;
+      const tot=O.reduce((a,q)=>a+val(q),0),wr=w+l?Math.round(w/(w+l)*100):null,r=rk();
       el.classList.toggle("big",!!t.big);
       el.querySelector("[data-tot]").textContent=O.length?money(tot):"US$ 0";
       el.querySelector("[data-tot]").className="trk-tot"+(tot>0?" tw":tot<0?" tl":"");
-      el.querySelector("[data-sub]").textContent=O.length?`${rTxt(+tr.toFixed(2))} · ${O.length} ${O.length===1?"operación":"operaciones"}${wr!=null?` · ${wr}% acierto`:""}`:"Sin operaciones todavía";
+      el.querySelector("[data-sub]").textContent=O.length?`${O.length} ${O.length===1?"operación":"operaciones"}${wr!=null?` · ${wr}% acierto`:""}`:"Sin operaciones todavía";
       el.querySelector("[data-w]").textContent=w;el.querySelector("[data-l]").textContent=l;el.querySelector("[data-z]").textContent=z;
-      el.querySelector("[data-seq]").innerHTML=O.slice(-14).map(q=>`<i class="${q.r>0?"tw":q.r<0?"tl":"tz"}" title="${rTxt(q.r)} · ${money(q.r*q.u)}"></i>`).join("");
+      el.querySelector("[data-seq]").innerHTML=O.slice(-14).map(q=>`<i class="${val(q)>0?"tw":val(q)<0?"tl":"tz"}" title="${money(val(q))}"></i>`).join("");
       const ri=el.querySelector("[data-risk]");if(document.activeElement!==ri)ri.value=r?String(+r.toFixed(2)):"";
-      el.querySelector("[data-rhint]").textContent=t.risk>0?"por operación":riskUsd(RISK())>0?"de tu calculadora":"escribe cuánto arriesgas";
-      el.querySelectorAll("[data-a]").forEach(b=>b.disabled=!r);
+      el.querySelector("[data-rhint]").textContent=t.risk>0?"lo que sumas o restas":riskUsd(RISK())>0?"de tu calculadora":"escribe el monto";
+      el.querySelectorAll("[data-a]").forEach(b=>b.disabled=!r&&b.dataset.a!=="0");
+      const jt=window.EAGJournal&&window.EAGJournal.today(),jd=el.querySelector("[data-jtoday]");if(jd)jd.innerHTML=jt&&jt.pnl!=null?`Hoy en el journal: <b class="${jt.pnl>0?"tw":jt.pnl<0?"tl":""}">${money(jt.pnl)}</b>`:"Abre el journal: calendario de tus días";
       el.querySelector("[data-undo]").disabled=!O.length;const rs=el.querySelector("[data-reset]");rs.disabled=!O.length;rs.textContent=sure?"¿Seguro?":"Reiniciar";rs.classList.toggle("sure",sure)}
     function build(){el=document.createElement("div");el.className="trk";el.innerHTML=`
       <div class="trk-h" data-drag><span class="trk-t">${'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M12 4v16"/></svg>'} Marcador</span>
-        <button data-size title="Tamaño grande / normal (para que se lea en el live)">A</button><button data-x title="Ocultar (vuelve con el botón del marcador, abajo a la izquierda del gráfico)">×</button></div>
+        <button data-jr title="Journal: calendario de PnL por día, semana, mes y año">📅</button><button data-size title="Tamaño grande / normal (para que se lea en el live)">A</button><button data-x title="Ocultar (vuelve con el botón del marcador, abajo a la izquierda del gráfico)">×</button></div>
       <div class="trk-tot" data-tot></div><div class="trk-sub" data-sub></div>
       <div class="trk-cnt"><span class="tw"><b data-w>0</b>Ganadas</span><span class="tz"><b data-z>0</b>En cero</span><span class="tl"><b data-l>0</b>Perdidas</span></div>
       <div class="trk-seq" data-seq></div>
-      <div class="trk-btn"><button data-a="-1" class="tl">−1</button><button data-a="0" class="tz">0</button><button data-a="1" class="tw">+1</button></div>
-      <div class="trk-f"><label>Riesgo US$ <input data-risk type="number" min="0" step="any" inputmode="decimal"></label><small data-rhint></small></div>
+      <div class="trk-f"><label>Monto US$ <input data-risk type="text" inputmode="decimal" placeholder="0"></label><small data-rhint></small></div>
+      <div class="trk-btn"><button data-a="-1" class="tl" title="Pérdida: resta el monto">− Perdí</button><button data-a="0" class="tz" title="En cero (break even)">0</button><button data-a="1" class="tw" title="Ganancia: suma el monto">+ Gané</button></div>
+      <button class="trk-jr" data-jopen data-jtoday></button>
       <div class="trk-act"><button data-undo>↶ Deshacer</button><button data-reset>Reiniciar</button></div>`;
       document.body.appendChild(el);
       el.addEventListener("pointerdown",e=>e.stopPropagation());
-      el.querySelectorAll("[data-a]").forEach(b=>b.onclick=()=>{const u=rk();if(!u)return;st().ops.push({r:+b.dataset.a,u,t:Date.now()});sure=false;save();paint()});
-      el.querySelector("[data-undo]").onclick=()=>{st().ops.pop();sure=false;save();paint()};
-      el.querySelector("[data-reset]").onclick=()=>{if(!sure){sure=true;clearTimeout(sureT);sureT=setTimeout(()=>{sure=false;paint()},3000);paint();return}sure=false;st().ops=[];save();paint();toast("Marcador en cero")};
+      el.querySelectorAll("[data-a]").forEach(b=>b.onclick=()=>{const a=+b.dataset.a,u=rk();if(a&&!u)return;const v=+(a*u).toFixed(2),t=Date.now();st().ops.push({v,t});sure=false;
+        window.EAGJournal&&window.EAGJournal.addOp(v,t);save();paint()});
+      el.querySelector("[data-undo]").onclick=()=>{const q=st().ops.pop();if(q&&window.EAGJournal)window.EAGJournal.removeOp(q.t);sure=false;save();paint()};
+      el.querySelector("[data-jr]").onclick=el.querySelector("[data-jopen]").onclick=()=>window.EAGJournal&&window.EAGJournal.toggle();
+      el.querySelector("[data-reset]").onclick=()=>{if(!sure){sure=true;clearTimeout(sureT);sureT=setTimeout(()=>{sure=false;paint()},3000);paint();return}sure=false;st().ops=[];save();paint();toast("Marcador en cero. El journal se queda igual.")};
       el.querySelector("[data-x]").onclick=()=>toggle(false);
       el.querySelector("[data-size]").onclick=()=>{const t=st();t.big=!t.big;save();paint();place()};
-      const ri=el.querySelector("[data-risk]");ri.oninput=()=>{const v=+ri.value;st().risk=v>0?v:null;save();paint()};ri.onblur=()=>paint();
+      const ri=el.querySelector("[data-risk]");ri.oninput=()=>{const v=Math.abs(parseFloat(ri.value.replace(",",".")));st().risk=v>0?v:null;save();paint()};ri.onblur=()=>paint();
       /* arrastrar desde la cabecera */
       const hd=el.querySelector("[data-drag]");let d=null;
       hd.addEventListener("pointerdown",e=>{if(e.target.closest("button"))return;d={x:e.clientX-el.offsetLeft,y:e.clientY-el.offsetTop};hd.setPointerCapture(e.pointerId);e.preventDefault()});

@@ -306,5 +306,6 @@ window.EAGMT5B={
   onOpen(){poll().then(schedule)},
   onChange(){confirmAsk=null;ensureWatch();paintQT();if(S.isOpen()&&S.cfg.broker==="mt5")rerender()},
   autoConnect(){if(ls.get(LS_ACC,null)||G.tb.open)poll().then(()=>{schedule();if(G.tb.open)openTB(true)})},
+  history:()=>st&&Array.isArray(st.history)?{login:st.login,server:st.server,name:st.name,currency:st.currency,deals:st.history.slice()}:null,
   _test:{state:()=>st,cmds:()=>cmds,poll}};
 })();
