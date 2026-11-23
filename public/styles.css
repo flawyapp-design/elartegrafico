@@ -1438,6 +1438,11 @@ nav.main .mnav-sw a.on{color:#1b1405!important;background:linear-gradient(180deg
 .dm-av .ondot{position:absolute;right:-1px;bottom:-1px}
 .onl{font-size:12px;color:var(--mut)}.onl.on{color:#22c55e;font-weight:600}
 .dm-it small.onl{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dm-memf{border:1px solid var(--gold);background:var(--card);border-radius:14px;padding:12px;margin:10px 0;display:grid;gap:8px}.dm-memf p{margin:0;font-size:13px}.dm-memf .row{gap:8px}
+.dm-memf .two{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}.dm-memf label{display:grid;gap:4px;min-width:0;font-size:13px}.dm-memf input:not([type=checkbox]){width:100%;min-width:0;box-sizing:border-box}.dm-memf label.chk{display:flex;align-items:center;gap:8px}
+.dm-ph-h{flex-wrap:wrap;row-gap:8px}#dmMem .btn,#dmEndH .btn{white-space:nowrap}
+@media (max-width:600px){.dm-ph-h .grow{flex-basis:100%;height:0}}
+.btn.mem-on{color:#22c55e;border-color:#22c55e}
 .dm-onl{border:1px solid var(--line);background:var(--card);border-radius:14px;padding:10px 10px 8px}
 .dm-onh{display:flex;align-items:center;gap:7px;font-size:13px;margin-bottom:8px}.dm-onh small{margin-left:auto;color:var(--mut);font-weight:700}
 .dm-onr{display:flex;gap:10px;overflow-x:auto;padding-bottom:4px;scrollbar-width:thin}
@@ -1454,7 +1459,7 @@ nav.main .mnav-sw a.on{color:#1b1405!important;background:linear-gradient(180deg
 .dm-back{display:none}
 .dm-quick{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
 .chipb{border:1px solid var(--line2);background:var(--bg);color:var(--fg);border-radius:999px;padding:6px 12px;font:inherit;font-size:13px;cursor:pointer}.chipb:hover{border-color:var(--gold)}
-@media (max-width:900px){.dm-adm{grid-template-columns:1fr}.dm-adm:has(.dm-ph-h) .dm-list{display:none}.dm-back{display:inline-flex}.chat{height:calc(100dvh - 300px)}}
+@media (max-width:900px){.dm-adm{grid-template-columns:minmax(0,1fr)}.dm-pane,.dm-list{min-width:0}.dm-quick{overflow-x:auto;flex-wrap:nowrap}.dm-quick .chipb{flex:none}.dm-adm:has(.dm-ph-h) .dm-list{display:none}.dm-back{display:inline-flex}.chat{height:calc(100dvh - 300px)}}
 .chat-page .chat{height:calc(100dvh - 330px);min-height:340px}
 :root[data-theme="light"] .msg.them .bub{background:#fff}
 .dm-it,.dm-it *{text-decoration:none!important}

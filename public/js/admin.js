@@ -105,13 +105,32 @@ async function chat(sel){
   if(!sel){P.innerHTML=`<div class="dm-ph">${ico("chat",34)}<b>Elige una conversación</b><span class="muted">Los alumnos solo pueden responder cuando tú les escribes primero. Les llega una notificación al celular.</span></div>`;return}
   let d=null;try{d=await API.adminDmThread(sel)}catch(e){P.innerHTML=`<div class="empty">${esc(e.message)}</div>`;return}
   const u=d.user||{};
-  P.innerHTML=`<header class="dm-ph-h"><a class="btn sm ghost dm-back" href="#admin-chat">←</a>${A.avatar?A.avatar(u,40):""}<div><b>${esc(u.username||"Alumno")} ${flagOf(u.country)}</b><small class="dim" id="dmSt">${onTag(sel)||(d.exists?"Conversación abierta":"Nueva conversación")}</small></div><span class="grow"></span>${d.exists?'<span id="dmEndH"><button class="btn sm bad" id="dmEnd">Finalizar y borrar</button></span>':""}</header>
-    <div class="dm-quick">${DM_QUICK().map(([t],i)=>`<button type="button" class="chipb" data-q="${i}">${esc(t)}</button>`).join("")}</div><div id="dmBox"></div>`;
+  P.innerHTML=`<header class="dm-ph-h"><a class="btn sm ghost dm-back" href="#admin-chat">←</a>${A.avatar?A.avatar(u,40):""}<div><b>${esc(u.username||"Alumno")} ${flagOf(u.country)}</b><small class="dim" id="dmSt">${onTag(sel)||(d.exists?"Conversación abierta":"Nueva conversación")}</small></div><span class="grow"></span><span id="dmMem"></span>${d.exists?'<span id="dmEndH"><button class="btn sm bad" id="dmEnd">Finalizar y borrar</button></span>':""}</header>
+    <div id="dmMemF" class="dm-memf" hidden></div><div class="dm-quick">${DM_QUICK().map(([t],i)=>`<button type="button" class="chipb" data-q="${i}">${esc(t)}</button>`).join("")}</div><div id="dmBox"></div>`;
   const box=A.chatBox($("#dmBox"),{load:()=>API.adminDmThread(sel),send:Object.assign(async v=>{const m=await API.dmSend(v,sel);
       if(API.sendPush)API.sendPush({title:"💬 Mensaje de El Arte Gráfico",body:(A.chatPreview?A.chatPreview(v):v).slice(0,140),url:(A.toMain?A.toMain("mensajes"):"https://elartegrafico.com/#mensajes"),user_id:sel,tag:"dm"}).catch(()=>{});
       if(!d.exists){d.exists=true;chat(sel)}else loadList();return m},{canStart:true}),me:"Tú",them:u.username||"Alumno",empty:"Escribe el primer mensaje. Le llegará una notificación."});
   $$("[data-q]").forEach(b=>b.onclick=()=>box.fill(DM_QUICK()[+b.dataset.q][1]));
   try{const pre=sessionStorage.getItem("ag_dm_pre");if(pre){sessionStorage.removeItem("ag_dm_pre");const o=JSON.parse(pre);if(o.u===sel)box.fill(o.t)}}catch(e){}
+  /* Miembro verificado a mano: aunque no haya enviado la solicitud (con ID de Deriv y nota opcionales) */
+  const memPaint=m=>{const h=$("#dmMem");if(!h||!API.adminMemberGet)return;
+    h.innerHTML=m.member?`<button class="btn sm mem-on" id="dmMemB" title="${esc(m.deriv_id&&m.deriv_id!=="MANUAL"?"ID de Deriv "+m.deriv_id:"Verificado a mano")}">✓ Miembro verificado</button>`
+      :`<button class="btn sm gold" id="dmMemB">${m.status==="pendiente"?"Verificar (tiene solicitud)":"Hacer miembro verificado"}</button>`;
+    $("#dmMemB").onclick=()=>{const f=$("#dmMemF");if(!f.hidden){f.hidden=true;return}f.hidden=false;
+      f.innerHTML=m.member?`<b>Quitar la verificación</b><p class="dim">Deja de ser miembro verificado (pierde los retos express, los puntos completos y el rol de Discord).</p>
+          <label>Motivo (opcional, lo ve en su perfil)<input id="mmN" maxlength="200" placeholder="Ej.: su cuenta ya no está con la comunidad"></label>
+          <div class="row"><button class="btn sm bad" id="mmGo">Quitar verificación</button><button class="btn sm ghost" id="mmX">Cancelar</button></div>`
+        :`<b>Hacer miembro verificado</b><p class="dim">Queda verificado al instante, aunque no haya enviado la solicitud.${m.status==="pendiente"&&m.deriv_id?` Su solicitud tiene el ID <b class="mono">${esc(m.deriv_id)}</b>.`:""}</p>
+          <div class="two"><label>ID de Deriv (opcional)<input id="mmD" maxlength="40" value="${esc(m.deriv_id&&m.deriv_id!=="MANUAL"?m.deriv_id:"")}" placeholder="CR1234567 o d-k3skg7d"></label><label>Nota (opcional)<input id="mmN" maxlength="200" placeholder="Ej.: verificado por llamada"></label></div>
+          <label class="chk"><input type="checkbox" id="mmM" checked> Poner en el chat el mensaje de "Verificado" para enviárselo</label>
+          <div class="row"><button class="btn sm gold" id="mmGo">Verificar ahora</button><button class="btn sm ghost" id="mmX">Cancelar</button></div>`;
+      $("#mmX").onclick=()=>{f.hidden=true};
+      $("#mmGo").onclick=async()=>{const on=!m.member,b=$("#mmGo");try{busy(b,true);const r=await API.adminMemberSet(sel,on,on?($("#mmD").value.trim()||null):null,$("#mmN").value.trim());
+          f.hidden=true;memPaint(r);toast(on?`${u.username||"El alumno"} ya es miembro verificado ✓`:"Verificación quitada");
+          if(on&&$("#mmM")&&$("#mmM").checked)box.fill(DM_QUICK().find(q=>q[0]==="Verificado")[1]);
+          const bd=document.querySelector('[data-badge="afiliados"]');if(bd&&API.adminAffiliates)API.adminAffiliates().then(l=>{const n=(l||[]).filter(x=>x.status==="pendiente").length;bd.textContent=n||"";bd.classList.toggle("on",!!n)}).catch(()=>{})}
+        catch(x){toast(/admin_member/.test(x.message)?"Falta correr supabase/verificar_manual.sql":x.message)}finally{const bb=$("#mmGo");if(bb)busy(bb,false)}}}};
+  if(API.adminMemberGet)API.adminMemberGet(sel).then(memPaint).catch(()=>{});
   const e=$("#dmEnd");if(e)e.onclick=()=>A.confirmInline($("#dmEndH"),"¿Borrar toda la conversación?",async()=>{try{if(API.chatImgClean)await API.chatImgClean(sel).catch(()=>0);await API.adminDmClose(sel);toast("Conversación finalizada y borrada");location.hash="#admin-chat"}catch(x){toast(x.message)}});
 }
 /* agrupa un formulario largo en tarjetas: cada <h3> abre una sección */

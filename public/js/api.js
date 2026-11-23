@@ -262,6 +262,7 @@ function SupabaseAPI(url,key){
     adminChallengeEntries(id){return rpc("admin_challenge_entries",{p_id:id})},
     adminAffiliates(){return rpc("admin_affiliates")},
     reviewAffiliate(uid,ok,note){return rpc("review_affiliate",{p_user:uid,p_ok:!!ok,p_note:note||""})},
+    adminMemberGet(u){return rpc("admin_member_get",{p_user:u})},adminMemberSet(u,on,deriv,note){return rpc("admin_member_set",{p_user:u,p_on:!!on,p_deriv:deriv||null,p_note:note||""})},
     publicProfile(u){return rpc("public_profile",{p_username:u})},
     adminAttention(){return rpc("admin_attention")},claimCertificate(c){return rpc("claim_certificate",{p_course:c})},myCertificates(){return rpc("my_certificates")},verifyCertificate(code){return rpc("verify_certificate",{p_code:code})},
     tryExercise(){return rpc("try_exercise")},async tryGrade(id){const r=await rpc("try_grade",{ex:id});if(r&&r.error)throw new Error(r.error);return r},
@@ -636,6 +637,12 @@ function LocalAPI(){
     async delChallenge(id){need();return rm("challenges",id)},
     async adminChallengeEntries(id){need();return(db.centries||[]).filter(e=>e.challenge_id===id).map(e=>{const p=db.profiles.find(x=>x.id===e.user_id)||{};return Object.assign({},e,{username:p.username,country:p.country})})},
     async adminAffiliates(){need();return(db.affiliates||[]).map(a=>{const p=db.profiles.find(x=>x.id===a.user_id)||{},u=db.users.find(x=>x.id===a.user_id)||{};return Object.assign({},a,{username:p.username,email:u.email,country:p.country,in_list:(db.ptier||{})[String(a.deriv_id).toUpperCase()]||null})})},
+    async adminMemberGet(u){need();reload();const p=db.profiles.find(x=>x.id===u)||{},a=(db.affiliates||[]).find(x=>x.user_id===u)||{};return{member:!!p.affiliate,status:a.status||null,deriv_id:a.deriv_id||null,note:a.admin_note||null}},
+    async adminMemberSet(u,on,deriv,note){need();reload();const p=db.profiles.find(x=>x.id===u);if(!p)throw new Error("Ese alumno no existe");const d=(deriv||"").replace(/\s/g,"").toUpperCase()||null;
+      db.affiliates=db.affiliates||[];let a=db.affiliates.find(x=>x.user_id===u);
+      if(on){if(!a){a={user_id:u,deriv_id:d||"MANUAL",created_at:now()};db.affiliates.push(a)}Object.assign(a,{deriv_id:d||a.deriv_id,status:"verificado",admin_note:note||"Verificado a mano por el admin",reviewed_at:now()})}
+      else if(a)Object.assign(a,{status:"rechazado",admin_note:note||"Verificación quitada por el admin",reviewed_at:now()});
+      p.affiliate=!!on;save();return this.adminMemberGet(u)},
     async reviewAffiliate(u,ok,note){need();const a=(db.affiliates||[]).find(x=>x.user_id===u);if(!a)throw new Error("Esa solicitud no existe");Object.assign(a,{status:ok?"verificado":"rechazado",admin_note:note||"",reviewed_at:now()});const p=db.profiles.find(x=>x.id===u);if(p)p.affiliate=!!ok;save()},
     async myWallet(){return null},
     async requestUsdWithdrawal(){throw new Error("Los retiros solo funcionan con la base de datos real.")},
