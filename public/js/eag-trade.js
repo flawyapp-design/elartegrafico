@@ -260,7 +260,7 @@ function paintPos(){if(!panel||panel.hidden)return;const box=panel.querySelector
 function render(){if(!panel||panel.hidden)return;const t=tok(),sym=symNow(),ci=cfInfo[sym]||{};
   const CT=window.EAGCT,isCT=CT&&cfg.broker==="ct",MT=window.EAGMT5B,isMT=MT&&cfg.broker==="mt5";
   const head=`<div class="trd-h"><b>Operar</b><span class="trd-tag">${O&&O.admin?"admin":"Deriv · Multiplicadores"}</span><span class="sp"></span>
-    <button class="trd-ic" data-hide title="${cfg.hide?"Mostrar saldo":"Ocultar saldo (para lives)"}">${cfg.hide?"🙈":"👁"}</button><button class="trd-ic" data-close title="Cerrar panel">×</button></div>
+    <button class="trd-ic${(()=>{try{return localStorage.getItem("eag_thist")==="1"}catch(e){return false}})()?" on":""}" data-thist title="Historial en el gráfico: flechas donde abriste y cerraste (como MT5)">🕘</button><button class="trd-ic" data-hide title="${cfg.hide?"Mostrar saldo":"Ocultar saldo (para lives)"}">${cfg.hide?"🙈":"👁"}</button><button class="trd-ic" data-close title="Cerrar panel">×</button></div>
     ${CT||MT?`<div class="trd-brk">${[CT&&["ct","cTrader · Lotes"],MT&&["mt5","MT5"],["dv","Deriv · Opciones"]].filter(Boolean).map(([k,t])=>`<button data-brk="${k}" class="${(cfg.broker===k||(k==="dv"&&!isCT&&!isMT))?"on":""}">${t}</button>`).join("")}</div>`:""}`;
   if(isCT){panel.innerHTML=head+`<div class="trd-b" data-ctb></div>`;bindHead();CT.render(panel.querySelector("[data-ctb]"));return}
   if(isMT){panel.innerHTML=head+`<div class="trd-b" data-mtb></div>`;bindHead();MT.render(panel.querySelector("[data-mtb]"));return}
@@ -316,7 +316,8 @@ setInterval(paintMg,1000);
 /* atajos de un clic (solo con el panel abierto y "Un clic" activo) */
 addEventListener("keydown",e=>{if(!panel||panel.hidden||cfg.broker!=="dv"||!cfg.oneClick||!e.shiftKey||e.ctrlKey||e.metaKey||e.altKey)return;const t=e.target;if(t&&t.closest&&t.closest("input,textarea,select,[contenteditable]"))return;
   const k=e.key.toLowerCase();if(k==="b"){e.preventDefault();buy("up",true)}else if(k==="s"){e.preventDefault();buy("dn",true)}});
-function bindHead(){const q=s=>panel.querySelector(s);
+function bindHead(){const q=s=>panel.querySelector(s);{const th=q("[data-thist]");if(th)th.onclick=()=>{let on=false;try{on=localStorage.getItem("eag_thist")!=="1";localStorage.setItem("eag_thist",on?"1":"0")}catch(e){}th.classList.toggle("on",on);
+    toast(on?"Historial en el gráfico: se ve en unos segundos (flechas donde abriste y cerraste).":"Historial del gráfico oculto.");window.dispatchEvent(new Event("eag-thist"))}}
   q("[data-close]").onclick=close;const h=q("[data-hide]");h&&(h.onclick=()=>{cfg.hide=!cfg.hide;saveCfg();render()});
   panel.querySelectorAll("[data-brk]").forEach(b=>b.onclick=()=>{cfg.broker=b.dataset.brk;saveCfg();confirmAsk=null;render();if(cfg.broker==="dv"&&tok()&&!ws&&!accounts.length)loadAccounts();if(cfg.broker==="mt5"&&window.EAGMT5B)window.EAGMT5B.onOpen()})}
 function bind(){const q=s=>panel.querySelector(s),qa=s=>panel.querySelectorAll(s);bindHead();
@@ -339,6 +340,17 @@ function bind(){const q=s=>panel.querySelector(s),qa=s=>panel.querySelectorAll(s
 /* al cambiar de mercado o de gráfico activo */
 function onChange(){if(ws)loadCF();syncLines();render()}
 
+/* Deriv: últimos contratos cerrados (profit_table) y, de los de este mercado, su precio de entrada y de salida (se guardan) */
+const dvH={list:null,at:0,poc:{}};
+async function dvHistory(tk,out){const n=Date.now();
+  if(!dvH.list||n-dvH.at>30000){const r=await send({profit_table:1,description:1,limit:50,sort:"DESC"});dvH.list=(r.profit_table&&r.profit_table.transactions)||[];dvH.at=n}
+  const mine=dvH.list.filter(t=>{const sc=String(t.shortcode||"");return sc.split("_")[1]===tk||sc.includes("_"+tk+"_")}).slice(0,30);
+  await Promise.all(mine.map(async t=>{const id=t.contract_id;if(!dvH.poc[id]){try{const r=await send({proposal_open_contract:1,contract_id:id});dvH.poc[id]=r.proposal_open_contract||null}catch(e){dvH.poc[id]=null}}}));
+  mine.forEach(t=>{const c=dvH.poc[t.contract_id];if(!c||!c.is_sold)return;const up=/UP|CALL/.test(c.contract_type||t.shortcode||"");
+    const oT=(+c.entry_tick_time||+c.date_start||+t.purchase_time)*1000,cT=(+c.exit_tick_time||+c.sell_time||+t.sell_time)*1000,oP=+(c.entry_spot||c.entry_tick),cP=+(c.exit_tick||c.sell_spot||c.current_spot);
+    if(!oT||!cT||!isFinite(oP)||!isFinite(cP))return;
+    out.push({id:"dv:"+t.contract_id,side:up?"buy":"sell",openT:oT,openP:oP,closeT:cT,closeP:cP,profit:+(+c.profit||(+t.sell_price-+t.buy_price)).toFixed(2),tag:"x"+(c.multiplier||"")})})}
+
 /* lo que comparte el panel con otros brokers (cTrader vive en eag-ctrader.js) */
 const SHARED={get O(){return O},cfg,saveCfg,toast,money,esc,fmtLot,symNow,chart:chartNow,lastPrice,syncLinesSoon,render:()=>render(),isOpen:()=>!!panel&&!panel.hidden,
   addBroker:(id,b)=>{BROKERS[id]=b},paintLines:()=>syncLines()};
@@ -350,6 +362,12 @@ window.EAGTrade={
     const ctHad=CT?await CT.handleCallback():false;if(ctHad){cfg.broker="ct";saveCfg();open();return}
     const had=await handleCallback();if(had){cfg.broker="dv";saveCfg();open();return}
     if(tok()&&ls.get(LS_ACC,null)!=null&&o.autoConnect)loadAccounts();if(CT&&o.autoConnect)CT.autoConnect()},
+  /* historial de operaciones cerradas de un mercado: Deriv (cuenta conectada) + MT5 (admin). Para dibujarlo en el gráfico. */
+  async history(tk){const out=[];let any=false;
+    const M=window.EAGMT5B;if(M&&M.historyFor){any=true;try{out.push(...M.historyFor(tk))}catch(e){}}
+    if(ws&&ws.readyState===1){any=true;try{await dvHistory(tk,out)}catch(e){}}
+    if(!any)throw new Error("Conecta tu cuenta en el panel Operar para ver tu historial en el gráfico.");
+    return out.sort((a,b)=>a.openT-b.openT)},
   open,close,onChange:()=>{onChange();window.EAGCT&&window.EAGCT.onChange();window.EAGMT5B&&window.EAGMT5B.onChange()},
   _test:{parseAccounts,onPoc,contracts:()=>contracts,lines:()=>lineMap,dragS:()=>drag}};
 })();

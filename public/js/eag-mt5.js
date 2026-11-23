@@ -306,6 +306,9 @@ window.EAGMT5B={
   onOpen(){poll().then(schedule)},
   onChange(){confirmAsk=null;ensureWatch();paintQT();if(S.isOpen()&&S.cfg.broker==="mt5")rerender()},
   autoConnect(){if(ls.get(LS_ACC,null)||G.tb.open)poll().then(()=>{schedule();if(G.tb.open)openTB(true)})},
+  /* operaciones cerradas de un mercado del gráfico (para el historial con flechas, como en MT5) */
+  historyFor:tk=>!st||!Array.isArray(st.history)?[]:st.history.filter(h=>tickerOf(h.symbol)===tk&&+h.open_time&&+h.time).map(h=>({id:"mt5:"+(h.deal||h.position),side:h.type==="sell"?"sell":"buy",
+    openT:+h.open_time*1000,openP:+h.open_price,closeT:+h.time*1000,closeP:+h.price,profit:+((+h.profit||0)+(+h.commission||0)+(+h.swap||0)).toFixed(2),tag:"MT5 "+S.fmtLot(h.volume)})),
   history:()=>st&&Array.isArray(st.history)?{login:st.login,server:st.server,name:st.name,currency:st.currency,deals:st.history.slice()}:null,
   _test:{state:()=>st,cmds:()=>cmds,poll}};
 })();

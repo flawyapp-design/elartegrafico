@@ -170,6 +170,14 @@ function registerAll(){
             if(y0-lh/2<4)y0=up?Math.min(y+h+8+lh/2,BH-tot):4+lh/2;if(y0+tot-lh/2>BH-4)y0=Math.max(4+lh/2,y-8-tot+lh/2);
             return lines.map((t,i)=>({type:"text",ignoreEvent:true,attrs:{x:cx,y:y0+i*lh,text:t,align:"center",baseline:"middle"},
               styles:{color:"#fff",size:11,weight:i?"500":"700",backgroundColor:col,paddingLeft:6,paddingRight:6,paddingTop:3,paddingBottom:3,borderRadius:4}}))})()]}});
+  /* Historial de operaciones (como MT5): flecha donde abriste, línea punteada y marca donde cerraste, con el resultado */
+  KC.registerOverlay({name:"eagTradeHist",totalStep:3,needDefaultPointFigure:false,needDefaultXAxisFigure:false,needDefaultYAxisFigure:false,lock:true,
+    createPointFigures:({overlay,coordinates})=>{if(coordinates.length<2)return[];const[a,b]=coordinates,ex=overlay.extendData||{},buy=ex.side!=="sell",col=buy?"#2962ff":"#f23645",win=(+ex.profit||0)>=0;
+      const tri=(c,up,fill)=>({type:"polygon",ignoreEvent:true,attrs:{coordinates:up?[{x:c.x,y:c.y-1},{x:c.x-6,y:c.y+9},{x:c.x+6,y:c.y+9}]:[{x:c.x,y:c.y+1},{x:c.x-6,y:c.y-9},{x:c.x+6,y:c.y-9}]},styles:{style:fill?"fill":"stroke",color:col,borderColor:col,borderSize:1.5}});
+      const F=[{type:"line",ignoreEvent:true,attrs:{coordinates:[a,b]},styles:{color:col,size:1.2,style:"dashed",dashedValue:[4,3]}},
+        tri({x:a.x,y:a.y+(buy?2:-2)},buy,true),tri({x:b.x,y:b.y+(buy?-2:2)},!buy,false)];
+      if(ex.label)F.push({type:"text",ignoreEvent:true,attrs:{x:b.x+8,y:b.y,text:ex.label,align:"left",baseline:"middle"},styles:{color:"#fff",size:10.5,weight:"600",backgroundColor:win?"rgba(8,153,129,.92)":"rgba(242,54,69,.92)",paddingLeft:5,paddingRight:5,paddingTop:2,paddingBottom:2,borderRadius:4}});
+      return F}});
   /* Texto */
   KC.registerOverlay({name:"eagText",totalStep:2,needDefaultPointFigure:false,needDefaultXAxisFigure:true,needDefaultYAxisFigure:true,
     createPointFigures:({overlay,coordinates})=>{const c=coordinates[0];if(!c)return[];const ex=overlay.extendData||{};
@@ -1263,6 +1271,21 @@ ${o.onTracker?`<button class="wtrk" title="Marcador de operaciones (ganadas, per
   /* ---------- clic derecho en el gráfico: menú como TradingView ---------- */
   let hovId=null,ovCtxAt=0;
   const pxV=v=>(+v).toLocaleString("en-US",{minimumFractionDigits:dec(),maximumFractionDigits:dec()});
+  /* ---------- historial de operaciones en el gráfico (clic derecho → Mostrar historial) ---------- */
+  const histOn=()=>{try{return localStorage.getItem("eag_thist")==="1"}catch(e){return false}};
+  const histSet=v=>{try{localStorage.setItem("eag_thist",v?"1":"0")}catch(e){}};
+  let histT=0,histK="";
+  function clearHist(){try{chart.removeOverlay({groupId:"eagTradeHist"})}catch(e){}histK=""}
+  async function paintHist(loud){if(!o.getTradeHistory||!sym)return;const tk=sym.ticker;let L=[];
+    try{L=await o.getTradeHistory(tk,sym)||[]}catch(e){if(loud&&o.onToast)o.onToast(e.message||"No se pudo traer el historial");return}
+    if(!histOn()||!sym||sym.ticker!==tk)return;
+    const k=tk+"|"+L.map(t=>t.id).join(",");if(k===histK&&!loud)return;clearHist();histK=k;
+    L.forEach(t=>{try{chart.createOverlay({name:"eagTradeHist",groupId:"eagTradeHist",lock:true,
+      points:[{timestamp:t.openT,value:+t.openP},{timestamp:t.closeT,value:+t.closeP}],
+      extendData:{side:t.side,profit:t.profit,label:(t.profit!=null?((+t.profit>=0?"+":"−")+"$"+Math.abs(+t.profit).toFixed(2)):"")+(t.tag?" · "+t.tag:"")}})}catch(e){}});
+    if(loud&&o.onToast)o.onToast(L.length?`Historial: ${L.length} ${L.length===1?"operación":"operaciones"} en ${sym.shortName||sym.name||tk}`:`No hay operaciones cerradas en ${sym.shortName||sym.name||tk} (en la cuenta conectada).`)}
+  addEventListener("eag-thist",()=>{if(histOn()){histT=Date.now();paintHist(false)}else clearHist()});
+  setInterval(()=>{if(!histOn()){if(histK)clearHist();return}if(document.hidden)return;const n=Date.now();if(sym&&(sym.ticker!==histK.split("|")[0]||n-histT>30000)){histT=n;paintHist(false)}},5000);
   function chartMenu(ev){const r=chartEl.getBoundingClientRect(),x=ev.clientX-r.left,y=ev.clientY-r.top;let c=null;
     try{c=chart.convertFromPixel([{x,y}],{paneId:"candle_pane"})[0]}catch(e){}let ya=null;try{ya=chart.getSize("candle_pane","main")}catch(e){}
     const inMain=!!(c&&isFinite(c.value)&&!(ya&&y>ya.height));
@@ -1282,6 +1305,7 @@ ${o.onTracker?`<button class="wtrk" title="Marcador de operaciones (ganadas, per
       item("list","list",`Lista de dibujos (${nOv})…`)+item("inds","fx",`Lista de indicadores (${nInd})…`)+
       item("hide",hidden?"eye":"eyeoff",hidden?"Mostrar los dibujos":"Ocultar los dibujos")+
       (nOv?item("clear","trash",`Borrar todos los dibujos de ${esc(nm)} (${nOv})`,"", "danger"):"")+`<div class="msep"></div>`+
+      (o.getTradeHistory?item("thist","list",histOn()?"✓ Historial de operaciones (ocultar)":"Mostrar historial de operaciones"):"")+`<div class="msep"></div>`+
       item("shot","cam","Captura del gráfico")+item("cfg","gear","Opciones de configuración…");
     document.body.appendChild(menu);
     menu.style.left=Math.max(8,Math.min(ev.clientX,innerWidth-menu.offsetWidth-8))+"px";menu.style.top=Math.max(safeTop()+8,Math.min(ev.clientY,innerHeight-menu.offsetHeight-8))+"px";
@@ -1297,6 +1321,7 @@ ${o.onTracker?`<button class="wtrk" title="Marcador de operaciones (ganadas, per
       else if(k==="hide"){const hb=dbar.querySelector('[data-x="hide"]');hb&&hb.click()}
       else if(k==="clear"){bulk=true;ovs.forEach((v2,id)=>{try{chart.removeOverlay(id)}catch(e){}});bulk=false;ovs.clear();selId=null;hideStyleBar();persist();syncPan();o.onToast&&o.onToast("Dibujos borrados · puedes deshacer con Ctrl+Z")}
       else if(k==="shot"){const sb=root.querySelector('[data-a="shot"]');sb&&sb.click()}
+      else if(k==="thist"){histSet(!histOn());if(histOn())paintHist(true);else{clearHist();o.onToast&&o.onToast("Historial de operaciones oculto")}}
       else if(k==="cfg")o.onSettings&&o.onSettings(root.querySelector('[data-a="cfg"]'))})}
   /* ---------- lista de dibujos (como la lista de objetos de MT5): ver, mostrar/ocultar, bloquear, editar y borrar uno por uno o varios ---------- */
   let olPos=null,olSel=new Set();
@@ -1570,7 +1595,7 @@ ${o.onTracker?`<button class="wtrk" title="Marcador de operaciones (ganadas, per
   loadData();
 
   return{chart,el:root,laser:on=>setLaser(on),laserOn:()=>laserOn,laserRemote,startTool:n=>{stopBrush();startTool(n)},stopBrush:()=>stopBrush(),startBrush:()=>startBrush(),undo,redo,renderAlerts,cancelDraw:()=>cancelDraw(),
-    getSymbol:()=>sym,setSymbol(s,p){if(!s||(sym&&s.ticker===sym.ticker&&s.pricePrecision===sym.pricePrecision))return;sym=s;if(p&&p.text)per=p;loadData();try{paintBar()}catch(e){}},
+    getSymbol:()=>sym,setSymbol(s,p){if(!s||(sym&&s.ticker===sym.ticker&&s.pricePrecision===sym.pricePrecision))return;if(sym&&s.ticker!==sym.ticker)clearHist();sym=s;if(p&&p.text)per=p;loadData();try{paintBar()}catch(e){}},
     getPeriod:()=>per,getData:()=>chart.getDataList(),getRaw:()=>RAW,
     refreshXform(){if(xfNow()!==XF||XF==="renko")loadData()},setPeriod(p){if(!p||p.text===per.text)return;per=p;loadData()},
     getTheme:()=>theme,setTheme(t){theme=t;applyStyles()},
