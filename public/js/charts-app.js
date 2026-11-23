@@ -689,6 +689,15 @@ function start(){
       const big=()=>{try{P.kc.setPeriod(per)}catch(e){}afterTF();box.classList.add("flyup");setTimeout(()=>box.classList.remove("flyup"),450)};box.querySelector(".mh").onclick=big;
       /* gesto: deslizar hacia arriba (o un toque simple) pasa esta temporalidad al gráfico grande */
       box.addEventListener("pointerdown",e=>{if(e.target.closest(".mh"))return;mtfG={box,big,x:e.clientX,y:e.clientY,t:Date.now()}},true)});
+    /* pantalla angosta (PC pequeño, celular): flechas ‹ › con cuántas temporalidades quedan escondidas a cada lado, como en las pestañas de mercados */
+    if(!inPane){const mk=(d,cls)=>{const h=document.createElement("span");h.className="mtfah "+cls;h.innerHTML=`<button type="button" class="mtfa" data-d="${d}" title="${d<0?"Temporalidades anteriores":"Más temporalidades"}"></button>`;return h};
+      const hl=mk(-1,"l"),hr=mk(1,"r");el.insertBefore(hl,el.querySelector(".mini"));el.appendChild(hr);
+      const arr=()=>{const over=el.scrollWidth>el.clientWidth+4;el.classList.toggle("over",over);if(!over)return;const R=el.getBoundingClientRect();let L=0,Rt=0;
+        M.minis.forEach(m=>{const r=m.box.getBoundingClientRect();if(r.right<=R.left+r.width*.5)L++;else if(r.left>=R.right-r.width*.5)Rt++});
+        const bl=hl.firstChild,br=hr.firstChild;bl.innerHTML=`‹${L?`<em>${L}</em>`:""}`;br.innerHTML=`›${Rt?`<em>${Rt}</em>`:""}`;bl.disabled=!L;br.disabled=!Rt};
+      [hl,hr].forEach(h=>h.firstChild.onclick=e=>{e.stopPropagation();el.scrollBy({left:+h.firstChild.dataset.d*el.clientWidth,behavior:"smooth"})});
+      [hl,hr].forEach(h=>h.firstChild.addEventListener("pointerdown",e=>e.stopPropagation()));
+      el.addEventListener("scroll",()=>requestAnimationFrame(arr),{passive:true});addEventListener("resize",()=>setTimeout(arr,200));setTimeout(arr,300);setTimeout(arr,1200)}
     mtfMark();relayout()}
   /* gesto de la multitemporalidad: un solo juego de escuchadores para todos los mini gráficos */
   let mtfG=null;
