@@ -954,6 +954,9 @@ function start(){
       const ri=el.querySelector("[data-risk]");if(document.activeElement!==ri)ri.value=r?String(+r.toFixed(2)):"";
       el.querySelector("[data-rhint]").textContent=t.risk>0?"lo que sumas o restas":riskUsd(RISK())>0?"de tu calculadora":"escribe el monto";
       el.querySelectorAll("[data-a]").forEach(b=>b.disabled=!r&&b.dataset.a!=="0");
+      {const ja=el.querySelector("[data-jadd]"),J=window.EAGJournal,ss=J&&t.sid&&J.sessionIn(t.sid),cur=+tot.toFixed(2),same=ss&&ss.v===cur&&ss.n===O.length;
+        ja.disabled=!O.length||!!same;ja.classList.toggle("done",!!same);
+        ja.innerHTML=!O.length?"📅 Agregar al journal":same?`✓ En el journal: ${money(cur)}`:ss?`📅 Actualizar journal (${money(cur)})`:`📅 Agregar al journal: ${money(cur)}`}
       const jt=window.EAGJournal&&window.EAGJournal.today(),jd=el.querySelector("[data-jtoday]");if(jd)jd.innerHTML=jt&&jt.pnl!=null?`Hoy en el journal: <b class="${jt.pnl>0?"tw":jt.pnl<0?"tl":""}">${money(jt.pnl)}</b>`:"Abre el journal: calendario de tus días";
       el.querySelector("[data-undo]").disabled=!O.length;const rs=el.querySelector("[data-reset]");rs.disabled=!O.length;rs.textContent=sure?"¿Seguro?":"Reiniciar";rs.classList.toggle("sure",sure)}
     function build(){el=document.createElement("div");el.className="trk";el.innerHTML=`
@@ -964,15 +967,17 @@ function start(){
       <div class="trk-seq" data-seq></div>
       <div class="trk-f"><label>Monto US$ <input data-risk type="text" inputmode="decimal" placeholder="0"></label><small data-rhint></small></div>
       <div class="trk-btn"><button data-a="-1" class="tl" title="Pérdida: resta el monto">− Perdí</button><button data-a="0" class="tz" title="En cero (break even)">0</button><button data-a="1" class="tw" title="Ganancia: suma el monto">+ Gané</button></div>
-      <button class="trk-jr" data-jopen data-jtoday></button>
+      <button class="trk-add" data-jadd></button><button class="trk-jr" data-jopen data-jtoday></button>
       <div class="trk-act"><button data-undo>↶ Deshacer</button><button data-reset>Reiniciar</button></div>`;
       document.body.appendChild(el);
       el.addEventListener("pointerdown",e=>e.stopPropagation());
-      el.querySelectorAll("[data-a]").forEach(b=>b.onclick=()=>{const a=+b.dataset.a,u=rk();if(a&&!u)return;const v=+(a*u).toFixed(2),t=Date.now();st().ops.push({v,t});sure=false;
-        window.EAGJournal&&window.EAGJournal.addOp(v,t);save();paint()});
-      el.querySelector("[data-undo]").onclick=()=>{const q=st().ops.pop();if(q&&window.EAGJournal)window.EAGJournal.removeOp(q.t);sure=false;save();paint()};
+      el.querySelectorAll("[data-a]").forEach(b=>b.onclick=()=>{const a=+b.dataset.a,u=rk();if(a&&!u)return;const v=+(a*u).toFixed(2),t=Date.now(),T=st();if(!T.ops.length||!T.sid)T.sid=String(t);T.ops.push({v,t});sure=false;save();paint()});
+      el.querySelector("[data-undo]").onclick=()=>{st().ops.pop();sure=false;save();paint()};
+      el.querySelector("[data-jadd]").onclick=()=>{const T=st(),J=window.EAGJournal;if(!J||!T.ops.length)return;if(!T.sid)T.sid=String(T.ops[0].t);
+        const tot=+T.ops.reduce((a,q)=>a+val(q),0).toFixed(2),r=J.setSession(T.sid,tot,T.ops.length);save();paint();
+        toast(`📅 Agregado al journal de hoy: ${money(tot)} (${T.ops.length} op).${r.man?" Ojo: ese día tiene un monto escrito a mano, que es el que se usa.":""}`)};
       el.querySelector("[data-jr]").onclick=el.querySelector("[data-jopen]").onclick=()=>window.EAGJournal&&window.EAGJournal.toggle();
-      el.querySelector("[data-reset]").onclick=()=>{if(!sure){sure=true;clearTimeout(sureT);sureT=setTimeout(()=>{sure=false;paint()},3000);paint();return}sure=false;st().ops=[];save();paint();toast("Marcador en cero. El journal se queda igual.")};
+      el.querySelector("[data-reset]").onclick=()=>{if(!sure){sure=true;clearTimeout(sureT);sureT=setTimeout(()=>{sure=false;paint()},3000);paint();return}sure=false;st().ops=[];st().sid=null;save();paint();toast("Marcador en cero. Lo que agregaste al journal se queda.")};
       el.querySelector("[data-x]").onclick=()=>toggle(false);
       el.querySelector("[data-size]").onclick=()=>{const t=st();t.big=!t.big;save();paint();place()};
       const ri=el.querySelector("[data-risk]");ri.oninput=()=>{const v=Math.abs(parseFloat(ri.value.replace(",",".")));st().risk=v>0?v:null;save();paint()};ri.onblur=()=>paint();

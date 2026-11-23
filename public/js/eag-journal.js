@@ -24,10 +24,12 @@ function J(){const S=X.SAVE;S.jrn=Object.assign({accts:[],cur:null,days:{},hide:
 const acct=()=>{const j=J();return j.accts.find(a=>a.id===j.cur)};
 const daysOf=(id)=>{const j=J();return j.days[id||j.cur]=j.days[id||j.cur]||{}};
 const dayGet=k=>daysOf()[k]||null;
-function dayPnl(d){if(!d)return null;if(d.pnl!=null&&d.pnl!=="")return+d.pnl;if(d.ops&&d.ops.length)return d.ops.reduce((a,o)=>a+(+o.v||0),0);return null}
-function dayN(d){if(!d)return 0;if(d.n!=null&&d.n!=="")return+d.n;return d.ops?d.ops.length:0}
+/* lo que llega solo: operaciones de MT5 (ops) y sesiones del Marcador (trk: {sesión: {v,n}}) */
+const autoList=d=>[...(d.ops||[]).map(o=>({v:+o.v||0,n:1})),...Object.values(d.trk||{})];
+function dayPnl(d){if(!d)return null;if(d.pnl!=null&&d.pnl!=="")return+d.pnl;const A=autoList(d);return A.length?+A.reduce((a,o)=>a+(+o.v||0),0).toFixed(2):null}
+function dayN(d){if(!d)return 0;if(d.n!=null&&d.n!=="")return+d.n;return autoList(d).reduce((a,o)=>a+(+o.n||0),0)}
 const has=d=>d&&(dayPnl(d)!=null||d.note||d.mood);
-function clean(k){const D=daysOf(),d=D[k];if(!d)return;if((d.pnl==null||d.pnl==="")&&!(d.ops&&d.ops.length)&&!d.note&&!d.mood&&d.plan==null&&(d.n==null||d.n===""))delete D[k]}
+function clean(k){const D=daysOf(),d=D[k];if(!d)return;if((d.pnl==null||d.pnl==="")&&!(d.ops&&d.ops.length)&&!(d.trk&&Object.keys(d.trk).length)&&!d.note&&!d.mood&&d.plan==null&&(d.n==null||d.n===""))delete D[k]}
 function save(){X.save();paintAll()}
 
 /* ---------- formato ---------- */
@@ -55,6 +57,9 @@ const totalAll=()=>stats(null,null).tot;
 
 /* ---------- operaciones desde el Marcador / MT5 ---------- */
 function addOp(v,t,extra){t=t||Date.now();const k=key(new Date(t)),D=daysOf();const d=D[k]=D[k]||{};d.ops=d.ops||[];d.ops.push(Object.assign({v:+v,t},extra||{}));X.save();paintAll();return k}
+/* botón "Agregar al journal" del Marcador: guarda el total de esa sesión en el día de hoy (si lo vuelves a tocar, se actualiza, no se duplica) */
+function setSession(sid,v,n){const k=today(),D=daysOf(),d=D[k]=D[k]||{};d.trk=d.trk||{};d.trk[sid]={v:+(+v).toFixed(2),n:+n||0,t:Date.now()};X.save();paintAll();return{k,man:d.pnl!=null&&d.pnl!==""}}
+const sessionIn=sid=>{const d=dayGet(today());return d&&d.trk&&d.trk[sid]||null};
 function removeOp(t){const D=daysOf();for(const k in D){const d=D[k];if(!d.ops)continue;const i=d.ops.findIndex(o=>o.t===t);if(i>=0){d.ops.splice(i,1);clean(k);X.save();paintAll();return true}}return false}
 function importMT5(){const h=window.EAGMT5B&&window.EAGMT5B.history&&window.EAGMT5B.history();
   if(!h||!h.deals.length){X.toast("Conecta MT5 (pestaña MT5 del panel Operar) para traer el historial. El EA manda los últimos días.");return}
@@ -193,20 +198,21 @@ function drawEq(cv){const s=view.scope,y=view.y,m=view.m;const [from,to]=s==="me
 const prevKey=k=>{const d=parse(k);d.setDate(d.getDate()-1);return key(d)};
 
 /* ---------- editar un día ---------- */
-function dayForm(k){const d=dayGet(k)||{},ops=d.ops||[],sum=ops.reduce((a,o)=>a+(+o.v||0),0),dt=parse(k),man=d.pnl!=null&&d.pnl!=="";
+function dayForm(k){const d=dayGet(k)||{},ops=d.ops||[],trk=Object.entries(d.trk||{}),A=autoList(d),sum=A.reduce((a,o)=>a+(+o.v||0),0),dt=parse(k),man=d.pnl!=null&&d.pnl!=="";
   const v=man?+d.pnl:null,sign=v!=null?(v<0?-1:1):(edit.sign||1);
   return `<div class="jr-nav"><button data-back aria-label="Volver">‹</button><b>${DIAL[dow(dt)]} ${dt.getDate()} de ${MES[dt.getMonth()]} ${dt.getFullYear()}</b></div>
   <div class="jr-form">
     <label class="jf-l">Resultado del día (US$)</label>
     <div class="jf-pnl"><div class="jr-seg big"><button data-sg="1" class="${sign>0?"on jw":""}">＋ Ganancia</button><button data-sg="-1" class="${sign<0?"on jl":""}">− Pérdida</button></div>
-      <input data-pnl type="text" inputmode="decimal" placeholder="${ops.length?Math.abs(sum).toFixed(2)+" (del marcador)":"0.00"}" value="${v!=null?Math.abs(v):""}" aria-label="Monto del día"></div>
-    ${ops.length?`<small class="jf-h">Del Marcador${ops.some(o=>o.src==="mt5")?" / MT5":""}: <b class="${cls(sum)}">${money(sum)}</b> en ${ops.length} op. ${man?"Estás usando tu monto; bórralo para usar el del marcador.":"Si escribes un monto, se usa el tuyo."}</small>`:""}
-    <div class="jf-row"><label class="jf-l">Operaciones<input data-n type="number" min="0" step="1" inputmode="numeric" placeholder="${ops.length||0}" value="${d.n!=null&&d.n!==""?d.n:""}"></label>
+      <input data-pnl type="text" inputmode="decimal" placeholder="${A.length?Math.abs(sum).toFixed(2):"0.00"}" value="${v!=null?Math.abs(v):""}" aria-label="Monto del día"></div>
+    ${A.length?`<small class="jf-h">${trk.length?"Del Marcador":""}${trk.length&&ops.length?" y ":""}${ops.length?"de MT5":""}: <b class="${cls(sum)}">${money(sum)}</b> en ${A.reduce((a,o)=>a+(+o.n||0),0)} op. ${man?"Estás usando tu monto; bórralo para usar el del marcador.":"Si escribes un monto, se usa el tuyo."}</small>`:""}
+    <div class="jf-row"><label class="jf-l">Operaciones<input data-n type="number" min="0" step="1" inputmode="numeric" placeholder="${A.reduce((x,o)=>x+(+o.n||0),0)}" value="${d.n!=null&&d.n!==""?d.n:""}"></label>
       <div><span class="jf-l">¿Cómo te sentiste?</span><div class="jr-seg">${MOODS.map(([k2,e,t])=>`<button data-mood="${k2}" class="${d.mood===k2?"on":""}" title="${t}">${e} ${t}</button>`).join("")}</div></div></div>
     <div><span class="jf-l">¿Seguiste tu plan?</span><div class="jr-seg">${[[true,"Sí"],[false,"No"]].map(([b,t])=>`<button data-plan="${b}" class="${d.plan===b?"on "+(b?"jw":"jl"):""}">${t}</button>`).join("")}</div></div>
     <label class="jf-l">Notas del día<textarea data-note rows="4" placeholder="Qué viste, por qué entraste, qué aprendiste, errores…">${esc(d.note||"")}</textarea></label>
+    ${trk.length?`<details class="jf-ops" open><summary>Sesiones del Marcador (${trk.length})</summary>${trk.map(([sid,o])=>`<div><span>${new Date(o.t||+sid).toLocaleTimeString("es-CO",{hour:"2-digit",minute:"2-digit"})} · ${o.n} op</span><b class="${cls(o.v)}">${money(o.v)}</b><button data-deltrk="${esc(sid)}" aria-label="Quitar sesión">✕</button></div>`).join("")}</details>`:""}
     ${ops.length?`<details class="jf-ops"><summary>Operaciones registradas (${ops.length})</summary>${ops.map(o=>`<div><span>${new Date(o.t).toLocaleTimeString("es-CO",{hour:"2-digit",minute:"2-digit"})}${o.sym?" · "+esc(o.sym):""}${o.src==="mt5"?" · MT5":""}</span><b class="${cls(o.v)}">${money(o.v)}</b><button data-delop="${o.t}" aria-label="Borrar operación">✕</button></div>`).join("")}</details>`:""}
-    <div class="jf-act"><button class="jr-btn pri" data-savek>Guardar día</button>${has(d)||ops.length?`<button class="jr-btn bad" data-delk>${edit.sure?"¿Borrar todo el día?":"Borrar día"}</button>`:""}</div>
+    <div class="jf-act"><button class="jr-btn pri" data-savek>Guardar día</button>${has(d)||A.length?`<button class="jr-btn bad" data-delk>${edit.sure?"¿Borrar todo el día?":"Borrar día"}</button>`:""}</div>
   </div>`}
 function acctForm(){const nu=edit.acct==="new",a=nu?{name:"",start:""}:acct();
   return `<div class="jr-nav"><button data-back aria-label="Volver">‹</button><b>${nu?"Nueva cuenta":"Editar cuenta"}</b></div>
@@ -235,6 +241,7 @@ function bind(c){const q=s=>c.querySelector(s),qa=s=>c.querySelectorAll(s);
       qa("[data-sg]").forEach(x=>{const on=+x.dataset.sg===edit.sign;x.className=on?"on "+(edit.sign>0?"jw":"jl"):""});i.focus()});
     qa("[data-mood]").forEach(b=>b.onclick=()=>{const d=cur();d.mood=d.mood===b.dataset.mood?null:b.dataset.mood;qa("[data-mood]").forEach(x=>x.classList.toggle("on",x.dataset.mood===d.mood))});
     qa("[data-plan]").forEach(b=>b.onclick=()=>{const d=cur(),v=b.dataset.plan==="true";d.plan=d.plan===v?null:v;qa("[data-plan]").forEach(x=>{const on=d.plan===(x.dataset.plan==="true");x.className=on?"on "+(d.plan?"jw":"jl"):""})});
+    qa("[data-deltrk]").forEach(b=>b.onclick=()=>{const d=cur();if(d.trk)delete d.trk[b.dataset.deltrk];X.save();paint()});
     qa("[data-delop]").forEach(b=>b.onclick=()=>{const d=cur();d.ops=(d.ops||[]).filter(o=>String(o.t)!==b.dataset.delop);X.save();paint()});
     q("[data-savek]").onclick=()=>{const d=cur(),i=q("[data-pnl]"),v=num(i.value);const sg=edit.sign||(d.pnl!=null&&+d.pnl<0?-1:1);
       d.pnl=v==null?null:+(sg*Math.abs(v)).toFixed(2);const n=q("[data-n]").value;d.n=n===""?null:Math.max(0,parseInt(n,10)||0);
@@ -272,6 +279,6 @@ function toggle(on,dayK){const j=J();j.open=on==null?!j.open:!!on;X.save();
     el.hidden=false;paint();place()}else if(el){el.hidden=true;edit=null}
   document.querySelectorAll(".wjr").forEach(b=>b.classList.toggle("on",j.open))}
 
-window.EAGJournal={init(o){X=o;J();if(J().open)setTimeout(()=>toggle(true),700)},toggle,open:k=>toggle(true,k),
-  addOp,removeOp,today:()=>{const d=dayGet(today());return{pnl:dayPnl(d),n:dayN(d)}},importMT5,_stats:stats,_J:J};
+window.EAGJournal={init(o){X=o;const j=J();for(const a in j.days)for(const k in j.days[a]){const d=j.days[a][k];if(d.ops){d.ops=d.ops.filter(op=>op.src);if(!d.ops.length)delete d.ops}}if(J().open)setTimeout(()=>toggle(true),700)},toggle,open:k=>toggle(true,k),
+  addOp,removeOp,setSession,sessionIn,today:()=>{const d=dayGet(today());return{pnl:dayPnl(d),n:dayN(d)}},importMT5,_stats:stats,_J:J};
 })();
