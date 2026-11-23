@@ -21,7 +21,10 @@ const load=()=>{try{return JSON.parse(localStorage.getItem(LS)||"{}")||{}}catch(
 const SAVE=load();
 /* la vista se guarda aparte en celular y en PC: lo que acomodas en uno no le cambia el otro
    (barras visibles, diseño, tamaños, posiciones, tamaño de letra de la regla). Lo demás (dibujos, favoritos, colores) sí se comparte. */
-const DEV=(innerWidth<=900||(window.matchMedia&&matchMedia("(hover:none) and (pointer:coarse)").matches))?"cel":"pc";
+/* celular o PC según el APARATO (pantalla táctil sin mouse, o navegador de celular), no por el ancho de la ventana:
+   un PC con la ventana pequeña (para el live) sigue siendo PC y puede agrandar la regla de precios y todo lo demás */
+const DEV=((window.matchMedia&&matchMedia("(hover:none) and (pointer:coarse)").matches)||/Android|iPhone|iPod|Mobile/i.test(navigator.userAgent))?"cel":"pc";
+window.__eagDev=DEV;
 const VIEWK=["hide","layout","split","wlw","mtfh","mtfTop","wlLeft","fabPos","ftPos","tfavVert","dbRight","pmh","link"],VIEWC=["font","wmSize"],VIEWS=["hp","pp","hs"];
 const dvKey=()=>DEV+"|"+((SAVE.prof&&SAVE.prof.cur)||"p1");   /* cada perfil (Operativa/Análisis) tiene su vista en celular y en PC */
 function devSnap(){if(window.__noSnap)return;const d={};VIEWK.forEach(k=>{if(SAVE[k]!==undefined)d[k]=JSON.parse(JSON.stringify(SAVE[k]))});d.cfg={};VIEWC.forEach(k=>{if(SAVE.cfg&&SAVE.cfg[k]!==undefined)d.cfg[k]=SAVE.cfg[k]});
@@ -317,7 +320,7 @@ function start(){
   const PARTS=[["top","Barra superior"],["pb","Barra de temporalidades y herramientas"],["bb","Barra inferior (rangos, reloj y escala)"],["db","Barra de dibujo"],["tf","Barra flotante de dibujos favoritos"],["ft","Pestañas de mercados favoritos"],["wl","Lista de mercados"]];
   SAVE.hide=SAVE.hide&&typeof SAVE.hide==="object"?SAVE.hide:{};
   /* en celular la barra flotante de favoritos arranca oculta (se activa en Configuración → Barras) */
-  if(innerWidth<=900&&SAVE.hide.tf===undefined)SAVE.hide.tf=true;
+  if(DEV==="cel"&&SAVE.hide.tf===undefined)SAVE.hide.tf=true;
   function applyHide(){PARTS.forEach(([k])=>appw.classList.toggle("h-"+k,!!SAVE.hide[k]));if(window.__tfavR)window.__tfavR();relayout();setTimeout(()=>{try{placeFab()}catch(e){}},60)}
   const allHidden=()=>PARTS.every(([k])=>SAVE.hide[k]);
   function openVista(anchor){
@@ -629,7 +632,7 @@ function start(){
   const visible=()=>(LAYS.find(l=>l[0]===lay)||LAYS[0])[1];
   let lay=SAVE.layout&&LAYS.some(l=>l[0]===SAVE.layout)?SAVE.layout:"mtf";   /* por defecto abre en Multitemporalidad (la novedad) */
   function setLayout(k){
-    if(mobile()&&!["l1","l2v","mtf"].includes(k))k="l1";
+    if(DEV==="cel"&&!["l1","l2v","mtf"].includes(k))k="l1";
     lay=k;SAVE.layout=k;save();const n=visible();
     grid.className="grid "+k;appw.classList.toggle("multi",n>1);
     while(panes.length<n)panes.push(makePane(panes.length));
@@ -724,7 +727,7 @@ function start(){
     M.minis.forEach(m=>{const on=m.t===cur;m.box.classList.toggle("on",on);m.box.querySelector("em").textContent=on?"●":""})})}
   /* qué gráficos llevan su propia tira: en Multi-TF el 0; en 2 gráficos los que el usuario active */
   /* Multi-TF dentro de cada gráfico: solo con 2 gráficos y solo en pantallas grandes (en celular no cabe y se ve feo) */
-  const stripAllowed=()=>(lay==="l2"||lay==="l2v")&&!mobile();
+  const stripAllowed=()=>(lay==="l2"||lay==="l2v")&&DEV!=="cel";
   {let rsT=null,wasM=mobile();addEventListener("resize",()=>{clearTimeout(rsT);rsT=setTimeout(()=>{const m=mobile();if(m!==wasM){wasM=m;try{syncStrips()}catch(e){}}},250)})}
   function syncStrips(){Object.keys(MTFS).forEach(k=>{k=+k;const want=lay==="mtf"?k===0:(stripAllowed()&&k<visible()&&!!(SAVE.panes[k]||{}).mtf);if(!want)destroyMTF(k)});
     if(lay==="mtf"){if(!MTFS[0]||MTFS[0].el.classList.contains("pstrip"))buildMTF(0)}
@@ -1352,6 +1355,6 @@ function start(){
   window.__tfavR=()=>{appw.classList.toggle("has-tfav",SAVE.toolFav.length>0);tfav.style.display=SAVE.toolFav.length&&!SAVE.hide.tf?"":"none";requestAnimationFrame(placeTfav)};
   applyHide();applyCfg();applyLayoutPrefs();setLayout(lay);renderToolFav();setTab(tab);renderTabs();
   ready.then(()=>{setTab(tab);renderTabs();panes.forEach(p=>{try{const t=p.kc.getSymbol().ticker;if(bySym[t]&&info(bySym[t]).pricePrecision!==p.kc.getSymbol().pricePrecision)p.kc.setSymbol(info(bySym[t]))}catch(e){}})});
-  addEventListener("resize",()=>{if(mobile()&&!["l1","l2v","mtf"].includes(lay))setLayout("l1")});
+  addEventListener("resize",()=>{if(DEV==="cel"&&!["l1","l2v","mtf"].includes(lay))setLayout("l1")});
 }
 })();
