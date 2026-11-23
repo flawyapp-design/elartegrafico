@@ -19,7 +19,7 @@ let share=null;   /* {room,with,peers:{id:{name,color,sym,tf,boards,laser,at}},l
 let call=null;    /* {room,kind:'dm'|'group',with,peers:{id:{pc,name,audio,an}},stream,muted,t0} */
 let ringing=null; /* llamada entrante */
 
-const cfg=()=>{X.SAVE.soc=Object.assign({snd:true,psnd:true,vol:60,hidden:false,bub:true,head:true,hp:null,hs:56},X.SAVE.soc||{});return X.SAVE.soc};
+const cfg=()=>{X.SAVE.soc=Object.assign({snd:true,psnd:true,grpRing:true,vol:60,hidden:false,bub:true,head:true,hp:null,hs:56},X.SAVE.soc||{});return X.SAVE.soc};
 const RX=["👍","🔥","😂","😮","🙏","💰","📈","📉","❤️"];
 const dmRoom=id=>{const a=[ME.id,id].sort();return"dm:"+a[0]+":"+a[1]};
 const otherOf=room=>room&&room.startsWith("dm:")?room.split(":").slice(1).find(x=>x!==ME.id):null;
@@ -165,6 +165,7 @@ function paintPanel(){if(!panel)return;{const of=panel.querySelector("[data-find
      <div class="sp-hsbox"><span class="shead sp-hsprev" style="--hs:${hsz()}px"><span class="sh-ic"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/></svg></span><em>2</em></span><small>Así se verá</small></div>
      <label class="sp-ck"><input type="checkbox" data-c="bub"${cfg().bub?" checked":""}><span><b>Avance del mensaje</b><small>Junto a la burbuja sale unos segundos quién te escribió y qué dijo.</small></span></label>
      <label class="sp-ck"><input type="checkbox" data-c="snd"${cfg().snd?" checked":""}><span><b>Sonidos del chat</b><small>Al recibir y enviar mensajes, menciones, reacciones y llamadas.</small></span></label>
+     <label class="sp-ck"><input type="checkbox" data-c="grpRing"${cfg().grpRing?" checked":""}><span><b>Avisos de llamadas grupales</b><small>Timbre y aviso grande cuando alguien abre la llamada del grupo. Apagado: solo sale un aviso pequeño, sin sonido.</small></span></label>
      <label class="sp-ck"><input type="checkbox" data-c="psnd"${cfg().psnd?" checked":""}><span><b>Sonidos de la plataforma</b><small>Toquecitos suaves al terminar un dibujo y al entrar o salir de un gráfico compartido.</small></span></label>
      <div class="sp-vol">🎤 Micrófono <span class="sp-lvl"><i></i></span><button class="btn sm" data-mic>Probar micrófono</button></div>
      <label class="sp-vol">🔊 Volumen <input type="range" min="10" max="100" step="5" value="${cfg().vol}" data-vol><button class="btn sm" data-tst>Probar</button></label>
@@ -404,15 +405,17 @@ let shBar=null;
 function paintShareBar(){if(!share&&!call){if(shBar){shBar.remove();shBar=null}return}
   if(!shBar){shBar=document.createElement("div");shBar.className="sbar";document.body.appendChild(shBar)}
   const ps=share?Object.keys(share.peers).map(id=>Object.assign({id},share.peers[id])):[];
-  const cps=call?Object.keys(call.peers).map(id=>({id,name:call.peers[id].name})):[];
+  const cps=call?Object.keys(call.peers).map(id=>({id,name:call.peers[id].name,off:!!call.peers[id].off})):[];
   const tsec=call?Math.floor((Date.now()-call.t0)/1000):0;
   shBar.innerHTML=`${share?`<div class="sb-r"><span class="sb-ic">📡</span><span class="sb-t">${ps.length?ps.map(p=>`<b style="color:${p.color}">${esc(p.name||"Invitado")}</b>${p.symName?` <small>en ${esc(p.symName)}${p.tf?" · "+esc(p.tf):""}</small> <button class="sb-go" data-go="${esc(p.id)}" title="Ir a su mercado y temporalidad">Ir</button>`:""}`).join(" · "):"<small>Esperando a que se conecte…</small>"}</span><button class="sb-x" data-lsh title="Dejar de compartir">Salir</button></div>`:""}
-  ${call?`<div class="sb-r"><span class="sb-ic">${call.kind==="group"?"🎙":"📞"}</span><span class="sb-t">${cps.length?cps.map(p=>`<b class="vpeer" data-vp="${esc(p.id)}">${esc(p.name||"…")}</b>`).join(" · "):"<small>Llamando…</small>"} <small>${Math.floor(tsec/60)}:${String(tsec%60).padStart(2,"0")}</small></span>
-    <button class="sb-go${call.muted?" on":""}" data-mute title="${call.muted?"Activar micrófono":"Silenciar micrófono"}">${call.muted?"🔇":"🎤"}</button><button class="sb-x bad" data-hang title="Colgar">Colgar</button></div>`:""}`;
+  ${call?`<div class="sb-r"><span class="sb-ic">${call.kind==="group"?"🎙":"📞"}</span><span class="sb-t">${cps.length?cps.map(p=>`<button class="vpeer${p.off?" off":""}" data-vp="${esc(p.id)}" title="${p.off?"Volver a escuchar":"Silenciar"} a ${esc(p.name||"esta persona")} (solo para ti)">${p.off?"🔇 ":""}${esc(p.name||"…")}</button>`).join(" · "):"<small>Llamando…</small>"} <small>${Math.floor(tsec/60)}:${String(tsec%60).padStart(2,"0")}</small></span>
+    <button class="sb-go${call.muted?" on":""}" data-mute title="${call.muted?"Activar mi micrófono":"Silenciar mi micrófono"}">${call.muted?"🔇 Silenciado":"🎤"}</button>${call.kind==="group"&&X.isAdmin()&&cps.length?`<button class="sb-go" data-muteall title="Silencia el micrófono de todos; cada uno puede volver a activarlo">🔇 Todos</button>`:""}<button class="sb-x bad" data-hang title="Colgar">Colgar</button></div>`:""}`;
   shBar.querySelectorAll("[data-go]").forEach(b=>b.onclick=()=>{const pr=share&&share.peers[b.dataset.go];if(pr&&pr.sym)X.follow(pr.sym,pr.tf)});
   const l=shBar.querySelector("[data-lsh]");l&&(l.onclick=()=>leaveShare());
   const mu=shBar.querySelector("[data-mute]");mu&&(mu.onclick=()=>{call.muted=!call.muted;call.stream&&call.stream.getAudioTracks().forEach(t=>t.enabled=!call.muted);paintShareBar()});
-  const hg=shBar.querySelector("[data-hang]");hg&&(hg.onclick=()=>hangup())}
+  const hg=shBar.querySelector("[data-hang]");hg&&(hg.onclick=()=>hangup());
+  shBar.querySelectorAll("[data-vp]").forEach(b=>b.onclick=()=>{const pr=call&&call.peers[b.dataset.vp];if(!pr)return;pr.off=!pr.off;if(pr.audio)pr.audio.muted=pr.off;paintShareBar()});
+  const ma=shBar.querySelector("[data-muteall]");ma&&(ma.onclick=()=>{cast(call.room,"v-muteall",{});X.toast("Silenciaste a todos. Cada uno puede volver a activar su micrófono.")})}
 
 /* ===================== voz (WebRTC) ===================== */
 function ice(){const s=(window.__site0||{});const L=[{urls:["stun:stun.l.google.com:19302","stun:stun1.l.google.com:19302"]}];
@@ -475,7 +478,7 @@ async function enterVoice(room,kind,chatRoom){const stream=await getMic();if(!st
 function newPC(id,name){const pc=new RTCPeerConnection({iceServers:ice()});const pr=call.peers[id]=Object.assign(call.peers[id]||{},{pc,name,at:Date.now()});
   call.stream.getTracks().forEach(t=>pc.addTrack(t,call.stream));
   pc.onicecandidate=e=>{if(e.candidate&&call)cast(call.room,"v-ice",{to:id,c:e.candidate.toJSON?e.candidate.toJSON():e.candidate})};
-  pc.ontrack=e=>{let a=pr.audio;if(!a){a=pr.audio=new Audio();a.autoplay=true;a.playsInline=true}a.srcObject=e.streams[0];a.play().catch(()=>{});
+  pc.ontrack=e=>{let a=pr.audio;if(!a){a=pr.audio=new Audio();a.autoplay=true;a.playsInline=true}a.srcObject=e.streams[0];a.muted=!!pr.off;a.play().catch(()=>{});
     try{actx=actx||new(window.AudioContext||window.webkitAudioContext)();const src=actx.createMediaStreamSource(e.streams[0]);const an=actx.createAnalyser();an.fftSize=256;src.connect(an);pr.an=an}catch(x){}};
   pc.onconnectionstatechange=()=>{if(!call)return;if(pc.connectionState==="connected"){stopRingOut();SND.play("join",true);paintShareBar()}
     if(pc.connectionState==="failed"){X.toast(`No se pudo conectar el audio con ${esc(name||"esa persona")} (su red lo bloquea).`);dropPeer(id)}};
@@ -483,6 +486,7 @@ function newPC(id,name){const pc=new RTCPeerConnection({iceServers:ice()});const
 async function onSignal(ev,p){if(!call||!p.from||p.from===ME.id)return;const id=p.from;
   if(ev==="v-hb"){if(call.peers[id])call.peers[id].at=Date.now();return}
   if(ev==="v-leave"){dropPeer(id);return}
+  if(ev==="v-muteall"){if(!call.muted){call.muted=true;call.stream&&call.stream.getAudioTracks().forEach(t=>t.enabled=false);paintShareBar()}X.toast("🔇 "+(p.fname||"El profe")+" silenció los micrófonos. Toca 🔇 para volver a hablar.");return}
   if(p.to&&p.to!==ME.id)return;
   if(ev==="v-join"){const ex=call.peers[id];if(ex&&ex.pc&&!["failed","closed"].includes(ex.pc.connectionState))return;if(ex)dropPeer(id,true);
     if(Object.keys(call.peers).length>=VMAX-1){cast(call.room,"v-full",{to:id});return}
@@ -510,17 +514,19 @@ function tone(f,dur,vol){try{actx=actx||new(window.AudioContext||window.webkitAu
 function ringBox(m,o){stopRing();ringing={room:o.room,chat:m.room,name:m.username||nameOf(m.sender),from:m.sender,group:!!o.group};
   const el=document.createElement("div");el.className="sring"+(o.group?" grp":"");el.setAttribute("role","alertdialog");el.setAttribute("aria-label",o.title);
   el.innerHTML=`<div class="sr-av">${av({id:m.sender,username:ringing.name,avatar_url:m.avatar_url})}</div><div class="sr-t"><small>${esc(o.title)}</small><b>${esc(ringing.name)}</b><span>${esc(o.sub)}</span></div>
-    <div class="sr-b"><button class="sr-no" data-r>${o.group?"Ahora no":"Rechazar"}</button><button class="sr-yes" data-a>${o.group?"Unirme":"Contestar"}</button></div>`;
+    <div class="sr-b"><button class="sr-no" data-r>${o.group?"Ahora no":"Rechazar"}</button><button class="sr-yes" data-a>${o.group?"Unirme":"Contestar"}</button></div>
+    ${o.group?`<button class="sr-mute" data-gm>🔕 Silenciar avisos de llamadas grupales</button>`:""}`;
   document.body.appendChild(el);ringing.el=el;
   el.querySelector("[data-a]").onclick=()=>{const r=ringing;r.group?joinVoiceGroup():acceptCall(r.room,r.chat)};
   el.querySelector("[data-r]").onclick=()=>stopRing();
+  const gm=el.querySelector("[data-gm]");gm&&(gm.onclick=()=>{cfg().grpRing=false;X.save();stopRing("Listo: las llamadas grupales ya no suenan. Lo cambias en Chat → ⚙.");setTimeout(paintGrp,300)});
   /* el título de la pestaña parpadea y el celular vibra, para que se note aunque esté en otra pestaña */
   const t0=document.title;let n=0;ringing.t0=t0;
   const ring=()=>{if(!ringing||n++>o.times){stopRing();return}if(cfg().snd!==false){tone(660,.2,.08);setTimeout(()=>tone(880,.24,.08),230);setTimeout(()=>tone(990,.2,.06),470)}
     document.title=n%2?(o.group?"🎙 Llamada grupal":"📞 "+ringing.name+" te llama"):t0;try{navigator.vibrate&&navigator.vibrate([250,120,250])}catch(e){}ringT=setTimeout(ring,2000)};ring()}
 function incoming(m){const p=m.payload||{};if(!p.room||call)return;if(Date.now()-new Date(m.created_at)>60000)return;
   ringBox(m,{room:p.room,title:"Llamada de voz",sub:"Te está llamando",times:14})}
-function incomingGroup(m){const p=m.payload||{};if(call&&call.room==="voz-general")return;if(Date.now()-new Date(m.created_at)>60000)return;if(cfg().hidden)return;
+function incomingGroup(m){const p=m.payload||{};if(call&&call.room==="voz-general")return;if(Date.now()-new Date(m.created_at)>60000)return;if(cfg().hidden||cfg().grpRing===false){setTimeout(paintGrp,500);return}
   ringBox(m,{room:"voz-general",group:true,title:"Llamada grupal",sub:"Abrió la sala de voz del grupo",times:4});setTimeout(paintGrp,500)}
 function stopRing(msg){clearTimeout(ringT);if(ringing){if(ringing.el)ringing.el.remove();if(ringing.t0)document.title=ringing.t0}ringing=null;if(msg)X.toast(msg)}
 function ringOut(){let n=0;const r=()=>{if(!call||Object.keys(call.peers).some(id=>call.peers[id].pc&&call.peers[id].pc.connectionState==="connected")||n++>15){if(call&&!Object.keys(call.peers).length&&n>15){X.toast("No contestó.");hangup()}return}tone(440,.4,.03);ringOutT=setTimeout(r,2500)};ringOutT=setTimeout(r,800)}
