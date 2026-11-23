@@ -8,6 +8,7 @@
 const $=(s,r)=>(r||document).querySelector(s);
 const esc=s=>String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[c]);
 const STALE=15*60*1000; /* si el profe cierra la página sin apagar, la clase se da por terminada a los 15 min */
+let viewers={},vT=0,lastV="";
 let rtSend=null,X=null,live=null,zones={},rt=null,joined=false,txOn=false,txT=0,lastTx="",lastFollow="",polT=0,hb=0,tokT=0,keepT=0,tick=0,shown={};
 
 const cfg=()=>{X.SAVE.clase=Object.assign({on:false,follow:true,zones:true},X.SAVE.clase||{});return X.SAVE.clase};
@@ -31,6 +32,8 @@ function connect(){if(!X.API.rt||rt)return;let ref=0;const topic="realtime:eag-c
     /* láser del profe: solo se muestra si de verdad está en vivo y tienes el Modo Clase activo */
     else if(m.event==="broadcast"&&m.payload&&m.payload.event==="laser"){const q=m.payload.payload||{};
       if(!X.isAdmin()&&cfg().on&&onAir()&&q.sym){X.panes().forEach(p=>{try{if(p.kc.getSymbol().ticker===q.sym)p.kc.laserRemote(q)}catch(e){}});try{window.__eagMiniLaser&&window.__eagMiniLaser(q)}catch(e){}}}
+    else if(m.event==="broadcast"&&m.payload&&(m.payload.event==="viewer"||m.payload.event==="viewer-bye")){const q=m.payload.payload||{};
+      if(X.isAdmin()&&q.id){if(m.payload.event==="viewer-bye")delete viewers[q.id];else viewers[q.id]=Object.assign(q,{at:Date.now()});paintViewers()}}
     else if(m.event==="postgres_changes"){const d=(m.payload&&m.payload.data)||{},tb=d.table,ty=d.eventType||d.type,rec=d.new||d.record,old=d.old||d.old_record;
       if(tb==="live_class"&&rec){const was=onAir();live=rec;liveChanged(was)}
       else if(tb==="teacher_zones"){if(ty==="DELETE"){if(old&&old.sym)delete zones[old.sym]}else if(rec&&rec.sym){const nw=!zones[rec.sym]||zones[rec.sym].updated_at!==rec.updated_at;zones[rec.sym]=rec;
@@ -48,7 +51,7 @@ function poll(){clearTimeout(polT);polT=setTimeout(async()=>{tick++;if(!joined&&
       if(tick%12===0&&canZones())try{const L=await X.API.zonesList();zones={};(L||[]).forEach(z=>zones[z.sym]=z);apply()}catch(e){}}poll()},5000)}
 
 /* ============ alumno: mostrar lo del profe ============ */
-function liveChanged(was,quiet){const now=onAir();paintBtn();
+function liveChanged(was,quiet){const now=onAir();paintBtn();if(now!==was)setTimeout(viewerBeat,1500);
   if(!X.isAdmin()){if(now&&!was&&!quiet)X.toast(cfg().on?"🔴 <b>El profe empezó la clase en vivo.</b> Sus dibujos aparecen en tu gráfico.":"🔴 <b>El profe está en vivo.</b> Activa el <b>Modo Clase</b> para ver sus dibujos en tu gráfico.");
     if(now&&cfg().on&&cfg().follow)followProfe()}
   apply();paintBanner();paintPanel()}
@@ -58,7 +61,7 @@ function apply(){const c=cfg(),air=onAir();X.panes().forEach(p=>{let tk;try{tk=p
     if(c.zones&&zones[tk]&&canZones()&&!(X.isAdmin()&&!c.adminZones)){const seen=new Set((L.live||[]).map(d=>JSON.stringify(d)));L.zones=(zones[tk].drawings||[]).filter(d=>!seen.has(JSON.stringify(d)))}
     const key=tk+":"+JSON.stringify(L);if(p.__gk===key)return;p.__gk=key;try{p.kc.setGuest(L)}catch(e){}});
   paintBanner()}
-function setOn(v){const c=cfg();c.on=!!v;X.save();if(v){connect();if(!joined)refresh();if(onAir()&&c.follow)followProfe(true)}apply();paintBtn();paintBanner();paintPanel()}
+function setOn(v){const c=cfg();c.on=!!v;X.save();setTimeout(viewerBeat,800);if(v){connect();if(!joined)refresh();if(onAir()&&c.follow)followProfe(true)}apply();paintBtn();paintBanner();paintPanel()}
 
 function paintBtn(){const b=X.btn;if(!b)return;const air=onAir();b.classList.toggle("air",air&&!X.isAdmin());b.classList.toggle("tx",txOn);b.classList.toggle("on",cfg().on&&!X.isAdmin());
   b.title=X.isAdmin()?(txOn?"Estás transmitiendo la clase":"Modo Clase: transmitir en vivo y publicar zonas"):air?"El profe está en vivo: toca para ver sus dibujos":"Modo Clase y Zonas del profe"}
@@ -79,6 +82,29 @@ function paintBanner(){const c=cfg(),show=!X.isAdmin()&&c.on&&onAir();
 function copyFrom(arr,tk){const p=X.panes().find(q=>{try{return q.kc.getSymbol().ticker===tk}catch(e){return false}});
   if(!p){X.follow(tk);setTimeout(()=>copyFrom(arr,tk),900);return}
   const n=p.kc.importDrawings(arr);X.toast(n?`Se copiaron <b>${n}</b> dibujo${n>1?"s":""} del profe a los tuyos. Puedes deshacerlo con ↶ o Ctrl + Z.`:"No hay dibujos del profe para copiar en este mercado.")}
+
+/* ============ alumno: avisarle al profe que lo está siguiendo (cada 8 s mientras el Modo Clase está activo y el profe en vivo) ============ */
+function me(){const u=X.API.user&&X.API.user(),p=(X.API.profile&&X.API.profile())||{};return u?{id:u.id,name:p.username||"Alumno",av:p.avatar_url||null}:null}
+/* sin tiempo real (modo local de pruebas): se usa un canal entre pestañas */
+let vbc=null;try{vbc=new BroadcastChannel("eag-clase-local")}catch(e){}
+const vSend=(ev,pl)=>{if(rtSend)rtSend("broadcast",{type:"broadcast",event:ev,payload:pl});else if(vbc&&!(X.API&&X.API.rt))vbc.postMessage({ev,pl})};
+if(vbc)vbc.onmessage=e=>{const d=e.data||{};if(!X||!X.isAdmin()||!d.pl||!d.pl.id)return;if(d.ev==="viewer-bye")delete viewers[d.pl.id];else viewers[d.pl.id]=Object.assign(d.pl,{at:Date.now()});paintViewers()};
+function viewerBeat(){if(X.isAdmin()||(!rtSend&&!vbc))return;const m=me();if(!m)return;const on=cfg().on&&onAir();
+  if(!on){if(lastV){vSend("viewer-bye",{id:m.id});lastV=""}return}
+  let sym=null,sn=null,tf=null;try{const p=X.panes()[X.active()],s2=p.kc.getSymbol();sym=s2.ticker;sn=s2.name||s2.shortName||s2.ticker;tf=p.kc.getPeriod().text}catch(e){}
+  const pl={id:m.id,name:m.name,av:m.av,sym,sym_name:sn,tf,follow:!!cfg().follow,hidden:document.hidden};lastV=JSON.stringify(pl);
+  vSend("viewer",pl)}
+/* ============ profe: quién lo está siguiendo ============ */
+const vList=()=>Object.values(viewers).filter(v=>Date.now()-v.at<25000).sort((a,b)=>String(a.name).localeCompare(String(b.name)));
+function vHtml(){const L=vList(),tk=live&&live.sym;
+  if(!L.length)return`<p class="cl-help">${txOn?"Todavía nadie tiene el Modo Clase activo. Cuando un alumno lo active, aparece aquí.":"Cuando estés en vivo, aquí ves quién te está siguiendo."}</p>`;
+  return`<div class="cl-vl">${L.map(v=>`<div class="cl-v"><span class="cl-va">${v.av?`<img src="${esc(v.av)}" alt="">`:esc(String(v.name||"?").charAt(0).toUpperCase())}</span>
+    <div class="cl-vt"><b>${esc(v.name)}</b><small>${v.hidden?"Pestaña en segundo plano · ":""}${v.sym===tk?"Viendo lo mismo que tú":"En "+esc(v.sym_name||v.sym||"otro mercado")}${v.tf?" · "+esc(v.tf):""}</small></div>
+    <button data-vdm="${esc(v.id)}" data-vn="${esc(v.name)}" title="Escribirle por el chat">💬</button></div>`).join("")}</div>`}
+function paintViewers(){const n=vList().length;const b=X.btn;if(b){let e=b.querySelector(".cl-vc");if(X.isAdmin()&&n){if(!e){e=document.createElement("span");e.className="cl-vc";b.appendChild(e)}e.textContent=n}else if(e)e.remove()}
+  if(!panel)return;const box=panel.querySelector("[data-viewers]");if(!box)return;const h=vHtml();if(box.__h===h)return;box.__h=h;box.innerHTML=h;
+  const c=panel.querySelector("[data-vcount]");c&&(c.textContent=n?"("+n+")":"");
+  box.querySelectorAll("[data-vdm]").forEach(b2=>b2.onclick=()=>{if(window.EAGSocial)window.EAGSocial.dm(b2.dataset.vdm,b2.dataset.vn);else X.toast("El chat no está disponible.")})}
 
 /* ============ profe: transmitir ============ */
 function txPayload(){const boards={};let a=null;X.panes().forEach((p,i)=>{try{const s=p.kc.getSymbol();boards[s.ticker]=p.kc.drawings();if(i===X.active())a={sym:s.ticker,name:s.name||s.shortName||s.ticker,tf:p.kc.getPeriod().text}}catch(e){}});
@@ -125,6 +151,7 @@ function paintPanel(){if(!panel)return;const c=cfg(),air=onAir(),adm=X.isAdmin()
         <label class="cl-ck"><input type="checkbox" data-a="push" checked> Avisar al celular a todos los alumnos</label>
         <button class="btn sm gold" data-a="start">🔴 Empezar clase en vivo</button>`}
       <p class="cl-help">Se transmiten los dibujos de todos los gráficos que tienes abiertos, el mercado y la temporalidad del gráfico activo. Los alumnos con el Modo Clase los ven al instante (sin poder moverlos) y pueden seguirte o copiarlos.</p></div>
+      <div class="cl-sec"><div class="cl-sub">👥 Te están siguiendo <span data-vcount></span></div><div data-viewers></div></div>
       <div class="cl-sec"><div class="cl-sub">📌 Zonas del profe <small>Oro y Diamond</small></div>
       <p class="cl-help">Publica tu análisis de <b>${esc(nm)}</b> (${nd} dibujo${nd===1?"":"s"}). Si ya lo habías publicado, se reemplaza.</p>
       <input class="cl-in" data-a="note" maxlength="120" placeholder="Nota (opcional): Ej. Compras en la zona de abajo">
@@ -152,7 +179,8 @@ function paintPanel(){if(!panel)return;const c=cfg(),air=onAir(),adm=X.isAdmin()
   on("copylive","onclick",()=>{const tk=live&&live.sym;if(tk)copyFrom((live.boards||{})[tk]||[],tk)});
   panel.querySelectorAll("[data-zv]").forEach(b=>b.onclick=()=>{const tk=b.dataset.zv;if(!cfg().zones){cfg().zones=true;X.save()}X.follow(tk,(zones[tk]||{}).tf);setTimeout(apply,400);close()});
   panel.querySelectorAll("[data-zc]").forEach(b=>b.onclick=()=>copyFrom((zones[b.dataset.zc]||{}).drawings||[],b.dataset.zc));
-  panel.querySelectorAll("[data-zd]").forEach(b=>b.onclick=()=>unpublish(b.dataset.zd))}
+  panel.querySelectorAll("[data-zd]").forEach(b=>b.onclick=()=>unpublish(b.dataset.zd));
+  paintViewers()}
 
 /* ============ API ============ */
 window.EAGClase={
@@ -168,6 +196,8 @@ window.EAGClase={
     if(needRt())connect();poll();
     /* cambios de mercado/temporalidad o de dibujos: el profe transmite, el alumno actualiza su capa */
     setInterval(()=>{apply();if(txOn)txKick()},1000);
+    clearInterval(vT);vT=setInterval(()=>{viewerBeat();if(X.isAdmin())paintViewers()},8000);
+    addEventListener("beforeunload",()=>{try{const m=me();if(m&&lastV)vSend("viewer-bye",{id:m.id})}catch(e){}});
     addEventListener("visibilitychange",()=>{if(!document.hidden){if(!rt&&needRt())connect();if(!joined)refresh()}});
     window.addEventListener("ag-local-live",()=>refresh());
     paintBtn()},
