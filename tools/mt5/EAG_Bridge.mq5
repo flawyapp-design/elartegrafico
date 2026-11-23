@@ -5,7 +5,7 @@
 //+------------------------------------------------------------------+
 #property copyright "El Arte Gráfico"
 #property link      "https://elartegrafico.com"
-#property version   "1.00"
+#property version   "1.01"
 #property description "Conecta MT5 con EAG Charts: envía cuenta, posiciones, órdenes e historial,"
 #property description "y ejecuta lo que mandes desde los charts (mercado, pendientes, SL/TP, cierres)."
 
@@ -353,7 +353,7 @@ string AccountJson()
    s += ",\"max_lots\":" + D(InpMaxLots, 2);
    s += ",\"magic\":" + (string)InpMagic;
    s += ",\"tz_offset\":" + IntegerToString(g_tzOffset);
-   s += ",\"ea_version\":\"1.00\"";
+   s += ",\"ea_version\":\"1.01\"";
    s += "}";
    return(s);
   }
@@ -582,7 +582,7 @@ void Sync()
       UpdateStatus();
       return;
      }
-   string headers = "Content-Type: application/json\r\nAccept: text/plain\r\napikey: " + InpSupabaseKey +
+   string headers = "Content-Type: application/json\r\nAccept: application/json\r\napikey: " + InpSupabaseKey +
                     "\r\nAuthorization: Bearer " + InpSupabaseKey + "\r\nX-EAG-Token: " + InpEAToken + "\r\n";
    string url = InpServerURL + "/rest/v1/rpc/mt5_ea_sync";
 
@@ -956,7 +956,7 @@ void CmdCancelAll(string &f[])
 void UpdateStatus()
   {
    string st = (g_lastOk > 0 && g_fails == 0) ? "CONECTADO" : "SIN CONEXIÓN";
-   string s = "EAG Bridge v1.00  |  " + st;
+   string s = "EAG Bridge v1.01  |  " + st;
    s += "\nServidor: " + InpServerURL;
    s += "\nÚltima sincronización: " + (g_lastOk > 0 ? TimeToString(g_lastOk, TIME_SECONDS) : "-");
    s += "\nEjecución desde charts: " + (InpAllowTrading ? "ACTIVA" : "DESACTIVADA");
