@@ -218,6 +218,22 @@ function SupabaseAPI(url,key){
     spinRoulette(){return rpc("spin_roulette")},
     mySpins(){if(!sess||!sess.user)return Promise.resolve([]);return sel("roulette_spins",`&user_id=eq.${sess.user.id}&order=created_at.desc&limit=60`)},
     saveCourse(c){return ups("courses",c)},delCourse(id){return del("courses",id)},
+    /* Biblioteca de clases */
+    libItems(){return req("/rest/v1/lib_items?select=id,title,descr,section,minutes,sort,status,free_preview,created_at&status=eq.publicado&order=sort.asc,created_at.asc")},
+    async libItem(id){const r=await rpc("lib_item",{p_id:id});return r&&r[0]||null},
+    libOverview(){return rpc("lib_overview")},
+    libWatch(item,secs,pos,dur){return rpc("lib_add_watch",{p_item:item,p_secs:Math.round(secs||0),p_pos:Math.round(pos||0),p_dur:Math.round(dur||0)}).catch(()=>{})},
+    libMark(item,done){return rpc("lib_mark",{p_item:item,p_done:done!==false})},
+    libRate(item,stars,note){return rpc("lib_rate",{p_item:item,p_stars:stars,p_note:note||""})},
+    libQs(item){return rpc("lib_qs",{p_item:item})},
+    libAsk(item,body,minute){return rpc("lib_ask",{p_item:item,p_body:body,p_minute:minute==null?null:minute})},
+    libQDel(id){return rpc("lib_q_delete",{p_id:id})},
+    libPct(){return rpc("lib_pct",{})},
+    async libMyClass(){if(!sess||!sess.user)return null;const r=await req(`/rest/v1/lib_class_req?select=*&user_id=eq.${sess.user.id}`);return r&&r[0]||null},
+    libRequestClass(av,topics,contact){return rpc("lib_request_class",{p_availability:av||"",p_topics:topics||"",p_contact:contact||""})},
+    libAdminList(){return rpc("lib_admin_list")},libSave(o){return rpc("lib_save",{p:o})},libDelete(id){return rpc("lib_delete",{p_id:id})},
+    libAdminItems(){return rpc("lib_admin_items")},libAdminUsers(){return rpc("lib_admin_users")},libAdminQuestions(open){return rpc("lib_admin_questions",{p_open:open!==false})},
+    libAnswer(id,a){return rpc("lib_answer",{p_id:id,p_answer:a||""})},libAdminClasses(){return rpc("lib_admin_classes")},libClassSet(id,st,at,note){return rpc("lib_class_set",{p_id:id,p_status:st,p_at:at||null,p_note:note||""})},
     async adminGrantCourse(uid,cid,on){if(on)await req("/rest/v1/user_courses",{method:"POST",body:{user_id:uid,course_id:cid,source:"admin"},headers:{Prefer:"resolution=ignore-duplicates,return=minimal"}});else await req(`/rest/v1/user_courses?user_id=eq.${uid}&course_id=eq.${cid}`,{method:"DELETE"})},
     myPayments(){if(!sess||!sess.user)return Promise.resolve([]);return sel("payment_requests",`&user_id=eq.${sess.user.id}&order=created_at.desc`)},
     adminPayments(){return rpc("admin_payments")},
@@ -280,6 +296,41 @@ function LocalAPI(){
       const aid=uuid();db.users.push({id:aid,email:"admin@elartegrafico.com",password:"admin1234"});db.profiles.push({id:aid,username:"elartegrafico",role:"admin",premium_until:null,demo_used:0,banned:false,created_at:now()});save()}};
   const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(db))}catch(e){}};
   const reload=()=>{try{const d=JSON.parse(localStorage.getItem(KEY));if(d)db=d}catch(e){}};
+  /* biblioteca de clases (modo local, para probar) */
+  const _libLocal=()=>{const LC=()=>{db.courses=db.courses||[];let c=db.courses.find(x=>x.kind==="biblioteca");if(!c){c={id:"crs-lib",title:"Biblioteca de clases",descr:"Clases grabadas, grupales y personalizadas, donde explico cómo opero.",color:"#1f4fd6",icon:"📚",price:"50 USD",status:"publicado",sort:90,kind:"biblioteca"};db.courses.push(c);save()}return c};
+    const ok=()=>adm()||(db.ucourses||[]).some(x=>x.user_id===uid&&x.course_id===LC().id);const it=()=>(db.libItems=db.libItems||[]);const W=()=>(db.libW=db.libW||[]),R=()=>(db.libR=db.libR||[]),Q=()=>(db.libQ=db.libQ||[]),C=()=>(db.libC=db.libC||[]);
+    const pub=()=>it().filter(i=>i.status==="publicado").sort(by("sort"));const pct=u=>{const P=pub();if(!P.length)return 0;return Math.round(100*P.filter(i=>W().some(w=>w.user_id===u&&w.item_id===i.id&&w.done)).length/P.length)};
+    const strip=i=>{const o=Object.assign({},i);delete o.video_url;return o};
+    return{
+    async libItems(){reload();LC();return pub().map(strip)},
+    async libItem(id){reload();const i=it().find(x=>x.id===id);if(!i||(i.status!=="publicado"&&!adm()))return null;return ok()||(i.free_preview&&uid)?i:null},
+    async libOverview(){reload();return pub().map(i=>{const w=W().find(x=>x.user_id===uid&&x.item_id===i.id)||{},rs=R().filter(r=>r.item_id===i.id),r=rs.find(x=>x.user_id===uid);
+      return{item_id:i.id,my_seconds:w.seconds||0,my_done:!!w.done,my_pos:w.last_pos||0,my_stars:r?r.stars:null,avg_stars:rs.length?Math.round(10*rs.reduce((a,x)=>a+x.stars,0)/rs.length)/10:null,n_ratings:rs.length,n_questions:Q().filter(q=>q.item_id===i.id).length}})},
+    async libWatch(item,secs,pos,dur){reload();if(!uid)return;let w=W().find(x=>x.user_id===uid&&x.item_id===item);if(!w){w={user_id:uid,item_id:item,seconds:0,last_pos:0,done:false};W().push(w)}const i=it().find(x=>x.id===item)||{};if(!i.minutes&&dur>30)i.minutes=Math.max(1,Math.round(dur/60));
+      w.seconds+=Math.min(180,Math.round(secs||0));if(pos>0)w.last_pos=Math.round(pos);w.updated_at=now();if(i.minutes&&w.seconds>=i.minutes*60*.8)w.done=true;save()},
+    async libMark(item,done){reload();if(!ok())return;const i=it().find(x=>x.id===item)||{};let w=W().find(x=>x.user_id===uid&&x.item_id===item);if(done!==false&&!adm()&&i.minutes&&((w&&w.seconds)||0)<i.minutes*30)throw new Error("Mira al menos la mitad del video para marcarlo como visto.");
+      if(!w){w={user_id:uid,item_id:item,seconds:0,last_pos:0};W().push(w)}w.done=done!==false;w.updated_at=now();save()},
+    async libRate(item,stars,note){reload();if(!ok())throw new Error("Necesitas la biblioteca para calificar.");const r=R().find(x=>x.user_id===uid&&x.item_id===item);if(r){r.stars=stars;r.note=note||""}else R().push({user_id:uid,item_id:item,stars,note:note||""});save()},
+    async libQs(item){reload();if(!ok())return[];return Q().filter(q=>q.item_id===item).slice().reverse().map(q=>{const p=db.profiles.find(x=>x.id===q.user_id)||{};return Object.assign({},q,{username:p.username,avatar_url:p.avatar_url||null})})},
+    async libAsk(item,body,minute){reload();if(!ok())throw new Error("Necesitas la biblioteca para preguntar.");db.libQs=(db.libQs||0)+1;const q={id:db.libQs,item_id:item,user_id:uid,body:String(body).trim(),minute:minute==null?null:minute,answer:null,answered_at:null,created_at:now()};Q().push(q);save();return q.id},
+    async libQDel(id){reload();db.libQ=Q().filter(q=>!(q.id===id&&(q.user_id===uid||adm())));save()},
+    async libPct(){reload();return pct(uid)},
+    async libMyClass(){reload();return C().find(c=>c.user_id===uid)||null},
+    async libRequestClass(av,topics,contact){reload();if(!ok())throw new Error("La clase personalizada es para quien tiene la biblioteca.");const need=+(((db.site||{}).lib||{}).minPct)||80;const pc=pct(uid);
+      if(pc<need&&!adm())throw new Error(`Primero mira al menos el ${need}% de la biblioteca (llevas ${pc}%).`);let c=C().find(x=>x.user_id===uid);
+      if(c&&!["pendiente","cancelada"].includes(c.status))return;if(!c){db.libCs=(db.libCs||0)+1;c={id:db.libCs,user_id:uid,status:"pendiente",created_at:now()};C().push(c)}Object.assign(c,{availability:av||"",topics:topics||"",contact:contact||"",pct:pc,updated_at:now()});save()},
+    async libAdminList(){need();reload();return it().slice().sort(by("sort"))},
+    async libSave(o){need();reload();const v=Object.assign({},o,{minutes:o.minutes?+o.minutes:null,sort:+o.sort||1});if(v.id){const i=it().find(x=>x.id===v.id);Object.assign(i,v);save();return v.id}v.id="lib-"+Math.random().toString(36).slice(2,9);v.created_at=now();it().push(v);save();return v.id},
+    async libDelete(id){need();reload();db.libItems=it().filter(i=>i.id!==id);save()},
+    async libAdminItems(){need();reload();return it().slice().sort(by("sort")).map(i=>{const ws=W().filter(w=>w.item_id===i.id),rs=R().filter(r=>r.item_id===i.id),qs=Q().filter(q=>q.item_id===i.id);
+      return{item_id:i.id,title:i.title,section:i.section,status:i.status,minutes:i.minutes,viewers:ws.filter(w=>w.seconds>30).length,done:ws.filter(w=>w.done).length,hours:Math.round(ws.reduce((a,w)=>a+w.seconds,0)/360)/10,
+        avg_stars:rs.length?Math.round(10*rs.reduce((a,x)=>a+x.stars,0)/rs.length)/10:null,n_ratings:rs.length,n_questions:qs.length,open_questions:qs.filter(q=>!q.answer).length}})},
+    async libAdminUsers(){need();reload();return(db.ucourses||[]).filter(x=>x.course_id===LC().id).map(x=>{const p=db.profiles.find(y=>y.id===x.user_id)||{},ws=W().filter(w=>w.user_id===x.user_id),c=C().find(z=>z.user_id===x.user_id);
+      return{user_id:x.user_id,username:p.username,avatar_url:p.avatar_url||null,since:x.created_at||null,hours:Math.round(ws.reduce((a,w)=>a+w.seconds,0)/360)/10,done:ws.filter(w=>w.done).length,total:pub().length,pct:pct(x.user_id),last_at:ws.map(w=>w.updated_at).sort().pop()||null,class_status:c?c.status:null}})},
+    async libAdminQuestions(open){need();reload();return Q().filter(q=>open===false||!q.answer).slice().reverse().map(q=>{const p=db.profiles.find(x=>x.id===q.user_id)||{},i=it().find(x=>x.id===q.item_id)||{};return Object.assign({},q,{username:p.username,item_title:i.title})})},
+    async libAnswer(id,a){need();reload();const q=Q().find(x=>x.id===id);if(q){q.answer=String(a||"").trim()||null;q.answered_at=q.answer?now():null;save()}},
+    async libAdminClasses(){need();reload();return C().map(c=>{const p=db.profiles.find(x=>x.id===c.user_id)||{};return Object.assign({},c,{username:p.username,avatar_url:p.avatar_url||null,pct:pct(c.user_id)})})},
+    async libClassSet(id,st,at,note){need();reload();const c=C().find(x=>x.id===id);if(c){c.status=st||c.status;c.scheduled_at=at||null;c.admin_note=note||"";save()}}}};
   const _chatLocal=()=>{const mine=r=>r==="g:general"||(r.startsWith("dm:")&&r.split(":").slice(1).includes(uid));
     const pf=id=>db.profiles.find(x=>x.id===id)||{};const on=id=>{const x=(db.presence||{})[id];return!!x&&Date.now()-new Date(x.last_seen).getTime()<9e4};
     const amA=()=>pf(uid).role==="admin";const vf=p=>amA()?!!p.affiliate:null;const pl=p=>amA()&&p.premium_until&&new Date(p.premium_until)>Date.now()?String(p.plan||"").toLowerCase()||null:null;
@@ -363,7 +414,8 @@ function LocalAPI(){
     async progressGet(){return db.progress.find(x=>x.user_id===uid)||null},
     async progressSave(xp,data){const i=db.progress.findIndex(x=>x.user_id===uid);const o={user_id:uid,xp,data,updated_at:now()};if(i>=0)db.progress[i]=o;else db.progress.push(o);save()},
     async leaderboard(){return db.progress.map(g=>{const p=db.profiles.find(x=>x.id===g.user_id)||{};return{username:p.username||"alumno",avatar_url:p.avatar_url||null,country:p.country||"",xp:g.xp,lessons:Object.values((g.data||{}).done||{}).filter(d=>d.passed).length,is_me:g.user_id===uid,premium:!!(p.premium_until&&new Date(p.premium_until)>new Date()),_x:p.role==="admin"||p.banned}}).filter(x=>!x._x&&x.xp>0).sort((a,b)=>b.xp-a.xp).slice(0,100)},
-    async courses(){db.courses=db.courses||[{id:"crs-boom",title:"Boom y Crash",descr:"El método completo de El Arte Gráfico para operar Boom y Crash.",color:"#e84c5c",icon:"🎯",price:"40 USD",status:"publicado",sort:1}];db.modules.forEach(m=>{if(!m.course_id)m.course_id=db.courses[0].id});return db.courses.filter(c=>c.status==="publicado"||adm())},
+    ..._libLocal(),
+    async courses(){db.courses=db.courses||[{id:"crs-boom",title:"Boom y Crash",descr:"El método completo de El Arte Gráfico para operar Boom y Crash.",color:"#e84c5c",icon:"🎯",price:"40 USD",status:"publicado",sort:1}];if(!db.courses.some(c=>c.kind==="biblioteca"))db.courses.push({id:"crs-lib",title:"Biblioteca de clases",descr:"Clases grabadas, grupales y personalizadas, donde explico cómo opero.",color:"#1f4fd6",icon:"📚",price:"50 USD",status:"publicado",sort:90,kind:"biblioteca"});db.modules.forEach(m=>{if(!m.course_id)m.course_id=db.courses[0].id});return db.courses.filter(c=>c.status==="publicado"||adm())},
     async myCourses(){return(db.ucourses||[]).filter(x=>x.user_id===uid)},
     async spinRoulette(){const p=me();if(!p)throw new Error("Inicia sesión");const pr=adm()?4:({diamond:4,oro:3,plata:2,cobre:1})[p.plan]||0;if(!isPrem(p)&&!adm()||pr<4)throw new Error("La ruleta diaria es exclusiva del plan Diamond");
       const d=new Date(Date.now()-5*3600e3).toISOString().slice(0,10);db.spins=db.spins||[];if(db.spins.some(x=>x.user_id===uid&&x.day===d))throw new Error("Ya giraste hoy. Vuelve mañana");
@@ -446,7 +498,7 @@ function LocalAPI(){
     async adminReviews(){need();return db.reviews.map(r=>{const p=db.profiles.find(x=>x.id===r.user_id)||{};return Object.assign({},r,{username:p.username})}).sort((a,b)=>(a.approved-b.approved)||String(b.created_at).localeCompare(a.created_at))},
     async setReview(id,patch){need();Object.assign(db.reviews.find(r=>r.id===id)||{},patch);save()},
     async delReview(id){const r=db.reviews.find(x=>x.id===id);if(r&&(r.user_id===uid||adm()))rm("reviews",id)},
-    async payRequest(o){if(!uid)throw new Error("Inicia sesión");if(db.site&&db.site.paymentsOff&&!adm())throw new Error("Los pagos están pausados por ahora. Te avisaremos cuando abran.");db.payments=db.payments||[];
+    async payRequest(o){if(!uid)throw new Error("Inicia sesión");if(db.site&&db.site.paymentsOff&&!adm())throw new Error("Los pagos están pausados por ahora. Te avisaremos cuando abran.");{const sl=(db.site&&db.site.sell)||{},lc=(db.courses||[]).find(c=>c.id===o.course_id),k=!o.course_id?"plans":lc&&lc.kind==="biblioteca"?"lib":"c:"+o.course_id;if(sl[k]===false&&!adm())throw new Error("Esto no está a la venta por ahora. Te avisaremos cuando abra.")}db.payments=db.payments||[];
       const oid=String(o.order_id||"").trim();if(oid.length<4)throw new Error("Escribe el ID de orden de Binance.");
       if(db.payments.some(x=>x.status!=="rechazado"&&x.order_id.toLowerCase()===oid.toLowerCase()))throw new Error("Ese ID de orden ya fue registrado.");
       if(db.payments.filter(x=>x.user_id===uid&&x.status==="pendiente").length>=3)throw new Error("Ya tienes 3 pagos por confirmar. Espera a que los revisemos.");

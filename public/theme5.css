@@ -154,3 +154,7 @@ html.v5.v5.v5 .top{transition:box-shadow .2s}
 html.v5.v5.v5.scrolled .top{box-shadow:0 8px 20px -12px rgba(13,17,23,.35)!important}
 html.v5.v5.v5.scrolled:not([data-theme="light"]) .top{box-shadow:0 10px 24px -10px rgba(0,0,0,.9)!important;border-bottom-color:#2c2c2e!important}
 @media (max-width:860px){html.v5.v5.v5 main{padding-top:18px}}
+/* interruptor (Admin → Pagos → Qué se puede comprar) */
+html.v5.v5.v5 .sell-row input.sw{background:var(--line2)!important;border:0!important;border-radius:99px!important}
+html.v5.v5.v5 .sell-row input.sw:checked{background:var(--ok)!important}
+html.v5.v5.v5 .sell-row{background:var(--card)!important}

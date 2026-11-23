@@ -4,14 +4,14 @@
 "use strict";
 const A=window.AGAPP;const {$,$$,esc,API,S,toast,busy,fmtT,fmtDate,fmtDT,TZ,MARKETS,MNAME,h1Bars,m5Bars,idxAt,avgRange,toC,Chart,app}=A;
 let tab="resumen";
-const GROUPS=[["General",["resumen","embudo","chartslive","chat"]],["Academia",["cursos","contenido","ejercicios","banners","noticias","archivos"]],["Retos y puntos",["top","retos","afiliados","canjes","rpuntos"]],["Alumnos",["alumnos","pagos","resenas","opiniones","chartsop","notif"]],["Sitio",["sitio","legal"]]];
-const TICO={embudo:"users",chartslive:"chart",top:"star",chat:"chat",cursos:"acad",retos:"bolt",afiliados:"users",canjes:"card",rpuntos:"gear",resumen:"chart",sitio:"site",banners:"image",contenido:"layers",ejercicios:"acad",noticias:"news",opiniones:"star",chartsop:"chart",resenas:"msg",pagos:"card",alumnos:"users",archivos:"folder",notif:"bell",legal:"scale"};
+const GROUPS=[["General",["resumen","embudo","chartslive","chat"]],["Academia",["cursos","biblioteca","contenido","ejercicios","banners","noticias","archivos"]],["Retos y puntos",["top","retos","afiliados","canjes","rpuntos"]],["Alumnos",["alumnos","pagos","resenas","opiniones","chartsop","notif"]],["Sitio",["sitio","legal"]]];
+const TICO={embudo:"users",chartslive:"chart",top:"star",chat:"chat",cursos:"acad",biblioteca:"book",retos:"bolt",afiliados:"users",canjes:"card",rpuntos:"gear",resumen:"chart",sitio:"site",banners:"image",contenido:"layers",ejercicios:"acad",noticias:"news",opiniones:"star",chartsop:"chart",resenas:"msg",pagos:"card",alumnos:"users",archivos:"folder",notif:"bell",legal:"scale"};
 const TDESC={embudo:"Dónde se quedan tus alumnos: registrados → abren los charts → se verifican → pagan plan. Con la lista de quién falta y el recordatorio automático para hacerse Miembro verificado.",chartslive:"Quién está usando EAG Charts ahora mismo: mercado, temporalidad, dispositivo y hace cuánto entró. Se actualiza solo.",chat:"Conversaciones privadas con cada alumno. Se borran solas a los días que definas, o al instante con Finalizar.",cursos:"Cursos que se venden sueltos (de por vida) y cómo se ven los planes Cobre, Plata y Oro.",retos:"Crea el reto del día: cuestionario, ¿sube o baja? o marcar la zona. Los primeros en acertar ganan puntos.",afiliados:"Verifica quién abrió su cuenta de Deriv con tu enlace de socio: ganan los puntos completos.",
   top:"Los 10 primeros del ranking. Suma o quita puntos o saldo en dólares a cualquier alumno.",canjes:"Retiros de saldo de los retos express y canjes de puntos: paga y márcalos.",rpuntos:"Activa los retos, define cuánto vale cada punto y el mínimo para canjear.",resumen:"Cómo va la academia: alumnos, visitas y actividad.",sitio:"Textos, portada, precios, enlaces y datos de contacto de la web.",banners:"Imágenes y mensajes del carrusel de la portada y del ingreso.",
-  contenido:"Módulos, lecciones, videos y el orden del temario.",ejercicios:"Gráficas, cálculos y preguntas de cada lección y de la práctica.",noticias:"Publicaciones de la comunidad y avisos.",
+  contenido:"Módulos, lecciones, videos y el orden del temario.",biblioteca:"Clases grabadas que se venden aparte: videos, precio, quién las ve y cuánto, calificaciones, preguntas y las clases personales de 2 horas.",ejercicios:"Gráficas, cálculos y preguntas de cada lección y de la práctica.",noticias:"Publicaciones de la comunidad y avisos.",
   opiniones:"Opiniones públicas de los alumnos: aprueba u oculta.",chartsop:"Quién ha usado EAG Charts y qué recomiendan mejorar.",resenas:"Lo que dicen los alumnos al terminar cada módulo (privado).",pagos:"Pagos de Binance por confirmar y el historial.",
   alumnos:"Cuentas, premium, puntos y avance de cada alumno.",archivos:"Imágenes y archivos subidos.",notif:"Envía avisos al celular de los alumnos.",legal:"Términos, privacidad y avisos legales."};
-const TABS=[["embudo","Embudo de alumnos"],["chartslive","Charts en vivo"],["chat","Mensajes"],["cursos","Cursos y planes"],["top","Top, puntos y saldo"],["retos","Retos diarios"],["afiliados","Miembros verificados"],["canjes","Canjes"],["rpuntos","Ajustes de puntos"],["resumen","Estadísticas"],["sitio","Sitio y textos"],["banners","Banners"],["contenido","Módulos y lecciones"],["ejercicios","Ejercicios"],["noticias","Noticias"],["opiniones","Opiniones"],["chartsop","EAG Charts: ajustes y opiniones"],["resenas","Reseñas de módulos"],["pagos","Pagos"],["alumnos","Alumnos"],["archivos","Archivos"],["notif","Notificaciones"],["legal","Legal"]];
+const TABS=[["biblioteca","Biblioteca de clases"],["embudo","Embudo de alumnos"],["chartslive","Charts en vivo"],["chat","Mensajes"],["cursos","Cursos y planes"],["top","Top, puntos y saldo"],["retos","Retos diarios"],["afiliados","Miembros verificados"],["canjes","Canjes"],["rpuntos","Ajustes de puntos"],["resumen","Estadísticas"],["sitio","Sitio y textos"],["banners","Banners"],["contenido","Módulos y lecciones"],["ejercicios","Ejercicios"],["noticias","Noticias"],["opiniones","Opiniones"],["chartsop","EAG Charts: ajustes y opiniones"],["resenas","Reseñas de módulos"],["pagos","Pagos"],["alumnos","Alumnos"],["archivos","Archivos"],["notif","Notificaciones"],["legal","Legal"]];
 A.ROUTES.admin=sub=>{
   if(!A.admin()){app.innerHTML=`<div class="empty">Esta sección es solo para administradores.<a class="btn sm" href="#inicio">Volver</a></div>`;return}
   let chatU=null;if(sub&&/^chat-/.test(sub)){tab="chat";chatU=sub.slice(5)}else if(sub&&TABS.some(t=>t[0]===sub))tab=sub;
@@ -50,7 +50,7 @@ A.ROUTES.admin=sub=>{
     acL.onsubmit=e=>{e.preventDefault();const v=fromLoc($("#acAt").value);if(!v){toast("Elige la fecha y la hora");return}if(new Date(v)<=new Date()){toast("Elige una fecha futura");return}sv(v)};
     const x=$("#acX");if(x)x.onclick=()=>sv(null)}
   if(tab==="chat")return chat(chatU);
-  ({embudo,chartslive,cursos,resumen,sitio,banners,contenido,ejercicios,noticias,opiniones,chartsop,resenas,pagos,alumnos,archivos,notif,legal,retos,afiliados,canjes,rpuntos,top})[tab]();
+  ({biblioteca,embudo,chartslive,cursos,resumen,sitio,banners,contenido,ejercicios,noticias,opiniones,chartsop,resenas,pagos,alumnos,archivos,notif,legal,retos,afiliados,canjes,rpuntos,top})[tab]();
   const badge=(k,n)=>{const b=document.querySelector(`[data-badge="${k}"]`);if(b&&n){b.textContent=n;b.classList.add("on")}};
   if(API.dmBadge)API.dmBadge().then(b=>badge("chat",b&&b.unread)).catch(()=>{});
   if(API.adminAffiliates)API.adminAffiliates().then(l=>badge("afiliados",(l||[]).filter(x=>x.status==="pendiente").length)).catch(()=>{});
@@ -592,8 +592,16 @@ async function opiniones(){
 /* ---------- pagos ---------- */
 function paySwitch(){const off=!!(S.site||{}).paymentsOff;
   return `<div class="acad-switch ${off?"off":"on"}" style="margin-bottom:14px"><div><b>Pagos ${off?"pausados":"activos"}</b><span class="muted">${off?"Nadie puede registrar pagos. En la web los planes dicen “Disponible pronto” y la página Premium avisa que los pagos están pausados.":"Los alumnos pueden pagar con Binance Pay y registrar su pago para que lo apruebes."}</span></div>
-    <button class="btn ${off?"gold":"bad"}" id="pySw">${off?"Activar los pagos":"Pausar los pagos"}</button></div>`}
-function bindPaySwitch(){const b=$("#pySw");if(!b)return;const off=!!(S.site||{}).paymentsOff;
+    <button class="btn ${off?"gold":"bad"}" id="pySw">${off?"Activar los pagos":"Pausar los pagos"}</button></div>${sellBox()}`}
+/* qué se puede comprar, uno por uno */
+function sellBox(){const s=S.site||{},sl=s.sell||{},off=!!s.paymentsOff;
+  const rows=[["plans","Planes de suscripción","Cobre, Plata, Oro y Diamond"]].concat((S.courses||[]).filter(c=>!c.base&&c.status!=="borrador").map(c=>["c:"+c.id,"Curso "+c.title,(c.price||"")+" · pago único"]),S.lib?[["lib",S.lib.title,(S.lib.price||"50 USD")+" · pago único · se vende aparte"]]:[]);
+  return `<div class="panel sell-box" style="margin-bottom:14px"><div class="sec-h"><h3>Qué se puede comprar</h3></div>
+    <p class="muted" style="margin:0 0 10px">${off?"<b>Los pagos están pausados</b>: aunque actives algo aquí, nadie puede pagar hasta que actives los pagos arriba.":"Activa solo lo que quieras vender ahora. Lo que esté apagado sale como “Disponible pronto” y no se puede pagar."}</p>
+    <div class="list">${rows.map(([k,t,d])=>{const on=sl[k]!==false;return `<label class="item sell-row" style="cursor:pointer"><span class="txt"><b>${esc(t)}</b><span>${esc(d)}</span></span><span class="pill ${on&&!off?"ok":""}">${on?(off?"Activo (pagos pausados)":"A la venta"):"Apagado"}</span><input type="checkbox" class="sw" data-sell="${esc(k)}" ${on?"checked":""} aria-label="Vender ${esc(t)}"></label>`}).join("")}</div></div>`}
+function bindSell(){$$("[data-sell]").forEach(i=>i.onchange=async()=>{const sl=Object.assign({},(S.site||{}).sell||{});if(i.checked)delete sl[i.dataset.sell];else sl[i.dataset.sell]=false;
+  const ns=Object.assign({},S.site,{sell:sl});try{await API.saveSite(ns);S.site=ns;toast(i.checked?"Ya se puede comprar":"Apagado: ya no se puede comprar")}catch(x){toast(x.message);i.checked=!i.checked}A.ROUTES.admin("pagos")})}
+function bindPaySwitch(){bindSell();const b=$("#pySw");if(!b)return;const off=!!(S.site||{}).paymentsOff;
   b.onclick=()=>A.confirmInline(b.parentElement,off?"¿Activar los pagos? Los alumnos podrán pagar y registrar su pago.":"¿Pausar los pagos? Nadie podrá registrar pagos hasta que los actives.",async()=>{
     const ns=Object.assign({},S.site,{paymentsOff:!off});try{await API.saveSite(ns);S.site=ns;toast(off?"Pagos activados":"Pagos pausados")}catch(x){toast(x.message)}A.ROUTES.admin("pagos")})}
 async function pagos(){
@@ -963,7 +971,7 @@ async function alumnos(){
         <button class="btn sm" data-dm="${esc(u.id)}">💬 Escribirle</button>
         <details class="uc-more"><summary class="btn sm ghost">Más ▾</summary><div class="uc-menu">
           ${isP(u)?`<button class="btn sm" data-rm="${esc(u.id)}">Quitar premium</button><label class="uc-plan">Cambiar placa (sin tocar días)<select data-plan="${esc(u.id)}"><option value="cobre">🟤 Cobre</option><option value="plata">⚪ Plata</option><option value="oro">🟡 Oro</option><option value="diamond">💎 Diamond</option></select></label>`:""}
-          ${(S.courses||[]).map(c=>{const has=(u.courses||[]).includes(c.id);return `<button class="btn sm ${has?"ghost":""}" data-crs="${esc(u.id)}|${esc(c.id)}|${has?0:1}">${has?"Quitar":"Dar"} curso ${esc(c.title)}</button>`}).join("")}
+          ${(S.courses||[]).concat(S.lib?[S.lib]:[]).map(c=>{const has=(u.courses||[]).includes(c.id);return `<button class="btn sm ${has?"ghost":""}" data-crs="${esc(u.id)}|${esc(c.id)}|${has?0:1}">${has?"Quitar":"Dar"} curso ${esc(c.title)}</button>`}).join("")}
           <button class="btn sm ghost" data-ban="${esc(u.id)}">${u.banned?"Reactivar cuenta":"Suspender cuenta"}</button><button class="btn sm ghost" data-demo="${esc(u.id)}">Reiniciar prueba gratis</button>
           <button class="btn sm ghost" data-rxp="${esc(u.id)}">Reiniciar puntos</button><button class="btn sm bad" data-rall="${esc(u.id)}">Reiniciar avance</button>
           ${u.id!==(API.user()||{}).id?`<button class="btn sm ghost" data-role="${esc(u.id)}">${u.role==="admin"?"Quitar admin":"Hacer admin"}</button>`:""}</div></details>
@@ -1003,7 +1011,74 @@ async function alumnos(){
 }
 
 /* ---------- cursos y planes ---------- */
-async function cursos(){let L=[];try{L=await API.courses()}catch(e){H().innerHTML=`<div class="empty">No se pudieron cargar los cursos. ¿Ya corriste <b>supabase/planes_cursos.sql</b>?<span class="dim">${esc(e.message)}</span></div>`;return}
+/* ---------- biblioteca de clases ---------- */
+let libTab="videos";
+async function biblioteca(){const L=S.lib;
+  if(!L){H().innerHTML=`<div class="empty">Falta crear la biblioteca. Corre <b>supabase/biblioteca.sql</b> en Supabase → SQL Editor y vuelve a abrir esta sección.</div>`;return}
+  const c=Object.assign({hours:"Más de 10 horas",minPct:80,classHours:2},(S.site||{}).lib||{});
+  const T=[["videos","Videos"],["alumnos","Quién las ve"],["preguntas","Preguntas"],["clases","Clases personales"],["ajustes","Precio y ajustes"]];
+  H().innerHTML=`<div class="note">La biblioteca se vende <b>aparte</b> de los planes (pago único, de por vida) y se puede abrir aunque la academia esté cerrada. Página pública: <a href="${A.toAcad?A.toAcad("biblioteca"):"#biblioteca"}" target="_blank" rel="noopener">biblioteca</a>.</div>
+    <div class="pmeth" role="tablist" aria-label="Biblioteca">${T.map(([k,t])=>`<button type="button" role="tab" data-lt="${k}" class="${libTab===k?"on":""}" aria-selected="${libTab===k}">${t}<span class="lt-b" data-ltb="${k}"></span></button>`).join("")}</div><div id="lbx" style="margin-top:14px"></div>`;
+  $$("[data-lt]").forEach(b=>b.onclick=()=>{libTab=b.dataset.lt;biblioteca()});
+  const X=$("#lbx");const fmtH=h=>(+h||0).toLocaleString("es-CO",{maximumFractionDigits:1})+" h";
+  // contadores de pendientes
+  Promise.all([API.libAdminQuestions(true).catch(()=>[]),API.libAdminClasses().catch(()=>[])]).then(([q,cl])=>{const a=$('[data-ltb="preguntas"]'),b=$('[data-ltb="clases"]');const pc=cl.filter(x=>x.status==="pendiente").length;
+    if(a&&q.length)a.textContent=" "+q.length;if(b&&pc)b.textContent=" "+pc});
+  if(libTab==="videos"){let items=[],st=[];try{[items,st]=await Promise.all([API.libAdminList(),API.libAdminItems()])}catch(e){X.innerHTML=`<div class="empty">No se pudo cargar. ¿Ya corriste <b>supabase/biblioteca.sql</b>?<span class="dim">${esc(e.message)}</span></div>`;return}
+    const S2=Object.fromEntries(st.map(x=>[x.item_id,x]));const secs=["Clases grupales","Clases personalizadas","Ejemplos y repasos"];items.forEach(i=>{if(i.section&&!secs.includes(i.section))secs.push(i.section)});
+    const totMin=items.filter(i=>i.status==="publicado").reduce((a,i)=>a+(+i.minutes||0),0);
+    X.innerHTML=`<div class="split"><div class="panel"><div class="sec-h"><h3>Videos <span class="dim">${items.length} · ${totMin?Math.round(totMin/6)/10+" h publicadas":"sin duración"}</span></h3><button class="btn sm gold" id="lnv">Nuevo video</button></div>
+        <div class="list">${items.length?items.map(i=>{const x=S2[i.id]||{};return `<button class="item" data-li="${esc(i.id)}" style="text-align:left;cursor:pointer"><span class="txt"><b>${esc(i.sort)}. ${esc(i.title)}</b><span>${esc(i.section)} · ${i.minutes?i.minutes+" min":"sin duración"} · ${i.status==="publicado"?"Publicado":"Borrador"}${i.free_preview?" · Muestra gratis":""}</span><span class="dim">${x.viewers||0} lo vieron · ${fmtH(x.hours)} · ${x.avg_stars?"★ "+x.avg_stars+" ("+x.n_ratings+")":"sin calificar"}${x.open_questions?` · <b>${x.open_questions} sin responder</b>`:""}</span></span></button>`}).join(""):'<p class="muted">Todavía no hay videos. Crea el primero.</p>'}</div></div>
+      <div class="panel" id="lve"><div class="muted">Elige un video o crea uno nuevo.</div></div></div>`;
+    const edit=i=>{$("#lve").innerHTML=`<form class="form" id="lvf"><h3>${i.id?"Editar video":"Nuevo video"}</h3>
+        <label for="lvT">Título<input id="lvT" maxlength="140" value="${esc(i.title||"")}" placeholder="Ej.: Clase grupal · cómo marco las zonas"></label>
+        <div class="two"><label for="lvS">Sección<input id="lvS" list="lvSl" maxlength="60" value="${esc(i.section||"Clases grupales")}"><datalist id="lvSl">${secs.map(x=>`<option value="${esc(x)}">`).join("")}</datalist></label>
+          <label for="lvO">Orden sugerido<input id="lvO" type="number" min="1" value="${i.sort||items.length+1}"></label></div>
+        <label for="lvU">Enlace del video (Bunny, YouTube oculto, Vimeo o mp4)<input id="lvU" maxlength="600" value="${esc(i.video_url||"")}" placeholder="https://iframe.mediadelivery.net/embed/…"></label>
+        <div class="two"><label for="lvM">Duración en minutos<input id="lvM" type="number" min="1" max="1000" value="${i.minutes||""}" placeholder="Si lo dejas vacío se calcula solo con Bunny"></label>
+          <label for="lvE">Estado<select id="lvE"><option value="publicado">Publicado</option><option value="borrador">Borrador (no se ve)</option></select></label></div>
+        <label for="lvD">Descripción (opcional)<textarea id="lvD" maxlength="2000" style="min-height:80px" placeholder="Qué se ve en esta clase">${esc(i.descr||"")}</textarea></label>
+        <label class="chk"><input type="checkbox" id="lvF" ${i.free_preview?"checked":""}> <b>Muestra gratis</b>: cualquiera con cuenta la puede ver, para que conozcan la biblioteca</label>
+        <div class="row"><button class="btn gold" id="lvSv">Guardar video</button>${i.id?`<span id="lvDl"><button type="button" class="btn sm bad" id="lvDb">Eliminar</button></span>`:""}</div></form>`;
+      $("#lvE").value=i.status||"publicado";
+      $("#lvf").onsubmit=async e=>{e.preventDefault();const o={id:i.id||"",title:$("#lvT").value.trim(),section:$("#lvS").value.trim()||"Clases grupales",sort:String(+$("#lvO").value||1),video_url:$("#lvU").value.trim(),minutes:$("#lvM").value?String(+$("#lvM").value):"",status:$("#lvE").value,descr:$("#lvD").value.trim(),free_preview:$("#lvF").checked};
+        if(o.title.length<2){toast("Ponle título al video");return}try{busy($("#lvSv"),true);await API.libSave(o);toast("Video guardado");biblioteca()}catch(x){toast(x.message);const b=$("#lvSv");if(b)busy(b,false)}};
+      const d=$("#lvDb");if(d)d.onclick=()=>A.confirmInline($("#lvDl"),"¿Eliminar el video? Se borran sus vistas, calificaciones y preguntas.",async()=>{await API.libDelete(i.id);toast("Video eliminado");biblioteca()})};
+    $("#lnv").onclick=()=>edit({});$$("[data-li]").forEach(b=>b.onclick=()=>edit(items.find(x=>x.id===b.dataset.li)||{}));return}
+  if(libTab==="alumnos"){let us=[],st=[];try{[us,st]=await Promise.all([API.libAdminUsers(),API.libAdminItems()])}catch(e){X.innerHTML=`<div class="empty">${esc(e.message)}</div>`;return}
+    const top=st.slice().sort((a,b)=>(b.hours||0)-(a.hours||0));const totH=st.reduce((a,x)=>a+(+x.hours||0),0);
+    X.innerHTML=`<div class="kpis" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:14px">
+        ${[[us.length,"compraron la biblioteca"],[us.filter(u=>u.hours>0).length,"ya empezaron"],[fmtH(totH),"vistas en total"],[us.filter(u=>u.pct>=+c.minPct).length,`vieron el ${c.minPct}% o más`]].map(([v,t])=>`<div class="panel" style="padding:14px"><b style="font-size:24px">${v}</b><div class="dim">${t}</div></div>`).join("")}</div>
+      <div class="split"><div class="panel"><h3>Lo más visto</h3><div class="list">${top.length?top.map((x,k)=>`<div class="item"><span class="txt"><b>${k+1}. ${esc(x.title)}</b><span>${fmtH(x.hours)} · ${x.viewers} persona${x.viewers===1?"":"s"} · ${x.done} la terminaron · ${x.avg_stars?"★ "+x.avg_stars+" ("+x.n_ratings+")":"sin calificar"} · ${x.n_questions} preguntas</span></span></div>`).join(""):'<p class="muted">Sin datos todavía.</p>'}</div></div>
+      <div class="panel"><h3>Alumnos</h3><div class="list">${us.length?us.map(u=>`<div class="item">${A.avatar?A.avatar(u,30):""}<span class="txt"><b>${esc(u.username||"Alumno")}</b><span>${u.pct}% · ${u.done}/${u.total} clases · ${fmtH(u.hours)}${u.last_at?" · última vez "+fmtDT(u.last_at):" · no ha entrado"}${u.class_status?" · clase personal: "+esc(u.class_status):""}</span></span></div>`).join(""):'<p class="muted">Nadie la ha comprado todavía. Para darla a mano: Alumnos → abre la cuenta → "Dar curso Biblioteca de clases".</p>'}</div></div></div>`;return}
+  if(libTab==="preguntas"){let all=false;const draw=async()=>{let q=[];try{q=await API.libAdminQuestions(!all)}catch(e){X.innerHTML=`<div class="empty">${esc(e.message)}</div>`;return}
+      X.innerHTML=`<div class="row" style="margin-bottom:10px"><label class="chk"><input type="checkbox" id="lqAll" ${all?"checked":""}> Ver también las respondidas</label></div>
+        <div class="list">${q.length?q.map(x=>`<div class="item" style="display:block"><div><b>${esc(x.username||"Alumno")}</b> <span class="dim">en <a href="${A.toAcad?A.toAcad("clase-"+x.item_id):"#clase-"+x.item_id}" target="_blank" rel="noopener">${esc(x.item_title)}</a>${x.minute!=null?" · min "+x.minute:""} · ${fmtDT(x.created_at)}</span></div>
+          <p style="margin:6px 0">${esc(x.body)}</p><form class="form" data-qa="${x.id}" style="gap:8px"><textarea maxlength="3000" style="min-height:60px" placeholder="Tu respuesta (la ven todos los que tienen la biblioteca)">${esc(x.answer||"")}</textarea><div class="row"><button class="btn sm gold">${x.answer?"Actualizar":"Responder"}</button><button type="button" class="btn sm ghost" data-qx="${x.id}">Borrar pregunta</button></div></form></div>`).join(""):'<p class="muted">No hay preguntas pendientes.</p>'}</div>`;
+      $("#lqAll").onchange=e=>{all=e.target.checked;draw()};
+      $$("[data-qa]").forEach(f=>f.onsubmit=async e=>{e.preventDefault();const t=$("textarea",f).value.trim();if(!t){toast("Escribe la respuesta");return}try{await API.libAnswer(+f.dataset.qa,t);toast("Respuesta publicada");draw()}catch(x){toast(x.message)}});
+      $$("[data-qx]").forEach(b=>b.onclick=async()=>{try{await API.libQDel(+b.dataset.qx);toast("Pregunta borrada");draw()}catch(x){toast(x.message)}})};draw();return}
+  if(libTab==="clases"){let L2=[];try{L2=await API.libAdminClasses()}catch(e){X.innerHTML=`<div class="empty">${esc(e.message)}</div>`;return}
+    const toLoc=v=>{if(!v)return"";const d=new Date(new Date(v).getTime()-5*3600e3);return d.toISOString().slice(0,16)};
+    X.innerHTML=`<p class="muted">Cuando un alumno ve el ${c.minPct}% de la biblioteca puede pedir su clase personal de ${c.classHours} horas. Agéndala aquí: el alumno ve la fecha y tu nota en su biblioteca.</p>
+      <div class="list">${L2.length?L2.map(r=>`<form class="item form" data-cl="${r.id}" style="display:block"><div><b>${esc(r.username||"Alumno")}</b> <span class="dim">· vio el ${r.pct}% · pidió el ${fmtDT(r.created_at)}</span></div>
+        <p style="margin:6px 0"><b>Horario:</b> ${esc(r.availability||"—")}<br><b>Contacto:</b> <span class="sel">${esc(r.contact||"—")}</span><br><b>Quiere repasar:</b> ${esc(r.topics||"—")}</p>
+        <div class="three"><label>Estado<select data-k="st">${["pendiente","agendada","hecha","cancelada"].map(x=>`<option ${x===r.status?"selected":""}>${x}</option>`).join("")}</select></label>
+          <label>Fecha y hora (Colombia)<input type="datetime-local" data-k="at" value="${toLoc(r.scheduled_at)}"></label><label>Nota para el alumno<input data-k="nt" maxlength="1000" value="${esc(r.admin_note||"")}" placeholder="Ej.: te envío el enlace por WhatsApp"></label></div>
+        <div class="row"><button class="btn sm gold">Guardar</button></div></form>`).join(""):'<p class="muted">Nadie ha pedido su clase todavía.</p>'}</div>`;
+    $$("[data-cl]").forEach(f=>f.onsubmit=async e=>{e.preventDefault();const v=$('[data-k="at"]',f).value;const at=v?new Date(v+":00-05:00").toISOString():null;
+      try{await API.libClassSet(+f.dataset.cl,$('[data-k="st"]',f).value,at,$('[data-k="nt"]',f).value.trim());toast("Clase actualizada");biblioteca()}catch(x){toast(x.message)}});return}
+  // ajustes
+  X.innerHTML=`<form class="form panel" id="lsf" style="max-width:640px"><h3>Precio y ajustes</h3>
+      <div class="two"><label for="lsP">Precio<input id="lsP" maxlength="30" value="${esc(L.price||"50 USD")}"></label><label for="lsH">Horas de clase (texto que se muestra)<input id="lsH" maxlength="40" value="${esc(c.hours)}" placeholder="Más de 10 horas"></label></div>
+      <label for="lsT">Nombre<input id="lsT" maxlength="80" value="${esc(L.title)}"></label>
+      <div class="two"><label for="lsM">% que debe ver para pedir la clase personal<input id="lsM" type="number" min="0" max="100" value="${+c.minPct}"></label><label for="lsC">Horas de la clase personal<input id="lsC" type="number" min="1" max="10" value="${+c.classHours||2}"></label></div>
+      <label class="chk"><input type="checkbox" id="lsO" ${L.status!=="borrador"&&!c.off?"checked":""}> <b>Biblioteca abierta</b>: se ve en la academia y se puede comprar (aunque la academia esté cerrada)</label>
+      <div class="row"><button class="btn gold" id="lsS">Guardar</button></div></form>`;
+  $("#lsf").onsubmit=async e=>{e.preventDefault();const open=$("#lsO").checked;const ns=Object.assign({},S.site,{lib:Object.assign({},c,{hours:$("#lsH").value.trim()||"Más de 10 horas",minPct:Math.max(0,Math.min(100,+$("#lsM").value||0)),classHours:Math.max(1,+$("#lsC").value||2),off:!open})});
+    try{busy($("#lsS"),true);await API.saveCourse({id:L.id,title:$("#lsT").value.trim()||"Biblioteca de clases",price:$("#lsP").value.trim()||"50 USD",status:open?"publicado":"borrador"});await API.saveSite(ns);S.site=ns;await A.loadContent();toast("Biblioteca guardada");biblioteca()}catch(x){toast(x.message);const b=$("#lsS");if(b)busy(b,false)}};
+}
+async function cursos(){let L=[];try{L=(await API.courses()).filter(c=>c.kind!=="biblioteca")}catch(e){H().innerHTML=`<div class="empty">No se pudieron cargar los cursos. ¿Ya corriste <b>supabase/planes_cursos.sql</b>?<span class="dim">${esc(e.message)}</span></div>`;return}
   const mods=S.modules||[];
   H().innerHTML=`<div class="note">Los suscriptores <b>Cobre, Plata y Oro</b> ven <b>todos</b> los cursos. El curso suelto se compra una vez y es del alumno <b>de por vida</b>. Los precios y los días de Cobre (1 mes), Plata (6 meses) y Oro (12 meses) se editan en <a href="#admin-sitio">Sitio → Planes</a>: el nombre del plan sale de los días (hasta 149 = Cobre, 150-299 = Plata, 300 o más = Oro).</div>
     <div class="split"><div class="panel"><div class="sec-h"><h3>Cursos</h3><button class="btn sm gold" id="ncu">Nuevo curso</button></div>

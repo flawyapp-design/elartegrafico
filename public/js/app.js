@@ -41,7 +41,7 @@ function link(site,hash){hash=hash||"inicio";if(site===SITE)return"#"+hash;
   if(PROD){const base=HOST.replace(/^(www\.|academia\.)/,"");return"https://"+(site==="academia"?"academia.":"")+base+"/"+(vq?"?"+vq:"")+"#"+hash}
   return location.pathname+(site==="academia"?"?sitio=academia"+(vq?"&"+vq:""):(vq?"?"+vq:""))+"#"+hash}
 try{const q=new URLSearchParams(location.search),v=q.get("ver");if(q.has("ver")){if(v&&v!=="admin")sessionStorage.setItem("ag_view_as",v);else sessionStorage.removeItem("ag_view_as");q.delete("ver");const qs=q.toString();history.replaceState(null,"",location.pathname+(qs?"?"+qs:"")+location.hash)}}catch(e){}
-const ACAD_R=new Set(["academia","modulo","leccion","practica","prueba","progreso","logros","presentacion"]);
+const ACAD_R=new Set(["biblioteca","clase","academia","modulo","leccion","practica","prueba","progreso","logros","presentacion"]);
 const MAIN_R=new Set(["certificado","probar","mensajes","oro","entrar","registro","recuperar","noticias","comunidad","nota","opiniones","mercados","legal","terminos","privacidad","retos","reto","ranking","puntos","charts","acad","miembro"]);
 const toAcad=h=>link("academia",h),toMain=h=>link("main",h);
 
@@ -98,6 +98,13 @@ const isBase=cid=>!!(S.courses||[]).find(c=>c.id===cid&&c.base);
 const ownsCourse=cid=>{if(!cid)return false;if(viewAs()==="curso")return isBase(cid)||cid===((S.courses||[]).find(c=>!c.base)||{}).id;if(viewAs())return false;
   if(isBase(cid))return logged();return !!(S.myCourses&&S.myCourses.has(cid))};
 const ownedCourses=()=>(S.courses||[]).filter(c=>ownsCourse(c.id));
+/* biblioteca de clases: se compra aparte, de por vida (no viene con los planes) */
+const libCfg=()=>Object.assign({hours:"Más de 10 horas",minPct:80,classHours:2},(S.site||{}).lib||{});
+const libOn=()=>!!S.lib&&((S.lib.status!=="borrador"&&!libCfg().off)||API.isAdmin());
+/* qué se puede comprar: interruptor general (paymentsOff) + uno por producto (site.sell: plans, c:<id>, lib) */
+const sellOn=k=>{const s=S.site||{};return !s.paymentsOff&&((s.sell||{})[k]!==false)};
+const anySell=()=>sellOn("plans")||(S.courses||[]).some(c=>!c.base&&c.status!=="borrador"&&sellOn("c:"+c.id))||(!!S.lib&&sellOn("lib"));
+const ownsLib=()=>!!S.lib&&(admin()||(!viewAs()&&!!(S.myCourses&&S.myCourses.has(S.lib.id))));
 const paidCourses=()=>ownedCourses().filter(c=>!c.base);
 const courseLessons=c=>{const ms=new Set((S.modules||[]).filter(m=>m.course_id===c.id).map(m=>m.id));return (S.lindex||[]).filter(l=>ms.has(l.module_id))};
 const graduated=c=>{const ls=courseLessons(c);return ls.length>0&&ls.every(l=>S.prog&&S.prog.done[l.id]&&S.prog.done[l.id].passed)};
@@ -203,6 +210,7 @@ function closedView(){const s=S.site,p=API.profile()||{};
     <h1>${esc(s.closedTitle||"La academia abre muy pronto")}</h1>
     <p class="muted">${esc(s.closedText||"Estamos terminando de montar las lecciones y los ejercicios. Tu cuenta ya quedó creada: cuando abramos, entras con el mismo usuario y tendrás tus 5 gráficas de prueba.")}</p>
     ${p.username?`<span class="pill ok">Registrado como ${esc(p.username)}</span>`:""}${launchBox(true)}
+    ${libOn()?`<a class="lib-soon" href="#biblioteca"><span class="mt-i">${ico("book")}</span><span><b>La biblioteca de clases ya está abierta</b><small>Clases grabadas de cómo opero, para quien ya sabe operar. ${esc(libCfg().hours)} de clases.</small></span></a>`:""}
     <div class="row" style="justify-content:center"><a class="btn gold" href="${toMain("inicio")}">Volver a El Arte Gráfico</a>${s.discordUrl?`<a class="btn ghost" href="${esc(s.discordUrl)}" target="_blank" rel="noopener">Unirme al Discord</a>`:`<a class="btn ghost" href="${toMain("comunidad")}">Ver la comunidad</a>`}</div></section>`}
 /* sombra de la barra superior al bajar */
 {let raf=0;const sc=()=>{raf=0;document.documentElement.classList.toggle("scrolled",scrollY>4)};addEventListener("scroll",()=>{if(!raf)raf=requestAnimationFrame(sc)},{passive:true});sc()}
@@ -249,12 +257,12 @@ function renderNav(){sideState();viewBar();document.body.classList.toggle("is-ac
     if(u&&p)G.push(["Tu cuenta",[it(toMain("oro"),"Sala Oro","crown",r==="oro"),it(toMain("mensajes"),"Mensajes","msg",r==="mensajes",{badge:S.dm&&S.dm.unread})]]);
   }else if(sec==="acad"){
     if(ACAD&&u&&p&&!(closedAcad()&&!admin())){
-      G.push(["Aprender",[it("#inicio","Mi panel","home",r==="inicio"),it("#academia","Temario","acad",["academia","modulo","leccion"].includes(r)),it("#practica","Práctica","chart",r==="practica")]]);
+      G.push(["Aprender",[it("#inicio","Mi panel","home",r==="inicio"),it("#academia","Temario","acad",["academia","modulo","leccion"].includes(r)),it("#practica","Práctica","chart",r==="practica")].concat(libOn()?[it("#biblioteca","Biblioteca de clases","book",["biblioteca","clase"].includes(r))]:[])]);
       G.push(["Tu avance",[it("#logros","Logros","medal",r==="logros"),it("#progreso","Progreso","layers",r==="progreso")].concat(premium()?[]:[it("#prueba","Prueba gratis","play",r==="prueba")])]);
       G.push(["Más",[it("#presentacion-precios","Planes y precios","crown",r==="presentacion"&&ra==="precios"),it("#presentacion","Presentación","news",r==="presentacion"&&ra!=="precios")]]);
     }else{
       const pa=k=>toAcad("presentacion"+(k?"-"+k:"")),on=k=>r==="presentacion"&&(ra||"")===k;
-      G.push(["Academia",[it(pa(""),"Presentación","acad",on("")),it(pa("aprende"),"Qué vas a aprender","bolt",on("aprende")),it(pa("profe"),"Quién te enseña","users",on("profe")),it(pa("temario"),"Temario","layers",on("temario")),it(pa("precios"),"Planes y precios","crown",on("precios")||r==="premium"),it(pa("faq"),"Preguntas frecuentes","news",on("faq"))]]);
+      G.push(["Academia",[it(pa(""),"Presentación","acad",on("")),it(pa("aprende"),"Qué vas a aprender","bolt",on("aprende")),it(pa("profe"),"Quién te enseña","users",on("profe")),it(pa("temario"),"Temario","layers",on("temario")),it(pa("precios"),"Planes y precios","crown",on("precios")||r==="premium"),...(libOn()?[it(toAcad("biblioteca"),"Biblioteca de clases","book",["biblioteca","clase"].includes(r))]:[]),it(pa("faq"),"Preguntas frecuentes","news",on("faq"))]]);
       G.push(["Pruébala",[it(toMain("probar"),"Probar una gráfica","play",r==="probar")].concat(u&&p&&!ACAD&&!(closedAcad()&&!admin())?[it(toAcad("inicio"),"Entrar a mi panel","site",false,{gold:1})]:[])]);
     }
   }else{
@@ -330,10 +338,10 @@ function route(keep){if(/^#admin/.test(location.hash)&&API.isAdmin()){let v="";t
   if(keep!==true&&!samePg)window.scrollTo(0,0);
   if(!ACAD&&ACAD_R.has(k)){location.href=toAcad(h);return}
   if(ACAD&&MAIN_R.has(k)){location.href=toMain(h);return}
-  if(ACAD&&!logged()&&!["nueva","ranking","presentacion","premium","inicio"].includes(k)){location.replace(toMain("entrar-academia"));return}
+  if(ACAD&&!logged()&&!["nueva","ranking","presentacion","premium","inicio","biblioteca"].includes(k)){location.replace(toMain("entrar-academia"));return}
   if(ACAD&&!logged()&&k==="inicio"){history.replaceState(null,"","#presentacion");return route(keep)}
   renderNav();
-  if(ACAD&&closedAcad()&&!["nueva","perfil","presentacion","premium"].includes(k)){if(!admin()){API.logView(sid,"academia/cerrada");closedView();return}
+  if(ACAD&&closedAcad()&&!["nueva","perfil","presentacion","premium","biblioteca","clase"].includes(k)){if(!admin()){API.logView(sid,"academia/cerrada");closedView();return}
     $("#app").insertAdjacentHTML("beforebegin",'<div class="note admin-note" id="admNote">La academia está <b>cerrada para alumnos</b>: solo tú la ves. Ábrela desde Administración cuando el contenido esté listo.</div>')}
   API.logView(sid,((ACAD?"academia/":"")+h).slice(0,60));
   (ROUTES[k]||ROUTES.inicio)(arg);
@@ -675,10 +683,10 @@ function expandPlans(pl,disc){pl=(Array.isArray(pl)?pl:[]).filter(x=>x&&!x.auto)
   return out}
 let PRICE_SEL={}; /* meses elegidos en cada plan (tarjeta) */
 function pricingBlock(host,o={}){if(!host)return;const s=S.site;const pl=(s.plans||[]).filter(x=>x&&x.name&&x.price);const cs=(S.courses||[]).filter(c=>c.status!=="borrador"&&!c.base),bases=(S.courses||[]).filter(c=>c.status!=="borrador"&&c.base);
-  if((!pl.length&&!cs.length)||(premium()&&!o.page&&!o.always)){host.remove();return}const off=o.off??!!s.paymentsOff;
+  if((!pl.length&&!cs.length)||(premium()&&!o.page&&!o.always)){host.remove();return}const off=o.off??!anySell();
   const num=x=>{const m=String(x).replace(",",".").match(/\d+(\.\d+)?/);return m?parseFloat(m[0]):NaN};const cur=x=>String(x).replace(/[\d.,\s]+/g," ").trim()||"USD";
   const fm=v=>(Math.round(v*10)/10).toLocaleString("es-CO",{maximumFractionDigits:1});
-  const btn=(lbl,attr,gold)=>off?'<span class="btn disabled" aria-disabled="true">Disponible pronto</span>':o.page?`<button type="button" class="btn ${gold?"gold":""}" ${attr}>${lbl}</button>`:`<a class="btn ${gold?"gold":""}" href="${toMain("premium")}">${lbl}</a>`;
+  const btn=(lbl,attr,gold,offX)=>(offX??off)?'<span class="btn disabled" aria-disabled="true">Disponible pronto</span>':o.page?`<button type="button" class="btn ${gold?"gold":""}" ${attr}>${lbl}</button>`:`<a class="btn ${gold?"gold":""}" href="${toMain("premium")}">${lbl}</a>`;
   const ORD=["cobre","plata","oro","diamond"],mo=x=>Math.max(1,Math.round(x.days/30));
   /* una tarjeta por plan; adentro eliges 1, 3, 6 o 12 meses */
   const byT={};pl.forEach((x,i)=>{const t=tierOfPlan(x);(byT[t]=byT[t]||[]).push({x,i,m:mo(x)})});
@@ -691,7 +699,7 @@ function pricingBlock(host,o={}){if(!host)return;const s=S.site;const pl=(s.plan
       ${chips}
       ${ah?`<span class="price-old">${fm(full)} ${esc(cur(x.price))}</span>`:""}<div class="price-v"><b>${esc(String(x.price).replace(/\s*[A-Za-z]+$/,""))}</b><span>${esc(cur(x.price))}</span></div>
       <span class="dim">${m>1?`<b class="pm">${fm(pm)} ${esc(cur(x.price))} al mes</b> · pago único por ${m} meses`:`por 1 mes · sin renovación automática`}</span>${ah?`<span class="pill ok">Ahorras ${ah}% · ${fm(full-v)} ${esc(cur(x.price))}</span>`:""}
-      <ul class="checks">${(TIER_ITEMS[t]||[]).map(t2=>`<li>${esc(noEmo(t2))}</li>`).join("")}</ul>${myPlan()===t&&premium()?'<span class="pill ok">Tu plan actual</span>':""}${btn(`Elegir ${T.n} · ${m===1?"1 mes":m+" meses"}`,`data-pick="${r.i}"`,t!=="cobre")}</div>`};
+      <ul class="checks">${(TIER_ITEMS[t]||[]).map(t2=>`<li>${esc(noEmo(t2))}</li>`).join("")}</ul>${myPlan()===t&&premium()?'<span class="pill ok">Tu plan actual</span>':""}${btn(`Elegir ${T.n} · ${m===1?"1 mes":m+" meses"}`,`data-pick="${r.i}"`,t!=="cobre",!sellOn("plans"))}</div>`};
   const plans=tiers.map(card).join("");
   /* selector único de meses: cambia todos los planes a la vez */
   const allM=[...new Set(pl.map(mo))].sort((a,b)=>a-b),curM=PRICE_SEL.__all||1;
@@ -703,13 +711,14 @@ function pricingBlock(host,o={}){if(!host)return;const s=S.site;const pl=(s.plan
     if(!at&&/boom/i.test(c.title||"")&&Date.now()<Date.parse("2027-02-01T05:00:00Z"))return"Sale en enero";return""};
   const courses=cs.map(c=>{const mine=ownsCourse(c.id),ln=launch(c);return `<div class="crs-band" style="--cc:${esc(c.color||"#d8b062")}"><div class="crs-l"><div class="crs-top"><span class="crs-k">Curso suelto</span>${ln?`<span class="crs-date">${esc(ln)}</span>`:""}</div><h3>Curso ${esc(c.title)}</h3><p class="muted">${ln?"Un módulo nuevo cada 5 días. ":""}Solo este curso, sin los demás beneficios de los planes.</p>
       <ul class="checks crs-list"><li>Videos, ejercicios y encuestas</li><li>Módulos nuevos y actualizaciones</li><li>Medallas, placa y graduación</li><li>7 días de EAG Charts completo</li></ul></div>
-      <div class="crs-r"><div class="price-v"><b>${esc(String(c.price||"40 USD").replace(/\s*[A-Za-z]+$/,""))}</b><span>${esc(cur(c.price||"40 USD"))}</span></div><span class="dim">un solo pago, para siempre</span>${mine?'<span class="pill ok">Ya es tuyo</span>':btn("Comprar el curso",`data-pickc="${esc(c.id)}"`,false)}</div></div>`}).join("");
+      <div class="crs-r"><div class="price-v"><b>${esc(String(c.price||"40 USD").replace(/\s*[A-Za-z]+$/,""))}</b><span>${esc(cur(c.price||"40 USD"))}</span></div><span class="dim">un solo pago, para siempre</span>${mine?'<span class="pill ok">Ya es tuyo</span>':btn("Comprar el curso",`data-pickc="${esc(c.id)}"`,false,!sellOn("c:"+c.id))}</div></div>`}).join("");
   host.innerHTML=`${o.page?"":`<div class="sec-h"><div><span class="eyebrow">Precios</span><h2>Elige tu plan</h2></div><a href="#premium">Cómo pagar</a></div>`}
     ${freeCard(o)?`<div class="free-row">${freeCard(o)}</div>`:""}
     <div class="dur-row"><span>Elige por cuánto tiempo: <b>entre más tiempo, más ahorras</b>.</span>${durBar}</div>
     <div class="prices tiers4">${plans}</div>
     ${courses?`<div class="crs-wrap">${courses}</div>`:""}
-    <p class="dim price-foot">${off?"Los pagos están pausados por ahora: te avisaremos cuando abran.":"Pagas con Binance Pay en USDT y activamos tu plan o tu curso al confirmar el pago. Sin cobros automáticos: cuando se acaba tu tiempo, renuevas si quieres."} Los planes incluyen <b>todos</b> los cursos; el curso suelto es solo ese curso, para siempre.${bases.length?` El curso <b>${esc(bases.map(b=>b.title).join(" y "))}</b> es gratis con tu cuenta.`:""}</p>`;
+    ${libOn()?libCard(o,btn,cur):""}
+    <p class="dim price-foot">${off?"Los pagos están pausados por ahora: te avisaremos cuando abran.":"Pagas con Binance Pay en USDT y activamos tu plan o tu curso al confirmar el pago. Sin cobros automáticos: cuando se acaba tu tiempo, renuevas si quieres."} Los planes incluyen <b>todos</b> los cursos; el curso suelto es solo ese curso, para siempre.${libOn()?" La biblioteca de clases se compra aparte y también es para siempre.":""}${bases.length?` El curso <b>${esc(bases.map(b=>b.title).join(" y "))}</b> es gratis con tu cuenta.`:""}</p>`;
   $$("[data-adur]",host).forEach(b=>b.onclick=()=>{const m=+b.dataset.adur;PRICE_SEL.__all=m;tiers.forEach(t=>{PRICE_SEL[t]=m});pricingBlock(host,o)});
   $$("[data-pick]",host).forEach(b=>b.onclick=()=>{const sel=$("#pP");const k=pl[+b.dataset.pick];if(sel){const j=(S.site.plans||[]).findIndex(x=>x.name===k.name);if(j>=0)sel.value="p:"+j}const t=$("#pay");if(t)t.scrollIntoView({behavior:"smooth",block:"start"})});
   $$("[data-pickc]",host).forEach(b=>b.onclick=()=>{const sel=$("#pP");if(sel)sel.value="c:"+b.dataset.pickc;const t=$("#pay");if(t)t.scrollIntoView({behavior:"smooth",block:"start"})})}
@@ -741,6 +750,7 @@ const IC={
   gear:'<circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1.2l2-1.5-2-3.4-2.3.9a7 7 0 0 0-2-1.2L14 3h-4l-.6 2.6a7 7 0 0 0-2 1.2l-2.3-.9-2 3.4 2 1.5a7 7 0 0 0 0 2.4l-2 1.5 2 3.4 2.3-.9a7 7 0 0 0 2 1.2L10 21h4l.6-2.6a7 7 0 0 0 2-1.2l2.3.9 2-3.4-2-1.5c.1-.4.1-.8.1-1.2z"/>',
   crown:'<path d="M3 8l4.5 4L12 5l4.5 7L21 8l-2 11H5z"/>',
   play:'<path d="M8 5v14l11-7z"/>',
+  book:'<path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5z"/><path d="M4 20.5A2.5 2.5 0 0 0 6.5 23H20v-5"/><path d="M9 7h7M9 11h5"/>',
   home:'<path d="M4 11l8-7 8 7"/><path d="M6 9.5V20h12V9.5"/><path d="M10 20v-5h4v5"/>',
   star:'<path d="M12 4l2.5 5.2 5.5.8-4 3.9.9 5.6L12 16.9 7.1 19.5l.9-5.6-4-3.9 5.5-.8z"/>',
   image:'<rect x="3.5" y="5" width="17" height="14" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="M20.5 16l-5-5-8 8"/>',
@@ -1495,12 +1505,12 @@ async function afterLogin(){await API.loadProfile();await loadProg();await loadC
 
 /* ---------- mercados / premium ---------- */
 ROUTES.mercados=()=>{app.innerHTML=`<div class="pagehead"><span class="eyebrow">Mercados</span><h1>Un método, varios mercados</h1><p class="muted">La base es la misma para todos: el curso <b>Fundamentos del trading</b>, gratis con tu cuenta. Encima va la estrategia de cada mercado: empezamos con Boom y Crash, y después llegan Step Index, Volatility, Forex y metales.</p></div><div class="mkts big">${marketsHTML(S.site.markets||[],false)}</div>`};
-ROUTES.premium=()=>{const s=S.site;const plans=(s.plans||[]).filter(x=>x&&x.name);const off=!!s.paymentsOff;/* medios de pago: Binance Pay, Airtm y Bre-B (Colombia); cada uno aparece si está configurado en Admin → Sitio */
+ROUTES.premium=()=>{const s=S.site;const plans=(s.plans||[]).filter(x=>x&&x.name);const off=!anySell();/* medios de pago: Binance Pay, Airtm y Bre-B (Colombia); cada uno aparece si está configurado en Admin → Sitio */
   const PM=[s.binancePayId&&{k:"binance",t:"Binance Pay",ref:"ID de orden de Binance",ph:"Ej.: 382947561029384756"},
     s.airtmUser&&{k:"airtm",t:"Airtm",ref:"ID de la transacción de Airtm",ph:"Ej.: el código del movimiento"},
     s.brebKey&&{k:"breb",t:"Bre-B · Colombia",ref:"Número de comprobante o referencia",ph:"Ej.: M12345678"}].filter(Boolean);
   let pmK=(()=>{try{const k=sessionStorage.getItem("ag_pm");if(PM.some(m=>m.k===k))return k}catch(e){}return PM[0]&&PM[0].k})();
-  const bin=!off&&PM.length>0&&!!(plans.length||(S.courses||[]).length);const pf=API.profile()||{};
+  const bin=!off&&PM.length>0;const pf=API.profile()||{};
   app.innerHTML=`<div class="pagehead"><span class="eyebrow">Premium</span><h1>${esc(s.premiumTitle||"Hazte premium")}</h1><p class="muted">${esc(s.premiumText||"")}</p></div>
   ${premium()?`<div class="note ok-note">Eres suscriptor ${(TIERS[myPlan()]||{n:"premium"}).n}${pf.premium_until&&new Date(pf.premium_until).getFullYear()<2090?` hasta el <b>${fmtDate(pf.premium_until)}</b>`:""}. Si pagas otro plan, los días se suman a los que te quedan.</div>`:""}
   ${off?`<div class="panel pay-off"><span class="mt-i">${ico("crown")}</span><div><h3>Los pagos están pausados por ahora</h3><p class="muted">Estamos preparando la apertura. Te avisaremos por la comunidad${s.discordUrl?" y el Discord":""} cuando puedas activar tu plan.${s.contact?` Si tienes dudas escríbenos: <b class="sel">${esc(s.contact)}</b>`:""}</p></div></div>`:""}
@@ -1537,12 +1547,13 @@ ROUTES.premium=()=>{const s=S.site;const plans=(s.plans||[]).filter(x=>x&&x.name
   const estado={pendiente:'<span class="pill gold">Por confirmar</span>',aprobado:'<span class="pill ok">Aprobado</span>',rechazado:'<span class="pill">Rechazado</span>'};
   draw=async()=>{let mine=[];try{mine=await API.myPayments()}catch(e){}const M=PM.find(x=>x.k===pmK)||PM[0],co=M.k==="breb";
     host.innerHTML=`<form class="form" id="pf" novalidate><h3 style="margin-top:6px">Registrar mi pago</h3>
-      <div class="two"><label for="pP">Qué pagaste<select id="pP">${plans.map((x,i)=>`<option value="p:${i}">${(TIERS[tierOfPlan(x)]||{}).n||""} · ${esc(x.name)} · ${esc(x.price)}${co&&cop(x.price)?` ≈ ${cop(x.price)}`:""}</option>`).join("")}${(S.courses||[]).filter(c=>c.status!=="borrador"&&!c.base&&!ownsCourse(c.id)).map(c=>`<option value="c:${esc(c.id)}">Curso ${esc(c.title)} · ${esc(c.price||"40 USD")}${co&&cop(c.price||"40 USD")?` ≈ ${cop(c.price||"40 USD")}`:""} · de por vida</option>`).join("")}</select></label>
+      <div class="two"><label for="pP">Qué pagaste<select id="pP">${(sellOn("plans")?plans:[]).map((x,i)=>`<option value="p:${i}">${(TIERS[tierOfPlan(x)]||{}).n||""} · ${esc(x.name)} · ${esc(x.price)}${co&&cop(x.price)?` ≈ ${cop(x.price)}`:""}</option>`).join("")}${(S.courses||[]).filter(c=>c.status!=="borrador"&&!c.base&&!ownsCourse(c.id)&&sellOn("c:"+c.id)).map(c=>`<option value="c:${esc(c.id)}">Curso ${esc(c.title)} · ${esc(c.price||"40 USD")}${co&&cop(c.price||"40 USD")?` ≈ ${cop(c.price||"40 USD")}`:""} · de por vida</option>`).join("")}${S.lib&&libOn()&&!ownsLib()&&sellOn("lib")?`<option value="c:${esc(S.lib.id)}">${esc(S.lib.title)} · ${esc(S.lib.price||"50 USD")}${co&&cop(S.lib.price||"50 USD")?` ≈ ${cop(S.lib.price||"50 USD")}`:""} · de por vida</option>`:""}</select></label>
       <label for="pO">${esc(M.ref)}<input id="pO" ${M.k==="binance"?'inputmode="numeric" ':""}autocomplete="off" placeholder="${esc(M.ph)}" maxlength="80"></label></div>
       <label for="pN">Nota (opcional)<input id="pN" maxlength="300" placeholder="Ej.: pagué desde la cuenta de mi hermano"></label>
       <div class="err" id="pE" role="alert"></div><div class="row"><button class="btn gold" id="pB">Registrar pago</button></div></form>
       ${mine.length?`<h3>Mis pagos</h3><div class="list">${mine.map(r=>`<div class="item"><span class="txt"><b>${esc(r.plan)} · ${esc(r.amount)}</b><span>${({breb:"Bre-B",airtm:"Airtm"})[r.method]||"Binance"} · ${esc(r.order_id)} · ${fmtDT(r.created_at)}${r.status==="rechazado"&&r.admin_note?` · ${esc(r.admin_note)}`:""}</span></span>${estado[r.status]||""}</div>`).join("")}</div>`:""}`;
-    $("#pf").onsubmit=async e=>{e.preventDefault();const pv=$("#pP").value||"p:0";const crs=pv.startsWith("c:")?(S.courses||[]).find(c=>c.id===pv.slice(2)):null;const pl=crs?{name:"Curso "+crs.title,days:30,price:crs.price||"40 USD"}:(plans[+pv.slice(2)]||plans[0]);const oid=$("#pO").value.replace(/\s+/g,"");
+    if(/-biblioteca$/.test(location.hash)&&S.lib&&$(`#pP option[value="c:${S.lib.id}"]`))$("#pP").value="c:"+S.lib.id;
+    $("#pf").onsubmit=async e=>{e.preventDefault();const pv=$("#pP").value||"p:0";const crs=pv.startsWith("c:")?(S.courses||[]).concat(S.lib?[S.lib]:[]).find(c=>c.id===pv.slice(2)):null;const pl=crs?{name:crs.kind==="biblioteca"?crs.title:"Curso "+crs.title,days:30,price:crs.price||"40 USD"}:(plans[+pv.slice(2)]||plans[0]);const oid=$("#pO").value.replace(/\s+/g,"");
       if(!(M.k==="binance"?/^[A-Za-z0-9-]{4,80}$/:/^[A-Za-z0-9._#:\/-]{4,80}$/).test(oid)){$("#pE").textContent=M.k==="binance"?"Escribe el ID de orden tal como sale en Binance (solo números y letras).":"Escribe la referencia tal como sale en tu comprobante (números y letras).";return}
       try{busy($("#pB"),true);await API.payRequest({method:M.k,plan:pl.name,days:pl.days,amount:co&&cop(pl.price)?`${pl.price} (${cop(pl.price)})`:pl.price,order_id:oid,note:$("#pN").value.trim(),course_id:crs?crs.id:null});pop({icon:"coin",kicker:"Pago registrado",title:"Estamos confirmando tu pago",text:"Te avisamos apenas lo activemos. Tu pago quedó en Mensajes: si se demora, escríbenos por ahí."});draw()}
       catch(x){$("#pE").textContent=/duplicate|unique|ya fue registrado/i.test(x.message)?"Ese ID de orden ya fue registrado.":x.message}finally{const b=$("#pB");if(b)busy(b,false)}}};
@@ -1615,7 +1626,7 @@ ROUTES.resena=id=>{if(!logged()){location.hash="#entrar";return}
 const paywall=()=>`<div class="cta-band">${premiumBand()}</div>`;
 function videoBlock(host,l){
   const u=(l.video_url||"").trim();if(!u){host.innerHTML="";return}
-  let last=0;const tick=s=>{if(s>0)API.addWatch(l.id,Math.min(120,Math.round(s)))};
+  let last=0,vpos=0,vdur=0;const tick=s=>{if(s>0){if(l.onTick)l.onTick(s,vpos,vdur);else API.addWatch(l.id,Math.min(120,Math.round(s)))}};
   const yt=u.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([\w-]{11})/);
   const vm=u.match(/vimeo\.com\/(?:video\/)?(\d+)/);
   const bn=u.match(/(?:iframe|player)\.mediadelivery\.net\/(?:embed|play)\/(\d+)\/([\w-]+)/);
@@ -1631,8 +1642,8 @@ function videoBlock(host,l){
     const fr=$("iframe",host);let prevT=null,acc=0;
     const post=m=>{try{fr.contentWindow.postMessage(JSON.stringify(Object.assign({context:"player.js",version:"0.0.11"},m)),"*")}catch(e){}};
     const onMsg=e=>{if(!/mediadelivery\.net$/.test(new URL(e.origin).hostname))return;let d=e.data;try{if(typeof d==="string")d=JSON.parse(d)}catch(x){return}
-      if(!d||d.context!=="player.js")return;if(d.event==="ready"){post({method:"addEventListener",value:"timeupdate",listener:"ag"})}
-      if(d.event==="timeupdate"&&d.value){const t=+d.value.seconds||0;if(prevT!=null){const dt=t-prevT;if(dt>0&&dt<2)acc+=dt}prevT=t;if(acc>=30){tick(acc);acc=0}}};
+      if(!d||d.context!=="player.js")return;if(d.event==="ready"){post({method:"addEventListener",value:"timeupdate",listener:"ag"});if(l.startAt>5)post({method:"setCurrentTime",value:l.startAt})}
+      if(d.event==="timeupdate"&&d.value){const t=+d.value.seconds||0;vpos=t;vdur=+d.value.duration||vdur;if(prevT!=null){const dt=t-prevT;if(dt>0&&dt<2)acc+=dt}prevT=t;if(acc>=30){tick(acc);acc=0}}};
     window.addEventListener("message",onMsg);cleanup.push(()=>{window.removeEventListener("message",onMsg);tick(acc)});return}
   if(yt||vm){const src=yt?`https://www.youtube-nocookie.com/embed/${yt[1]}?rel=0&modestbranding=1&fs=0&enablejsapi=1&origin=${encodeURIComponent(location.origin)}`:`https://player.vimeo.com/video/${vm[1]}?dnt=1`;
     host.innerHTML=shell(`<iframe src="${src}" title="${esc(l.title)}" allow="autoplay; picture-in-picture; encrypted-media" style="width:100%;height:100%;border:0"></iframe>`);mountExtras();
@@ -1640,9 +1651,115 @@ function videoBlock(host,l){
     let active=false;const onBlur=()=>{if(document.activeElement&&document.activeElement.tagName==="IFRAME")active=true};window.addEventListener("blur",onBlur);
     const iv=setInterval(()=>{if(active&&document.visibilityState==="visible"){last+=30;if(last>=60){tick(last);last=0}}},30000);cleanup.push(()=>{clearInterval(iv);window.removeEventListener("blur",onBlur);tick(last)});return}
   if(/\.(mp4|webm|m3u8)(\?|$)/i.test(u)||u.includes("/storage/v1/object/")){const isH=/\.m3u8(\?|$)/i.test(u);host.innerHTML=shell(`<video controls preload="metadata" playsinline ${isH?`data-hls="${esc(u)}"`:`src="${esc(u)}"`} controlslist="nodownload noplaybackrate nofullscreen" disablepictureinpicture oncontextmenu="return false"></video>`);mountExtras();hlsInit(host);
-    const v=$("video",host);let acc=0,prev=0;v.addEventListener("timeupdate",()=>{const d=v.currentTime-prev;prev=v.currentTime;if(d>0&&d<2)acc+=d;if(acc>=30){tick(acc);acc=0}});cleanup.push(()=>tick(acc));return}
+    const v=$("video",host);let acc=0,prev=0;if(l.startAt>5)v.addEventListener("loadedmetadata",()=>{try{v.currentTime=l.startAt;prev=l.startAt}catch(e){}},{once:true});v.addEventListener("timeupdate",()=>{vpos=v.currentTime;vdur=isFinite(v.duration)?v.duration:vdur;const d=v.currentTime-prev;prev=v.currentTime;if(d>0&&d<2)acc+=d;if(acc>=30){tick(acc);acc=0}});cleanup.push(()=>tick(acc));return}
   host.innerHTML=`<div class="video" style="aspect-ratio:auto;min-height:160px"><div class="ph"><b>Video de la lección</b><a class="btn gold" href="${esc(u)}" target="_blank" rel="noopener">Ver el video</a></div></div>`;
 }
+
+/* ---------- biblioteca de clases ---------- */
+const libBuy=()=>sellOn("lib")?'<a class="btn gold" href="#premium-biblioteca">Comprar la biblioteca</a>':'<span class="btn disabled" aria-disabled="true">Disponible pronto</span>';
+const LIB_SEC=["Clases grupales","Clases personalizadas","Ejemplos y repasos"];
+const fmtMin=m=>!m?"":m<60?m+" min":Math.floor(m/60)+" h"+(m%60?" "+(m%60)+" min":"");
+const libSecs=items=>{const ord=LIB_SEC.concat([...new Set(items.map(i=>i.section))].filter(x=>!LIB_SEC.includes(x)));return ord.map(n=>[n,items.filter(i=>(i.section||LIB_SEC[0])===n)]).filter(x=>x[1].length)};
+const starsTxt=v=>v?`<span class="lib-st" aria-label="${v} de 5 estrellas">★ ${String(v).replace(".",",")}</span>`:"";
+const libTotalMin=items=>items.reduce((a,i)=>a+(+i.minutes||0),0);
+function libCard(o,btn,cur){const L=S.lib,c=libCfg(),pr=L.price||"50 USD",mine=ownsLib();
+  const buy=mine?'<span class="pill ok">Ya es tuya</span>':!sellOn("lib")?'<span class="btn disabled" aria-disabled="true">Disponible pronto</span>':o.page?btn("Comprar la biblioteca",`data-pickc="${esc(L.id)}"`,true,false):`<a class="btn gold" href="${toAcad("premium-biblioteca")}">Comprar la biblioteca</a>`;
+  return `<div class="crs-band lib-band" id="libCard" style="--cc:var(--blue)"><div class="crs-l"><div class="crs-top"><span class="crs-k">Va aparte</span><span class="lib-hrs">${esc(c.hours)} de clases</span></div><h3>${esc(L.title)}</h3>
+    <p class="muted">Clases grabadas, grupales y personalizadas, donde explico cómo opero de principio a fin. Para quien ya sabe operar y quiere ir al grano, sin el curso desde cero.</p>
+    <ul class="checks crs-list"><li>Ejemplos reales en el gráfico</li><li>Se escuchan las preguntas de la clase</li><li>Ves las clases en el orden que quieras</li><li>Al final, ${+c.classHours||2} h de clase personal conmigo</li></ul></div>
+    <div class="crs-r"><div class="price-v"><b>${esc(String(pr).replace(/\s*[A-Za-z]+$/,""))}</b><span>${esc(cur(pr))}</span></div><span class="dim">un solo pago, para siempre</span>${buy}<a class="btn ghost sm" href="${toAcad("biblioteca")}">Ver qué trae</a></div></div>`}
+
+ROUTES.biblioteca=async()=>{const c=libCfg();
+  if(!S.lib||!libOn()){app.innerHTML=`<div class="empty">La biblioteca de clases todavía no está disponible.<a class="btn sm" href="#presentacion">Volver</a></div>`;return}
+  app.innerHTML=`<div class="empty">Cargando la biblioteca…</div>`;
+  const mine=ownsLib();let items=[],ov=[];
+  try{items=await API.libItems()}catch(e){}
+  if(mine)try{ov=await API.libOverview()}catch(e){}
+  if(!location.hash.startsWith("#biblioteca"))return;
+  const O=Object.fromEntries((ov||[]).map(x=>[x.item_id,x]));const tot=libTotalMin(items);
+  const secs=libSecs(items);let n=0;
+  const row=i=>{n++;const o=O[i.id]||{},prog=o.my_done?'<span class="lib-ok">Vista</span>':o.my_seconds>60?`<span class="dim">Vas en ${fmtMin(Math.max(1,Math.round((o.my_pos||o.my_seconds)/60)))}</span>`:"";
+    const can=mine||(i.free_preview&&logged());
+    const meta=[fmtMin(i.minutes),o.avg_stars?starsTxt(o.avg_stars)+` <span class="dim">(${o.n_ratings})</span>`:"",o.n_questions?`${o.n_questions} pregunta${o.n_questions>1?"s":""}`:"",(!mine&&i.free_preview)?'<span class="pill gold">Muestra gratis</span>':""].filter(Boolean).join(" · ");
+    const inner=`<span class="lib-n${o.my_done?" done":""}">${o.my_done?"✓":n}</span><span class="lib-t"><b>${esc(i.title)}</b>${meta?`<small>${meta}</small>`:""}</span><span class="lib-p">${prog}${can?"":'<span class="dim" aria-label="Bloqueada">🔒</span>'}</span>`;
+    return can?`<a class="lib-row" href="#clase-${esc(i.id)}">${inner}</a>`:`<div class="lib-row locked">${inner}</div>`};
+  const list=items.length?secs.map(([name,L])=>`<section class="lib-sec"><h3>${esc(name)} <span class="dim">${L.length} clase${L.length>1?"s":""}${libTotalMin(L)?" · "+fmtMin(libTotalMin(L)):""}</span></h3><div class="lib-list">${L.map(row).join("")}</div></section>`).join("")
+    :`<div class="panel"><p class="muted" style="margin:0">Estamos subiendo las clases. Aquí van a aparecer apenas estén listas.</p></div>`;
+  const live=`<div class="lib-live"><span class="mt-i">${ico("users")}</span><div><b>Se escuchan las preguntas de la clase</b><p>Son clases grabadas con alumnos conectados, así que se oyen sus preguntas y cómo las respondo. Muchas veces son las mismas dudas que vas a tener tú, y la respuesta ya está ahí.</p></div></div>`;
+  if(mine){const done=(ov||[]).filter(x=>x.my_done).length,secsW=(ov||[]).reduce((a,x)=>a+(x.my_seconds||0),0),pct=items.length?Math.round(100*done/items.length):0;
+    app.innerHTML=`<div class="pagehead"><span class="eyebrow">Biblioteca de clases</span><h1>${esc(S.lib.title)}</h1><p class="muted">Hay un orden sugerido, pero no es obligatorio: entra a la clase que necesites, cuando quieras.</p></div>
+      <div class="lib-prog panel"><div class="lib-pt"><b>${pct}%</b><span class="dim">${done} de ${items.length} clases vistas · ${fmtMin(Math.round(secsW/60))||"0 min"} vistos${tot?` de ${fmtMin(tot)}`:""}</span></div><div class="bar" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100"><i style="width:${pct}%"></i></div></div>
+      ${list}${live}<div id="libClass"></div>`;
+    libClassBox($("#libClass"),pct);return}
+  const pr=S.lib.price||"50 USD";
+  app.innerHTML=`<section class="lib-hero"><span class="eyebrow">Biblioteca de clases</span><h1>Así opero, explicado en clases grabadas</h1>
+      <p class="lead">Clases grupales y personalizadas grabadas donde explico cómo opero, completo. Es para quien ya sabe operar y no quiere todo el curso desde principiante, sino ir al grano.</p>
+      <dl class="lib-facts"><div><dt>Precio</dt><dd>${esc(pr)}</dd></div><div><dt>Duración</dt><dd>${esc(c.hours)}</dd></div><div><dt>Clases</dt><dd>${items.length||"Subiendo"}</dd></div><div><dt>Acceso</dt><dd>De por vida</dd></div></dl>
+      <div class="row">${libBuy()}${items.some(i=>i.free_preview)?'<a class="btn ghost" href="#libList">Ver una clase de muestra</a>':""}</div></section>
+    <div class="lib-why">
+      <div><h3>Para quién es</h3><p class="muted">Para quien ya opera, conoce la plataforma y lo básico del gráfico, y quiere ver directamente cómo opero yo: más rápido y sin repetir lo que ya sabe.</p></div>
+      <div><h3>Qué trae</h3><ul class="checks"><li>Clases grupales grabadas</li><li>Clases personalizadas grabadas</li><li>Ejemplos en el gráfico y explicaciones paso a paso</li><li>Clases nuevas cuando las suba</li></ul></div>
+      <div><h3>A tu ritmo</h3><p class="muted">No es como la academia, donde avanzas lección por lección. Hay un orden sugerido, pero ves la clase que quieras, cuando quieras.</p></div></div>
+    ${live}
+    <div class="lib-bonus"><span class="mt-i">${ico("chat")}</span><div><b>Al terminar, ${+c.classHours||2} horas de clase personal conmigo</b><p>Cuando veas la biblioteca, pides una clase en vivo de ${+c.classHours||2} horas para preguntarme todo lo que no te haya quedado claro de los videos.</p></div></div>
+    <div id="libList"><h2 class="lib-h2">Lo que hay adentro</h2>${list}</div>
+    <div class="panel lib-buy"><div><h3>${esc(S.lib.title)}</h3><p class="muted">${esc(pr)} · un solo pago · ${esc(c.hours)} de clases · acceso para siempre.</p></div>${libBuy()}</div>`;
+};
+
+async function libClassBox(host,pct){if(!host)return;const c=libCfg(),need=+c.minPct||0,h=+c.classHours||2;let r=null;try{r=await API.libMyClass()}catch(e){}
+  const ST={pendiente:["gold","Recibida: te escribo para cuadrar la hora"],agendada:["ok","Agendada"],hecha:["ok","Hecha"],cancelada:["","Cancelada"]};
+  const head=`<span class="mt-i">${ico("chat")}</span><div><h3>Tu clase personal de ${h} horas</h3><p class="muted">Una clase en vivo conmigo para resolver las dudas de todos los videos.</p></div>`;
+  if(r&&r.status!=="cancelada"){const st=ST[r.status]||["",r.status];host.innerHTML=`<div class="panel lib-class"><div class="lib-ch">${head}</div>
+      <p><span class="pill ${st[0]}">${esc(st[1])}</span>${r.scheduled_at?` <b>${fmtDT(r.scheduled_at)}</b> <span class="dim">(hora Colombia)</span>`:""}</p>${r.admin_note?`<div class="note">${esc(r.admin_note)}</div>`:""}
+      ${r.status==="pendiente"?`<p class="dim" style="margin:0">Lo que nos dejaste: ${esc(r.availability||"—")} · ${esc(r.contact||"—")}</p><button class="btn sm ghost" id="lcE" type="button">Cambiar datos</button>`:""}</div>`;
+    const e=$("#lcE");if(e)e.onclick=()=>form(r);return}
+  if(pct<need){host.innerHTML=`<div class="panel lib-class"><div class="lib-ch">${head}</div><div class="bar"><i style="width:${Math.round(100*pct/need)}%"></i></div><p class="dim" style="margin:0">Se desbloquea cuando veas el ${need}% de la biblioteca. Llevas ${pct}%.</p></div>`;return}
+  form(r);
+  function form(o){o=o||{};host.innerHTML=`<form class="panel form lib-class" id="lcF" novalidate><div class="lib-ch">${head}</div>
+      <label for="lcA">¿Qué días y horas te sirven? <input id="lcA" maxlength="500" value="${esc(o.availability||"")}" placeholder="Ej.: martes o jueves después de las 6 p. m. (hora Colombia)"></label>
+      <label for="lcT">¿Qué quieres repasar? <textarea id="lcT" maxlength="2000" placeholder="Las clases o temas que no te quedaron claros">${esc(o.topics||"")}</textarea></label>
+      <label for="lcC">¿Por dónde te contacto? <input id="lcC" maxlength="120" value="${esc(o.contact||"")}" placeholder="WhatsApp, Discord o Telegram"></label>
+      <div class="err" id="lcE2" role="alert"></div><div class="row"><button class="btn gold" id="lcB">Pedir mi clase</button></div></form>`;
+    $("#lcF").onsubmit=async e=>{e.preventDefault();const a=$("#lcA").value.trim(),t=$("#lcT").value.trim(),k=$("#lcC").value.trim();
+      if(a.length<3||k.length<3){$("#lcE2").textContent="Escribe qué horarios te sirven y por dónde te contacto.";return}
+      try{busy($("#lcB"),true);await API.libRequestClass(a,t,k);pop({icon:"chat",kicker:"Clase personal",title:"Recibimos tu solicitud",text:"Te escribo para cuadrar el día y la hora."});libClassBox(host,pct)}catch(x){$("#lcE2").textContent=x.message;const b=$("#lcB");if(b)busy(b,false)}}}}
+
+ROUTES.clase=async id=>{if(!id){location.hash="#biblioteca";return}
+  if(!logged()){location.replace(toMain("entrar-academia"));return}
+  app.innerHTML=`<div class="empty">Cargando la clase…</div>`;
+  let it=null,items=[],ov=[];try{[it,items]=await Promise.all([API.libItem(id),API.libItems()])}catch(e){}
+  const mine=ownsLib();if(mine)try{ov=await API.libOverview()}catch(e){}
+  if(location.hash!=="#clase-"+id)return;
+  if(!it){app.innerHTML=`<div class="empty">Esta clase es de la biblioteca de clases.<a class="btn gold sm" href="#biblioteca">Ver la biblioteca</a></div>`;return}
+  const ord=libSecs(items).flatMap(x=>x[1]),ix=ord.findIndex(x=>x.id===id),prev=ord[ix-1],next=ord[ix+1],o=(ov||[]).find(x=>x.item_id===id)||{};
+  const nav=x=>x&&(mine||x.free_preview)?`#clase-${x.id}`:null;
+  app.innerHTML=`<div class="crumbs"><a href="#biblioteca">Biblioteca</a> <span class="dim">/ ${esc(it.section||"")}</span></div>
+    <div class="pagehead lib-vh"><h1>${esc(it.title)}</h1><p class="muted">${[fmtMin(it.minutes),ix>=0?`Clase ${ix+1} de ${ord.length} en el orden sugerido`:""].filter(Boolean).join(" · ")}</p></div>
+    <div id="lv"></div>
+    <div class="lib-acts">${mine?`<button type="button" class="btn sm ${o.my_done?"":"ghost"}" id="lvD" aria-pressed="${!!o.my_done}">${o.my_done?"✓ Vista":"Marcar como vista"}</button>`:""}<span class="sp"></span>
+      ${nav(prev)?`<a class="btn sm ghost" href="${nav(prev)}">Anterior</a>`:""}${nav(next)?`<a class="btn sm" href="${nav(next)}">Siguiente</a>`:""}</div>
+    ${it.descr?`<div class="prose lib-d">${esc(it.descr).replace(/\n/g,"<br>")}</div>`:""}
+    ${mine?`<div class="lib-two"><div class="panel form" id="lvR"></div><div class="panel" id="lvQ"></div></div>`:`<div class="panel lib-buy"><div><h3>Esta es una clase de muestra</h3><p class="muted">Con la biblioteca ves todas las clases, calificas, dejas preguntas y al final pides tu clase personal de ${+libCfg().classHours||2} horas.</p></div>${libBuy()}</div>`}`;
+  videoBlock($("#lv"),Object.assign({},it,{startAt:o.my_done?0:(o.my_pos||0),onTick:(s,pos,dur)=>API.libWatch(id,s,pos,dur)}));
+  if(!mine)return;
+  const d=$("#lvD");d.onclick=async()=>{const on=d.getAttribute("aria-pressed")!=="true";try{await API.libMark(id,on);d.setAttribute("aria-pressed",on);d.textContent=on?"✓ Vista":"Marcar como vista";d.classList.toggle("ghost",!on);toast(on?"Clase marcada como vista":"Listo")}catch(x){toast(x.message)}};
+  /* calificación */
+  let myS=o.my_stars||0;const rate=()=>{$("#lvR").innerHTML=`<h3>Califica esta clase</h3><div class="lib-stars" role="radiogroup" aria-label="Calificación">${[1,2,3,4,5].map(k=>`<button type="button" role="radio" aria-checked="${k===myS}" aria-label="${k} de 5" class="${k<=myS?"on":""}" data-s="${k}">★</button>`).join("")}</div>
+      ${o.avg_stars?`<p class="dim" style="margin:0">Promedio: ${starsTxt(o.avg_stars)} de ${o.n_ratings} calificación${o.n_ratings>1?"es":""}</p>`:""}
+      <label for="lvN" class="${myS?"":"lib-hide"}" id="lvNl">¿Algo que mejorar? (opcional)<input id="lvN" maxlength="500" placeholder="Ej.: me faltó un ejemplo de venta"></label><div class="row ${myS?"":"lib-hide"}" id="lvNr"><button class="btn sm" id="lvNs" type="button">Guardar</button></div>`;
+    $$("[data-s]",$("#lvR")).forEach(b=>b.onclick=async()=>{myS=+b.dataset.s;try{await API.libRate(id,myS,"");rate();toast("Gracias por calificar")}catch(x){toast(x.message)}});
+    const ns=$("#lvNs");if(ns)ns.onclick=async()=>{try{await API.libRate(id,myS,$("#lvN").value.trim());toast("Comentario guardado");$("#lvN").value=""}catch(x){toast(x.message)}}};rate();
+  /* preguntas */
+  const me=API.user()||{};
+  const qs=async()=>{let L=[];try{L=await API.libQs(id)}catch(e){}
+    $("#lvQ").innerHTML=`<h3>Preguntas de esta clase</h3><form class="form lib-ask" id="lqF" novalidate><label for="lqB" class="lib-sr">Tu pregunta</label><textarea id="lqB" maxlength="1500" placeholder="¿Qué no te quedó claro? Te respondo aquí y la ven los demás alumnos."></textarea>
+        <div class="row"><label for="lqM" class="lib-min">Minuto (opcional)<input id="lqM" type="number" min="0" max="999" inputmode="numeric" placeholder="12"></label><button class="btn sm gold" id="lqS">Preguntar</button></div><div class="err" id="lqE" role="alert"></div></form>
+      <div class="lib-qs">${L.length?L.map(q=>`<div class="lib-q"><div class="lib-qh">${avatar(q,26)}<b>${esc(q.username||"Alumno")}</b><span class="dim">${q.minute!=null?`min ${q.minute} · `:""}${fmtDT(q.created_at)}</span>${q.user_id===me.id||admin()?`<button type="button" class="lnk dim" data-qd="${q.id}" aria-label="Borrar pregunta">Borrar</button>`:""}</div>
+        <p>${esc(q.body)}</p>${q.answer?`<div class="lib-a"><b>Respuesta del profe</b><p>${esc(q.answer).replace(/\n/g,"<br>")}</p></div>`:'<span class="dim">Sin responder todavía</span>'}</div>`).join(""):'<p class="dim" style="margin:0">Nadie ha preguntado todavía. Si tienes una duda, seguro alguien más la tiene.</p>'}</div>`;
+    $("#lqF").onsubmit=async e=>{e.preventDefault();const b=$("#lqB").value.trim(),m=$("#lqM").value;if(b.length<3){$("#lqE").textContent="Escribe tu pregunta.";return}
+      try{busy($("#lqS"),true);await API.libAsk(id,b,m===""?null:Math.max(0,Math.min(999,+m)));toast("Pregunta enviada");qs()}catch(x){$("#lqE").textContent=x.message;const s2=$("#lqS");if(s2)busy(s2,false)}};
+    $$("[data-qd]",$("#lvQ")).forEach(b=>b.onclick=async()=>{try{await API.libQDel(+b.dataset.qd);qs()}catch(x){toast(x.message)}})};qs();
+};
 
 /* ---------- práctica ---------- */
 ROUTES.practica=async()=>{
@@ -1751,7 +1868,7 @@ ROUTES.admin.__lazy=true;
 window.AGAPP={uL,showProfile,TIERS,chatBox,chatPreview,dmPoll,pop,mediaVideo,hlsInit,ico,avatar,affTag,absUrl,enablePush,flag,premTag,legalText,modOpen,modState,SITE,ACAD,link,toAcad,toMain,S,API,$,$$,esc,md,toast,busy,fmtT,fmtDate,fmtDT,TZ,MARKETS,MNAME,h1Bars,m5Bars,idxAt,avgRange,toC,Chart,cleanupPush:f=>cleanup.push(f),route,ROUTES,app,premium,admin,logged,confirmInline,loadContent:()=>loadContent(),renderFoot:()=>renderFoot(),applySite:()=>applySite()};
 
 /* ---------- arranque ---------- */
-async function loadContent(){const [m,l,c,mc]=await Promise.all([API.modules().catch(()=>[]),API.lessonIndex().catch(()=>[]),(API.courses?API.courses():Promise.resolve([])).catch(()=>[]),(API.myCourses&&logged()?API.myCourses():Promise.resolve([])).catch(()=>[])]);S.modules=m||[];S.lindex=l||[];S.courses=c||[];S.myCourses=new Set((mc||[]).map(x=>x.course_id||x))}
+async function loadContent(){const [m,l,c,mc]=await Promise.all([API.modules().catch(()=>[]),API.lessonIndex().catch(()=>[]),(API.courses?API.courses():Promise.resolve([])).catch(()=>[]),(API.myCourses&&logged()?API.myCourses():Promise.resolve([])).catch(()=>[])]);S.modules=m||[];S.lindex=l||[];const all=c||[];S.lib=all.find(x=>x.kind==="biblioteca")||null;S.courses=all.filter(x=>x.kind!=="biblioteca");S.myCourses=new Set((mc||[]).map(x=>x.course_id||x))}
 function applySite(){const s=S.site,n=s.name||"El Arte Gráfico";{const w=n.trim().split(/\s+/),l=w.pop();$("#brandName").innerHTML=(w.length?esc(w.join(" "))+" ":"")+`<em>${esc(l)}</em>`}if(s.logoUrl)$("#logoMark").src=s.logoUrl;
   $("#brandSub").textContent=ACAD?"Academia":"Trading · Comunidad";document.body.dataset.site=SITE;
   document.title=ACAD?n+" Academy":n+" · Trading, educación y comunidad";renderFoot();analytics()}
