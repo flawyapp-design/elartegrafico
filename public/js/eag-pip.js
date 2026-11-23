@@ -56,21 +56,26 @@ function draw(){const p=X.panes()[X.active()]||X.panes()[0];if(!p||!ctx)return;l
   if(per&&per.timespan!=="tick"){const left2=Math.max(0,last.timestamp+ms-Date.now()),s2=Math.floor(left2/1000);ctx.fillStyle=mut;ctx.fillText("Cierra en "+(s2>=3600?Math.floor(s2/3600)+":":"")+String(Math.floor(s2%3600/60)).padStart(2,"0")+":"+String(s2%60).padStart(2,"0"),110,H-14)}
   ctx.textAlign="right";ctx.fillStyle=mut;ctx.fillText("EAG Charts",W-12,H-14);ctx.textAlign="left"}
 
-async function start(){if(on)return;if(!supported()){X.toast("Tu navegador no permite el gráfico flotante. En Android usa Chrome y en iPhone Safari actualizado.");return}
-  cv=document.createElement("canvas");cv.width=W;cv.height=H;ctx=cv.getContext("2d");draw();
-  stream=cv.captureStream(4);video=document.createElement("video");video.muted=true;video.playsInline=true;video.setAttribute("playsinline","");video.autoplay=true;
-  video.style.cssText="position:fixed;left:0;bottom:0;width:2px;height:2px;opacity:.01;pointer-events:none;z-index:-1";document.body.appendChild(video);video.srcObject=stream;
-  try{await video.play()}catch(e){}
-  try{if(video.requestPictureInPicture&&document.pictureInPictureEnabled)await video.requestPictureInPicture();else video.webkitSetPresentationMode("picture-in-picture")}
-  catch(e){stop();X.toast("No se pudo abrir la ventana flotante: "+(e.message||"tu navegador lo bloqueó"));return}
-  on=true;paintBtn();startTicker(draw);
-  video.addEventListener("leavepictureinpicture",()=>stop(),{once:true});
-  video.addEventListener("webkitpresentationmodechanged",()=>{if(video&&video.webkitPresentationMode!=="picture-in-picture")stop()});
-  X.toast("📺 Gráfico flotante activo. Ya puedes ir a TikTok: la ventana sigue encima.")}
-function stop(){if(!on&&!video)return;on=false;stopTicker();try{if(document.pictureInPictureElement)document.exitPictureInPicture().catch(()=>{})}catch(e){}
-  try{stream&&stream.getTracks().forEach(t=>t.stop())}catch(e){}if(video){video.remove();video=null}stream=null;paintBtn()}
+/* el video se prepara antes del toque: Safari (iPhone) solo abre la ventana flotante si se pide en el mismo toque, sin esperas */
+function prepare(){if(video)return video;cv=cv||document.createElement("canvas");cv.width=W;cv.height=H;ctx=cv.getContext("2d");draw();
+  stream=cv.captureStream(4);const v=document.createElement("video");v.muted=true;v.defaultMuted=true;v.playsInline=true;v.setAttribute("playsinline","");v.setAttribute("muted","");v.autoplay=true;
+  v.style.cssText="position:fixed;left:0;bottom:0;width:4px;height:4px;opacity:.01;pointer-events:none;z-index:-1";document.body.appendChild(v);v.srcObject=stream;
+  v.addEventListener("leavepictureinpicture",()=>stop());
+  v.addEventListener("webkitpresentationmodechanged",()=>{if(v.webkitPresentationMode==="picture-in-picture"){on=true;paintBtn()}else if(on)stop()});
+  v.play().catch(()=>{});video=v;keep();return v}
+let kt=null;function keep(){clearInterval(kt);kt=setInterval(()=>{if(!on&&video&&!document.hidden)draw()},2000)}/* así el primer cuadro nunca está vacío */
+function start(){if(on)return;if(!supported()){X.toast("Tu navegador no permite el gráfico flotante. En Android usa Chrome y en iPhone Safari actualizado.");return}
+  const v=prepare();draw();
+  const fail=e=>{on=false;stopTicker();paintBtn();X.toast(/NotAllowed|gesture|user/i.test(String(e&&(e.name+e.message)))?"Toca otra vez el botón 📺 para abrir la ventana flotante.":"No se pudo abrir la ventana flotante en este navegador. En iPhone usa Safari; en Android, Chrome.")};
+  try{if(v.requestPictureInPicture&&document.pictureInPictureEnabled){const pr=v.requestPictureInPicture();
+      pr.then(()=>{on=true;paintBtn();startTicker(draw);X.toast("📺 Gráfico flotante activo. Ya puedes ir a TikTok: la ventana sigue encima.")},e=>{if(v.paused)v.play().catch(()=>{});fail(e)})}
+    else if(v.webkitSetPresentationMode){v.webkitSetPresentationMode("picture-in-picture");on=true;paintBtn();startTicker(draw);X.toast("📺 Gráfico flotante activo. Ya puedes ir a TikTok: la ventana sigue encima.")}
+    else fail()}catch(e){fail(e)}}
+function stop(){const was=on;on=false;stopTicker();try{if(document.pictureInPictureElement)document.exitPictureInPicture().catch(()=>{});else if(video&&video.webkitPresentationMode==="picture-in-picture")video.webkitSetPresentationMode("inline")}catch(e){}paintBtn();if(was)draw()}
 function paintBtn(){const b=X&&X.btn;if(!b)return;b.classList.toggle("on",on);b.setAttribute("aria-pressed",String(on));b.title=on?"Cerrar el gráfico flotante":"Gráfico flotante: sal a TikTok u otra app y sigue viendo el gráfico encima"}
 
-window.EAGPip={init(o){X=o;const b=X.btn;if(!b)return;if(!supported()){b.hidden=true;return}b.hidden=false;b.onclick=()=>on?stop():start();paintBtn()},
+window.EAGPip={init(o){X=o;const b=X.btn;if(!b)return;if(!supported()){b.hidden=true;return}b.hidden=false;b.onclick=()=>on?stop():start();paintBtn();
+    /* se prepara apenas el usuario toca la página (iPhone no deja reproducir sin un toque) */
+    const pre=()=>{try{prepare()}catch(e){}removeEventListener("pointerdown",pre,true)};addEventListener("pointerdown",pre,true);setTimeout(()=>{try{prepare()}catch(e){}},1500)},
   toggle:()=>on?stop():start(),isOn:()=>on,_draw:()=>{if(!cv){cv=document.createElement("canvas");cv.width=W;cv.height=H;ctx=cv.getContext("2d")}draw();return cv.toDataURL("image/png")}};
 })();
