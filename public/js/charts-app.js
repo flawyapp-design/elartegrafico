@@ -211,6 +211,7 @@ function start(){
       <span class="who">${esc(prof.username||"")}</span>
       ${window.__free?`<a class="btn ic freeb" href="${MAIN}#premium" title="${window.__affKeys&&window.__affKeys.size?"Miembro verificado: tienes funciones extra desbloqueadas. Mejora a Plata, Oro o Diamond para tenerlo todo":"Estás en la versión gratis. Mejora a Plata, Oro o Diamond para tenerlo todo"}"><span class="pi">⭐</span><span class="t">${window.__affKeys&&window.__affKeys.size?"Miembro · Mejorar":"Gratis · Mejorar"}</span></a>`:""}
       <button class="btn ic lzb" id="lzb" title="Puntero láser (para explicar). En Modo Clase tus alumnos lo ven. Esc para apagarlo." aria-pressed="false"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3" fill="currentColor"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1"/></svg></button>
+      <button class="btn ic pipb" id="pipb" hidden aria-pressed="false" title="Gráfico flotante"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><rect x="12" y="12" width="8" height="6" rx="1" fill="currentColor"/></svg></button>
       <button class="btn ic clb" id="clb" title="Modo Clase y Zonas del profe"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="12" rx="1.5"/><path d="m7 12 3-3 2 2 4-4"/><path d="M9 20l3-4 3 4"/></svg><span class="t">Clase</span><i class="cdot"></i></button>
       <button class="btn ic chb" id="chb" title="Comunidad: chat privado y grupal, quién está conectado, compartir gráfico y llamadas de voz"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/><path d="M8.5 11h.01M12 11h.01M15.5 11h.01"/></svg><span class="t">Chat</span><b class="scnt"></b><em class="badge" hidden></em></button>
       <button class="btn ic prob" id="prob" title="Estudio: Replay del mercado y Práctica guiada (Premium)"><span class="pi">🎓</span><span class="t">Estudio</span><em>PRO</em></button>
@@ -876,6 +877,7 @@ function start(){
   else{const cb=$("#clb");cb&&(cb.hidden=true)}
   /* Comunidad: chat privado y grupal, conectados, compartir gráfico y voz */
   if(window.EAGSocial&&API.chatSend){
+    if(window.EAGPip)window.EAGPip.init({btn:$("#pipb"),toast,panes:()=>panes.slice(0,visible()),active:()=>active});
     window.EAGSocial.init({API,toast,SAVE,save,btn:$("#chb"),host:main,isAdmin:()=>API.isAdmin(),
       panes:()=>panes.slice(0,visible()),active:()=>active,
       follow:(s,tf)=>{if(!s)return;if(!bySym[s]&&SYMS.length>20){toast("Ese mercado no está disponible ahora.");return}const p=panes[active];if(!p)return;
