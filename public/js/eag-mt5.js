@@ -41,12 +41,12 @@ function pnlFor(sym,diff,vol){const i=symInfo(sym);if(!i||!(+i.tick_size>0))retu
 async function poll(){if(polling)return;polling=true;
   try{const r=await API().mt5Poll(account);accs=r.accounts||[];tokInfo=r.token||null;
     if(r.state&&(!account||String(r.state.login)===String(account)))st=r.state;else if(!r.state)st=null;
-    if(!account&&st){account=String(st.login)}
+    if(!account&&st){account=String(st.login);ls.set(LS_ACC,account)}
     (r.commands||[]).forEach(c=>{const prev=cmds[c.id];cmds[c.id]=c;if(FINAL[c.status]&&(!prev||!FINAL[prev.status])&&waiters[c.id]){const w=waiters[c.id];delete waiters[c.id];w(c)}});
     lastErr="";ensureWatch()}
   catch(e){lastErr=e.message||"Sin conexión"}
-  finally{polling=false;paint();S.syncLinesSoon()}}
-function schedule(){clearTimeout(pollT);const fast=S&&S.isOpen()&&S.cfg.broker==="mt5";
+  finally{polling=false;paint();paintQT();paintTB();S.syncLinesSoon()}}
+function schedule(){clearTimeout(pollT);const fast=(S&&S.isOpen()&&S.cfg.broker==="mt5")||qtVisible()||(G.tb.open&&!G.tb.min);
   pollT=setTimeout(async()=>{await poll();schedule()},fast?1000:(st&&((st.positions||[]).length||(st.orders||[]).length)?2500:8000))}
 async function send(action,params,quiet){
   let r;try{r=await API().mt5Cmd(Object.assign({action,account},params||{}))}catch(e){toast(e.message);return{ok:false,msg:e.message}}
@@ -168,10 +168,13 @@ function render(el){host=el;const cfg=S.cfg;
     `<div class="trd-bt"><button class="trd-buy t-up" data-mbuy ${busy||!online()?"disabled":""}>▲ ${ui.type==="market"?"Comprar":"Buy"} ${esc(S.fmtLot(lotVal()))}</button><button class="trd-buy t-dn" data-msell ${busy||!online()?"disabled":""}>▼ ${ui.type==="market"?"Vender":"Sell"} ${esc(S.fmtLot(lotVal()))}</button></div>`}
     <p class="trd-fine">Arrastra la línea de la operación en el gráfico para poner o mover el SL/TP.</p>
     <div class="trd-pos" data-mpos></div>
+    <div class="mt5-tbrow"><button class="trd-x" data-mtb2>☰ Terminal: operaciones e historial</button></div>
     <details class="trd-adv"><summary>Últimas órdenes</summary><div data-mlog></div></details>`}
     <details class="trd-adv"${setup?" open":""}><summary>Conexión con MT5</summary>
       ${newTok?`<div class="mt5-tok"><p>Copia este token y pégalo en el EA (campo <b>InpEAToken</b>). <b>Solo se muestra esta vez.</b></p><code data-mtok>${esc(newTok)}</code><button class="trd-x" data-mcopy>Copiar</button></div>`:""}
       <p class="trd-fine">${tokInfo&&tokInfo.has?`Hay un token activo${tokInfo.at?" desde "+esc(new Date(tokInfo.at).toLocaleString("es-CO")):""}. Si generas otro, el anterior deja de servir.`:"Todavía no hay token."}</p>
+      ${setup?"":`<label class="trd-ck"><input type="checkbox" data-mqt ${G.qt.on?"checked":""}> Botones rápidos de compra y venta en el gráfico</label>
+      <button class="trd-x" data-mtbopen>Abrir terminal (operaciones e historial)</button>`}
       <button class="trd-go" data-mgen>${tokInfo&&tokInfo.has?"Generar token nuevo":"Generar token"}</button>
       ${setup?"":`<label class="trd-f"><span>Nombre del símbolo en MT5 <small>(si tu broker lo llama distinto)</small></span><input data-mmap value="${esc(map[S.symNow()]||"")}" placeholder="${esc(chartName()||S.symNow())}"></label>`}
     </details></div>
@@ -188,16 +191,104 @@ function render(el){host=el;const cfg=S.cfg;
   const y=q("[data-myes]");y&&(y.onclick=()=>{const d=confirmAsk;confirmAsk=null;order(d,true)});const no=q("[data-mno]");no&&(no.onclick=()=>{confirmAsk=null;rerender()});
   const cc=q("[data-mconfirm]");cc&&(cc.onchange=()=>{cfg.confirmReal=cc.checked;S.saveCfg()});
   const mm=q("[data-mmap]");mm&&(mm.onchange=()=>{const v=mm.value.trim();if(v)map[S.symNow()]=v;else delete map[S.symNow()];ls.set(LS_MAP,map);delete watched[mtSym()];ensureWatch();rerender();S.syncLinesSoon()});
+  const qq=q("[data-mqt]");qq&&(qq.onchange=()=>{G.qt.on=qq.checked;saveG();paintQT()});
+  const tb2=q("[data-mtb2]");tb2&&(tb2.onclick=()=>openTB());
+  const tbo=q("[data-mtbopen]");tbo&&(tbo.onclick=()=>openTB());
   const g=q("[data-mgen]");g&&(g.onclick=async()=>{if(tokInfo&&tokInfo.has&&!confirm("El token actual dejará de funcionar. ¿Generar uno nuevo?"))return;
     try{newTok=await API().mt5NewToken();tokInfo={has:true,at:new Date().toISOString()};rerender()}catch(e){toast(e.message)}});
   const cp=q("[data-mcopy]");cp&&(cp.onclick=()=>{try{navigator.clipboard.writeText(newTok);toast("Token copiado")}catch(e){const c=q("[data-mtok]");const r=document.createRange();r.selectNodeContents(c);getSelection().removeAllRanges();getSelection().addRange(r)}});
   if(host.querySelector("[data-mbody]"))setTimeout(paint,0)}
 
+/* ---------- ventanas flotantes: botones rápidos (como TradingView) y terminal (como MT5) ---------- */
+const LS_GEO="eag_mt5_geo";
+const G=Object.assign({qt:{on:true,x:null,y:null,lot:null},tb:{open:false,min:false,x:null,y:null,w:760,h:300,tab:"pos"}},ls.get(LS_GEO,{}));
+G.qt=Object.assign({on:true,x:null,y:null,lot:null},G.qt);G.tb=Object.assign({open:false,min:false,x:null,y:null,w:760,h:300,tab:"pos"},G.tb);
+const saveG=()=>ls.set(LS_GEO,G);
+const clampXY=(el,x,y)=>[Math.max(0,Math.min(innerWidth-Math.min(el.offsetWidth,innerWidth),x)),Math.max(0,Math.min(innerHeight-36,y))];
+function makeDrag(el,handle,onEnd){let st=null;handle.addEventListener("pointerdown",e=>{if(e.target.closest("button,input,select,a"))return;const r=el.getBoundingClientRect();st={dx:e.clientX-r.left,dy:e.clientY-r.top};handle.setPointerCapture(e.pointerId);e.preventDefault()});
+  handle.addEventListener("pointermove",e=>{if(!st)return;const [x,y]=clampXY(el,e.clientX-st.dx,e.clientY-st.dy);el.style.left=x+"px";el.style.top=y+"px";el.style.right="auto";el.style.bottom="auto"});
+  handle.addEventListener("pointerup",()=>{if(!st)return;st=null;const r=el.getBoundingClientRect();onEnd(r.left,r.top)})}
+
+/* botones rápidos: VENTA bid · lote · COMPRA ask, a un clic (en real pide confirmar si así lo tienes) */
+let qt=null,qtAsk=null;
+const qtVisible=()=>!!(S&&S.O&&S.O.admin&&G.qt.on&&st&&tokInfo&&tokInfo.has);
+function qtLot(){const v=G.qt.lot!=null?G.qt.lot:(ui.lot!=null?ui.lot:S.cfg.lot);return v}
+function buildQT(){qt=document.createElement("div");qt.className="mt5-qt";qt.innerHTML=`<span class="mt5-qg" title="Mover">⋮⋮</span>
+    <button class="mt5-qs" data-qs><small>VENTA</small><b data-qbid>—</b></button>
+    <span class="mt5-qm"><input data-qlot type="number" min="0" step="0.01" inputmode="decimal" aria-label="Lote"><small data-qsp></small></span>
+    <button class="mt5-qb" data-qb><small>COMPRA</small><b data-qask>—</b></button>
+    <span class="mt5-qx"><button data-qtb title="Terminal: operaciones e historial">☰</button><button data-qhide title="Ocultar botones">×</button></span>
+    <div class="mt5-qc" data-qc hidden></div>`;
+  document.body.appendChild(qt);
+  const li=qt.querySelector("[data-qlot]");li.value=qtLot();li.oninput=()=>{G.qt.lot=li.value;saveG()};
+  qt.querySelector("[data-qs]").onclick=()=>quick("sell");qt.querySelector("[data-qb]").onclick=()=>quick("buy");
+  qt.querySelector("[data-qhide]").onclick=()=>{G.qt.on=false;saveG();paintQT();toast("Botones ocultos. Actívalos en Operar → MT5 → Conexión con MT5.");rerender()};
+  qt.querySelector("[data-qtb]").onclick=()=>openTB();
+  makeDrag(qt,qt.querySelector(".mt5-qg"),(x,y)=>{G.qt.x=x;G.qt.y=y;saveG()});
+  placeQT()}
+function placeQT(){if(!qt)return;let x=G.qt.x,y=G.qt.y;
+  if(x==null){try{const d=S.chart().getDom("candle_pane","main").getBoundingClientRect();x=d.left+10;y=d.top+44}catch(e){x=70;y=130}}
+  [x,y]=clampXY(qt,x,y);qt.style.left=x+"px";qt.style.top=y+"px"}
+function paintQT(){if(!S)return;const vis=qtVisible();if(!vis){if(qt)qt.hidden=true;return}if(!qt)buildQT();qt.hidden=false;
+  const n=mtSym(),i=symInfo(n),on=online();qt.classList.toggle("off",!on||!i);
+  qt.querySelector("[data-qbid]").textContent=i?fmtP(i.bid,n):"—";qt.querySelector("[data-qask]").textContent=i?fmtP(i.ask,n):"—";
+  qt.querySelector("[data-qsp]").textContent=i?Math.round((+i.ask-+i.bid)/(+i.point||1))+"":"";
+  qt.title=on?(i?n:"Pidiendo cotización de "+n+" a MT5…"):"MT5 sin conexión";
+  const li=qt.querySelector("[data-qlot]");if(document.activeElement!==li&&String(li.value)!==String(qtLot()))li.value=qtLot()}
+async function quick(side,ok){const n=mtSym(),i=symInfo(n);if(!online()||!i){toast(online()?"Esperando cotización de MT5":"MT5 sin conexión");return}
+  let vol=+qtLot()||0;if(+i.vol_step>0)vol=Math.round(vol/(+i.vol_step))*(+i.vol_step);vol=Math.round(vol*1e6)/1e6;if(!(vol>0)){toast("Pon un lote válido");return}
+  const real=st.account&&st.account.trade_mode==="real",box=qt.querySelector("[data-qc]");
+  if(real&&S.cfg.confirmReal&&!ok){qtAsk=side;box.hidden=false;box.innerHTML=`<span>¿${side==="buy"?"Comprar":"Vender"} ${S.fmtLot(vol)} en REAL?</span><button data-qy>Sí</button><button data-qn>No</button>`;
+    box.querySelector("[data-qy]").onclick=()=>{box.hidden=true;quick(side,true)};box.querySelector("[data-qn]").onclick=()=>{box.hidden=true};return}
+  const b=qt.querySelector(side==="buy"?"[data-qb]":"[data-qs]");b.classList.add("busy");
+  try{await send("open_market",{symbol:n,side,volume:vol,comment:"EAG Charts rápido"})}finally{b.classList.remove("busy")}}
+
+/* terminal: Operaciones · Historial · Diario, con el resumen de la cuenta abajo (como la caja de herramientas de MT5) */
+let tb=null;
+function openTB(keep){G.tb.open=true;if(!keep)G.tb.min=false;saveG();if(!tb)buildTB();tb.hidden=false;paintTB();poll().then(schedule)}
+function buildTB(){tb=document.createElement("div");tb.className="mt5-tb";tb.innerHTML=`<div class="mt5-th"><b>Terminal MT5</b>
+    <span class="mt5-tt">${[["pos","Operaciones"],["hist","Historial"],["log","Diario"]].map(([k,t])=>`<button data-tt="${k}">${t}</button>`).join("")}</span><span class="sp"></span>
+    <button data-tmin title="Minimizar">–</button><button data-tclose title="Cerrar">×</button></div><div class="mt5-tbody" data-tbody></div><div class="mt5-tsum" data-tsum></div>`;
+  document.body.appendChild(tb);
+  tb.querySelectorAll("[data-tt]").forEach(b=>b.onclick=()=>{G.tb.tab=b.dataset.tt;G.tb.min=false;saveG();const bd=tb.querySelector("[data-tbody]");bd.scrollTop=0;bd.scrollLeft=0;paintTB()});
+  tb.querySelector("[data-tmin]").onclick=()=>{G.tb.min=!G.tb.min;saveG();paintTB()};
+  tb.querySelector("[data-tclose]").onclick=()=>{G.tb.open=false;saveG();tb.hidden=true};
+  makeDrag(tb,tb.querySelector(".mt5-th"),(x,y)=>{G.tb.x=x;G.tb.y=y;saveG()});
+  if(window.ResizeObserver){let t=0;new ResizeObserver(()=>{if(G.tb.min||tb.hidden)return;clearTimeout(t);t=setTimeout(()=>{G.tb.w=tb.offsetWidth;G.tb.h=tb.offsetHeight;saveG()},250)}).observe(tb)}
+  const mob=innerWidth<700;tb.style.width=(mob?innerWidth-12:Math.min(G.tb.w,innerWidth-12))+"px";tb.style.height=Math.min(G.tb.h,innerHeight-80)+"px";
+  let x=G.tb.x,y=G.tb.y;if(x==null||mob){x=mob?6:Math.max(6,(innerWidth-tb.offsetWidth)/2);y=innerHeight-tb.offsetHeight-(mob?70:12)}
+  [x,y]=clampXY(tb,x,y);tb.style.left=x+"px";tb.style.top=y+"px"}
+const tfmt=s=>{if(!(+s>0))return"";const d=new Date(+s*1000);const p=v=>String(v).padStart(2,"0");return`${p(d.getDate())}.${p(d.getMonth()+1)} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`};
+const tdName=t=>({buy:"buy",sell:"sell"})[t]||(ORDN[t]||t).toLowerCase();
+function paintTB(){if(!tb||tb.hidden)return;const tab=G.tb.tab,a=(st&&st.account)||{},hide=S.cfg.hide,m=v=>hide?"••••":(+v).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2});
+  tb.classList.toggle("min",!!G.tb.min);tb.querySelectorAll("[data-tt]").forEach(b=>b.classList.toggle("on",b.dataset.tt===tab));
+  if(G.tb.min){tb.style.height="";return}if(!tb.style.height)tb.style.height=Math.min(G.tb.h,innerHeight-80)+"px";
+  const body=tb.querySelector("[data-tbody]"),sum=tb.querySelector("[data-tsum]"),sc=body.scrollTop;
+  if(tab==="pos"){const P=(st&&st.positions)||[],O=(st&&st.orders)||[];
+    body.innerHTML=`<table class="mt5-tbl"><thead><tr><th>Símbolo</th><th>Ticket</th><th>Hora</th><th>Tipo</th><th>Volumen</th><th>Precio</th><th>S / L</th><th>T / P</th><th>Precio actual</th><th>Swap</th><th>Beneficio</th><th></th></tr></thead><tbody>
+      ${P.map(p=>{const pr=+p.profit;return`<tr><td>${esc(p.symbol)}</td><td>${esc(p.ticket)}</td><td>${tfmt(p.time)}</td><td class="${p.type==="buy"?"t-up":"t-dn"}">${p.type}</td><td>${S.fmtLot(p.volume)}</td><td>${esc(p.open_price)}</td>
+        <td>${+p.sl>0?esc(p.sl):""}</td><td>${+p.tp>0?esc(p.tp):""}</td><td>${esc(p.current_price)}</td><td>${m(p.swap||0)}</td><td class="${pr>=0?"t-up":"t-dn"}"><b>${m(pr)}</b></td><td><button class="mt5-tx" data-tclosep="${esc(p.ticket)}" title="Cerrar posición">×</button></td></tr>`}).join("")}
+      ${O.map(o=>`<tr class="ord"><td>${esc(o.symbol)}</td><td>${esc(o.ticket)}</td><td>${tfmt(o.time)}</td><td>${esc(tdName(o.type))}</td><td>${S.fmtLot(o.volume)}</td><td>${esc(o.price)}</td><td>${+o.sl>0?esc(o.sl):""}</td><td>${+o.tp>0?esc(o.tp):""}</td><td>${esc(o.current_price||"")}</td><td></td><td>colocada</td><td><button class="mt5-tx" data-tcan="${esc(o.ticket)}" title="Cancelar orden">×</button></td></tr>`).join("")}
+      ${!P.length&&!O.length?`<tr><td colspan="12" class="mt5-temp">${st?"No hay operaciones abiertas.":"MT5 sin conexión."}</td></tr>`:""}</tbody></table>`;
+    body.querySelectorAll("[data-tclosep]").forEach(b=>b.onclick=()=>{b.disabled=true;closePos(b.dataset.tclosep)});
+    body.querySelectorAll("[data-tcan]").forEach(b=>b.onclick=()=>{b.disabled=true;send("cancel_order",{ticket:b.dataset.tcan})});
+    sum.innerHTML=st?`<span>Balance: <b>${m(a.balance)} ${esc(a.currency||"")}</b></span><span>Equidad: <b>${m(a.equity)}</b></span><span>Margen: <b>${m(a.margin)}</b></span><span>Margen libre: <b>${m(a.free_margin)}</b></span><span>Nivel de margen: <b>${+a.margin>0?(+a.margin_level).toFixed(2)+" %":"—"}</b></span><span class="sp"></span><span>Flotante: <b class="${+a.profit>=0?"t-up":"t-dn"}">${m(a.profit)}</b></span>`:""}
+  else if(tab==="hist"){const H=((st&&st.history)||[]).slice().sort((x,y)=>(+y.time)-(+x.time)),tot=H.reduce((s2,h)=>s2+(+h.profit),0),w=H.filter(h=>+h.profit>0).length;
+    body.innerHTML=`<table class="mt5-tbl"><thead><tr><th>Hora apertura</th><th>Posición</th><th>Símbolo</th><th>Tipo</th><th>Volumen</th><th>Precio apertura</th><th>Hora cierre</th><th>Precio cierre</th><th>Comisión</th><th>Swap</th><th>Beneficio</th></tr></thead><tbody>
+      ${H.map(h=>`<tr><td>${tfmt(h.open_time)}</td><td>${esc(h.position)}</td><td>${esc(h.symbol)}</td><td class="${h.type==="buy"?"t-up":"t-dn"}">${esc(h.type)}</td><td>${S.fmtLot(h.volume)}</td><td>${esc(h.open_price!=null?h.open_price:"")}</td><td>${tfmt(h.time)}</td><td>${esc(h.price)}</td><td>${h.commission!=null?m(h.commission):""}</td><td>${h.swap!=null?m(h.swap):""}</td><td class="${+h.profit>=0?"t-up":"t-dn"}"><b>${m(h.profit)}</b></td></tr>`).join("")
+      ||`<tr><td colspan="11" class="mt5-temp">Sin operaciones cerradas en los últimos días.</td></tr>`}</tbody></table>`;
+    sum.innerHTML=`<span>Operaciones: <b>${H.length}</b></span><span>Ganadas: <b>${w}</b> (${H.length?Math.round(100*w/H.length):0} %)</span><span>Hoy: <b class="${st&&st.today&&+st.today.pnl>=0?"t-up":"t-dn"}">${st&&st.today?m(st.today.pnl):"—"}</b></span><span class="sp"></span><span>Beneficio: <b class="${tot>=0?"t-up":"t-dn"}">${m(tot)}</b></span>`}
+  else{const L=Object.values(cmds).filter(c=>c.action!=="watch").sort((x,y)=>y.createdAt-x.createdAt);
+    body.innerHTML=`<table class="mt5-tbl"><thead><tr><th>Hora</th><th>Orden</th><th>Símbolo</th><th>Volumen</th><th>Estado</th><th>Mensaje de MT5</th></tr></thead><tbody>
+      ${L.map(c=>`<tr><td>${tfmt(c.createdAt/1000)}</td><td>${esc(ACTN[c.action]||c.action)}${c.params&&c.params.otype?" "+esc(c.params.otype):""}</td><td>${esc(c.params&&c.params.symbol||"")}</td><td>${esc(c.params&&c.params.volume||"")}</td><td class="st-${esc(c.status)}">${esc(STN[c.status]||c.status)}</td><td>${esc(c.result&&c.result.msg||"")}</td></tr>`).join("")||`<tr><td colspan="6" class="mt5-temp">Aún no hay órdenes.</td></tr>`}</tbody></table>`;
+    sum.innerHTML=`<span>Órdenes enviadas desde EAG Charts a tu MT5</span>`}
+  body.scrollTop=sc}
+
 window.EAGMT5B={
   init(shared){S=shared;S.addBroker("mt5",BROKER)},
   render,
   onOpen(){poll().then(schedule)},
-  onChange(){confirmAsk=null;ensureWatch();if(S.isOpen()&&S.cfg.broker==="mt5")rerender()},
-  autoConnect(){if(ls.get(LS_ACC,null))poll().then(schedule)},
+  onChange(){confirmAsk=null;ensureWatch();paintQT();if(S.isOpen()&&S.cfg.broker==="mt5")rerender()},
+  autoConnect(){if(ls.get(LS_ACC,null)||G.tb.open)poll().then(()=>{schedule();if(G.tb.open)openTB(true)})},
   _test:{state:()=>st,cmds:()=>cmds,poll}};
 })();

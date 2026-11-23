@@ -5,7 +5,7 @@
 //+------------------------------------------------------------------+
 #property copyright "El Arte Gráfico"
 #property link      "https://elartegrafico.com"
-#property version   "1.01"
+#property version   "1.02"
 #property description "Conecta MT5 con EAG Charts: envía cuenta, posiciones, órdenes e historial,"
 #property description "y ejecuta lo que mandes desde los charts (mercado, pendientes, SL/TP, cierres)."
 
@@ -27,7 +27,8 @@ input double InpMaxLots      = 50.0;                      // Lotaje máximo por 
 input string InpSymbolSuffix = "";                        // Sufijo del broker (ej: .m) si tus símbolos lo usan
 
 input group "Otros"
-input int    InpHistorySec   = 5;                         // Cada cuántos segundos refrescar el historial del día
+input int    InpHistorySec   = 5;                         // Cada cuántos segundos refrescar el historial
+input int    InpHistoryDays  = 7;                         // Días de historial que se ven en EAG Charts
 input bool   InpVerbose      = true;                      // Escribir en el diario lo que se ejecuta
 
 //--- Estado
@@ -40,6 +41,7 @@ datetime g_lastOk      = 0;
 int      g_fails       = 0;
 long     g_execCount   = 0;
 string   g_historyJson = "[]";
+bool     g_histSent    = false;  // el historial solo se envía cuando cambia
 double   g_todayPnl    = 0.0;
 int      g_todayTrades = 0;
 datetime g_lastHistory = 0;
@@ -353,7 +355,7 @@ string AccountJson()
    s += ",\"max_lots\":" + D(InpMaxLots, 2);
    s += ",\"magic\":" + (string)InpMagic;
    s += ",\"tz_offset\":" + IntegerToString(g_tzOffset);
-   s += ",\"ea_version\":\"1.01\"";
+   s += ",\"ea_version\":\"1.02\"";
    s += "}";
    return(s);
   }
@@ -473,7 +475,8 @@ void RefreshHistory()
    dt.min  = 0;
    dt.sec  = 0;
    datetime dayStart = StructToTime(dt);
-   if(!HistorySelect(dayStart, now + 3600))
+   datetime from = dayStart - (datetime)(MathMax(InpHistoryDays, 1) - 1) * 86400;
+   if(!HistorySelect(from, now + 3600))
       return;
 
    double pnl = 0.0;
@@ -490,12 +493,15 @@ void RefreshHistory()
          continue;
       double net = HistoryDealGetDouble(d, DEAL_PROFIT) + HistoryDealGetDouble(d, DEAL_SWAP) +
                    HistoryDealGetDouble(d, DEAL_COMMISSION) + HistoryDealGetDouble(d, DEAL_FEE);
-      pnl += net;
+      bool isToday = ((datetime)HistoryDealGetInteger(d, DEAL_TIME) >= dayStart);
+      if(isToday)
+         pnl += net;
       long entry = HistoryDealGetInteger(d, DEAL_ENTRY);
       if(entry != DEAL_ENTRY_OUT && entry != DEAL_ENTRY_INOUT && entry != DEAL_ENTRY_OUT_BY)
          continue;
-      cnt++;
-      if(added >= 40)
+      if(isToday)
+         cnt++;
+      if(added >= 100)
          continue;
       string sym = HistoryDealGetString(d, DEAL_SYMBOL);
       int dg = (int)SymbolInfoInteger(sym, SYMBOL_DIGITS);
@@ -512,9 +518,27 @@ void RefreshHistory()
       items += ",\"price\":" + D(HistoryDealGetDouble(d, DEAL_PRICE), dg);
       items += ",\"profit\":" + D(net, 2);
       items += ",\"time\":" + IntegerToString(ToUtc((datetime)HistoryDealGetInteger(d, DEAL_TIME)));
+      // precio y hora de apertura de esa posición (como la pestaña Historial de MT5)
+      long pid = HistoryDealGetInteger(d, DEAL_POSITION_ID);
+      for(int j = 0; j < n; j++)
+        {
+         ulong dj = HistoryDealGetTicket(j);
+         if(dj == 0 || HistoryDealGetInteger(dj, DEAL_POSITION_ID) != pid || HistoryDealGetInteger(dj, DEAL_ENTRY) != DEAL_ENTRY_IN)
+            continue;
+         items += ",\"open_price\":" + D(HistoryDealGetDouble(dj, DEAL_PRICE), dg);
+         items += ",\"open_time\":" + IntegerToString(ToUtc((datetime)HistoryDealGetInteger(dj, DEAL_TIME)));
+         break;
+        }
+      items += ",\"commission\":" + D(HistoryDealGetDouble(d, DEAL_COMMISSION), 2);
+      items += ",\"swap\":" + D(HistoryDealGetDouble(d, DEAL_SWAP), 2);
       items += "}";
      }
-   g_historyJson = "[" + items + "]";
+   string hj = "[" + items + "]";
+   if(hj != g_historyJson)
+     {
+      g_historyJson = hj;
+      g_histSent = false;
+     }
    g_todayPnl = pnl;
    g_todayTrades = cnt;
   }
@@ -537,7 +561,8 @@ string BuildBody()
    s += ",\"positions\":" + pos;
    s += ",\"orders\":" + ord;
    s += ",\"symbols\":" + SymbolsJson();
-   s += ",\"history\":" + g_historyJson;
+   if(!g_histSent)
+      s += ",\"history\":" + g_historyJson;
    s += ",\"today\":{\"pnl\":" + D(g_todayPnl, 2) + ",\"trades\":" + IntegerToString(g_todayTrades) + "}";
    s += ",\"results\":[" + res + "]";
    s += "}";
@@ -622,6 +647,7 @@ void Sync()
 
    // Los resultados ya llegaron al servidor
    RemoveFirstResults(nRes);
+   g_histSent = true;
    g_fails = 0;
    g_lastOk = TimeLocal();
    if(g_lastError != "")
@@ -956,7 +982,7 @@ void CmdCancelAll(string &f[])
 void UpdateStatus()
   {
    string st = (g_lastOk > 0 && g_fails == 0) ? "CONECTADO" : "SIN CONEXIÓN";
-   string s = "EAG Bridge v1.01  |  " + st;
+   string s = "EAG Bridge v1.02  |  " + st;
    s += "\nServidor: " + InpServerURL;
    s += "\nÚltima sincronización: " + (g_lastOk > 0 ? TimeToString(g_lastOk, TIME_SECONDS) : "-");
    s += "\nEjecución desde charts: " + (InpAllowTrading ? "ACTIVA" : "DESACTIVADA");

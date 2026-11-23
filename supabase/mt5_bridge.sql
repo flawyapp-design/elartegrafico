@@ -87,7 +87,7 @@ begin
   values (lg, coalesce(p -> 'account', '{}'), coalesce(p -> 'positions', '[]'), coalesce(p -> 'orders', '[]'),
           coalesce(p -> 'history', '[]'), p -> 'today', syms, now())
   on conflict (login) do update set account = excluded.account, positions = excluded.positions, orders = excluded.orders,
-    history = excluded.history, today = excluded.today, symbols = a.symbols || excluded.symbols, last_sync = now();
+    history = case when p ? 'history' then excluded.history else a.history end, today = excluded.today, symbols = a.symbols || excluded.symbols, last_sync = now();
 
   -- resultados de lo que el EA ejecutó
   for r in select * from jsonb_array_elements(coalesce(p -> 'results', '[]')) loop

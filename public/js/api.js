@@ -301,7 +301,7 @@ function LocalAPI(){
   const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(db))}catch(e){}};
   const reload=()=>{try{const d=JSON.parse(localStorage.getItem(KEY));if(d)db=d}catch(e){}};
   /* MT5 (modo local): un MT5 simulado que ejecuta al instante, para probar el panel */
-  const _mt5Local=()=>{const M={tok:null,pos:[],ord:[],cmds:[],n:1000,syms:{}};let px={};
+  const _mt5Local=()=>{const M={tok:null,pos:[],ord:[],cmds:[],n:1000,syms:{},hist:[]};const toH=(x,v)=>M.hist.push({deal:++M.n,position:x.ticket,symbol:x.symbol,type:x.type,volume:v,price:x.current_price,profit:x.profit,time:Math.floor(Date.now()/1000),open_price:x.open_price,open_time:x.time,commission:0,swap:0});let px={};
     const sym=s=>{if(!M.syms[s]){const b=/boom|crash/i.test(s)?9150:/volatility/i.test(s)?1200:100;px[s]=b;M.syms[s]={symbol:s,bid:b,ask:b+0.5,digits:4,point:0.0001,tick_size:0.0001,tick_value:0.0001,vol_min:0.2,vol_max:50,vol_step:0.01}}return M.syms[s]};
     const fin=(c,ok,msg,extra)=>{c.status=ok?"done":"error";c.result=Object.assign({id:c.id,ok,msg},extra||{});c.finishedAt=Date.now()};
     const exec=c=>{const p=c.params;if(c.action==="watch"){if(/^x/i.test(p.symbol))return fin(c,false,"Símbolo no encontrado en MT5: "+p.symbol);sym(p.symbol);return fin(c,true,"Símbolo activo")}
@@ -309,7 +309,7 @@ function LocalAPI(){
       if(c.action==="open_pending"){const t=++M.n;M.ord.push({ticket:t,symbol:p.symbol,type:p.otype,volume:+p.volume,price:+p.price,sl:+p.sl||0,tp:+p.tp||0,time:Math.floor(Date.now()/1000),digits:4});return fin(c,true,"Orden #"+t,{ticket:t})}
       if(c.action==="modify_position"){const x=M.pos.find(y=>String(y.ticket)===p.ticket);if(!x)return fin(c,false,"No existe");if(p.sl!=null)x.sl=+p.sl;if(p.tp!=null)x.tp=+p.tp;return fin(c,true,"Modificada")}
       if(c.action==="modify_order"){const x=M.ord.find(y=>String(y.ticket)===p.ticket);if(!x)return fin(c,false,"No existe");["sl","tp","price"].forEach(k=>{if(p[k]!=null)x[k]=+p[k]});return fin(c,true,"Modificada")}
-      if(c.action==="close_position"){const x=M.pos.find(y=>String(y.ticket)===p.ticket);if(!x)return fin(c,false,"No existe");if(p.volume&&+p.volume<x.volume){x.volume=+(x.volume-p.volume).toFixed(2);return fin(c,true,"Cierre parcial")}M.pos=M.pos.filter(y=>y!==x);return fin(c,true,"Cerrada")}
+      if(c.action==="close_position"){const x=M.pos.find(y=>String(y.ticket)===p.ticket);if(!x)return fin(c,false,"No existe");if(p.volume&&+p.volume<x.volume){toH(x,+p.volume);x.volume=+(x.volume-p.volume).toFixed(2);return fin(c,true,"Cierre parcial")}toH(x,x.volume);M.pos=M.pos.filter(y=>y!==x);return fin(c,true,"Cerrada")}
       if(c.action==="cancel_order"){M.ord=M.ord.filter(y=>String(y.ticket)!==p.ticket);return fin(c,true,"Cancelada")}
       if(c.action==="close_all"){M.pos=M.pos.filter(y=>p.otype==="profit"?y.profit<0:p.otype==="loss"?y.profit>=0:false);return fin(c,true,"Cerradas")}
       if(c.action==="cancel_all"){M.ord=[];return fin(c,true,"Canceladas")}fin(c,false,"Acción desconocida")};
@@ -319,7 +319,7 @@ function LocalAPI(){
     async mt5Poll(){need();tick();M.cmds.filter(c=>c.status==="queued").forEach(c=>{c.status="sent";exec(c)});const fl=M.pos.reduce((a,x)=>a+x.profit,0);
       return{accounts:M.tok?[{login:"5551234",name:"Demo",server:"Deriv-Demo",trade_mode:"demo",online:true}]:[],token:{has:!!M.tok,at:M.tok?new Date().toISOString():null},
         state:M.tok?{login:"5551234",online:true,account:{login:5551234,name:"Demo",server:"Deriv-Demo",currency:"USD",balance:10000,equity:10000+fl,profit:+fl.toFixed(2),margin:M.pos.length?50:0,free_margin:9950,margin_level:M.pos.length?20000:0,trade_mode:"demo",algo_trading:true},
-          positions:JSON.parse(JSON.stringify(M.pos)),orders:JSON.parse(JSON.stringify(M.ord)),symbols:Object.values(M.syms),today:{pnl:12.5,trades:3},history:[]}:null,commands:M.cmds.slice(-60)}},
+          positions:JSON.parse(JSON.stringify(M.pos)),orders:JSON.parse(JSON.stringify(M.ord)),symbols:Object.values(M.syms),today:{pnl:12.5,trades:3},history:M.hist.slice()}:null,commands:M.cmds.slice(-60)}},
     async mt5Cmd(p){need();if(!M.tok)return{ok:false,error:"MT5 no está conectado"};const c={id:"c"+Date.now().toString(36)+Math.random().toString(36).slice(2,6),account:"5551234",action:p.action,
         params:{symbol:p.symbol,otype:p.side||p.order_type||p.filter,volume:p.volume,price:p.price,sl:p.sl,tp:p.tp,ticket:p.ticket},status:"queued",createdAt:Date.now()};M.cmds.push(c);return{ok:true,command:c}},
     async mt5NewToken(){need();M.tok="eag_"+Math.random().toString(36).slice(2);return M.tok}}};
