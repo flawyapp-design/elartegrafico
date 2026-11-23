@@ -101,7 +101,7 @@ function onMsg(m){if(!m||!m.room)return;if(!(m.room===GEN||(m.room.startsWith("d
   if(!mine&&!open){t.unread=(+t.unread||0)+1;if(m.room!==GEN||mentioned(m)||m.is_admin){if(inOther)peek(m);else headNotify(m);SND.play(m.room!==GEN?"in":mentioned(m)?"mention":"in")}}
   else if(!mine&&open)SND.play("inSoft");
   if(!mine&&typers[m.room]){delete typers[m.room][m.sender];paintTyping()}
-  if(!mine&&m.kind==="call"&&m.payload&&m.payload.act==="start"&&m.room!==GEN)incoming(m);
+  if(!mine&&m.kind==="call"&&m.payload&&m.payload.act==="start")m.room===GEN?incomingGroup(m):incoming(m);
   if(!mine&&m.kind==="call"&&m.payload&&m.payload.act==="end"){if(ringing&&ringing.room===m.payload.room)stopRing("La llamada terminó.");if(call&&call.room===m.payload.room){X.toast("La otra persona colgó.");hangup(true)}}
   unread=threads.reduce((a,x)=>a+(x.room===GEN?0:(+x.unread||0)),0);paintBtn();
   if(open){paintRoom(true);markRead(m.room)}else if(panel&&!view.room)paintPanel();else if(inOther)backBadge()}
@@ -242,6 +242,7 @@ function paintRoom(toBottom){if(!panel||!view.room)return;const room=view.room,i
   box.querySelectorAll("[data-go]").forEach(b=>b.onclick=()=>{const[sy,tf]=b.dataset.go.split("|");X.follow(sy,tf||null);if(matchMedia("(max-width:640px)").matches)close()});
   box.ondblclick=e=>{const mm=e.target.closest("[data-mid]");if(mm)react(+mm.dataset.mid,"👍",room)};
   box.querySelectorAll("[data-acc]").forEach(b=>b.onclick=()=>acceptCall(b.dataset.acc,room));
+  box.querySelectorAll("[data-jg]").forEach(b=>b.onclick=()=>joinVoiceGroup());
   box.querySelectorAll("[data-rep]").forEach(b=>b.onclick=e=>{e.stopPropagation();const m=(msgs[room]||[]).find(x=>x.id===+b.dataset.rep);if(!m)return;
     replyTo[room]={id:m.id,n:m.sender===ME.id?"ti":(m.username||nameOf(m.sender)),t:snip(m)};paintRoom();const t2=panel.querySelector(".sp-in textarea");t2&&t2.focus()});
   const ur=panel.querySelector("[data-unrep]");if(ur)ur.onclick=()=>{delete replyTo[room];paintRoom()};
@@ -259,7 +260,7 @@ function msgRow(m,prev,isG){const mine=m.sender===ME.id,adm=X.isAdmin();const gr
     inner=`<div class="sp-card"><b>📡 ${mine?"Compartiste tu gráfico":esc(m.username||nameOf(m.sender))+" compartió su gráfico"}</b><small>${esc(p.symName||p.sym||"")}${p.tf?" · "+esc(p.tf):""} — los dibujos de los dos salen en el mismo gráfico, cada uno con su nombre.</small>
       ${p.room?(act?`<span class="sp-ok">● Conectado</span>`:`<button class="btn sm gold" data-join="${esc(p.room)}">${mine?"Volver a compartir":"Ver en mi gráfico"}</button>`):""}</div>`}
   else if(m.kind==="call"){const p=m.payload||{};
-    inner=p.act==="end"?`<div class="sp-card"><small>📞 Llamada terminada</small></div>`:`<div class="sp-card"><b>📞 ${mine?"Llamaste":esc(m.username||nameOf(m.sender))+" te está llamando"}</b>${!mine&&p.room&&!(call&&call.room===p.room)&&Date.now()-new Date(m.created_at)<10*60000?`<button class="btn sm gold" data-acc="${esc(p.room)}">Contestar</button>`:""}</div>`}
+    inner=p.act==="end"?`<div class="sp-card"><small>📞 Llamada terminada</small></div>`:p.group?`<div class="sp-card"><b>🎙 ${mine?"Abriste la llamada grupal":esc(m.username||nameOf(m.sender))+" abrió la llamada grupal"}</b>${!(call&&call.room==="voz-general")&&(grpCount()||Date.now()-new Date(m.created_at)<10*60000)?`<button class="btn sm gold" data-jg>Unirme</button>`:""}</div>`:`<div class="sp-card"><b>📞 ${mine?"Llamaste":esc(m.username||nameOf(m.sender))+" te está llamando"}</b>${!mine&&p.room&&!(call&&call.room===p.room)&&Date.now()-new Date(m.created_at)<10*60000?`<button class="btn sm gold" data-acc="${esc(p.room)}">Contestar</button>`:""}</div>`}
   else if(m.kind==="img"){const p=m.payload||{};inner=`<img class="sp-img" src="${esc(p.url)}" alt="Imagen" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('small'),{textContent:'📷 Imagen vencida',className:'sp-exp'}))"${p.w&&p.h?` style="aspect-ratio:${+p.w}/${+p.h}"`:""}>${m.body?`<div class="sp-txt">${linkify(m.body)}</div>`:""}`}
   else if(m.kind==="idea"){const p=m.payload||{};
     inner=`<div class="sp-card idea"><b>📈 Idea · ${esc(p.symName||p.sym||"")}${p.tf?" · "+esc(p.tf):""}</b>${p.price!=null?`<small>Precio cuando la compartió: <b>${esc(p.price)}</b></small>`:""}${m.body?`<div class="sp-txt">${linkify(m.body)}</div>`:""}${p.sym?`<button class="btn sm" data-go="${esc(p.sym)}|${esc(p.tf||"")}">Ver en mi gráfico</button>`:""}</div>`}
@@ -288,7 +289,7 @@ function headPaint(){if(!X)return;const show=cfg().head&&!panel;if(!show){if(hea
 const hsz=()=>Math.max(40,Math.min(88,+cfg().hs||56));
 function headNotify(m){lastFrom=m;headPaint();if(!head||!cfg().bub)return;if(headPrev)headPrev.remove();
   const who=m.username||nameOf(m.sender);headPrev=document.createElement("button");headPrev.className="shprev "+(head.dataset.side==="l"?"l":"r");
-  headPrev.innerHTML=`<b>${esc(m.room===GEN?"Grupo · "+who:who)}</b><small>${m.kind==="share"?"📡 Compartió su gráfico":m.kind==="call"?"📞 Te está llamando":m.kind==="idea"?"📈 Compartió una idea":m.kind==="img"?"📷 Foto":esc(String(m.body||"").slice(0,90))}</small>`;
+  headPrev.innerHTML=`<b>${esc(m.room===GEN?"Grupo · "+who:who)}</b><small>${m.kind==="share"?"📡 Compartió su gráfico":m.kind==="call"?(m.room===GEN?"🎙 Llamada grupal":"📞 Te está llamando"):m.kind==="idea"?"📈 Compartió una idea":m.kind==="img"?"📷 Foto":esc(String(m.body||"").slice(0,90))}</small>`;
   document.body.appendChild(headPrev);const r=head.getBoundingClientRect();headPrev.style.top=(r.top+6)+"px";
   if(head.dataset.side==="l")headPrev.style.left=(r.right+8)+"px";else headPrev.style.right=(innerWidth-r.left+8)+"px";
   headPrev.onclick=()=>{headPrev&&headPrev.remove();headPrev=null;open(m.room)};
@@ -394,7 +395,7 @@ function joinShare(room,chatRoom,host){if(share&&share.room===room)return;if(sha
 function shareSend(force){if(!share)return;const b=myBoards(),j=JSON.stringify(b);if(!force&&j===share.last)return;share.last=j;cast(share.room,"draw",b)}
 function leaveShare(quiet){if(!share)return;cast(share.room,"bye",{});unsub(share.room);clearInterval(share.loopT);clearInterval(share.hbT);share=null;
   try{sessionStorage.removeItem("eag_share")}catch(e){}applyShare();paintShareBar();paintBtn();if(view.room)paintRoom();if(!quiet)X.toast("Dejaste de compartir el gráfico.")}
-function tagged(arr,name,color){return(arr||[]).map(d=>{const c=JSON.parse(JSON.stringify(d));const ex=c.extendData=Object.assign({},c.extendData||{});
+function tagged(arr,name,color){return(arr||[]).filter(d=>d&&!d.hid).map(d=>{const c=JSON.parse(JSON.stringify(d));delete c.tfv;const ex=c.extendData=Object.assign({},c.extendData||{});
   const lb=Object.assign({},ex.lbl||{});const t=lb.t||ex.text||"";lb.t=t?`${name}: ${t}`:name;lb.c=lb.c||color;lb.s=lb.s||11;lb.b=true;ex.lbl=lb;if(ex.text&&/rect|zone|box/i.test(c.name))delete ex.text;return c})}
 function applyShare(){X.panes().forEach(p=>{let tk;try{tk=p.kc.getSymbol().ticker}catch(e){return}const L={};
   if(share)Object.keys(share.peers).forEach(id=>{const pr=share.peers[id];if(pr.boards&&Array.isArray(pr.boards[tk]))L["u"+id]=tagged(pr.boards[tk],pr.name||"Invitado",pr.color)});
@@ -447,10 +448,24 @@ async function micTest(bar){const stream=await getMic();if(!stream)return false;
 async function startCall(chatRoom){if(call)return X.toast("Ya estás en una llamada.");const room=uuid();
   if(!await enterVoice(room,"dm",chatRoom))return;await send(chatRoom,"","call",{room,act:"start"});ringOut()}
 async function acceptCall(room,chatRoom){stopRing();if(call&&call.room===room)return;if(call)hangup(true);await enterVoice(room,"dm",chatRoom)}
-async function joinVoiceGroup(){if(call)hangup(true);await enterVoice("voz-general","group",GEN)}
+async function joinVoiceGroup(){if(call)hangup(true);stopRing();const empty=!grpCount();if(!await enterVoice("voz-general","group",GEN))return;
+  /* si la sala estaba vacía, avisa a todo el grupo para que entren */
+  if(empty)send(GEN,"","call",{room:"voz-general",act:"start",group:true})}
+/* quién está en la sala de voz del grupo, aunque yo no esté adentro (escucha sus latidos) */
+const grp={};let grpHide=0;
+const grpCount=()=>Object.keys(grp).filter(id=>Date.now()-grp[id].at<6000).length;
+function vozHandler(ev,p){if(call&&call.room==="voz-general")onSignal(ev,p);if(!p||!p.from||p.from===ME.id)return;
+  if(ev==="v-hb"||ev==="v-join"||ev==="v-offer")grp[p.from]={name:p.fname||(grp[p.from]&&grp[p.from].name)||"",at:Date.now()};if(ev==="v-leave")delete grp[p.from];paintGrp()}
+function paintGrp(){const n=grpCount(),inside=call&&call.room==="voz-general";let el=document.querySelector(".sgl");
+  if(!n||inside||Date.now()<grpHide){if(el)el.remove();return}
+  const names=Object.keys(grp).filter(id=>Date.now()-grp[id].at<6000).map(id=>grp[id].name).filter(Boolean);
+  if(!el){el=document.createElement("div");el.className="sgl";el.setAttribute("role","status");document.body.appendChild(el)}
+  el.innerHTML=`<span class="sgl-ic" aria-hidden="true">🎙</span><span class="sgl-t"><b>Llamada grupal en curso</b><small>${esc(names.slice(0,3).join(", "))}${names.length>3?" y "+(names.length-3)+" más":""} · ${n} ${n===1?"persona":"personas"}</small></span><button class="btn sm gold" data-gj>Unirme</button><button class="sgl-x" data-gx aria-label="Ocultar">×</button>`;
+  el.querySelector("[data-gj]").onclick=()=>joinVoiceGroup();el.querySelector("[data-gx]").onclick=()=>{grpHide=Date.now()+10*60000;el.remove()}}
+setInterval(()=>{try{paintGrp()}catch(e){}},3000);
 async function enterVoice(room,kind,chatRoom){const stream=await getMic();if(!stream)return false;
   call={room,kind,chat:chatRoom,peers:{},stream,muted:false,t0:Date.now()};
-  sub(room,(ev,p)=>onSignal(ev,p));
+  sub(room,room==="voz-general"?vozHandler:(ev,p)=>onSignal(ev,p));
   [350,1500,4000].forEach(ms=>setTimeout(()=>{if(call&&call.room===room&&!Object.keys(call.peers).length)cast(room,"v-join",{})},ms));
   clearInterval(call.tick);call.tick=setInterval(()=>{if(!call)return;paintShareBar();cast(call.room,"v-hb",{});
     const now=Date.now();Object.keys(call.peers).forEach(id=>{const pr=call.peers[id];if(now-(pr.at||now)>45000)dropPeer(id)});speakTick();
@@ -484,7 +499,7 @@ async function flushIce(pr){const q=pr.qi||[];pr.qi=[];for(const c of q){try{awa
 function dropPeer(id,silent){if(!call)return;const pr=call.peers[id];if(!pr)return;try{pr.pc&&pr.pc.close()}catch(e){}if(pr.audio){pr.audio.srcObject=null}delete call.peers[id];paintShareBar();
   if(!silent&&call.kind==="dm"&&!Object.keys(call.peers).length&&Date.now()-call.t0>3000){X.toast("La llamada terminó.");hangup(true)}}
 function hangup(quiet){if(!call)return;const c=call;call=null;cast(c.room,"v-leave",{});Object.keys(c.peers).forEach(id=>{const pr=c.peers[id];try{pr.pc&&pr.pc.close()}catch(e){}if(pr.audio)pr.audio.srcObject=null});
-  c.stream&&c.stream.getTracks().forEach(t=>t.stop());clearInterval(c.tick);unsub(c.room);stopRingOut();
+  c.stream&&c.stream.getTracks().forEach(t=>t.stop());clearInterval(c.tick);if(c.room!=="voz-general")unsub(c.room);stopRingOut();setTimeout(paintGrp,300);
   if(c.kind==="dm"&&!quiet)send(c.chat,"","call",{room:c.room,act:"end"});
   SND.play("leave",true);paintShareBar();paintBtn();if(view.room)paintRoom();if(!quiet)X.toast("Colgaste.")}
 function speakTick(){if(!call||!shBar)return;Object.keys(call.peers).forEach(id=>{const pr=call.peers[id];if(!pr.an)return;const d=new Uint8Array(pr.an.frequencyBinCount);pr.an.getByteFrequencyData(d);
@@ -492,14 +507,22 @@ function speakTick(){if(!call||!shBar)return;Object.keys(call.peers).forEach(id=
 /* timbre: suave, se repite unos segundos */
 let ringT=0,ringOutT=0;
 function tone(f,dur,vol){try{actx=actx||new(window.AudioContext||window.webkitAudioContext)();const o=actx.createOscillator(),g=actx.createGain();o.frequency.value=f;g.gain.setValueAtTime(.0001,actx.currentTime);g.gain.exponentialRampToValueAtTime(vol||.05,actx.currentTime+.03);g.gain.exponentialRampToValueAtTime(.0001,actx.currentTime+dur);o.connect(g);g.connect(actx.destination);o.start();o.stop(actx.currentTime+dur+.02)}catch(e){}}
-function incoming(m){const p=m.payload||{};if(!p.room||call)return;if(Date.now()-new Date(m.created_at)>60000)return;stopRing();
-  ringing={room:p.room,chat:m.room,name:m.username||nameOf(m.sender),from:m.sender};
-  const el=document.createElement("div");el.className="sring";el.innerHTML=`${av({id:m.sender,username:ringing.name,avatar_url:m.avatar_url})}<div class="sr-t"><b>${esc(ringing.name)}</b><small>📞 Te está llamando</small></div><button class="btn sm gold" data-a>Contestar</button><button class="btn sm" data-r>Ahora no</button>`;
+function ringBox(m,o){stopRing();ringing={room:o.room,chat:m.room,name:m.username||nameOf(m.sender),from:m.sender,group:!!o.group};
+  const el=document.createElement("div");el.className="sring"+(o.group?" grp":"");el.setAttribute("role","alertdialog");el.setAttribute("aria-label",o.title);
+  el.innerHTML=`<div class="sr-av">${av({id:m.sender,username:ringing.name,avatar_url:m.avatar_url})}</div><div class="sr-t"><small>${esc(o.title)}</small><b>${esc(ringing.name)}</b><span>${esc(o.sub)}</span></div>
+    <div class="sr-b"><button class="sr-no" data-r>${o.group?"Ahora no":"Rechazar"}</button><button class="sr-yes" data-a>${o.group?"Unirme":"Contestar"}</button></div>`;
   document.body.appendChild(el);ringing.el=el;
-  el.querySelector("[data-a]").onclick=()=>{const r=ringing;acceptCall(r.room,r.chat)};
+  el.querySelector("[data-a]").onclick=()=>{const r=ringing;r.group?joinVoiceGroup():acceptCall(r.room,r.chat)};
   el.querySelector("[data-r]").onclick=()=>stopRing();
-  let n=0;const ring=()=>{if(!ringing||n++>12){stopRing();return}if(cfg().snd!==false){tone(660,.18,.05);setTimeout(()=>tone(880,.22,.05),220)}ringT=setTimeout(ring,2200)};ring()}
-function stopRing(msg){clearTimeout(ringT);if(ringing&&ringing.el)ringing.el.remove();ringing=null;if(msg)X.toast(msg)}
+  /* el título de la pestaña parpadea y el celular vibra, para que se note aunque esté en otra pestaña */
+  const t0=document.title;let n=0;ringing.t0=t0;
+  const ring=()=>{if(!ringing||n++>o.times){stopRing();return}if(cfg().snd!==false){tone(660,.2,.08);setTimeout(()=>tone(880,.24,.08),230);setTimeout(()=>tone(990,.2,.06),470)}
+    document.title=n%2?(o.group?"🎙 Llamada grupal":"📞 "+ringing.name+" te llama"):t0;try{navigator.vibrate&&navigator.vibrate([250,120,250])}catch(e){}ringT=setTimeout(ring,2000)};ring()}
+function incoming(m){const p=m.payload||{};if(!p.room||call)return;if(Date.now()-new Date(m.created_at)>60000)return;
+  ringBox(m,{room:p.room,title:"Llamada de voz",sub:"Te está llamando",times:14})}
+function incomingGroup(m){const p=m.payload||{};if(call&&call.room==="voz-general")return;if(Date.now()-new Date(m.created_at)>60000)return;if(cfg().hidden)return;
+  ringBox(m,{room:"voz-general",group:true,title:"Llamada grupal",sub:"Abrió la sala de voz del grupo",times:4});setTimeout(paintGrp,500)}
+function stopRing(msg){clearTimeout(ringT);if(ringing){if(ringing.el)ringing.el.remove();if(ringing.t0)document.title=ringing.t0}ringing=null;if(msg)X.toast(msg)}
 function ringOut(){let n=0;const r=()=>{if(!call||Object.keys(call.peers).some(id=>call.peers[id].pc&&call.peers[id].pc.connectionState==="connected")||n++>15){if(call&&!Object.keys(call.peers).length&&n>15){X.toast("No contestó.");hangup()}return}tone(440,.4,.03);ringOutT=setTimeout(r,2500)};ringOutT=setTimeout(r,800)}
 function stopRingOut(){clearTimeout(ringOutT)}
 
@@ -507,7 +530,7 @@ function stopRingOut(){clearTimeout(ringOutT)}
 window.EAGSocial={
   init(o){X=o;const pr=(X.API.profile&&X.API.profile())||{};const u=X.API.user&&X.API.user();if(!u)return;ME={id:u.id,name:pr.username||"Yo"};
     imgClean();paintBtn();headPaint();if(X.btn)X.btn.onclick=e=>{e.stopPropagation();panel?close():open()};
-    localBus();rtConnect();loadThreads();setTimeout(loadPeople,2500);setInterval(()=>{if(!document.hidden&&!(panel&&!view.room))loadPeople()},60000);
+    localBus();rtConnect();sub("voz-general",vozHandler);loadThreads();setTimeout(loadPeople,2500);setInterval(()=>{if(!document.hidden&&!(panel&&!view.room))loadPeople()},60000);
     clearInterval(thrT);thrT=setInterval(()=>{if(document.hidden)return;if(!rtJoined)loadThreads();if(panel&&view.room&&!rtJoined)loadRoom(view.room)},rtJoined?60000:15000);
     if(cfg().hidden)X.API.chatHidden(true).catch(()=>{});
     /* si recargó la página mientras compartía, vuelve a entrar */
