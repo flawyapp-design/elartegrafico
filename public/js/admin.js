@@ -976,7 +976,7 @@ async function alumnos(){
   const venc=u=>u.premium_until&&new Date(u.premium_until)<=new Date();
   /* filtros: acceso, plan (placa), curso comprado y rol, cada uno con su conteo */
   const TIER=u=>isP(u)?(u.plan||"cobre"):"",paidC=(S.courses||[]).filter(c=>!c.base);
-  const FIL=k=>k==="todos"?()=>true:k==="premium"?isP:k==="gratis"?u=>!isP(u)&&!(u.courses||[]).length:k==="sinplan"?u=>!isP(u):k==="vencido"?venc:k==="suspendido"?u=>u.banned:k==="admin"?u=>u.role==="admin"
+  const FIL=k=>k==="todos"?()=>true:k==="premium"?isP:k==="gratis"?u=>!isP(u)&&!(u.courses||[]).length:k==="sinplan"?u=>!isP(u):k==="vencido"?venc:k==="suspendido"?u=>u.banned:k==="miembro"?u=>!!(u.affiliate||(AFF[u.id]&&AFF[u.id].status==="verificado")):k==="nomiembro"?u=>!(u.affiliate||(AFF[u.id]&&AFF[u.id].status==="verificado")):k==="admin"?u=>u.role==="admin"
     :k==="concurso"?u=>(u.courses||[]).length>0:k.startsWith("plan:")?u=>TIER(u)===k.slice(5):k.startsWith("curso:")?u=>(u.courses||[]).includes(k.slice(6)):()=>true;
   const cnt=k=>list.filter(FIL(k)).length,opt=(k,t)=>`<option value="${esc(k)}">${t} (${cnt(k)})</option>`;
   const TN={cobre:"🟤 Cobre",plata:"⚪ Plata",oro:"🟡 Oro",diamond:"💎 Diamond"};
@@ -984,32 +984,63 @@ async function alumnos(){
     <optgroup label="Acceso">${opt("premium","Con plan activo")}${opt("concurso","Con algún curso comprado")}${opt("gratis","Solo cuenta gratis (sin plan ni curso)")}${opt("sinplan","Sin plan activo")}${opt("vencido","Plan vencido")}</optgroup>
     <optgroup label="Plan">${Object.keys(TN).map(t=>opt("plan:"+t,TN[t])).join("")}</optgroup>
     ${paidC.length?`<optgroup label="Curso comprado">${paidC.map(c=>opt("curso:"+c.id,esc(`${c.icon||"🎓"} ${c.title}`))).join("")}</optgroup>`:""}
+    <optgroup label="Comunidad">${opt("miembro","Miembros verificados")}${opt("nomiembro","No son miembros")}</optgroup>
     <optgroup label="Otros">${opt("admin","Admins")}${opt("suspendido","Suspendidos")}</optgroup>`;
-  const chips=()=>[["premium","Con plan"],...Object.keys(TN).map(t=>["plan:"+t,TN[t]]),...paidC.map(c=>["curso:"+c.id,esc(`${c.icon||"🎓"} ${c.title}`)]),["gratis","Solo gratis"]]
+  const chips=()=>[["premium","Con plan"],...Object.keys(TN).map(t=>["plan:"+t,TN[t]]),...paidC.map(c=>["curso:"+c.id,esc(`${c.icon||"🎓"} ${c.title}`)]),["gratis","Solo gratis"],["miembro","✓ Miembros"]]
     .map(([k,t])=>`<button class="uchip${fil===k?" on":""}" data-uf="${esc(k)}">${t} <b>${cnt(k)}</b></button>`).join("");
+  /* miembros verificados (solicitudes y verificados a mano) */
+  let AFF={};try{(await API.adminAffiliates()||[]).forEach(a=>AFF[a.user_id]=a)}catch(e){}
+  let OPEN=null;const MG={};
   let q="",fil="todos",pais="";const draw=()=>{$("#uchips").innerHTML=chips();$$("[data-uf]").forEach(b=>b.onclick=()=>{fil=fil===b.dataset.uf?"todos":b.dataset.uf;$("#uf").value=fil;draw()});const f=list.filter(u=>(!q||(u.username+" "+u.email).toLowerCase().includes(q))
       &&FIL(fil)(u)
       &&(!pais||(pais==="-"?!u.country:u.country===pais)));
     $("#uN").textContent=f.length===list.length?"":`Mostrando ${f.length} de ${list.length}`;
     {const sel=$("#uf");if(sel){sel.innerHTML=filOpts();sel.value=fil}}
     $("#uPA").textContent=`${cnt("premium")} con plan · ${cnt("concurso")} con curso`;
-    $("#ut").innerHTML=f.map(u=>`<article class="ucard${u.banned?" ban":""}">
-      <div class="uc-who">${A.avatar?A.avatar(u,44):""}<div><b>${esc(u.username)} ${A.flag(u.country||"")}${u.role==="admin"?' <span class="tag pub">Admin</span>':""}${u.banned?' <span class="tag">Suspendido</span>':""}</b><span class="dim">${esc(u.email||"")}</span></div></div>
+    const memOf=u=>AFF[u.id]||null,isMem=u=>!!(u.affiliate||(memOf(u)&&memOf(u).status==="verificado"));
+    const accTxt=u=>isP(u)?A.premTag(u.plan)+`<span class="dim">${new Date(u.premium_until).getFullYear()>=2090?"de por vida":"hasta "+fmtDate(u.premium_until)}</span>`:venc(u)?`<span class="tag">Vencido</span><span class="dim">el ${fmtDate(u.premium_until)}</span>`:(u.courses||[]).length?"":'<span class="tag">Gratis</span>';
+    const crsTags=u=>(u.courses||[]).map(cid=>{const c=(S.courses||[]).concat(S.lib?[S.lib]:[]).find(x=>x.id===cid);return c?`<span class="crs-tag" style="--cc:${esc(c.color||"#c9a14a")}">${esc(c.icon||"")} ${esc(c.title)}</span>`:""}).join("");
+    const memTxt=u=>{const m=memOf(u);return isMem(u)?`<span class="pill ok">✓ Verificado</span>${m&&m.deriv_id&&m.deriv_id!=="MANUAL"?`<span class="dim mono">${esc(m.deriv_id)}</span>`:""}`:m&&m.status==="pendiente"?`<span class="pill gold">Solicitud</span><span class="dim mono">${esc(m.deriv_id||"")}</span>`:'<span class="dim">No es miembro</span>'};
+    /* panel "Gestionar": todo lo que se le puede dar o quitar, ordenado por secciones */
+    const DUR=[["30","30 días"],["180","6 meses"],["365","1 año"],["life","De por vida"],["date","Hasta una fecha"]];
+    const mg=u=>{const g=MG[u.id]=MG[u.id]||{tier:isP(u)?(u.plan||"cobre"):"oro",dur:"30"},act=isP(u),allC=(S.courses||[]).filter(c=>!c.base).concat(S.lib?[S.lib]:[]),m=memOf(u);
+      return`<div class="ugm" data-ugm="${esc(u.id)}">
+      <section class="ugs"><h4>Plan</h4><p class="dim">${act?`Tiene ${esc((A.TIERS&&A.TIERS[u.plan||"cobre"]||{}).n||u.plan||"plan")} ${new Date(u.premium_until).getFullYear()>=2090?"de por vida":"hasta el "+fmtDate(u.premium_until)}. Lo que des se <b>suma</b> a esa fecha.`:"No tiene plan activo."}</p>
+        <div class="ugseg" role="group" aria-label="Placa">${GIVE().map(x=>`<button type="button" data-mt="${x.t}" class="${g.tier===x.t?"on":""}">${A.TIERS?A.TIERS[x.t].i:""} ${x.n}</button>`).join("")}</div>
+        <div class="ugseg sm" role="group" aria-label="Duración">${DUR.map(([k,t])=>`<button type="button" data-md="${k}" class="${g.dur===k?"on":""}">${t}</button>`).join("")}</div>
+        ${g.dur==="date"?`<label class="ugdate">Hasta el<input type="date" data-mdate value="${esc(g.date||"")}"></label>`:""}
+        <div class="row ugbtn"><button class="btn sm gold" data-mgo>Dar ${esc((GIVE().find(x=>x.t===g.tier)||{}).n||"")} · ${g.dur==="date"?(g.date?"hasta "+g.date.split("-").reverse().join("/"):"elige la fecha"):esc(DUR.find(d=>d[0]===g.dur)[1].toLowerCase())}</button>
+          ${act&&u.plan!==g.tier?`<button class="btn sm" data-mtier>Solo cambiar la placa</button>`:""}${act?`<button class="btn sm ghost" data-rm="${esc(u.id)}">Quitar plan</button>`:""}</div></section>
+      ${allC.length?`<section class="ugs"><h4>Cursos</h4><div class="ugsw">${allC.map(c=>{const has=(u.courses||[]).includes(c.id);return`<label class="ugt"><span>${esc(c.icon||"🎓")} ${esc(c.title)}<small>${has?"Lo tiene de por vida":"No lo tiene"}</small></span><input type="checkbox" class="sw" data-crs="${esc(u.id)}|${esc(c.id)}" ${has?"checked":""} aria-label="${esc(c.title)}"></label>`}).join("")}</div></section>`:""}
+      <section class="ugs"><h4>Miembro verificado</h4>${isMem(u)?`<p class="dim">Es miembro verificado${m&&m.deriv_id&&m.deriv_id!=="MANUAL"?` · ID de Deriv <b class="mono">${esc(m.deriv_id)}</b>`:" (a mano)"}.</p><div class="row ugbtn"><button class="btn sm ghost" data-mem="0">Quitar verificación</button></div>`
+        :`<p class="dim">${m&&m.status==="pendiente"?`Envió solicitud con el ID <b class="mono">${esc(m.deriv_id)}</b>.`:"No ha enviado solicitud. Igual lo puedes verificar."}</p>
+          <div class="row ugbtn"><input data-memid maxlength="40" placeholder="ID de Deriv (opcional)" value="${esc(m&&m.deriv_id&&m.deriv_id!=="MANUAL"?m.deriv_id:"")}"><button class="btn sm gold" data-mem="1">Hacer miembro verificado</button></div>`}</section>
+      <section class="ugs"><h4>Cuenta</h4><div class="row ugbtn">
+        <button class="btn sm ghost" data-demo="${esc(u.id)}">Devolver prueba gratis (${u.demo_used||0}/5 usadas)</button>
+        ${u.id!==(API.user()||{}).id?`<button class="btn sm ghost" data-role="${esc(u.id)}">${u.role==="admin"?"Quitar admin":"Hacer admin"}</button>`:""}
+        <button class="btn sm ghost" data-ban="${esc(u.id)}">${u.banned?"Reactivar cuenta":"Suspender cuenta"}</button></div>
+        <div class="row ugbtn ugdanger"><button class="btn sm ghost" data-rxp="${esc(u.id)}">Reiniciar puntos</button><button class="btn sm bad" data-rall="${esc(u.id)}">Reiniciar avance</button></div><div class="ugconf"></div></section>
+      </div>`};
+    $("#ut").innerHTML=f.map(u=>`<article class="ucard${u.banned?" ban":""}${OPEN===u.id?" open":""}">
+      <div class="uc-who">${A.avatar?A.avatar(u,44):""}<div><b>${esc(u.username)} ${A.flag(u.country||"")}${u.role==="admin"?' <span class="tag pub">Admin</span>':""}${u.banned?' <span class="tag">Suspendido</span>':""}${isMem(u)?' <span class="mem-ck" title="Miembro verificado">✓</span>':""}</b><span class="dim">${esc(u.email||"")}</span></div></div>
       <div class="uc-st">
-        <div><small>Acceso</small>${isP(u)?A.premTag(u.plan)+`<span class="dim">${new Date(u.premium_until).getFullYear()>=2090?"de por vida":"hasta "+fmtDate(u.premium_until)}</span>`:venc(u)?`<span class="tag">Vencido</span><span class="dim">el ${fmtDate(u.premium_until)}</span>`:(u.courses||[]).length?"":'<span class="tag">Gratis</span>'}${(u.courses||[]).map(cid=>{const c=(S.courses||[]).find(x=>x.id===cid);return c?`<span class="crs-tag" style="--cc:${esc(c.color)}">${esc(c.icon||"")} ${esc(c.title)}</span>`:""}).join("")}</div>
-        <div><small>Puntos</small><b class="mono">${u.xp||0}</b></div><div><small>Prueba</small><b class="mono">${u.demo_used||0}/5</b></div><div><small>Registro</small><span>${fmtDate(u.created_at)}</span></div></div>
-      <div class="uc-act row">
-        <label class="uc-plan uc-give"><span>Dar plan</span><select data-give="${esc(u.id)}"><option value="">Elegir…</option>${GIVE().map(g=>`<option value="${g.t}:${g.d}">${A.TIERS?A.TIERS[g.t].i:""} ${g.n} · ${g.d>=3650?"de por vida":g.d+" días"}</option>`).join("")}</select></label>
-        <button class="btn sm ok" data-add="${esc(u.id)}:30">+30 días</button>
-        <label class="uc-date"><span>Hasta</span><input type="date" data-date="${esc(u.id)}" aria-label="Premium hasta"></label>
-        <button class="btn sm" data-dm="${esc(u.id)}">💬 Escribirle</button>
-        <details class="uc-more"><summary class="btn sm ghost">Más ▾</summary><div class="uc-menu">
-          ${isP(u)?`<button class="btn sm" data-rm="${esc(u.id)}">Quitar premium</button><label class="uc-plan">Cambiar placa (sin tocar días)<select data-plan="${esc(u.id)}"><option value="cobre">🟤 Cobre</option><option value="plata">⚪ Plata</option><option value="oro">🟡 Oro</option><option value="diamond">💎 Diamond</option></select></label>`:""}
-          ${(S.courses||[]).concat(S.lib?[S.lib]:[]).map(c=>{const has=(u.courses||[]).includes(c.id);return `<button class="btn sm ${has?"ghost":""}" data-crs="${esc(u.id)}|${esc(c.id)}|${has?0:1}">${has?"Quitar":"Dar"} curso ${esc(c.title)}</button>`}).join("")}
-          <button class="btn sm ghost" data-ban="${esc(u.id)}">${u.banned?"Reactivar cuenta":"Suspender cuenta"}</button><button class="btn sm ghost" data-demo="${esc(u.id)}">Reiniciar prueba gratis</button>
-          <button class="btn sm ghost" data-rxp="${esc(u.id)}">Reiniciar puntos</button><button class="btn sm bad" data-rall="${esc(u.id)}">Reiniciar avance</button>
-          ${u.id!==(API.user()||{}).id?`<button class="btn sm ghost" data-role="${esc(u.id)}">${u.role==="admin"?"Quitar admin":"Hacer admin"}</button>`:""}</div></details>
-      </div></article>`).join("")||'<div class="muted">Sin resultados.</div>';
+        <div><small>Acceso</small>${accTxt(u)}${crsTags(u)}</div>
+        <div><small>Comunidad</small>${memTxt(u)}</div>
+        <div><small>Puntos</small><b class="mono">${u.xp||0}</b></div><div><small>Registro</small><span>${fmtDate(u.created_at)}</span></div></div>
+      <div class="uc-act row"><button class="btn sm ${OPEN===u.id?"gold":""}" data-open="${esc(u.id)}" aria-expanded="${OPEN===u.id}">${OPEN===u.id?"Cerrar":"Gestionar"}</button><button class="btn sm" data-dm="${esc(u.id)}">💬 Escribirle</button></div>
+      ${OPEN===u.id?mg(u):""}</article>`).join("")||'<div class="muted">Sin resultados.</div>';
+    $$("[data-open]").forEach(b=>b.onclick=()=>{OPEN=OPEN===b.dataset.open?null:b.dataset.open;draw()});
+    {const box=$("[data-ugm]");if(box){const u=list.find(x=>x.id===box.dataset.ugm),g=MG[u.id];
+      box.querySelectorAll("[data-mt]").forEach(b=>b.onclick=()=>{g.tier=b.dataset.mt;draw()});
+      box.querySelectorAll("[data-md]").forEach(b=>b.onclick=()=>{g.dur=b.dataset.md;draw()});
+      const di=box.querySelector("[data-mdate]");if(di)di.onchange=()=>{g.date=di.value;draw()};
+      box.querySelector("[data-mgo]").onclick=()=>{let until;if(g.dur==="date"){if(!g.date){toast("Elige la fecha");return}until=new Date(g.date+"T23:59:00-05:00")}
+        else if(g.dur==="life")until=new Date("2099-12-31T23:59:00-05:00");else{until=isP(u)?new Date(u.premium_until):new Date();until.setDate(until.getDate()+(+g.dur))}
+        const n=(GIVE().find(x=>x.t===g.tier)||{}).n;set(u.id,{premium_until:until.toISOString(),plan:g.tier},`${u.username}: ${n} ${until.getFullYear()>=2090?"de por vida":"hasta "+fmtDate(until)}`)};
+      const mt=box.querySelector("[data-mtier]");if(mt)mt.onclick=()=>set(u.id,{plan:g.tier},"Placa actualizada");
+      box.querySelectorAll("[data-mem]").forEach(b=>b.onclick=async()=>{if(!API.adminMemberSet){toast("Falta actualizar");return}const on=b.dataset.mem==="1",idi=box.querySelector("[data-memid]");
+        try{busy(b,true);const r=await API.adminMemberSet(u.id,on,on&&idi?idi.value.trim():null,"");u.affiliate=!!r.member;AFF[u.id]=Object.assign(AFF[u.id]||{},{status:r.status,deriv_id:r.deriv_id});toast(on?`${u.username} ya es miembro verificado ✓`:"Verificación quitada");draw()}
+        catch(x){toast(/admin_member/.test(x.message)?"Falta correr supabase/verificar_manual.sql":x.message);busy(b,false)}})}}
     const set=async(id,patch,msg)=>{try{await API.setUser(id,patch);Object.assign(list.find(u=>u.id===id),patch);toast(msg);draw()}catch(x){toast(x.message)}};
     $$("[data-add]").forEach(b=>b.onclick=()=>{const [id,d]=b.dataset.add.split(":");const u=list.find(x=>x.id===id);const base=isP(u)?new Date(u.premium_until):new Date();base.setDate(base.getDate()+(+d));set(id,{premium_until:base.toISOString()},`Premium hasta ${fmtDate(base)}`)});
     $$("[data-give]").forEach(sl=>sl.onchange=()=>{if(!sl.value)return;const [t,d]=sl.value.split(":");const u=list.find(x=>x.id===sl.dataset.give);const base=isP(u)?new Date(u.premium_until):new Date();base.setDate(base.getDate()+(+d));
@@ -1017,10 +1048,10 @@ async function alumnos(){
     $$("[data-date]").forEach(i=>i.onchange=()=>{if(i.value)set(i.dataset.date,{premium_until:new Date(i.value+"T23:59:00-05:00").toISOString()},"Fecha de premium actualizada")});
     $$("[data-rm]").forEach(b=>b.onclick=()=>set(b.dataset.rm,{premium_until:null},"Premium retirado"));
     $$("[data-plan]").forEach(sl=>{const u=list.find(x=>x.id===sl.dataset.plan);sl.value=u&&u.plan?u.plan:"cobre";sl.onchange=()=>set(sl.dataset.plan,{plan:sl.value},"Placa actualizada")});
-    $$("[data-crs]").forEach(b=>b.onclick=async()=>{const [uid,cid,on]=b.dataset.crs.split("|");try{await API.adminGrantCourse(uid,cid,on==="1");const u=list.find(x=>x.id===uid);u.courses=(u.courses||[]).filter(x=>x!==cid);if(on==="1")u.courses.push(cid);toast(on==="1"?"Curso entregado (de por vida)":"Curso retirado");draw()}catch(x){toast(x.message)}});
+    $$("[data-crs]").forEach(b=>b.onchange=async()=>{const [uid,cid]=b.dataset.crs.split("|"),on=b.checked;try{await API.adminGrantCourse(uid,cid,on);const u=list.find(x=>x.id===uid);u.courses=(u.courses||[]).filter(x=>x!==cid);if(on)u.courses.push(cid);toast(on?"Curso entregado (de por vida)":"Curso retirado");draw()}catch(x){toast(x.message);b.checked=!on}});
     $$("[data-ban]").forEach(b=>b.onclick=()=>{const u=list.find(x=>x.id===b.dataset.ban);set(u.id,{banned:!u.banned},u.banned?"Cuenta reactivada":"Cuenta suspendida")});
-    $$("[data-demo]").forEach(b=>b.onclick=()=>set(b.dataset.demo,{demo_used:0},"Prueba gratis reiniciada"));
-    const reset=(id,what)=>{const u=list.find(x=>x.id===id);const host=$(`[data-rxp="${id}"]`).closest(".uc-menu");
+    $$("[data-demo]").forEach(b=>b.onclick=()=>set(b.dataset.demo,{demo_used:0},"Prueba gratis devuelta"));
+    const reset=(id,what)=>{const u=list.find(x=>x.id===id);const host=$(`[data-ugm="${id}"] .ugconf`);
       A.confirmInline(host,what==="puntos"?`¿Dejar en 0 los puntos de ${u.username}? Sus lecciones aprobadas se mantienen.`:`¿Borrar todo el avance de ${u.username}? Lecciones, módulos, puntos, logros y su reseña de módulos. Empieza desde cero.`,
         async()=>{try{await API.adminReset(id,what,what==="todo",false);u.xp=0;toast(what==="puntos"?"Puntos reiniciados":"Avance reiniciado");draw()}catch(x){toast(x.message);draw()}})};
     $$("[data-rxp]").forEach(b=>b.onclick=()=>reset(b.dataset.rxp,"puntos"));
