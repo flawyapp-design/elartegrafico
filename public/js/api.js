@@ -177,6 +177,8 @@ function SupabaseAPI(url,key){
     chartPing(o){if(!sess||!sess.user)return Promise.resolve(null);return rpc("chart_ping",{p_symbol:o.symbol||null,p_name:o.name||null,p_tf:o.tf||null,p_layout:o.layout||null,p_device:o.device||null,p_profile:o.profile||null,p_panes:o.panes||null})},
     chartBye(){if(!sess||!sess.user||!sess.access_token)return;try{fetch(url+"/rest/v1/rpc/chart_bye",{method:"POST",keepalive:true,headers:{apikey:key,Authorization:"Bearer "+sess.access_token,"Content-Type":"application/json"},body:"{}"})}catch(e){}},
     adminChartOnline(){return rpc("admin_chart_online")},
+    sitePing(place,device){if(!sess||!sess.user)return Promise.resolve(null);return rpc("site_ping",{p_place:place||null,p_device:device||null})},
+    adminOnline(){return rpc("admin_online_users")},
     /* EAG Charts · chat interno (privado y grupo), conectados */
     chatSend(room,body,kind,payload){return rpc("chat_send",{p_room:room,p_body:body||"",p_kind:kind||"text",p_payload:payload||null})},
     chatHistory(room,before){return rpc("chat_history",{p_room:room,p_before:before||null,p_limit:50})},
@@ -507,6 +509,9 @@ function LocalAPI(){
         sin_verificar:P.filter(p=>!p.affiliate&&!prem(p)).map(row),miembros_sin_plan:P.filter(p=>p.affiliate&&!prem(p)).map(row)}},
     async adminReminderCfg(o){db.remCfg=Object.assign({enabled:true,day1:2,day2:9},db.remCfg||{},Object.fromEntries(Object.entries(o||{}).filter(([k,v])=>v!=null)));save();return Object.assign({due:0,sent_7d:0,converted:0},db.remCfg)},
     async adminReminderSend(ids){ids.forEach(id=>{const p=db.profiles.find(x=>x.id===id);if(p){p.member_reminders=(p.member_reminders||0)+1;p.member_reminded_at=new Date().toISOString()}});save();return ids.length},
+    async sitePing(place,device){if(!uid)return null;reload();db.sitePres=db.sitePres||{};db.sitePres[uid]={last_seen:new Date().toISOString(),place,device};save();return null},
+    async adminOnline(){need();reload();const now=Date.now(),out={};const put=(id,ls,pl,dv)=>{const t=new Date(ls).getTime();if(now-t>36e5)return;if(!out[id]||new Date(out[id].last_seen).getTime()<t)out[id]={user_id:id,last_seen:ls,place:pl,device:dv,online:now-t<12e4}};
+      Object.entries(db.sitePres||{}).forEach(([id,x])=>put(id,x.last_seen,x.place,x.device));Object.entries(db.presence||{}).forEach(([id,x])=>put(id,x.last_seen,"Charts"+(x.name?" · "+x.name:""),x.device));return Object.values(out)},
     async adminChartOnline(){const P=db.presence||{},now=Date.now();return Object.keys(P).map(id=>{const x=P[id],pr=db.profiles.find(q=>q.id===id)||{};return{user_id:id,username:pr.username,avatar_url:pr.avatar_url,country:pr.country,plan:pr.plan||"",premium:!!(pr.premium_until&&new Date(pr.premium_until)>now),affiliate:!!pr.affiliate,role:pr.role,online:now-new Date(x.last_seen).getTime()<12e4,started_at:x.started_at,last_seen:x.last_seen,symbol:x.symbol,symbol_name:x.name,tf:x.tf,layout:x.layout,device:x.device,profile:x.profile,panes:x.panes}}).filter(r=>now-new Date(r.last_seen).getTime()<864e5).sort((a,b)=>(b.online-a.online)||(new Date(b.last_seen)-new Date(a.last_seen)))},
     async adminDiscordStats(){return{conectados:db.profiles.filter(x=>x.discord_id).length,con_rol:db.profiles.filter(x=>x.discord_role).length,afiliados_sin_discord:db.profiles.filter(x=>x.affiliate&&!x.discord_id).length}},
     async updateMyProfile(o){const p=me();if(!p)throw new Error("Inicia sesión");p.avatar_url=o.avatar_url||null;p.bio=String(o.bio||"").slice(0,160);p.country=String(o.country||"").slice(0,40);save()},

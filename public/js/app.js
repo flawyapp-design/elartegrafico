@@ -1961,7 +1961,15 @@ async function boot(){
   if(API.oauthDone&&API.oauthDone()){let bk="";try{bk=localStorage.getItem("ag_oauth_back")||"";localStorage.removeItem("ag_oauth_back")}catch(e){}
     if(logged()){API.shareSession&&API.shareSession();if(bk==="academia"){location.href=toAcad("inicio");return}
       const pf=API.profile()||{};if(pf.created_at&&Date.now()-new Date(pf.created_at).getTime()<10*60e3)setTimeout(()=>pop({icon:"check",tone:"green",kicker:"Cuenta creada con Discord",title:"¡Bienvenido, "+esc(pf.username||"")+"!",text:"Tu cuenta quedó conectada con Discord. Puedes cambiar tu foto y tu país en Configuración."}),600)}}
-  route();dcReturn();
+  route();dcReturn();presence();
 }
+/* en línea: avisa cada minuto dónde está (sitio o academia y la sección), para la bolita verde del admin en Mensajes */
+function presence(){if(!API.sitePing)return;let last=0,lastK="";
+  const PL={inicio:"Inicio",academia:"Academia",clase:"Biblioteca · clase",biblioteca:"Biblioteca",leccion:"Academia · lección",curso:"Academia · curso",retos:"Retos",puntos:"Mis puntos",mensajes:"Mensajes",miembro:"Miembro verificado",premium:"Planes",perfil:"Perfil",oro:"Sala Oro",ranking:"Ranking",noticias:"Noticias"};
+  const place=()=>{const r=(location.hash.slice(1).split(/[-/?]/)[0]||"inicio").toLowerCase();return(ACAD?"Academia":"Sitio")+(PL[r]&&PL[r]!=="Academia"?" · "+PL[r]:"")};
+  const dev=()=>{const ua=navigator.userAgent;return/iPad|Tablet/i.test(ua)?"Tablet":/Mobi|Android|iPhone/i.test(ua)?"Celular":"PC"};
+  const ping=force=>{if(document.hidden||!logged())return;const k=place(),n=Date.now();if(!force&&k===lastK&&n-last<60000)return;if(!force&&n-last<5000)return;last=n;lastK=k;API.sitePing(k,dev()).catch(()=>{})};
+  setTimeout(()=>ping(true),1500);setInterval(()=>ping(false),15000);addEventListener("hashchange",()=>ping(false));
+  document.addEventListener("visibilitychange",()=>{if(!document.hidden)ping(true)})}
 window.AGBOOT=boot;window.AGPOP=(o)=>pop(o);window.AGTOAST=(m,t)=>toast(m,t);
 })();

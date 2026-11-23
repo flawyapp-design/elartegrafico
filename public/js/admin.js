@@ -71,26 +71,41 @@ const DM_QUICK=()=>{const pts=A.toMain?A.toMain("puntos"):"https://elartegrafico
   ["Verificado","¡Listo! ✅ Ya eres miembro verificado de la comunidad: Deriv sabe que eres de los nuestros y cuentas con nuestro respaldo en depósitos, retiros y soporte. Además ganas los puntos completos en los retos."],
   ["Correo de Binance","Hola 👋 Para enviarte el pago, ¿me confirmas tu Binance Pay ID o tu correo de Binance?"],
   ["¿Resuelto?","¿Quedó resuelto? Si ya no necesitas nada más, cierro la conversación. 🙌"]]};
+/* en línea: bolita verde en Mensajes (sitio, academia o charts) */
+let ONL={},onlT=null;
+const ago=t=>{const m=Math.max(0,Math.round((Date.now()-new Date(t).getTime())/6e4));return m<1?"hace un momento":m<60?`hace ${m} min`:`hace ${Math.floor(m/60)} h`};
+const onTag=id=>{const o=ONL[id];if(!o)return"";return o.online?`<span class="onl on">En línea · ${esc(o.place||"")}</span>`:`<span class="onl">Visto ${ago(o.last_seen)}${o.place?" · "+esc(o.place):""}</span>`};
+const onDot=id=>ONL[id]&&ONL[id].online?'<i class="ondot" title="En línea"></i>':"";
+async function loadOnline(){if(!API.adminOnline)return false;try{const L=await API.adminOnline();ONL={};(L||[]).forEach(x=>ONL[x.user_id]=x);return true}catch(e){return false}}
 async function chat(sel){
-  const ico=A.ico||(()=>"");
-  H().innerHTML=`<div class="dm-adm"><aside class="dm-list"><div class="dm-new"><input id="dmQ" placeholder="Buscar alumno para escribirle…" autocomplete="off"><div id="dmRes" class="dm-res" hidden></div></div><div id="dmL"><div class="muted">Cargando…</div></div></aside><section class="dm-pane" id="dmP"></section></div>`;
+  const ico=A.ico||(()=>"");clearInterval(onlT);
+  H().innerHTML=`<div class="dm-adm"><aside class="dm-list"><div class="dm-onl" id="dmOn" hidden></div><div class="dm-new"><input id="dmQ" placeholder="Buscar alumno para escribirle…" autocomplete="off"><div id="dmRes" class="dm-res" hidden></div></div><div id="dmL"><div class="muted">Cargando…</div></div></aside><section class="dm-pane" id="dmP"></section></div>`;
   let users=null;const flagOf=c=>A.flag?A.flag(c||""):"";
   const loadList=async()=>{let L=[];try{L=await API.adminDmThreads()}catch(e){$("#dmL").innerHTML=`<div class="empty">¿Ya corriste <b>supabase/chat.sql</b>?<span class="dim">${esc(e.message)}</span></div>`;return}
-    $("#dmL").innerHTML=L.length?L.map(t=>`<a class="dm-it${t.user_id===sel?" on":""}${t.unread?" new":""}" href="#admin-chat-${esc(t.user_id)}">${A.avatar?A.avatar({username:t.username,avatar_url:t.avatar_url},38):""}<span><b>${esc(t.username||"Alumno")} ${flagOf(t.country)}</b><small>${t.last_from_admin?"Tú: ":""}${esc((A.chatPreview?A.chatPreview(t.last_body):(t.last_body||"")).slice(0,70))}</small></span><i>${t.unread?`<em class="nbadge">${t.unread}</em>`:""}<small>${esc(fmtDate(t.last_at))}</small></i></a>`).join("")
+    $("#dmL").innerHTML=L.length?L.map(t=>`<a class="dm-it${t.user_id===sel?" on":""}${t.unread?" new":""}" href="#admin-chat-${esc(t.user_id)}"><span class="dm-av">${A.avatar?A.avatar({username:t.username,avatar_url:t.avatar_url},38):""}${onDot(t.user_id)}</span><span><b>${esc(t.username||"Alumno")} ${flagOf(t.country)}</b>${ONL[t.user_id]&&ONL[t.user_id].online?`<small class="onl on">● En línea · ${esc(ONL[t.user_id].place||"")}</small>`:""}<small>${t.last_from_admin?"Tú: ":""}${esc((A.chatPreview?A.chatPreview(t.last_body):(t.last_body||"")).slice(0,70))}</small></span><i>${t.unread?`<em class="nbadge">${t.unread}</em>`:""}<small>${esc(fmtDate(t.last_at))}</small></i></a>`).join("")
       :`<div class="empty">Sin conversaciones abiertas. Busca un alumno arriba, o toca <b>Escribirle</b> en Afiliados o Alumnos.</div>`;
-    const b=document.querySelector('[data-badge="chat"]');const n=L.reduce((a,t)=>a+t.unread,0);if(b){b.textContent=n||"";b.classList.toggle("on",!!n)}};
+    const b=document.querySelector('[data-badge="chat"]');const n=L.reduce((a,t)=>a+t.unread,0);if(b){b.textContent=n||"";b.classList.toggle("on",!!n)}
+    paintOn()};
+  /* fila de "En línea ahora": todos los conectados (tengan o no conversación), toca uno y le escribes */
+  const paintOn=async()=>{const h=$("#dmOn");if(!h)return;const on=Object.values(ONL).filter(x=>x.online&&x.user_id!==(API.profile()||{}).id);
+    if(!on.length){h.hidden=true;return}if(!users){try{users=await API.users()}catch(e){users=[]}}
+    const U=id=>users.find(u=>u.id===id)||{};h.hidden=false;
+    h.innerHTML=`<div class="dm-onh"><i class="ondot"></i><b>En línea ahora</b><small>${on.length}</small></div><div class="dm-onr">${on.sort((a,b)=>new Date(b.last_seen)-new Date(a.last_seen)).map(x=>{const u=U(x.user_id);return`<a href="#admin-chat-${esc(x.user_id)}" title="${esc((u.username||"Alumno")+" · "+(x.place||"")+(x.device?" · "+x.device:""))}"><span class="dm-av">${A.avatar?A.avatar({username:u.username,avatar_url:u.avatar_url},40):""}<i class="ondot"></i></span><small>${esc(u.username||"Alumno")}</small></a>`}).join("")}</div>`};
+  await loadOnline();
   $("#dmQ").oninput=async()=>{const q=$("#dmQ").value.trim().toLowerCase(),r=$("#dmRes");if(q.length<2){r.hidden=true;return}
     if(!users){try{users=await API.users()}catch(e){users=[]}}
     const m=users.filter(u=>(u.username||"").toLowerCase().includes(q)||(u.email||"").toLowerCase().includes(q)).slice(0,8);
-    r.hidden=false;r.innerHTML=m.length?m.map(u=>`<a href="#admin-chat-${esc(u.id)}">${esc(u.username)} <small class="dim">${esc(u.email||"")}</small></a>`).join(""):'<span class="dim">Nadie con ese nombre</span>'};
+    r.hidden=false;r.innerHTML=m.length?m.map(u=>`<a href="#admin-chat-${esc(u.id)}">${ONL[u.id]&&ONL[u.id].online?'<i class="ondot"></i> ':""}${esc(u.username)} <small class="dim">${esc(u.email||"")}</small></a>`).join(""):'<span class="dim">Nadie con ese nombre</span>'};
   await loadList();
   /* fotos viejas del chat: se borran una vez al día (las de mensajes que ya se borraron solos) */
   try{const k="ag_chatimg_clean",t=+(localStorage.getItem(k)||0);if(API.chatImgClean&&Date.now()-t>864e5){localStorage.setItem(k,String(Date.now()));API.chatImgClean().catch(()=>{})}}catch(e){}
+  /* se actualiza solo cada 20 s mientras estás en Mensajes */
+  onlT=setInterval(async()=>{if(!document.querySelector(".dm-adm")){clearInterval(onlT);return}if(document.hidden)return;if(await loadOnline()){loadList();const st=$("#dmSt");if(st&&sel&&ONL[sel])st.innerHTML=onTag(sel)}},20000);
   const P=$("#dmP");
   if(!sel){P.innerHTML=`<div class="dm-ph">${ico("chat",34)}<b>Elige una conversación</b><span class="muted">Los alumnos solo pueden responder cuando tú les escribes primero. Les llega una notificación al celular.</span></div>`;return}
   let d=null;try{d=await API.adminDmThread(sel)}catch(e){P.innerHTML=`<div class="empty">${esc(e.message)}</div>`;return}
   const u=d.user||{};
-  P.innerHTML=`<header class="dm-ph-h"><a class="btn sm ghost dm-back" href="#admin-chat">←</a>${A.avatar?A.avatar(u,40):""}<div><b>${esc(u.username||"Alumno")} ${flagOf(u.country)}</b><small class="dim">${d.exists?"Conversación abierta":"Nueva conversación"}</small></div><span class="grow"></span>${d.exists?'<span id="dmEndH"><button class="btn sm bad" id="dmEnd">Finalizar y borrar</button></span>':""}</header>
+  P.innerHTML=`<header class="dm-ph-h"><a class="btn sm ghost dm-back" href="#admin-chat">←</a>${A.avatar?A.avatar(u,40):""}<div><b>${esc(u.username||"Alumno")} ${flagOf(u.country)}</b><small class="dim" id="dmSt">${onTag(sel)||(d.exists?"Conversación abierta":"Nueva conversación")}</small></div><span class="grow"></span>${d.exists?'<span id="dmEndH"><button class="btn sm bad" id="dmEnd">Finalizar y borrar</button></span>':""}</header>
     <div class="dm-quick">${DM_QUICK().map(([t],i)=>`<button type="button" class="chipb" data-q="${i}">${esc(t)}</button>`).join("")}</div><div id="dmBox"></div>`;
   const box=A.chatBox($("#dmBox"),{load:()=>API.adminDmThread(sel),send:Object.assign(async v=>{const m=await API.dmSend(v,sel);
       if(API.sendPush)API.sendPush({title:"💬 Mensaje de El Arte Gráfico",body:(A.chatPreview?A.chatPreview(v):v).slice(0,140),url:(A.toMain?A.toMain("mensajes"):"https://elartegrafico.com/#mensajes"),user_id:sel,tag:"dm"}).catch(()=>{});
