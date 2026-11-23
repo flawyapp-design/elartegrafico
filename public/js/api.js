@@ -570,7 +570,7 @@ function LocalAPI(){
       const r={id:uuid(),user_id:uid,points,usd:Math.round(points/(cfg.ptsPerUsd||100)*100)/100,method:method||"binance",account,status:"pendiente",admin_note:"",created_at:now()};db.redemptions.push(r);save();return r},
     async requestAffiliate(d){if(!uid)throw new Error("Inicia sesión");d=String(d||"").replace(/\s/g,"").toUpperCase();if(d.length<3)throw new Error("Escribe tu ID de cliente de Deriv (ej.: CR1234567)");db.affiliates=db.affiliates||[];
       if(db.affiliates.some(a=>a.deriv_id===d&&a.user_id!==uid&&a.status!=="rechazado"))throw new Error("Ese ID de Deriv ya está registrado por otra cuenta");
-      const a=db.affiliates.find(x=>x.user_id===uid);if(a&&a.status==="verificado")throw new Error("Ya eres afiliado verificado");
+      const a=db.affiliates.find(x=>x.user_id===uid);if(a&&a.status==="verificado")throw new Error("Ya eres miembro verificado de la comunidad");
       const inl=(db.ptier||{})[d]==="activo",st=inl?"verificado":"pendiente",nt=inl?"Verificado automáticamente con la lista de socios":"";
       if(a)Object.assign(a,{deriv_id:d,status:st,admin_note:nt,created_at:now()});else db.affiliates.push({user_id:uid,deriv_id:d,status:st,admin_note:nt,created_at:now()});if(inl){const p=me();if(p)p.affiliate=true}save();return{status:st}},
     async adminPartnerImport(ids,monthly,tier){need();tier=tier==="antiguo"?"antiguo":"activo";const L=[...new Set((ids||[]).map(x=>String(x).replace(/\s/g,"").toUpperCase()).filter(x=>/^[A-Z]{1,5}[0-9]{3,12}$/.test(x)||/^[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}$/.test(x)||/^D-[A-Z0-9]{5,10}$/.test(x)))];

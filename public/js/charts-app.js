@@ -184,7 +184,7 @@ function start(){
   function upsell(what){if(!FREE)return;const off=window.__aff?"":affOffer();let m=document.querySelector(".upsell");if(m)m.remove();m=document.createElement("div");m.className="upsell";
     m.innerHTML=`<div class="ups-card" role="dialog" aria-modal="true"><div class="ups-ic">🔒</div><h3>${esc(what)}</h3><p class="ups-sub">Disponible en EAG Charts completo: planes Plata, Oro y Diamond</p>
       <p>Estás usando la <b>versión gratis</b>: multitemporalidad, varios gráficos y mercados, líneas y zonas, y ${FREE_IND} indicador${FREE_IND===1?"":"es"}. Con <b>Plata, Oro o Diamond</b> tienes todas las herramientas (Fibonacci, zonas de compra/venta, posiciones, patrones y ondas), indicadores sin límite, alertas al celular, y el Replay y la Práctica.</p>
-      ${off?`<div class="ups-aff"><b>Hazte miembro verificado de la comunidad</b> Es gratis: abres tu cuenta de Deriv con el enlace de El Arte Gráfico, nos ayudas a crecer y desbloqueas <b>gratis</b>: ${esc(off)}.</div>`:""}
+      ${off?`<div class="ups-aff"><b>Hazte miembro verificado de la comunidad</b> Es gratis: vinculas tu cuenta de Deriv a El Arte Gráfico, así Deriv sabe que eres de la comunidad y tienes nuestro respaldo (depósitos, retiros y soporte). Además desbloqueas <b>gratis</b>: ${esc(off)}.</div>`:""}
       <div class="row"><button class="btn" data-x>Seguir gratis</button>${off?`<a class="btn" href="${MAIN}#miembro">Hacerme miembro</a>`:""}<a class="btn gold" href="${PLAN_URL}">Ver planes</a></div></div>`;
     document.body.appendChild(m);const cl=()=>m.remove();m.onclick=e=>{if(e.target===m)cl()};m.querySelector("[data-x]").onclick=cl}
   window.__upsell=upsell;

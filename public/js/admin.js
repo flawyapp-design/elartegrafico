@@ -67,8 +67,8 @@ document.addEventListener("click",e=>{const b=e.target.closest("[data-dm]");if(!
 const DM_QUICK=()=>{const pts=A.toMain?A.toMain("puntos"):"https://elartegrafico.com/#puntos";return[
   ["Saludo","Hola 👋 Te escribo desde El Arte Gráfico. ¿Cómo vas? Cualquier duda me la puedes escribir por aquí."],
   ["ID equivocado","Hola 👋 El ID que enviaste no es tu ID de cliente de Deriv. Entra a Deriv → tu perfil y copia tu ID de cliente (empieza por CR, o es un código largo como 019…). Luego lo vuelves a enviar en Mis puntos: "+pts],
-  ["No está con mi enlace","Hola 👋 Tu cuenta de Deriv no aparece con mi enlace de socio. Si ya tenías cuenta, pide a soporte de Deriv un \"retag\" a El Arte Gráfico; el mensaje para copiar está en Mis puntos: "+pts],
-  ["Verificado","¡Listo! ✅ Ya quedaste verificado como afiliado: desde ahora ganas los puntos completos en los retos."],
+  ["No está en la comunidad","Hola 👋 Tu cuenta de Deriv todavía no aparece vinculada a la comunidad. Si ya tenías cuenta, pide en el Live Chat de Deriv que la vinculen a El Arte Gráfico (ellos lo llaman retagging); el mensaje listo para copiar está en Mis puntos: "+pts],
+  ["Verificado","¡Listo! ✅ Ya eres miembro verificado de la comunidad: Deriv sabe que eres de los nuestros y cuentas con nuestro respaldo en depósitos, retiros y soporte. Además ganas los puntos completos en los retos."],
   ["Correo de Binance","Hola 👋 Para enviarte el pago, ¿me confirmas tu Binance Pay ID o tu correo de Binance?"],
   ["¿Resuelto?","¿Quedó resuelto? Si ya no necesitas nada más, cierro la conversación. 🙌"]]};
 async function chat(sel){
