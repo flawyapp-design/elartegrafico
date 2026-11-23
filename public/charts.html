@@ -364,7 +364,16 @@ html.light .wfoot button.on{color:var(--gold)}
 .trd-two{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .trd-chips{display:flex;gap:5px}.trd-chips button{flex:1;border:1px solid var(--line2);background:var(--bg2);color:var(--mut);border-radius:8px;padding:5px 0;font-weight:600;cursor:pointer}.trd-chips button.on{border-color:var(--gold);color:var(--gold2);background:var(--gbg)}
 .trd-hov canvas{cursor:ns-resize!important}html.trd-dragging,html.trd-dragging *{cursor:ns-resize!important;user-select:none}
-.trd-brk{display:grid;grid-template-columns:1fr 1fr;gap:4px;margin:8px 12px 0;padding:3px;border-radius:10px;background:var(--bg2);border:1px solid var(--line2)}.trd-brk button{border:0;background:none;color:var(--mut);font-weight:700;font-size:12px;padding:7px 4px;border-radius:8px;cursor:pointer}.trd-brk button.on{background:var(--card);color:var(--fg);box-shadow:0 1px 3px rgba(0,0,0,.25)}
+.mt5-acc{margin:0 0 8px;padding:10px;border-radius:12px;background:var(--bg2);border:1px solid var(--line2)}.mt5-acc.real{border-color:rgba(242,54,69,.45)}
+.mt5-ah{display:flex;align-items:center;gap:8px;font-size:13px;margin-bottom:8px}.mt5-ah select{margin-left:auto;font:inherit;font-size:12px;padding:3px 6px;border-radius:8px;background:var(--bg);color:var(--fg);border:1px solid var(--line2)}
+.mt5-lg{margin-left:auto;color:var(--mut);font-size:12px}.mt5-dot{width:9px;height:9px;border-radius:50%;background:#f23645;flex:none}.mt5-dot.on{background:#089981;box-shadow:0 0 0 3px rgba(8,153,129,.2)}
+.mt5-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px 10px}.mt5-grid span{display:grid;gap:1px;min-width:0}.mt5-grid small{font-size:10.5px;color:var(--mut)}.mt5-grid b{font-size:13px;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.mt5-grid i{font-style:normal;color:var(--mut);font-weight:400}
+.mt5-q{margin-left:auto;display:flex;gap:8px;align-items:baseline;font-variant-numeric:tabular-nums;font-size:13px;font-weight:600}.mt5-sp{font-size:10.5px;color:var(--mut);font-weight:400}.mt5-mut{color:var(--mut);font-size:12px;font-weight:400}
+.mt5-unit{margin-top:6px}.mt5-risk{font-size:12px;color:var(--mut);min-height:16px;margin:2px 0 6px;font-variant-numeric:tabular-nums}
+.mt5-row{flex-wrap:wrap;row-gap:6px}.mt5-row .trd-s{flex:1;min-width:0}.mt5-row .trd-s b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.mt5-acts{display:flex;gap:4px;width:100%;justify-content:flex-end}.mt5-all{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;margin:6px 0 10px}
+.mt5-tok{margin:6px 0;padding:8px;border-radius:10px;background:var(--bg2);border:1px dashed var(--line2)}.mt5-tok p{margin:0 0 6px;font-size:12px}.mt5-tok code{display:block;word-break:break-all;font-size:12px;padding:6px;border-radius:6px;background:var(--bg);margin-bottom:6px;user-select:all}
+.mt5-lg-r{display:grid;grid-template-columns:1fr auto;gap:2px 8px;font-size:12px;padding:5px 0;border-top:1px solid var(--line2)}.mt5-lg-r small{grid-column:1/-1;color:var(--mut)}.mt5-lg-r.st-done b{color:#089981}.mt5-lg-r.st-error b,.mt5-lg-r.st-expired b,.mt5-lg-r.st-unknown b{color:#f23645}
+.trd-brk{display:grid;grid-template-columns:repeat(auto-fit,minmax(0,1fr));gap:4px;margin:8px 12px 0;padding:3px;border-radius:10px;background:var(--bg2);border:1px solid var(--line2)}.trd-brk button{border:0;background:none;color:var(--mut);font-weight:700;font-size:12px;padding:7px 4px;border-radius:8px;cursor:pointer}.trd-brk button.on{background:var(--card);color:var(--fg);box-shadow:0 1px 3px rgba(0,0,0,.25)}
 .trd-1c{border:1px solid var(--line2);background:var(--bg2);color:var(--mut);border-radius:999px;padding:4px 10px;font-weight:700;font-size:11.5px;cursor:pointer}.trd-1c.on{border-color:#e2b55c;background:rgba(226,181,92,.16);color:var(--gold2)}
 .trd-mode{display:grid;grid-template-columns:1fr 1fr;gap:4px;padding:3px;border:1px solid var(--line2);border-radius:10px;background:var(--bg2)}.trd-mode button{border:0;background:none;color:var(--mut);border-radius:8px;padding:6px;font-weight:700;cursor:pointer}.trd-mode button.on{background:var(--card);color:var(--fg);box-shadow:0 1px 3px rgba(0,0,0,.25)}
 .trd-mg{font-size:11.5px;color:var(--mut);line-height:1.4}.trd-mg b{color:var(--fg)}
@@ -892,6 +901,7 @@ html.light .sp-q{background:rgba(0,0,0,.05)}.sp-q b{font-size:11.5px;color:var(-
 <script src="js/eag-pro.js"></script>
 <script src="js/eag-trade.js"></script>
 <script src="js/eag-ctrader.js"></script>
+<script src="js/eag-mt5.js"></script>
 <script src="js/eag-clase.js"></script>
 <script src="js/eag-social.js"></script>
 <script src="js/eag-spikes.js"></script>

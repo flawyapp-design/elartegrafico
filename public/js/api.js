@@ -218,6 +218,8 @@ function SupabaseAPI(url,key){
     spinRoulette(){return rpc("spin_roulette")},
     mySpins(){if(!sess||!sess.user)return Promise.resolve([]);return sel("roulette_spins",`&user_id=eq.${sess.user.id}&order=created_at.desc&limit=60`)},
     saveCourse(c){return ups("courses",c)},delCourse(id){return del("courses",id)},
+    /* MT5 (EA EAG Bridge) — solo admin */
+    mt5Poll(acc){return rpc("mt5_panel_poll",{p_account:acc||null})},mt5Cmd(p){return rpc("mt5_panel_command",{p})},mt5NewToken(){return rpc("mt5_new_token",{})},
     /* Biblioteca de clases */
     libSections(){return req("/rest/v1/lib_sections?select=*&order=sort.asc,created_at.asc").catch(()=>[])},
     libSecSave(o){return rpc("lib_sec_save",{p:o})},libSecDelete(id){return rpc("lib_sec_delete",{p_id:id})},
@@ -298,6 +300,29 @@ function LocalAPI(){
       const aid=uuid();db.users.push({id:aid,email:"admin@elartegrafico.com",password:"admin1234"});db.profiles.push({id:aid,username:"elartegrafico",role:"admin",premium_until:null,demo_used:0,banned:false,created_at:now()});save()}};
   const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(db))}catch(e){}};
   const reload=()=>{try{const d=JSON.parse(localStorage.getItem(KEY));if(d)db=d}catch(e){}};
+  /* MT5 (modo local): un MT5 simulado que ejecuta al instante, para probar el panel */
+  const _mt5Local=()=>{const M={tok:null,pos:[],ord:[],cmds:[],n:1000,syms:{}};let px={};
+    const sym=s=>{if(!M.syms[s]){const b=/boom|crash/i.test(s)?9150:/volatility/i.test(s)?1200:100;px[s]=b;M.syms[s]={symbol:s,bid:b,ask:b+0.5,digits:4,point:0.0001,tick_size:0.0001,tick_value:0.0001,vol_min:0.2,vol_max:50,vol_step:0.01}}return M.syms[s]};
+    const fin=(c,ok,msg,extra)=>{c.status=ok?"done":"error";c.result=Object.assign({id:c.id,ok,msg},extra||{});c.finishedAt=Date.now()};
+    const exec=c=>{const p=c.params;if(c.action==="watch"){if(/^x/i.test(p.symbol))return fin(c,false,"Símbolo no encontrado en MT5: "+p.symbol);sym(p.symbol);return fin(c,true,"Símbolo activo")}
+      if(c.action==="open_market"){const i=sym(p.symbol),t=++M.n;M.pos.push({ticket:t,symbol:p.symbol,type:p.otype,volume:+p.volume,open_price:p.otype==="buy"?i.ask:i.bid,current_price:i.bid,sl:+p.sl||0,tp:+p.tp||0,profit:0,swap:0,time:Math.floor(Date.now()/1000),digits:4});return fin(c,true,"Abierta #"+t,{ticket:t})}
+      if(c.action==="open_pending"){const t=++M.n;M.ord.push({ticket:t,symbol:p.symbol,type:p.otype,volume:+p.volume,price:+p.price,sl:+p.sl||0,tp:+p.tp||0,time:Math.floor(Date.now()/1000),digits:4});return fin(c,true,"Orden #"+t,{ticket:t})}
+      if(c.action==="modify_position"){const x=M.pos.find(y=>String(y.ticket)===p.ticket);if(!x)return fin(c,false,"No existe");if(p.sl!=null)x.sl=+p.sl;if(p.tp!=null)x.tp=+p.tp;return fin(c,true,"Modificada")}
+      if(c.action==="modify_order"){const x=M.ord.find(y=>String(y.ticket)===p.ticket);if(!x)return fin(c,false,"No existe");["sl","tp","price"].forEach(k=>{if(p[k]!=null)x[k]=+p[k]});return fin(c,true,"Modificada")}
+      if(c.action==="close_position"){const x=M.pos.find(y=>String(y.ticket)===p.ticket);if(!x)return fin(c,false,"No existe");if(p.volume&&+p.volume<x.volume){x.volume=+(x.volume-p.volume).toFixed(2);return fin(c,true,"Cierre parcial")}M.pos=M.pos.filter(y=>y!==x);return fin(c,true,"Cerrada")}
+      if(c.action==="cancel_order"){M.ord=M.ord.filter(y=>String(y.ticket)!==p.ticket);return fin(c,true,"Cancelada")}
+      if(c.action==="close_all"){M.pos=M.pos.filter(y=>p.otype==="profit"?y.profit<0:p.otype==="loss"?y.profit>=0:false);return fin(c,true,"Cerradas")}
+      if(c.action==="cancel_all"){M.ord=[];return fin(c,true,"Canceladas")}fin(c,false,"Acción desconocida")};
+    const tick=()=>{Object.values(M.syms).forEach(i=>{const d=(Math.random()-.5)*2;i.bid=+(i.bid+d).toFixed(4);i.ask=+(i.bid+0.5).toFixed(4)});
+      M.pos.forEach(x=>{const i=M.syms[x.symbol];if(!i)return;x.current_price=i.bid;x.profit=+(((x.type==="buy"?i.bid-x.open_price:x.open_price-i.ask))*x.volume).toFixed(2)})};
+    return{
+    async mt5Poll(){need();tick();M.cmds.filter(c=>c.status==="queued").forEach(c=>{c.status="sent";exec(c)});const fl=M.pos.reduce((a,x)=>a+x.profit,0);
+      return{accounts:M.tok?[{login:"5551234",name:"Demo",server:"Deriv-Demo",trade_mode:"demo",online:true}]:[],token:{has:!!M.tok,at:M.tok?new Date().toISOString():null},
+        state:M.tok?{login:"5551234",online:true,account:{login:5551234,name:"Demo",server:"Deriv-Demo",currency:"USD",balance:10000,equity:10000+fl,profit:+fl.toFixed(2),margin:M.pos.length?50:0,free_margin:9950,margin_level:M.pos.length?20000:0,trade_mode:"demo",algo_trading:true},
+          positions:JSON.parse(JSON.stringify(M.pos)),orders:JSON.parse(JSON.stringify(M.ord)),symbols:Object.values(M.syms),today:{pnl:12.5,trades:3},history:[]}:null,commands:M.cmds.slice(-60)}},
+    async mt5Cmd(p){need();if(!M.tok)return{ok:false,error:"MT5 no está conectado"};const c={id:"c"+Date.now().toString(36)+Math.random().toString(36).slice(2,6),account:"5551234",action:p.action,
+        params:{symbol:p.symbol,otype:p.side||p.order_type||p.filter,volume:p.volume,price:p.price,sl:p.sl,tp:p.tp,ticket:p.ticket},status:"queued",createdAt:Date.now()};M.cmds.push(c);return{ok:true,command:c}},
+    async mt5NewToken(){need();M.tok="eag_"+Math.random().toString(36).slice(2);return M.tok}}};
   /* biblioteca de clases (modo local, para probar) */
   const _libLocal=()=>{const LC=()=>{db.courses=db.courses||[];let c=db.courses.find(x=>x.kind==="biblioteca");if(!c){c={id:"crs-lib",title:"Biblioteca de clases",descr:"Clases grabadas, grupales y personalizadas, donde explico cómo opero.",color:"#1f4fd6",icon:"📚",price:"50 USD",status:"publicado",sort:90,kind:"biblioteca"};db.courses.push(c);save()}return c};
     const ok=()=>adm()||(db.ucourses||[]).some(x=>x.user_id===uid&&x.course_id===LC().id);const it=()=>(db.libItems=db.libItems||[]);const W=()=>(db.libW=db.libW||[]),R=()=>(db.libR=db.libR||[]),Q=()=>(db.libQ=db.libQ||[]),C=()=>(db.libC=db.libC||[]);
@@ -420,7 +445,7 @@ function LocalAPI(){
     async progressGet(){return db.progress.find(x=>x.user_id===uid)||null},
     async progressSave(xp,data){const i=db.progress.findIndex(x=>x.user_id===uid);const o={user_id:uid,xp,data,updated_at:now()};if(i>=0)db.progress[i]=o;else db.progress.push(o);save()},
     async leaderboard(){return db.progress.map(g=>{const p=db.profiles.find(x=>x.id===g.user_id)||{};return{username:p.username||"alumno",avatar_url:p.avatar_url||null,country:p.country||"",xp:g.xp,lessons:Object.values((g.data||{}).done||{}).filter(d=>d.passed).length,is_me:g.user_id===uid,premium:!!(p.premium_until&&new Date(p.premium_until)>new Date()),_x:p.role==="admin"||p.banned}}).filter(x=>!x._x&&x.xp>0).sort((a,b)=>b.xp-a.xp).slice(0,100)},
-    ..._libLocal(),
+    ..._libLocal(),..._mt5Local(),
     async courses(){db.courses=db.courses||[{id:"crs-boom",title:"Boom y Crash",descr:"El método completo de El Arte Gráfico para operar Boom y Crash.",color:"#e84c5c",icon:"🎯",price:"40 USD",status:"publicado",sort:1}];if(!db.courses.some(c=>c.kind==="biblioteca"))db.courses.push({id:"crs-lib",title:"Biblioteca de clases",descr:"Clases grabadas, grupales y personalizadas, donde explico cómo opero.",color:"#1f4fd6",icon:"📚",price:"50 USD",status:"publicado",sort:90,kind:"biblioteca"});db.modules.forEach(m=>{if(!m.course_id)m.course_id=db.courses[0].id});return db.courses.filter(c=>c.status==="publicado"||adm())},
     async myCourses(){return(db.ucourses||[]).filter(x=>x.user_id===uid)},
     async spinRoulette(){const p=me();if(!p)throw new Error("Inicia sesión");const pr=adm()?4:({diamond:4,oro:3,plata:2,cobre:1})[p.plan]||0;if(!isPrem(p)&&!adm()||pr<4)throw new Error("La ruleta diaria es exclusiva del plan Diamond");

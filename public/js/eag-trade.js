@@ -241,7 +241,7 @@ let stateMsg="";
 function setState(t){stateMsg=t;render()}
 function toast(t){try{O&&O.toast?O.toast(t):console.log(t)}catch(e){}}
 function open(){if(!panel){panel=document.createElement("div");panel.className="trd";document.body.appendChild(panel);dragPanel()}
-  panel.hidden=false;render();if(cfg.broker==="ct"&&window.EAGCT){window.EAGCT.onOpen();return}if(tok()&&!ws&&!accounts.length)loadAccounts();else if(ws)loadCF()}
+  panel.hidden=false;render();if(cfg.broker==="ct"&&window.EAGCT){window.EAGCT.onOpen();return}if(cfg.broker==="mt5"&&window.EAGMT5B){window.EAGMT5B.onOpen();return}if(tok()&&!ws&&!accounts.length)loadAccounts();else if(ws)loadCF()}
 function close(){if(panel)panel.hidden=true}
 function dragPanel(){let st=null;panel.addEventListener("pointerdown",e=>{const h=e.target.closest(".trd-h");if(!h||e.target.closest("button,select"))return;const r=panel.getBoundingClientRect();st={x:e.clientX-r.left,y:e.clientY-r.top};h.setPointerCapture(e.pointerId)});
   panel.addEventListener("pointermove",e=>{if(!st)return;panel.style.left=Math.max(4,Math.min(innerWidth-panel.offsetWidth-4,e.clientX-st.x))+"px";panel.style.top=Math.max(4,Math.min(innerHeight-60,e.clientY-st.y))+"px";panel.style.right="auto"});
@@ -258,11 +258,12 @@ function paintPos(){if(!panel||panel.hidden)return;const box=panel.querySelector
   box.querySelectorAll("[data-sell]").forEach(b=>b.onclick=()=>sell(b.dataset.sell));
   const ca=box.querySelector("[data-closeall]");ca&&(ca.onclick=()=>Object.values(contracts).forEach(c=>{if(+c.is_sold!==1&&+c.is_valid_to_sell===1)sell(c.contract_id)}))}
 function render(){if(!panel||panel.hidden)return;const t=tok(),sym=symNow(),ci=cfInfo[sym]||{};
-  const CT=window.EAGCT,isCT=CT&&cfg.broker==="ct";
+  const CT=window.EAGCT,isCT=CT&&cfg.broker==="ct",MT=window.EAGMT5B,isMT=MT&&cfg.broker==="mt5";
   const head=`<div class="trd-h"><b>Operar</b><span class="trd-tag">${O&&O.admin?"admin":"Deriv · Multiplicadores"}</span><span class="sp"></span>
     <button class="trd-ic" data-hide title="${cfg.hide?"Mostrar saldo":"Ocultar saldo (para lives)"}">${cfg.hide?"🙈":"👁"}</button><button class="trd-ic" data-close title="Cerrar panel">×</button></div>
-    ${CT?`<div class="trd-brk"><button data-brk="ct" class="${isCT?"on":""}">cTrader · Lotes</button><button data-brk="dv" class="${isCT?"":"on"}">Deriv · Opciones</button></div>`:""}`;
+    ${CT||MT?`<div class="trd-brk">${[CT&&["ct","cTrader · Lotes"],MT&&["mt5","MT5"],["dv","Deriv · Opciones"]].filter(Boolean).map(([k,t])=>`<button data-brk="${k}" class="${(cfg.broker===k||(k==="dv"&&!isCT&&!isMT))?"on":""}">${t}</button>`).join("")}</div>`:""}`;
   if(isCT){panel.innerHTML=head+`<div class="trd-b" data-ctb></div>`;bindHead();CT.render(panel.querySelector("[data-ctb]"));return}
+  if(isMT){panel.innerHTML=head+`<div class="trd-b" data-mtb></div>`;bindHead();MT.render(panel.querySelector("[data-mtb]"));return}
   if(!t){panel.innerHTML=head+`<div class="trd-b"><p class="trd-help">Conecta tu cuenta de Deriv para comprar y vender desde el gráfico. Inicias sesión en la página de Deriv; aquí nunca se escribe tu contraseña.</p>
     ${lastErr?`<div class="trd-err">${esc(lastErr)}</div>`:""}
     ${canLogin()?`<button class="trd-go" data-login>Conectar con Deriv</button>`:`<div class="trd-err">Para conectar, abre los charts en <b>charts.elartegrafico.com</b>.${APP_ID?"":" Falta el App ID de Deriv en la configuración."}</div>`}
@@ -313,11 +314,11 @@ function askComm(sym,m,st){const k=sym+"|"+m;if(!ws||!(st>0)||comm[k]!==undefine
   send({proposal:1,amount:st,basis:"stake",contract_type:"MULTUP",currency:cur,multiplier:m,underlying_symbol:sym}).then(r=>{const c=r.proposal&&r.proposal.commission;comm[k]=c!=null&&st>0?+c/st:null}).catch(()=>{comm[k]=null}).finally(()=>{commK=""})},700)}
 setInterval(paintMg,1000);
 /* atajos de un clic (solo con el panel abierto y "Un clic" activo) */
-addEventListener("keydown",e=>{if(!panel||panel.hidden||cfg.broker==="ct"||!cfg.oneClick||!e.shiftKey||e.ctrlKey||e.metaKey||e.altKey)return;const t=e.target;if(t&&t.closest&&t.closest("input,textarea,select,[contenteditable]"))return;
+addEventListener("keydown",e=>{if(!panel||panel.hidden||cfg.broker!=="dv"||!cfg.oneClick||!e.shiftKey||e.ctrlKey||e.metaKey||e.altKey)return;const t=e.target;if(t&&t.closest&&t.closest("input,textarea,select,[contenteditable]"))return;
   const k=e.key.toLowerCase();if(k==="b"){e.preventDefault();buy("up",true)}else if(k==="s"){e.preventDefault();buy("dn",true)}});
 function bindHead(){const q=s=>panel.querySelector(s);
   q("[data-close]").onclick=close;const h=q("[data-hide]");h&&(h.onclick=()=>{cfg.hide=!cfg.hide;saveCfg();render()});
-  panel.querySelectorAll("[data-brk]").forEach(b=>b.onclick=()=>{cfg.broker=b.dataset.brk;saveCfg();confirmAsk=null;render();if(cfg.broker==="dv"&&tok()&&!ws&&!accounts.length)loadAccounts()})}
+  panel.querySelectorAll("[data-brk]").forEach(b=>b.onclick=()=>{cfg.broker=b.dataset.brk;saveCfg();confirmAsk=null;render();if(cfg.broker==="dv"&&tok()&&!ws&&!accounts.length)loadAccounts();if(cfg.broker==="mt5"&&window.EAGMT5B)window.EAGMT5B.onOpen()})}
 function bind(){const q=s=>panel.querySelector(s),qa=s=>panel.querySelectorAll(s);bindHead();
   const lg=q("[data-login]");lg&&(lg.onclick=login);
   const lo=q("[data-logout]");lo&&(lo.onclick=logout);
@@ -344,11 +345,11 @@ const SHARED={get O(){return O},cfg,saveCfg,toast,money,esc,fmtLot,symNow,chart:
 window.EAGTrade={
   async init(o){O=o;const CT=o.admin?window.EAGCT:null;
     /* para el público: solo Deriv (multiplicadores) y, la primera vez, en modo monto */
-    if(!o.admin){try{delete window.EAGCT}catch(e){window.EAGCT=undefined}if(cfg.broker!=="dv"||!HAD_CFG){cfg.broker="dv";if(!HAD_CFG)cfg.mode="monto";saveCfg()}}
-    if(CT)CT.init(SHARED);
+    if(!o.admin){try{delete window.EAGCT}catch(e){window.EAGCT=undefined}try{delete window.EAGMT5B}catch(e){window.EAGMT5B=undefined}if(cfg.broker!=="dv"||!HAD_CFG){cfg.broker="dv";if(!HAD_CFG)cfg.mode="monto";saveCfg()}}
+    if(CT)CT.init(SHARED);const MT=o.admin?window.EAGMT5B:null;if(MT){MT.init(SHARED);if(o.autoConnect)MT.autoConnect()}
     const ctHad=CT?await CT.handleCallback():false;if(ctHad){cfg.broker="ct";saveCfg();open();return}
     const had=await handleCallback();if(had){cfg.broker="dv";saveCfg();open();return}
     if(tok()&&ls.get(LS_ACC,null)!=null&&o.autoConnect)loadAccounts();if(CT&&o.autoConnect)CT.autoConnect()},
-  open,close,onChange:()=>{onChange();window.EAGCT&&window.EAGCT.onChange()},
+  open,close,onChange:()=>{onChange();window.EAGCT&&window.EAGCT.onChange();window.EAGMT5B&&window.EAGMT5B.onChange()},
   _test:{parseAccounts,onPoc,contracts:()=>contracts,lines:()=>lineMap,dragS:()=>drag}};
 })();
