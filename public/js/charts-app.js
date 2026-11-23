@@ -1064,10 +1064,13 @@ function start(){
         <div class="slabel">Edición</div>${K(C+" + Z","Deshacer")}${K(C+" + Shift + Z","Rehacer")}${K("Supr","Borrar el dibujo seleccionado")}${K("Esc","Cancelar dibujo / salir de modo limpio")}
         <div class="slabel">Temporalidad</div>${K("15 ↵","Escribe el número y Enter: 15 minutos")}${K("1h ↵ · 4h ↵","Horas")}${K("1d ↵","Diario")}`}
     return""}
-  function openSettings(cat){if(cat)setCat=cat;closePop();let ov=$(".smodal");if(!ov){ov=document.createElement("div");ov.className="smodal";appw.appendChild(ov);ov.onclick=e=>{if(e.target===ov)ov.remove()}}
+  function openSettings(cat){const same=!cat||cat===setCat,old=$(".smodal .sbody"),keepY=same&&old?old.scrollTop:0,oldN=$(".smodal .snav"),keepN=oldN?oldN.scrollTop:0;
+    if(cat)setCat=cat;closePop();let ov=$(".smodal");if(!ov){ov=document.createElement("div");ov.className="smodal";appw.appendChild(ov);ov.onclick=e=>{if(e.target===ov)ov.remove()}}
     ov.innerHTML=`<div class="sbox" role="dialog" aria-label="Configuración"><aside class="snav"><div class="stitle">Configuración</div>${CATS.map(([k,t,d,ic])=>`<button data-cat="${k}" class="${k===setCat?"on":""}">${ic}<span><b>${t}</b><small>${d}</small></span>${k==="alertas"&&ALERTS.some(a=>a.active)?`<em class="badge">${ALERTS.filter(a=>a.active).length}</em>`:""}</button>`).join("")}</aside>
       <section class="sbody">${settingsBody(setCat)}</section><button class="sclose" title="Cerrar (Esc)">×</button>
       <footer class="sfoot"><button class="btn sm" data-a="restore">Restaurar apariencia</button><span class="grow"></span><button class="btn sm gold" data-a="ok">Listo</button></footer></div>`;
+    /* al tocar un switch se vuelve a pintar: se queda en el mismo punto (antes saltaba arriba) */
+    {const sb=ov.querySelector(".sbody"),sn=ov.querySelector(".snav");if(sb&&keepY)sb.scrollTop=keepY;if(sn&&keepN)sn.scrollTop=keepN}
     const re=()=>openSettings();
     ov.querySelectorAll("[data-cat]").forEach(b=>b.onclick=()=>openSettings(b.dataset.cat));
     ov.querySelector(".sclose").onclick=ov.querySelector('[data-a="ok"]').onclick=()=>ov.remove();

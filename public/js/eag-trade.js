@@ -257,7 +257,10 @@ function paintPos(){if(!panel||panel.hidden)return;const box=panel.querySelector
       ${sold?`<span class="trd-done">${pr>=0?"Ganada":"Perdida"}</span>`:`<button class="trd-x" data-sell="${esc(c.contract_id)}" ${c._closing||+c.is_valid_to_sell!==1?"disabled":""}>${c._closing?"…":"Cerrar"}</button>`}</div>`}).join(""):`<div class="trd-empty">Sin operaciones abiertas</div>`;
   box.querySelectorAll("[data-sell]").forEach(b=>b.onclick=()=>sell(b.dataset.sell));
   const ca=box.querySelector("[data-closeall]");ca&&(ca.onclick=()=>Object.values(contracts).forEach(c=>{if(+c.is_sold!==1&&+c.is_valid_to_sell===1)sell(c.contract_id)}))}
-function render(){if(!panel||panel.hidden)return;const t=tok(),sym=symNow(),ci=cfInfo[sym]||{};
+/* al volver a pintar el panel (switch, cambio de pestaña, datos nuevos) se queda donde estaba */
+function render(){if(!panel||panel.hidden)return;const keep=[panel,...panel.querySelectorAll(".trd-b,[data-mtb],[data-ctb]")].map(e=>e.scrollTop);
+  render0();[panel,...panel.querySelectorAll(".trd-b,[data-mtb],[data-ctb]")].forEach((e,i)=>{if(keep[i])e.scrollTop=keep[i]})}
+function render0(){if(!panel||panel.hidden)return;const t=tok(),sym=symNow(),ci=cfInfo[sym]||{};
   const CT=window.EAGCT,isCT=CT&&cfg.broker==="ct",MT=window.EAGMT5B,isMT=MT&&cfg.broker==="mt5";
   const head=`<div class="trd-h"><b>Operar</b><span class="trd-tag">${O&&O.admin?"admin":"Deriv · Multiplicadores"}</span><span class="sp"></span>
     <button class="trd-ic${(()=>{try{return localStorage.getItem("eag_thist")==="1"}catch(e){return false}})()?" on":""}" data-thist title="Historial en el gráfico: flechas donde abriste y cerraste (como MT5)">🕘</button><button class="trd-ic" data-hide title="${cfg.hide?"Mostrar saldo":"Ocultar saldo (para lives)"}">${cfg.hide?"🙈":"👁"}</button><button class="trd-ic" data-close title="Cerrar panel">×</button></div>

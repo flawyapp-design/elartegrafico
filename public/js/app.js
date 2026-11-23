@@ -330,12 +330,20 @@ function renderFoot(){const s=S.site;
     <p class="dim">© ${new Date().getFullYear()} ${esc(s.name||"El Arte Gráfico")}. Todos los derechos reservados.</p>`}
 
 let sid;try{sid=sessionStorage.getItem("ag_sid")||Math.random().toString(36).slice(2,12);sessionStorage.setItem("ag_sid",sid)}catch(e){sid=Math.random().toString(36).slice(2,12)}
-const ROUTES={};
+/* al volver a pintar la MISMA página (tocar un switch, guardar algo…) la página se queda donde estaba:
+   antes se vaciaba un momento ("Cargando…"), quedaba cortita y el navegador subía hasta arriba */
+let lastRenderKey="",holdT=null;
+function holdScroll(){const y=window.scrollY;if(y<8)return;clearInterval(holdT);
+  const h=document.documentElement.scrollHeight;app.style.minHeight=Math.max(0,h-(app.getBoundingClientRect().top+window.scrollY))+"px";
+  let n=0,moved=false;const mv=()=>{moved=true};addEventListener("wheel",mv,{once:true,passive:true});addEventListener("touchmove",mv,{once:true,passive:true});addEventListener("keydown",mv,{once:true});
+  holdT=setInterval(()=>{if(!moved&&Math.abs(window.scrollY-y)>2)window.scrollTo(0,y);if(++n>=36||moved){clearInterval(holdT);app.style.minHeight="";removeEventListener("wheel",mv);removeEventListener("touchmove",mv);removeEventListener("keydown",mv)}},50)}
+const ROUTES=new Proxy({},{get(t,k){const f=t[k];if(typeof f!=="function"||f.__lazy)return f;
+  return function(...a){const key=String(k)+"|"+a.map(x=>x==null?"":String(x)).join("|");if(key===lastRenderKey)holdScroll();lastRenderKey=key;return f.apply(this,a)}}});
 function route(keep){if(/^#admin/.test(location.hash)&&API.isAdmin()){let v="";try{v=sessionStorage.getItem("ag_view_as")}catch(e){}if(v){setViewAs("");viewBar();renderNav()}}
   clear();$("#nav").classList.remove("open");document.body.classList.remove("sheet-open");const h=(location.hash||"#inicio").slice(1)||"inicio";
   const [k,...rest]=h.split("-");const arg=rest.join("-");
   const samePg=(k==="presentacion"&&app.dataset.pg==="pres")||(k==="charts"&&app.dataset.pg==="charts");if(!samePg)app.dataset.pg="";
-  if(keep!==true&&!samePg)window.scrollTo(0,0);
+  if(keep!==true&&!samePg){window.scrollTo(0,0);lastRenderKey=""}
   if(!ACAD&&ACAD_R.has(k)){location.href=toAcad(h);return}
   if(ACAD&&MAIN_R.has(k)){location.href=toMain(h);return}
   if(ACAD&&!logged()&&!["nueva","ranking","presentacion","premium","inicio","biblioteca"].includes(k)){location.replace(toMain("entrar-academia"));return}
