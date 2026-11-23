@@ -388,3 +388,81 @@ end $$;
 drop trigger if exists payment_requests_limit on public.payment_requests;
 create trigger payment_requests_limit before insert on public.payment_requests
   for each row execute function public.payment_requests_limit();
+
+-- ---------------------------------------------------------------------
+-- SECCIONES de la biblioteca (Grupal 1, Grupal 2, Personalizadas…) como los módulos de la academia
+-- ---------------------------------------------------------------------
+create table if not exists public.lib_sections (
+  id uuid primary key default gen_random_uuid(),
+  title text not null check (char_length(title) between 1 and 80),
+  descr text not null default '' check (char_length(descr) <= 600),
+  sort int not null default 1,
+  created_at timestamptz not null default now()
+);
+alter table public.lib_sections enable row level security;
+drop policy if exists "biblioteca secciones: leer" on public.lib_sections;
+create policy "biblioteca secciones: leer" on public.lib_sections for select using (true);
+drop policy if exists "biblioteca secciones: admin" on public.lib_sections;
+create policy "biblioteca secciones: admin" on public.lib_sections for all using (public.is_admin()) with check (public.is_admin());
+grant select on public.lib_sections to anon, authenticated;
+
+alter table public.lib_items add column if not exists section_id uuid references public.lib_sections(id) on delete set null;
+grant select (section_id) on public.lib_items to anon, authenticated;
+
+-- los videos que ya existían quedan dentro de una sección con el mismo nombre que tenían
+insert into public.lib_sections (title, sort)
+select s.section, row_number() over (order by min(s.sort), min(s.created_at))
+from public.lib_items s
+where s.section_id is null and not exists (select 1 from public.lib_sections x where x.title = s.section)
+group by s.section;
+update public.lib_items i set section_id = x.id from public.lib_sections x where i.section_id is null and x.title = i.section;
+
+create or replace function public.lib_sec_save(p jsonb) returns uuid
+language plpgsql security definer set search_path = public as $$
+declare nid uuid;
+begin
+  if not public.is_admin() then raise exception 'Solo el admin.'; end if;
+  if nullif(p->>'id','') is null then
+    insert into public.lib_sections (title, descr, sort)
+    values (p->>'title', coalesce(p->>'descr',''), coalesce(nullif(p->>'sort','')::int, (select coalesce(max(sort),0)+1 from public.lib_sections)))
+    returning id into nid;
+  else
+    update public.lib_sections set title = p->>'title', descr = coalesce(p->>'descr',''), sort = coalesce(nullif(p->>'sort','')::int, sort)
+    where id = (p->>'id')::uuid returning id into nid;
+    update public.lib_items set section = left(p->>'title',60) where section_id = nid;
+  end if;
+  return nid;
+end $$;
+grant execute on function public.lib_sec_save(jsonb) to authenticated;
+
+create or replace function public.lib_sec_delete(p_id uuid) returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  if not public.is_admin() then raise exception 'Solo el admin.'; end if;
+  if exists (select 1 from public.lib_items where section_id = p_id) then raise exception 'La sección tiene videos. Muévelos o bórralos primero.'; end if;
+  delete from public.lib_sections where id = p_id;
+end $$;
+grant execute on function public.lib_sec_delete(uuid) to authenticated;
+
+-- guardar video ahora también recibe la sección (section_id)
+create or replace function public.lib_save(p jsonb) returns uuid
+language plpgsql security definer set search_path = public as $$
+declare nid uuid; sid uuid; sname text;
+begin
+  if not public.is_admin() then raise exception 'Solo el admin.'; end if;
+  sid := nullif(p->>'section_id','')::uuid;
+  sname := coalesce((select left(title,60) from public.lib_sections where id = sid), nullif(p->>'section',''), 'Clases grupales');
+  if nullif(p->>'id','') is null then
+    insert into public.lib_items (title, descr, section, section_id, video_url, minutes, sort, status, free_preview)
+    values (p->>'title', coalesce(p->>'descr',''), sname, sid, coalesce(p->>'video_url',''),
+            nullif(p->>'minutes','')::int, coalesce(nullif(p->>'sort','')::int,1), coalesce(nullif(p->>'status',''),'borrador'), coalesce((p->>'free_preview')::boolean,false))
+    returning id into nid;
+  else
+    update public.lib_items set title = p->>'title', descr = coalesce(p->>'descr',''), section = sname, section_id = sid,
+      video_url = coalesce(p->>'video_url',''), minutes = nullif(p->>'minutes','')::int, sort = coalesce(nullif(p->>'sort','')::int,1),
+      status = coalesce(nullif(p->>'status',''),'borrador'), free_preview = coalesce((p->>'free_preview')::boolean,false)
+    where id = (p->>'id')::uuid returning id into nid;
+  end if;
+  return nid;
+end $$;
+grant execute on function public.lib_save(jsonb) to authenticated;

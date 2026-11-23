@@ -1024,27 +1024,56 @@ async function biblioteca(){const L=S.lib;
   // contadores de pendientes
   Promise.all([API.libAdminQuestions(true).catch(()=>[]),API.libAdminClasses().catch(()=>[])]).then(([q,cl])=>{const a=$('[data-ltb="preguntas"]'),b=$('[data-ltb="clases"]');const pc=cl.filter(x=>x.status==="pendiente").length;
     if(a&&q.length)a.textContent=" "+q.length;if(b&&pc)b.textContent=" "+pc});
-  if(libTab==="videos"){let items=[],st=[];try{[items,st]=await Promise.all([API.libAdminList(),API.libAdminItems()])}catch(e){X.innerHTML=`<div class="empty">No se pudo cargar. ¿Ya corriste <b>supabase/biblioteca.sql</b>?<span class="dim">${esc(e.message)}</span></div>`;return}
-    const S2=Object.fromEntries(st.map(x=>[x.item_id,x]));const secs=["Clases grupales","Clases personalizadas","Ejemplos y repasos"];items.forEach(i=>{if(i.section&&!secs.includes(i.section))secs.push(i.section)});
-    const totMin=items.filter(i=>i.status==="publicado").reduce((a,i)=>a+(+i.minutes||0),0);
-    X.innerHTML=`<div class="split"><div class="panel"><div class="sec-h"><h3>Videos <span class="dim">${items.length} · ${totMin?Math.round(totMin/6)/10+" h publicadas":"sin duración"}</span></h3><button class="btn sm gold" id="lnv">Nuevo video</button></div>
-        <div class="list">${items.length?items.map(i=>{const x=S2[i.id]||{};return `<button class="item" data-li="${esc(i.id)}" style="text-align:left;cursor:pointer"><span class="txt"><b>${esc(i.sort)}. ${esc(i.title)}</b><span>${esc(i.section)} · ${i.minutes?i.minutes+" min":"sin duración"} · ${i.status==="publicado"?"Publicado":"Borrador"}${i.free_preview?" · Muestra gratis":""}</span><span class="dim">${x.viewers||0} lo vieron · ${fmtH(x.hours)} · ${x.avg_stars?"★ "+x.avg_stars+" ("+x.n_ratings+")":"sin calificar"}${x.open_questions?` · <b>${x.open_questions} sin responder</b>`:""}</span></span></button>`}).join(""):'<p class="muted">Todavía no hay videos. Crea el primero.</p>'}</div></div>
-      <div class="panel" id="lve"><div class="muted">Elige un video o crea uno nuevo.</div></div></div>`;
-    const edit=i=>{$("#lve").innerHTML=`<form class="form" id="lvf"><h3>${i.id?"Editar video":"Nuevo video"}</h3>
-        <label for="lvT">Título<input id="lvT" maxlength="140" value="${esc(i.title||"")}" placeholder="Ej.: Clase grupal · cómo marco las zonas"></label>
-        <div class="two"><label for="lvS">Sección<input id="lvS" list="lvSl" maxlength="60" value="${esc(i.section||"Clases grupales")}"><datalist id="lvSl">${secs.map(x=>`<option value="${esc(x)}">`).join("")}</datalist></label>
-          <label for="lvO">Orden sugerido<input id="lvO" type="number" min="1" value="${i.sort||items.length+1}"></label></div>
-        <label for="lvU">Enlace del video (Bunny, YouTube oculto, Vimeo o mp4)<input id="lvU" maxlength="600" value="${esc(i.video_url||"")}" placeholder="https://iframe.mediadelivery.net/embed/…"></label>
-        <div class="two"><label for="lvM">Duración en minutos<input id="lvM" type="number" min="1" max="1000" value="${i.minutes||""}" placeholder="Si lo dejas vacío se calcula solo con Bunny"></label>
-          <label for="lvE">Estado<select id="lvE"><option value="publicado">Publicado</option><option value="borrador">Borrador (no se ve)</option></select></label></div>
-        <label for="lvD">Descripción (opcional)<textarea id="lvD" maxlength="2000" style="min-height:80px" placeholder="Qué se ve en esta clase">${esc(i.descr||"")}</textarea></label>
-        <label class="chk"><input type="checkbox" id="lvF" ${i.free_preview?"checked":""}> <b>Muestra gratis</b>: cualquiera con cuenta la puede ver, para que conozcan la biblioteca</label>
-        <div class="row"><button class="btn gold" id="lvSv">Guardar video</button>${i.id?`<span id="lvDl"><button type="button" class="btn sm bad" id="lvDb">Eliminar</button></span>`:""}</div></form>`;
-      $("#lvE").value=i.status||"publicado";
-      $("#lvf").onsubmit=async e=>{e.preventDefault();const o={id:i.id||"",title:$("#lvT").value.trim(),section:$("#lvS").value.trim()||"Clases grupales",sort:String(+$("#lvO").value||1),video_url:$("#lvU").value.trim(),minutes:$("#lvM").value?String(+$("#lvM").value):"",status:$("#lvE").value,descr:$("#lvD").value.trim(),free_preview:$("#lvF").checked};
-        if(o.title.length<2){toast("Ponle título al video");return}try{busy($("#lvSv"),true);await API.libSave(o);toast("Video guardado");biblioteca()}catch(x){toast(x.message);const b=$("#lvSv");if(b)busy(b,false)}};
-      const d=$("#lvDb");if(d)d.onclick=()=>A.confirmInline($("#lvDl"),"¿Eliminar el video? Se borran sus vistas, calificaciones y preguntas.",async()=>{await API.libDelete(i.id);toast("Video eliminado");biblioteca()})};
-    $("#lnv").onclick=()=>edit({});$$("[data-li]").forEach(b=>b.onclick=()=>edit(items.find(x=>x.id===b.dataset.li)||{}));return}
+  if(libTab==="videos"){let items=[],st=[],secs=[];try{[items,st,secs]=await Promise.all([API.libAdminList(),API.libAdminItems(),API.libSections()])}catch(e){X.innerHTML=`<div class="empty">No se pudo cargar. ¿Ya corriste <b>supabase/biblioteca.sql</b>?<span class="dim">${esc(e.message)}</span></div>`;return}
+    const S2=Object.fromEntries(st.map(x=>[x.item_id,x])),so=(a,b)=>(a.sort||0)-(b.sort||0);secs.sort(so);
+    const orphans=items.filter(i=>!secs.some(x=>x.id===i.section_id));
+    const groups=secs.map(x=>({sec:x,L:items.filter(i=>i.section_id===x.id).sort(so)})).concat(orphans.length?[{sec:{id:"",title:"Sin sección",descr:""},L:orphans.sort(so)}]:[]);
+    const minK="ag_lib_adm_min",getMin=()=>{try{return new Set(JSON.parse(localStorage.getItem(minK)||"[]"))}catch(e){return new Set()}},setMin=m=>{try{localStorage.setItem(minK,JSON.stringify([...m]))}catch(e){}};
+    const mins=getMin(),totMin=items.filter(i=>i.status==="publicado").reduce((a,i)=>a+(+i.minutes||0),0);
+    const hm=m=>!m?"":m<60?m+" min":Math.floor(m/60)+" h"+(m%60?" "+m%60+" min":"");
+    const vrow=(i,k,L)=>{const x=S2[i.id]||{};return `<div class="lsa-v" data-vr="${esc(i.id)}"><button type="button" class="lsa-vt" data-li="${esc(i.id)}"><b>${k+1}. ${esc(i.title)}</b><small>${i.minutes?hm(i.minutes):"sin duración"} · ${i.status==="publicado"?"Publicado":"Borrador"}${i.free_preview?" · Muestra gratis":""}${i.video_url?"":" · <b>sin enlace</b>"} · ${x.viewers||0} lo vieron · ${fmtH(x.hours)}${x.avg_stars?" · ★ "+x.avg_stars:""}${x.open_questions?` · <b>${x.open_questions} sin responder</b>`:""}</small></button>
+      <span class="lsa-b"><button type="button" class="btn sm ghost" data-vm="${esc(i.id)}|-1" aria-label="Subir video" ${k===0?"disabled":""}>▲</button><button type="button" class="btn sm ghost" data-vm="${esc(i.id)}|1" aria-label="Bajar video" ${k===L.length-1?"disabled":""}>▼</button></span></div>`};
+    X.innerHTML=`<div class="sec-h" style="margin-bottom:10px"><h3 style="margin:0">Secciones <span class="dim">${secs.length} · ${items.length} videos${totMin?" · "+hm(totMin)+" publicadas":""}</span></h3><div class="row"><button type="button" class="btn sm ghost" id="lsAll">${groups.every(g=>mins.has(g.sec.id))?"Abrir todas":"Minimizar todas"}</button><button class="btn sm gold" id="lsN">Nueva sección</button></div></div>
+      <div id="lsNew"></div>
+      ${groups.length?groups.map((g,gi)=>{const x=g.sec,real=!!x.id,pub=g.L.filter(i=>i.status==="publicado"),m=pub.reduce((a,i)=>a+(+i.minutes||0),0);return `<div class="lsa ${mins.has(x.id)?"min":""}" data-sec="${esc(x.id)}">
+        <div class="lsa-h"><button type="button" class="lsa-t" data-smin="${esc(x.id)}" aria-expanded="${!mins.has(x.id)}"><b>${mins.has(x.id)?"▸":"▾"} ${esc(x.title)}</b><small>${g.L.length} video${g.L.length===1?"":"s"}${pub.length!==g.L.length?` (${pub.length} publicados)`:""}${m?" · "+hm(m):""}</small></button>
+          <span class="lsa-b"><button type="button" class="btn sm gold" data-vadd="${esc(x.id)}">+ Video</button>${real?`<button type="button" class="btn sm ghost" data-sed="${esc(x.id)}">Editar</button><button type="button" class="btn sm ghost" data-sm="${esc(x.id)}|-1" aria-label="Subir sección" ${gi===0?"disabled":""}>▲</button><button type="button" class="btn sm ghost" data-sm="${esc(x.id)}|1" aria-label="Bajar sección" ${gi>=secs.length-1?"disabled":""}>▼</button>`:""}</span></div>
+        <div class="lsa-se"></div><div class="lsa-l">${g.L.length?g.L.map((i,k)=>vrow(i,k,g.L)).join(""):'<div class="lsa-v"><span class="dim">Sin videos todavía. Toca “+ Video”.</span></div>'}</div></div>`}).join(""):'<div class="panel"><p class="muted" style="margin:0">Crea tu primera sección, por ejemplo “Grupal 1”, y sube los videos adentro.</p></div>'}`;
+    const secForm=(host,x)=>{host.innerHTML=`<form class="form lsa-e" data-sf><div class="two"><label>Nombre de la sección<input data-k="t" maxlength="80" value="${esc(x.title||"")}" placeholder="Ej.: Grupal ${secs.length+1}"></label><label>Descripción (opcional)<input data-k="d" maxlength="600" value="${esc(x.descr||"")}" placeholder="Ej.: clase del 12 de noviembre"></label></div>
+        <div class="row"><button class="btn sm gold">Guardar sección</button><button type="button" class="btn sm ghost" data-x>Cancelar</button>${x.id?`<span data-dl><button type="button" class="btn sm bad" data-del>Eliminar sección</button></span>`:""}</div></form>`;
+      const f=$("[data-sf]",host);$('[data-k="t"]',f).focus();$("[data-x]",f).onclick=()=>{host.innerHTML=""};
+      f.onsubmit=async e=>{e.preventDefault();const t=$('[data-k="t"]',f).value.trim();if(!t){toast("Ponle nombre a la sección");return}try{await API.libSecSave({id:x.id||"",title:t,descr:$('[data-k="d"]',f).value.trim()});toast("Sección guardada");biblioteca()}catch(z){toast(z.message)}};
+      const d=$("[data-del]",f);if(d)d.onclick=()=>A.confirmInline($("[data-dl]",f),"¿Eliminar la sección? Solo se puede si no tiene videos.",async()=>{try{await API.libSecDelete(x.id);toast("Sección eliminada");biblioteca()}catch(z){toast(z.message)}})};
+    $("#lsN").onclick=()=>secForm($("#lsNew"),{});
+    $("#lsAll").onclick=()=>{const allMin=groups.every(g=>mins.has(g.sec.id));const m=new Set(allMin?[]:groups.map(g=>g.sec.id));setMin(m);biblioteca()};
+    $$("[data-smin]").forEach(b=>b.onclick=()=>{const m=getMin(),k=b.dataset.smin;if(m.has(k))m.delete(k);else m.add(k);setMin(m);const box=b.closest(".lsa");box.classList.toggle("min",m.has(k));b.setAttribute("aria-expanded",String(!m.has(k)));$("b",b).textContent=(m.has(k)?"▸ ":"▾ ")+$("b",b).textContent.slice(2)});
+    $$("[data-sed]").forEach(b=>b.onclick=()=>secForm($(".lsa-se",b.closest(".lsa")),secs.find(x=>x.id===b.dataset.sed)||{}));
+    $$("[data-sm]").forEach(b=>b.onclick=async()=>{const [id,dir]=b.dataset.sm.split("|"),k=secs.findIndex(x=>x.id===id),j=k+(+dir);if(j<0||j>=secs.length)return;const arr=secs.slice();[arr[k],arr[j]]=[arr[j],arr[k]];
+      try{await Promise.all(arr.map((x,n)=>x.sort===n+1?null:API.libSecSave({id:x.id,title:x.title,descr:x.descr||"",sort:String(n+1)})));biblioteca()}catch(z){toast(z.message)}});
+    $$("[data-vm]").forEach(b=>b.onclick=async()=>{const [id,dir]=b.dataset.vm.split("|"),g=groups.find(g=>g.L.some(i=>i.id===id)),L=g.L.slice(),k=L.findIndex(i=>i.id===id),j=k+(+dir);if(j<0||j>=L.length)return;[L[k],L[j]]=[L[j],L[k]];
+      try{await Promise.all(L.map((i,n)=>i.sort===n+1?null:API.libSave(Object.assign({},i,{sort:String(n+1),minutes:i.minutes?String(i.minutes):"",section_id:i.section_id||""}))));biblioteca()}catch(z){toast(z.message)}});
+    const edit=(i,host)=>{$$(".lsa-e[data-vf]").forEach(x=>x.remove());$$(".lsa-v.on").forEach(x=>x.classList.remove("on"));
+      const w=document.createElement("form");w.className="form lsa-e";w.dataset.vf="1";
+      w.innerHTML=`<h3 style="margin:0">${i.id?"Editar video":"Nuevo video"}</h3>
+        <label>Título<input data-k="t" maxlength="140" value="${esc(i.title||"")}" placeholder="Ej.: Grupal 1 · parte 1"></label>
+        <div class="two"><label>Sección<select data-k="s">${secs.map(x=>`<option value="${esc(x.id)}">${esc(x.title)}</option>`).join("")}${secs.length?"":'<option value="">Sin sección</option>'}</select></label>
+          <label>Estado<select data-k="e"><option value="publicado">Publicado</option><option value="borrador">Borrador (no se ve)</option></select></label></div>
+        <label>Enlace del video (Bunny, YouTube oculto, Vimeo o mp4)<input data-k="u" maxlength="600" value="${esc(i.video_url||"")}" placeholder="https://iframe.mediadelivery.net/embed/…"></label>
+        <label>Duración en minutos<input data-k="m" type="number" min="1" max="1000" value="${i.minutes||""}" placeholder="Si lo dejas vacío se calcula solo con Bunny"></label>
+        <label>Descripción (opcional)<textarea data-k="d" maxlength="2000" style="min-height:70px" placeholder="Qué se ve en esta clase">${esc(i.descr||"")}</textarea></label>
+        <label class="chk"><input type="checkbox" data-k="f" ${i.free_preview?"checked":""}> <b>Muestra gratis</b>: cualquiera con cuenta la puede ver</label>
+        <div class="row"><button class="btn sm gold">Guardar video</button><button type="button" class="btn sm ghost" data-x>Cerrar</button>${i.id?`<span data-dl><button type="button" class="btn sm bad" data-del>Eliminar</button></span>`:""}</div>`;
+      host.after(w);const row=host.closest(".lsa-v");if(row&&i.id)row.classList.add("on");
+      const q=k=>$(`[data-k="${k}"]`,w);q("s").value=i.section_id||(secs[0]||{}).id||"";q("e").value=i.status||"publicado";q("t").focus();w.scrollIntoView({block:"nearest",behavior:"smooth"});
+      $("[data-x]",w).onclick=()=>{w.remove();$$(".lsa-v.on").forEach(x=>x.classList.remove("on"))};
+      w.onsubmit=async e=>{e.preventDefault();const sid=q("s").value,same=items.filter(z=>z.section_id===sid&&z.id!==i.id);
+        const o={id:i.id||"",title:q("t").value.trim(),section_id:sid,section:(secs.find(x=>x.id===sid)||{}).title||"",sort:String(i.id&&i.section_id===sid?i.sort:same.reduce((a,z)=>Math.max(a,z.sort||0),0)+1),video_url:q("u").value.trim(),minutes:q("m").value?String(+q("m").value):"",status:q("e").value,descr:q("d").value.trim(),free_preview:q("f").checked};
+        if(o.title.length<2){toast("Ponle título al video");return}const bt=$(".btn.gold",w);try{busy(bt,true);await API.libSave(o);toast("Video guardado");biblioteca()}catch(z){toast(z.message);busy(bt,false)}};
+      const d=$("[data-del]",w);if(d)d.onclick=()=>A.confirmInline($("[data-dl]",w),"¿Eliminar el video? Se borran sus vistas, calificaciones y preguntas.",async()=>{await API.libDelete(i.id);toast("Video eliminado");biblioteca()})};
+    $$("[data-vadd]").forEach(b=>b.onclick=()=>{const box=b.closest(".lsa");if(box.classList.contains("min"))$("[data-smin]",box).click();
+      if(!secs.length){toast("Primero crea una sección");$("#lsN").click();return}const sid=b.dataset.vadd||secs[0].id,n=items.filter(z=>z.section_id===sid).length;
+      edit({section_id:sid,title:(secs.find(x=>x.id===sid)||{}).title?`${(secs.find(x=>x.id===sid)||{}).title} · parte ${n+1}`:""},$(".lsa-l",box))});
+    $$("[data-li]").forEach(b=>b.onclick=()=>edit(items.find(x=>x.id===b.dataset.li)||{},b.closest(".lsa-v")));return}
   if(libTab==="alumnos"){let us=[],st=[];try{[us,st]=await Promise.all([API.libAdminUsers(),API.libAdminItems()])}catch(e){X.innerHTML=`<div class="empty">${esc(e.message)}</div>`;return}
     const top=st.slice().sort((a,b)=>(b.hours||0)-(a.hours||0));const totH=st.reduce((a,x)=>a+(+x.hours||0),0);
     X.innerHTML=`<div class="kpis" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:14px">

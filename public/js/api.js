@@ -219,7 +219,9 @@ function SupabaseAPI(url,key){
     mySpins(){if(!sess||!sess.user)return Promise.resolve([]);return sel("roulette_spins",`&user_id=eq.${sess.user.id}&order=created_at.desc&limit=60`)},
     saveCourse(c){return ups("courses",c)},delCourse(id){return del("courses",id)},
     /* Biblioteca de clases */
-    libItems(){return req("/rest/v1/lib_items?select=id,title,descr,section,minutes,sort,status,free_preview,created_at&status=eq.publicado&order=sort.asc,created_at.asc")},
+    libSections(){return req("/rest/v1/lib_sections?select=*&order=sort.asc,created_at.asc").catch(()=>[])},
+    libSecSave(o){return rpc("lib_sec_save",{p:o})},libSecDelete(id){return rpc("lib_sec_delete",{p_id:id})},
+    libItems(){return req("/rest/v1/lib_items?select=id,title,descr,section,section_id,minutes,sort,status,free_preview,created_at&status=eq.publicado&order=sort.asc,created_at.asc")},
     async libItem(id){const r=await rpc("lib_item",{p_id:id});return r&&r[0]||null},
     libOverview(){return rpc("lib_overview")},
     libWatch(item,secs,pos,dur){return rpc("lib_add_watch",{p_item:item,p_secs:Math.round(secs||0),p_pos:Math.round(pos||0),p_dur:Math.round(dur||0)}).catch(()=>{})},
@@ -303,6 +305,10 @@ function LocalAPI(){
     const strip=i=>{const o=Object.assign({},i);delete o.video_url;return o};
     return{
     async libItems(){reload();LC();return pub().map(strip)},
+    async libSections(){reload();return(db.libS=db.libS||[]).slice().sort(by("sort"))},
+    async libSecSave(o){need();reload();const L=(db.libS=db.libS||[]);if(o.id){const x=L.find(y=>y.id===o.id);Object.assign(x,{title:o.title,descr:o.descr||"",sort:o.sort!=null&&o.sort!==""?+o.sort:x.sort});it().forEach(i=>{if(i.section_id===o.id)i.section=o.title});save();return o.id}
+      const id="ls-"+Math.random().toString(36).slice(2,9);L.push({id,title:o.title,descr:o.descr||"",sort:o.sort!=null&&o.sort!==""?+o.sort:L.reduce((a,x)=>Math.max(a,x.sort||0),0)+1});save();return id},
+    async libSecDelete(id){need();reload();if(it().some(i=>i.section_id===id))throw new Error("La sección tiene videos. Muévelos o bórralos primero.");db.libS=(db.libS||[]).filter(x=>x.id!==id);save()},
     async libItem(id){reload();const i=it().find(x=>x.id===id);if(!i||(i.status!=="publicado"&&!adm()))return null;return ok()||(i.free_preview&&uid)?i:null},
     async libOverview(){reload();return pub().map(i=>{const w=W().find(x=>x.user_id===uid&&x.item_id===i.id)||{},rs=R().filter(r=>r.item_id===i.id),r=rs.find(x=>x.user_id===uid);
       return{item_id:i.id,my_seconds:w.seconds||0,my_done:!!w.done,my_pos:w.last_pos||0,my_stars:r?r.stars:null,avg_stars:rs.length?Math.round(10*rs.reduce((a,x)=>a+x.stars,0)/rs.length)/10:null,n_ratings:rs.length,n_questions:Q().filter(q=>q.item_id===i.id).length}})},
@@ -320,7 +326,7 @@ function LocalAPI(){
       if(pc<need&&!adm())throw new Error(`Primero mira al menos el ${need}% de la biblioteca (llevas ${pc}%).`);let c=C().find(x=>x.user_id===uid);
       if(c&&!["pendiente","cancelada"].includes(c.status))return;if(!c){db.libCs=(db.libCs||0)+1;c={id:db.libCs,user_id:uid,status:"pendiente",created_at:now()};C().push(c)}Object.assign(c,{availability:av||"",topics:topics||"",contact:contact||"",pct:pc,updated_at:now()});save()},
     async libAdminList(){need();reload();return it().slice().sort(by("sort"))},
-    async libSave(o){need();reload();const v=Object.assign({},o,{minutes:o.minutes?+o.minutes:null,sort:+o.sort||1});if(v.id){const i=it().find(x=>x.id===v.id);Object.assign(i,v);save();return v.id}v.id="lib-"+Math.random().toString(36).slice(2,9);v.created_at=now();it().push(v);save();return v.id},
+    async libSave(o){need();reload();const v=Object.assign({},o,{minutes:o.minutes?+o.minutes:null,sort:+o.sort||1});if(v.section_id){const x=(db.libS||[]).find(y=>y.id===v.section_id);if(x)v.section=x.title}if(v.id){const i=it().find(x=>x.id===v.id);Object.assign(i,v);save();return v.id}v.id="lib-"+Math.random().toString(36).slice(2,9);v.created_at=now();it().push(v);save();return v.id},
     async libDelete(id){need();reload();db.libItems=it().filter(i=>i.id!==id);save()},
     async libAdminItems(){need();reload();return it().slice().sort(by("sort")).map(i=>{const ws=W().filter(w=>w.item_id===i.id),rs=R().filter(r=>r.item_id===i.id),qs=Q().filter(q=>q.item_id===i.id);
       return{item_id:i.id,title:i.title,section:i.section,status:i.status,minutes:i.minutes,viewers:ws.filter(w=>w.seconds>30).length,done:ws.filter(w=>w.done).length,hours:Math.round(ws.reduce((a,w)=>a+w.seconds,0)/360)/10,

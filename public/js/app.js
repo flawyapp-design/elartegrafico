@@ -1661,7 +1661,12 @@ function videoBlock(host,l){
 const libBuy=()=>sellOn("lib")?'<a class="btn gold" href="#premium-biblioteca">Comprar la biblioteca</a>':'<span class="btn disabled" aria-disabled="true">Disponible pronto</span>';
 const LIB_SEC=["Clases grupales","Clases personalizadas","Ejemplos y repasos"];
 const fmtMin=m=>!m?"":m<60?m+" min":Math.floor(m/60)+" h"+(m%60?" "+(m%60)+" min":"");
-const libSecs=items=>{const ord=LIB_SEC.concat([...new Set(items.map(i=>i.section))].filter(x=>!LIB_SEC.includes(x)));return ord.map(n=>[n,items.filter(i=>(i.section||LIB_SEC[0])===n)]).filter(x=>x[1].length)};
+/* secciones (Grupal 1, Grupal 2…) en su orden; los videos sin sección van agrupados por su nombre al final */
+const libSecs=(items,secs)=>{const so=(a,b)=>(a.sort||0)-(b.sort||0);const out=(secs||[]).slice().sort(so).map(x=>[x.title,items.filter(i=>i.section_id===x.id).sort(so),x]);
+  const rest=items.filter(i=>!i.section_id||!(secs||[]).some(x=>x.id===i.section_id));const names=LIB_SEC.concat([...new Set(rest.map(i=>i.section))].filter(x=>x&&!LIB_SEC.includes(x)));
+  names.forEach(n=>out.push([n,rest.filter(i=>(i.section||LIB_SEC[0])===n).sort(so),{id:"n:"+n,title:n}]));return out.filter(x=>x[1].length)};
+const libClosed=()=>{try{return JSON.parse(localStorage.getItem("ag_lib_closed")||"[]")}catch(e){return[]}};
+const libSecWire=root=>$$("details.lib-sec",root).forEach(d=>d.addEventListener("toggle",()=>{const c=new Set(libClosed());if(d.open)c.delete(d.dataset.sk);else c.add(d.dataset.sk);try{localStorage.setItem("ag_lib_closed",JSON.stringify([...c].slice(-80)))}catch(e){}}));
 const starsTxt=v=>v?`<span class="lib-st" aria-label="${v} de 5 estrellas">★ ${String(v).replace(".",",")}</span>`:"";
 const libTotalMin=items=>items.reduce((a,i)=>a+(+i.minutes||0),0);
 function libCard(o,btn,cur){const L=S.lib,c=libCfg(),pr=L.price||"50 USD",mine=ownsLib();
@@ -1675,24 +1680,24 @@ ROUTES.biblioteca=async()=>{const c=libCfg();
   if(!S.lib||!libOn()){app.innerHTML=`<div class="empty">La biblioteca de clases todavía no está disponible.<a class="btn sm" href="#presentacion">Volver</a></div>`;return}
   app.innerHTML=`<div class="empty">Cargando la biblioteca…</div>`;
   const mine=ownsLib();let items=[],ov=[];
-  try{items=await API.libItems()}catch(e){}
+  let secsL=[];try{[items,secsL]=await Promise.all([API.libItems(),API.libSections?API.libSections():[]])}catch(e){}
   if(mine)try{ov=await API.libOverview()}catch(e){}
   if(!location.hash.startsWith("#biblioteca"))return;
   const O=Object.fromEntries((ov||[]).map(x=>[x.item_id,x]));const tot=libTotalMin(items);
-  const secs=libSecs(items);let n=0;
+  const secs=libSecs(items,secsL);let n=0;const cl=new Set(libClosed());
   const row=i=>{n++;const o=O[i.id]||{},prog=o.my_done?'<span class="lib-ok">Vista</span>':o.my_seconds>60?`<span class="dim">Vas en ${fmtMin(Math.max(1,Math.round((o.my_pos||o.my_seconds)/60)))}</span>`:"";
     const can=mine||(i.free_preview&&logged());
     const meta=[fmtMin(i.minutes),o.avg_stars?starsTxt(o.avg_stars)+` <span class="dim">(${o.n_ratings})</span>`:"",o.n_questions?`${o.n_questions} pregunta${o.n_questions>1?"s":""}`:"",(!mine&&i.free_preview)?'<span class="pill gold">Muestra gratis</span>':""].filter(Boolean).join(" · ");
     const inner=`<span class="lib-n${o.my_done?" done":""}">${o.my_done?"✓":n}</span><span class="lib-t"><b>${esc(i.title)}</b>${meta?`<small>${meta}</small>`:""}</span><span class="lib-p">${prog}${can?"":'<span class="dim" aria-label="Bloqueada">🔒</span>'}</span>`;
     return can?`<a class="lib-row" href="#clase-${esc(i.id)}">${inner}</a>`:`<div class="lib-row locked">${inner}</div>`};
-  const list=items.length?secs.map(([name,L])=>`<section class="lib-sec"><h3>${esc(name)} <span class="dim">${L.length} clase${L.length>1?"s":""}${libTotalMin(L)?" · "+fmtMin(libTotalMin(L)):""}</span></h3><div class="lib-list">${L.map(row).join("")}</div></section>`).join("")
+  const list=items.length?secs.map(([name,L,sx])=>{const dn=mine?L.filter(i=>(O[i.id]||{}).my_done).length:0;return `<details class="lib-sec" data-sk="${esc(sx.id)}"${cl.has(sx.id)?"":" open"}><summary><span class="lib-sh"><b>${esc(name)}</b><span class="dim">${L.length} clase${L.length>1?"s":""}${libTotalMin(L)?" · "+fmtMin(libTotalMin(L)):""}${mine&&dn?` · ${dn} vista${dn>1?"s":""}`:""}</span></span><span class="lib-chev" aria-hidden="true">▾</span></summary>${sx.descr?`<p class="muted lib-sd">${esc(sx.descr)}</p>`:""}<div class="lib-list">${L.map(row).join("")}</div></details>`}).join("")
     :`<div class="panel"><p class="muted" style="margin:0">Estamos subiendo las clases. Aquí van a aparecer apenas estén listas.</p></div>`;
   const live=`<div class="lib-live"><span class="mt-i">${ico("users")}</span><div><b>Se escuchan las preguntas de la clase</b><p>Son clases grabadas con alumnos conectados, así que se oyen sus preguntas y cómo las respondo. Muchas veces son las mismas dudas que vas a tener tú, y la respuesta ya está ahí.</p></div></div>`;
   if(mine){const done=(ov||[]).filter(x=>x.my_done).length,secsW=(ov||[]).reduce((a,x)=>a+(x.my_seconds||0),0),pct=items.length?Math.round(100*done/items.length):0;
     app.innerHTML=`<div class="pagehead"><span class="eyebrow">Biblioteca de clases</span><h1>${esc(S.lib.title)}</h1><p class="muted">Hay un orden sugerido, pero no es obligatorio: entra a la clase que necesites, cuando quieras.</p></div>
       <div class="lib-prog panel"><div class="lib-pt"><b>${pct}%</b><span class="dim">${done} de ${items.length} clases vistas · ${fmtMin(Math.round(secsW/60))||"0 min"} vistos${tot?` de ${fmtMin(tot)}`:""}</span></div><div class="bar" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100"><i style="width:${pct}%"></i></div></div>
       ${list}${live}<div id="libClass"></div>`;
-    libClassBox($("#libClass"),pct);return}
+    libSecWire(app);libClassBox($("#libClass"),pct);return}
   const pr=S.lib.price||"50 USD";
   app.innerHTML=`<section class="lib-hero"><span class="eyebrow">Biblioteca de clases</span><h1>Así opero, explicado en clases grabadas</h1>
       <p class="lead">Clases grupales y personalizadas grabadas donde explico cómo opero, completo. Es para quien ya sabe operar y no quiere todo el curso desde principiante, sino ir al grano.</p>
@@ -1705,8 +1710,8 @@ ROUTES.biblioteca=async()=>{const c=libCfg();
     ${live}
     <div class="lib-bonus"><span class="mt-i">${ico("chat")}</span><div><b>Al terminar, ${+c.classHours||2} horas de clase personal conmigo</b><p>Cuando veas la biblioteca, pides una clase en vivo de ${+c.classHours||2} horas para preguntarme todo lo que no te haya quedado claro de los videos.</p></div></div>
     <div id="libList"><h2 class="lib-h2">Lo que hay adentro</h2>${list}</div>
-    <div class="panel lib-buy"><div><h3>${esc(S.lib.title)}</h3><p class="muted">${esc(pr)} · un solo pago · ${esc(c.hours)} de clases · acceso para siempre.</p></div>${libBuy()}</div>`;
-};
+    <div class="panel lib-buy" id="libBuyEnd"><div><h3>${esc(S.lib.title)}</h3><p class="muted">${esc(pr)} · un solo pago · ${esc(c.hours)} de clases · acceso para siempre.</p></div>${libBuy()}</div>`;
+  libSecWire(app)};
 
 async function libClassBox(host,pct){if(!host)return;const c=libCfg(),need=+c.minPct||0,h=+c.classHours||2;let r=null;try{r=await API.libMyClass()}catch(e){}
   const ST={pendiente:["gold","Recibida: te escribo para cuadrar la hora"],agendada:["ok","Agendada"],hecha:["ok","Hecha"],cancelada:["","Cancelada"]};
@@ -1729,11 +1734,11 @@ async function libClassBox(host,pct){if(!host)return;const c=libCfg(),need=+c.mi
 ROUTES.clase=async id=>{if(!id){location.hash="#biblioteca";return}
   if(!logged()){location.replace(toMain("entrar-academia"));return}
   app.innerHTML=`<div class="empty">Cargando la clase…</div>`;
-  let it=null,items=[],ov=[];try{[it,items]=await Promise.all([API.libItem(id),API.libItems()])}catch(e){}
+  let it=null,items=[],ov=[],secsL=[];try{[it,items,secsL]=await Promise.all([API.libItem(id),API.libItems(),API.libSections?API.libSections():[]])}catch(e){}
   const mine=ownsLib();if(mine)try{ov=await API.libOverview()}catch(e){}
   if(location.hash!=="#clase-"+id)return;
   if(!it){app.innerHTML=`<div class="empty">Esta clase es de la biblioteca de clases.<a class="btn gold sm" href="#biblioteca">Ver la biblioteca</a></div>`;return}
-  const ord=libSecs(items).flatMap(x=>x[1]),ix=ord.findIndex(x=>x.id===id),prev=ord[ix-1],next=ord[ix+1],o=(ov||[]).find(x=>x.item_id===id)||{};
+  const ord=libSecs(items,secsL).flatMap(x=>x[1]),ix=ord.findIndex(x=>x.id===id),prev=ord[ix-1],next=ord[ix+1],o=(ov||[]).find(x=>x.item_id===id)||{};
   const nav=x=>x&&(mine||x.free_preview)?`#clase-${x.id}`:null;
   app.innerHTML=`<div class="crumbs"><a href="#biblioteca">Biblioteca</a> <span class="dim">/ ${esc(it.section||"")}</span></div>
     <div class="pagehead lib-vh"><h1>${esc(it.title)}</h1><p class="muted">${[fmtMin(it.minutes),ix>=0?`Clase ${ix+1} de ${ord.length} en el orden sugerido`:""].filter(Boolean).join(" · ")}</p></div>

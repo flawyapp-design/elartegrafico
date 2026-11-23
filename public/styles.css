@@ -2489,3 +2489,24 @@ html.v4.side-mini nav.main .nbadge.nb-txt{display:none}
 .sell-row .sw:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
 @media (max-width:560px){.sell-row{grid-template-columns:minmax(0,1fr) auto}.sell-row .pill{grid-column:1;justify-self:start}.sell-row .sw{grid-row:1;grid-column:2}}
 a.lib-row,a.lib-row b{color:var(--fg)}
+/* secciones plegables de la biblioteca */
+details.lib-sec{margin:14px 0}
+details.lib-sec>summary{list-style:none;display:flex;align-items:center;gap:12px;cursor:pointer;padding:10px 4px;border-radius:10px;user-select:none}
+details.lib-sec>summary::-webkit-details-marker{display:none}
+details.lib-sec>summary:hover{background:var(--card2)}details.lib-sec>summary:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+.lib-sh{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;flex:1;min-width:0}.lib-sh b{font-size:16.5px;color:var(--fg)}.lib-sh .dim{font-size:13px}
+.lib-chev{color:var(--dim);transition:transform .15s;font-size:14px}details.lib-sec:not([open]) .lib-chev{transform:rotate(-90deg)}
+.lib-sd{margin:0 4px 10px;font-size:14px;max-width:70ch}
+/* admin: secciones */
+.lsa{border:1px solid var(--line);border-radius:var(--r2);background:var(--card);margin-bottom:12px;overflow:hidden}
+.lsa-h{display:flex;gap:10px;align-items:center;padding:12px 14px;flex-wrap:wrap}
+.lsa-t{flex:1;min-width:160px;display:grid;gap:2px;cursor:pointer;background:none;border:0;text-align:left;color:inherit;font:inherit;padding:0}
+.lsa-t b{font-size:15.5px}.lsa-t small{color:var(--dim);font-size:12.5px}
+.lsa-b{display:flex;gap:6px;flex-wrap:wrap}.lsa-b .btn{min-width:34px}
+.lsa-l{border-top:1px solid var(--line)}
+.lsa-v{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center;padding:10px 14px;border-top:1px solid var(--line)}
+.lsa-v:first-child{border-top:0}.lsa-v.on{background:var(--blueBg)}
+.lsa-vt{display:grid;gap:2px;min-width:0;cursor:pointer;background:none;border:0;text-align:left;color:inherit;font:inherit;padding:0}.lsa-vt b{font-weight:600;font-size:14.5px}.lsa-vt small{color:var(--dim);font-size:12.5px}
+.lsa-e{padding:14px;border-top:1px solid var(--line);background:var(--card2)}
+.lsa.min .lsa-l{display:none}
+@media (max-width:560px){.lsa-h{padding:12px}.lsa-b{width:100%}.lsa-v{grid-template-columns:1fr}.lsa-v .lsa-b{justify-content:flex-start}}
