@@ -796,7 +796,7 @@ ${o.onTracker?`<button class="wtrk" title="Marcador de operaciones (ganadas, per
 
   /* clics rápidos al dibujar: el motor tomaba un 2º clic hecho antes de medio segundo (aunque fuera en otro lugar)
      como intento de doble clic y se lo "tragaba": ese punto no se marcaba. Si el clic es en otro lugar, se cuenta como clic nuevo. */
-  {let lastDn=null;chartEl.addEventListener("mousedown",e=>{if(e.button!==0)return;const n=Date.now();
+  {let lastDn=null;chartEl.addEventListener("mousedown",e=>{if(zoomOn)return;if(e.button!==0)return;const n=Date.now();
     if(lastDn&&n-lastDn.t<520&&Math.abs(e.clientX-lastDn.x)+Math.abs(e.clientY-lastDn.y)>=5){
       try{const se=chart._chartEvent&&chart._chartEvent._event;se&&se._resetClickTimeout&&se._resetClickTimeout()}catch(err){}}
     lastDn={x:e.clientX,y:e.clientY,t:n}},true)}
@@ -818,18 +818,18 @@ ${o.onTracker?`<button class="wtrk" title="Marcador de operaciones (ganadas, per
     const end=()=>{yd=null;document.removeEventListener("mousemove",mm,true);document.removeEventListener("mouseup",mu,true)};
     const mm=e=>{if(!yd)return;e.preventDefault();e.stopPropagation();move(e.clientY)};
     const mu=e=>{if(!yd)return;e.stopPropagation();end()};
-    chartEl.addEventListener("mousedown",e=>{if(e.button!==0||!inYAxis(e.clientX,e.clientY))return;if(e.detail>=2)return;
+    chartEl.addEventListener("mousedown",e=>{if(zoomOn)return;if(e.button!==0||!inYAxis(e.clientX,e.clientY))return;if(e.detail>=2)return;
       if(!start(e.clientY))return;e.preventDefault();e.stopPropagation();document.addEventListener("mousemove",mm,true);document.addEventListener("mouseup",mu,true)},true);
     chartEl.addEventListener("dblclick",e=>{if(inYAxis(e.clientX,e.clientY)){end();autoScale();cdKick(300)}},true);
-    chartEl.addEventListener("touchstart",e=>{if(e.touches.length!==1)return;const t=e.touches[0];if(!inYAxis(t.clientX,t.clientY))return;
+    chartEl.addEventListener("touchstart",e=>{if(zoomOn)return;if(e.touches.length!==1)return;const t=e.touches[0];if(!inYAxis(t.clientX,t.clientY))return;
       const now=Date.now();if(now-lastTapY<300){lastTapY=0;autoScale();cdKick(300);e.preventDefault();e.stopPropagation();return}lastTapY=now;
       if(!start(t.clientY,true))return;e.stopPropagation()},{capture:true,passive:false});
-    chartEl.addEventListener("touchmove",e=>{if(!yd)return;e.preventDefault();e.stopPropagation();move(e.touches[0].clientY)},{capture:true,passive:false});
+    chartEl.addEventListener("touchmove",e=>{if(zoomOn)return;if(!yd)return;e.preventDefault();e.stopPropagation();move(e.touches[0].clientY)},{capture:true,passive:false});
     chartEl.addEventListener("touchend",e=>{if(yd){e.stopPropagation();end()}},true);
     chartEl.addEventListener("touchcancel",()=>{if(yd)end()},true)}
   /* rueda del mouse como en los charts de Deriv/TradingView: el zoom se ancla en la última vela (lado derecho),
      así el gráfico no se "va" para un lado. Con Ctrl o ⌘ apretado, el zoom es donde está el mouse. */
-  chartEl.addEventListener("wheel",e=>{
+  chartEl.addEventListener("wheel",e=>{if(zoomOn)return;
     if(e.ctrlKey||e.metaKey||Math.abs(e.deltaX)>Math.abs(e.deltaY)||!e.deltaY||brushOn)return;
     if(panLocked&&panLocked.split("|")[1]==="true")return;
     try{const r=chartEl.getBoundingClientRect(),mn=chart.getSize("candle_pane","main");if(!mn)return;
@@ -938,7 +938,7 @@ ${o.onTracker?`<button class="wtrk" title="Marcador de operaciones (ganadas, per
         lzDot({x:a.x+(b.x-a.x)*k,y:a.y+(b.y-a.y)*k},al);busy=al>0}
       if(!busy)lzRem=[]}
     if(busy||(lzRem.length&&performance.now()-lzRem[lzRem.length-1].t<3000))lzKick();else lzDrop()}
-  chartEl.addEventListener("pointermove",e=>{if(!laserOn)return;const r=chartEl.getBoundingClientRect(),x=e.clientX-r.left,y=e.clientY-r.top,now=performance.now();
+  chartEl.addEventListener("pointermove",e=>{if(zoomOn)return;if(!laserOn)return;const r=chartEl.getBoundingClientRect(),x=e.clientX-r.left,y=e.clientY-r.top,now=performance.now();
     lzPts=[{x,y,t:now}];lzEnsure();lzKick();
     if(o.onLaser&&now-lzEmit>150){lzEmit=now;try{const c=chart.convertFromPixel([{x,y}],{paneId:"candle_pane"})[0];const ts=c&&tsOf(c);
       if(ts&&isFinite(c.value)){let f=0;try{const cx=chart.convertToPixel({timestamp:ts,value:c.value},{paneId:"candle_pane"}).x,bs=chart.getBarSpace()||0;if(bs>0)f=+((x-cx)/bs).toFixed(3)}catch(e){}
@@ -986,8 +986,8 @@ ${o.onTracker?`<button class="wtrk" title="Marcador de operaciones (ganadas, per
     const pts=boxPts(a,b);
     try{chart.overrideOverlay({id:e.overlay.id,points:pts})}catch(x){}return true}
   /* cuánto se movió realmente el mouse o el dedo desde que se presionó */
-  chartEl.addEventListener("pointerdown",e=>{ptrDown={x:e.clientX,y:e.clientY,max:0,touch:e.pointerType!=="mouse"}},true);
-  chartEl.addEventListener("pointermove",e=>{if(ptrDown&&e.buttons)ptrDown.max=Math.max(ptrDown.max,Math.hypot(e.clientX-ptrDown.x,e.clientY-ptrDown.y))},true);
+  chartEl.addEventListener("pointerdown",e=>{if(zoomOn)return;ptrDown={x:e.clientX,y:e.clientY,max:0,touch:e.pointerType!=="mouse"}},true);
+  chartEl.addEventListener("pointermove",e=>{if(zoomOn)return;if(ptrDown&&e.buttons)ptrDown.max=Math.max(ptrDown.max,Math.hypot(e.clientX-ptrDown.x,e.clientY-ptrDown.y))},true);
   let brushHl=false;
   function startBrush(hl){cancelDraw();if(brushOn){if(!!hl===brushHl)return;stopBrush()}brushHl=!!hl;brushOn=true;setTimeout(syncPan,0);
     brushEl=document.createElement("canvas");brushEl.className="wbrush";chartEl.appendChild(brushEl);
@@ -1016,7 +1016,7 @@ ${o.onTracker?`<button class="wtrk" title="Marcador de operaciones (ganadas, per
      con la rueda; el dibujo se mueve solo si lo agarras a él. Mientras dibujas, la rueda sigue haciendo zoom. */
   let panLocked=null;
   function syncPan(){const touch=lastTouch||(window.matchMedia&&matchMedia("(hover:none)").matches);
-    const scrollLock=!!(brushOn||drawingId||(touch&&selId)),zoomLock=!!(brushOn||(touch&&(drawingId||selId)));
+    const scrollLock=!!(zoomOn||brushOn||drawingId||(touch&&selId)),zoomLock=!!(zoomOn||brushOn||(touch&&(drawingId||selId)));
     const k=scrollLock+"|"+zoomLock;if(k===panLocked)return;panLocked=k;
     try{chart.setScrollEnabled(!scrollLock);chart.setZoomEnabled(!zoomLock)}catch(e){}chartEl.classList.toggle("locked",scrollLock)}
   function cancelDraw(){hideFin();if(ttWait){const w=ttWait;ttWait=null;try{chart.removeOverlay(w.id)}catch(e){}ovs.delete(w.id);persist()}if(drawingId){try{chart.removeOverlay(drawingId)}catch(e){}ovs.delete(drawingId);drawingId=null}dbar.querySelectorAll(".dt").forEach(b=>b.classList.remove("act"));syncPan()}
@@ -1503,6 +1503,7 @@ ${o.onTracker?`<button class="wtrk" title="Marcador de operaciones (ganadas, per
   o.openObjList=()=>openObjList();
   /* ---------- lupa: arrastras un recuadro y el gráfico se acerca a esa parte ---------- */
   function zoomTool(on){if(on===zoomOn)return;zoomOn=on;let ly=chartEl.querySelector(".wzsel");
+    try{syncPan()}catch(e){}
     if(!on){ly&&ly.remove();paintDbar();return}
     cancelDraw();stopBrush();closeMenu&&closeMenu();
     ly=document.createElement("div");ly.className="wzsel";ly.innerHTML=`<i></i><span class="wzh">Arrastra sobre la parte que quieres ver de cerca · Esc para salir</span>`;chartEl.appendChild(ly);
@@ -1512,8 +1513,8 @@ ${o.onTracker?`<button class="wtrk" title="Marcador de operaciones (ganadas, per
     ly.onpointermove=e=>{if(!st)return;const q=xy(e);box.style.left=Math.min(st.x,q.x)+"px";box.style.top=Math.min(st.y,q.y)+"px";box.style.width=Math.abs(q.x-st.x)+"px";box.style.height=Math.abs(q.y-st.y)+"px"};
     ly.onpointerup=e=>{if(!st)return;const a=st,q=xy(e);st=null;box.style.display="none";ly.classList.remove("drag");
       if(Math.abs(q.x-a.x)<10){o.onToast&&o.onToast("Arrastra un poco más ancho para acercar");return}
-      zoomArea(Math.min(a.x,q.x),Math.max(a.x,q.x));zoomTool(false)};
-    ly.oncontextmenu=e=>{e.preventDefault();zoomTool(false)};paintDbar()}
+      zoomTool(false);zoomArea(Math.min(a.x,q.x),Math.max(a.x,q.x))};
+    ly.oncontextmenu=e=>{e.preventDefault();zoomTool(false)};ly.addEventListener("wheel",e=>{e.preventDefault();e.stopPropagation()},{passive:false});paintDbar()}
   function zoomArea(x0,x1){try{const c0=chart.convertFromPixel([{x:x0,y:10}],{paneId:"candle_pane"})[0],c1=chart.convertFromPixel([{x:x1,y:10}],{paneId:"candle_pane"})[0];if(!c0||!c1)return;
       const L=chart.getDataList();if(!L.length)return;let i0=Math.max(0,c0.dataIndex),i1=Math.min(L.length-1+20,c1.dataIndex);if(i1-i0<3){i1=i0+3}
       if(!zoomPrev){const vr=chart.getVisibleRange();zoomPrev={bs:chart.getBarSpace(),mid:(vr.realFrom+vr.realTo)/2,rt:vr.realTo>=L.length-1}}
@@ -1532,23 +1533,23 @@ ${o.onTracker?`<button class="wtrk" title="Marcador de operaciones (ganadas, per
   chartEl.addEventListener("contextmenu",e=>{e.preventDefault();if(drawingId){if(finishFree())return;cancelDraw();o.onToast&&o.onToast("Herramienta cancelada");return}
     const ev={clientX:e.clientX,clientY:e.clientY};setTimeout(()=>{if(Date.now()-ovCtxAt<250)return;if(lastTouch)return;chartMenu(ev)},30)});
   /* rueda del mouse (clic del centro) sobre un dibujo: lo borra */
-  chartEl.addEventListener("mousedown",e=>{if(e.button!==1)return;e.preventDefault();if(drawingId)return;const id=hovId;if(!id||!ovs.has(id))return;
+  chartEl.addEventListener("mousedown",e=>{if(zoomOn)return;if(e.button!==1)return;e.preventDefault();if(drawingId)return;const id=hovId;if(!id||!ovs.has(id))return;
     const v=ovs.get(id);if(v&&v.lock){o.onToast&&o.onToast("Ese dibujo está bloqueado");return}removeOv(id);hovId=null;chartEl.classList.remove("ovh");o.onToast&&o.onToast("Dibujo borrado · Ctrl+Z para deshacer")},true);
   chartEl.addEventListener("auxclick",e=>{if(e.button===1)e.preventDefault()});
 
   /* escala de precios con el dedo: arrastra arriba/abajo sobre los números de la derecha para estirar o encoger */
   let yDrag=null;
-  chartEl.addEventListener("touchstart",e=>{if(e.touches.length!==1)return;let ya;try{ya=chart.getSize("candle_pane","yAxis")}catch(x){return}if(!ya)return;
+  chartEl.addEventListener("touchstart",e=>{if(zoomOn)return;if(e.touches.length!==1)return;let ya;try{ya=chart.getSize("candle_pane","yAxis")}catch(x){return}if(!ya)return;
     const r=chartEl.getBoundingClientRect(),x=e.touches[0].clientX-r.left,y=e.touches[0].clientY-r.top;
     if(x<ya.left||x>ya.left+ya.width||y>ya.height)return;const ax=chart._candlePane&&chart._candlePane.getAxisComponent();if(!ax||!ax._range)return;
     yDrag={y0:e.touches[0].clientY,ax,r0:Object.assign({},ax._range)};e.preventDefault();e.stopPropagation()},{capture:true,passive:false});
-  chartEl.addEventListener("touchmove",e=>{if(!yDrag)return;e.preventDefault();e.stopPropagation();const dy=e.touches[0].clientY-yDrag.y0,k=Math.max(.2,Math.min(5,Math.exp(dy/180)));
+  chartEl.addEventListener("touchmove",e=>{if(zoomOn)return;if(!yDrag)return;e.preventDefault();e.stopPropagation();const dy=e.touches[0].clientY-yDrag.y0,k=Math.max(.2,Math.min(5,Math.exp(dy/180)));
     const r0=yDrag.r0,mid=(r0.from+r0.to)/2,half=(r0.to-r0.from)/2*k,from=mid-half,to=mid+half;
     yDrag.ax._autoCalcTickFlag=false;yDrag.ax._range=Object.assign({},r0,{from,to,range:to-from,realFrom:from,realTo:to,realRange:to-from});try{chart.adjustPaneViewport(false,true,true,true)}catch(x){}},{capture:true,passive:false});
   chartEl.addEventListener("touchend",()=>{yDrag=null},{capture:true});
   /* mover el gráfico hacia arriba y abajo arrastrando (dedo o mouse), como TradingView */
   let vpan=null,movingOv=false;
-  chartEl.addEventListener("pointerdown",e=>{if(e.button!==0||drawingId||brushOn||selId||e.shiftKey)return;let ya;try{ya=chart.getSize("candle_pane","yAxis")}catch(x){return}if(!ya)return;
+  chartEl.addEventListener("pointerdown",e=>{if(zoomOn)return;if(e.button!==0||drawingId||brushOn||selId||e.shiftKey)return;let ya;try{ya=chart.getSize("candle_pane","yAxis")}catch(x){return}if(!ya)return;
     const r=chartEl.getBoundingClientRect(),x=e.clientX-r.left,y=e.clientY-r.top;if(x>=ya.left||y>ya.height)return;
     const ax=chart._candlePane&&chart._candlePane.getAxisComponent();if(!ax||!ax._range)return;
     vpan={x0:e.clientX,y0:e.clientY,ax,h:ya.height,r0:Object.assign({},ax._range),on:false}},true);
@@ -1563,7 +1564,7 @@ ${o.onTracker?`<button class="wtrk" title="Marcador de operaciones (ganadas, per
     const ptAt=(x,y)=>{let p=null;try{p=chart.convertFromPixel([{x,y}],{paneId:"candle_pane"})[0]}catch(e){}if(!p||!isFinite(p.value))return null;return{timestamp:tsOf(p),dataIndex:p.dataIndex,value:p.value}};
     const rel=t=>{const r=chartEl.getBoundingClientRect();return{x:t.clientX-r.left,y:t.clientY-r.top}};
     const setPts=(id,name,a,b)=>{try{chart.overrideOverlay({id,points:BOX.test(name)?boxPts(a,b):[a,b]})}catch(e){}};
-    chartEl.addEventListener("touchstart",e=>{if(dd||brushOn||e.touches.length!==1)return;
+    chartEl.addEventListener("touchstart",e=>{if(zoomOn)return;if(dd||brushOn||e.touches.length!==1)return;
       /* segundo toque: el segundo punto va justo donde tocas (y puedes arrastrar para ajustarlo) */
       if(ttWait&&!drawingId){const w=ttWait;if(!ovs.has(w.id)){ttWait=null;return}const t=rel(e.touches[0]),p1=ptAt(t.x,t.y);if(!p1)return;e.stopPropagation();e.preventDefault();ttWait=null;
         dd={id:w.id,name:w.name,p0:w.p0,x0:w.x0,y0:w.y0,lx:t.x,ly:t.y,moved:true,second:true};setPts(w.id,w.name,w.p0,p1);syncPan();return}
@@ -1574,7 +1575,7 @@ ${o.onTracker?`<button class="wtrk" title="Marcador de operaciones (ganadas, per
       const name=v.name,styles=v.styles,extendData=v.extendData;bulk=true;try{chart.removeOverlay(drawingId)}catch(x){}bulk=false;ovs.delete(drawingId);drawingId=null;
       const id=makeOverlay({name,styles:styles||undefined,extendData:extendData||undefined,points:[p0,p0]},false);if(!id){syncPan();return}
       dd={id,name,p0,x0:t.x,y0:t.y,lx:t.x,ly:t.y,moved:false};setPts(id,name,p0,p0);syncPan()},{capture:true,passive:false});
-    chartEl.addEventListener("touchmove",e=>{if(!dd)return;e.stopPropagation();e.preventDefault();const t=rel(e.touches[0]);
+    chartEl.addEventListener("touchmove",e=>{if(zoomOn)return;if(!dd)return;e.stopPropagation();e.preventDefault();const t=rel(e.touches[0]);
       if(Math.hypot(t.x-dd.x0,t.y-dd.y0)>6)dd.moved=true;dd.lx=t.x;dd.ly=t.y;const p1=ptAt(t.x,t.y);if(p1)setPts(dd.id,dd.name,dd.p0,p1)},{capture:true,passive:false});
     const end=e=>{if(!dd)return;e.stopPropagation();e.preventDefault();const d=dd;dd=null;
       if(!d.moved){/* toque sin arrastrar: queda el primer punto y el siguiente toque pone el segundo, justo donde toques */
@@ -1589,7 +1590,7 @@ ${o.onTracker?`<button class="wtrk" title="Marcador de operaciones (ganadas, per
        Si solo das clic sin arrastrar, funciona como antes (clic en el primer punto y clic en el segundo). */
     let md=null;
     let synth=false;
-    chartEl.addEventListener("mousedown",e=>{if(synth||e.button!==0||dd||md||!drawingId||brushOn)return;let ov;try{ov=chart.getOverlayById(drawingId)}catch(x){}
+    chartEl.addEventListener("mousedown",e=>{if(zoomOn)return;if(synth||e.button!==0||dd||md||!drawingId||brushOn)return;let ov;try{ov=chart.getOverlayById(drawingId)}catch(x){}
       if(!ov||ov.totalStep!==3||(ov.points||[]).length>1)return;const t=rel(e),p0=ptAt(t.x,t.y);if(!p0)return;
       /* mientras tengas el clic oprimido, el gráfico queda quieto (no se mueve ni se arrastra) */
       e.stopImmediatePropagation();e.preventDefault();try{chart.setScrollEnabled(false);chart.setZoomEnabled(false)}catch(x){}
@@ -1631,13 +1632,13 @@ ${o.onTracker?`<button class="wtrk" title="Marcador de operaciones (ganadas, per
   function lockTip(x,y,on){const t=document.createElement("div");t.className="wlock";t.textContent=on?"🔒 Bloqueado":"🔓 Desbloqueado";t.style.left=x+"px";t.style.top=(y-46)+"px";chartEl.appendChild(t);setTimeout(()=>t.remove(),1300)}
   {let tdn=null,lastTap=null,manual=null;
     let lp=null;
-    chartEl.addEventListener("pointerdown",e=>{const lt=e.pointerType!=="mouse";if(lt!==lastTouch){lastTouch=lt;syncPan()}if(e.pointerType==="mouse")return;tdn={x:e.clientX,y:e.clientY,t:Date.now(),sel:selId};
+    chartEl.addEventListener("pointerdown",e=>{if(zoomOn)return;const lt=e.pointerType!=="mouse";if(lt!==lastTouch){lastTouch=lt;syncPan()}if(e.pointerType==="mouse")return;tdn={x:e.clientX,y:e.clientY,t:Date.now(),sel:selId};
       /* mantener oprimido un dibujo = bloquear / desbloquear (como MT5) */
       clearTimeout(lp);const d0=tdn;lp=setTimeout(()=>{if(tdn!==d0||drawingId||brushOn)return;const r=chartEl.getBoundingClientRect(),x=d0.x-r.left,y=d0.y-r.top,id=nearOv(x,y,24);if(!id)return;
         tdn=null;toggleLock(id);const v=ovs.get(id);try{navigator.vibrate&&navigator.vibrate(18)}catch(x){}
         if(v&&v.lock&&selId===id){selId=null;manual=null;hideStyleBar();syncPan()}
         lockTip(x,y,v&&v.lock);o.onToast&&o.onToast(v&&v.lock?"🔒 Dibujo bloqueado: ya no se selecciona al tocar. Mantén oprimido para desbloquear.":"🔓 Dibujo desbloqueado")},560)},true);
-    chartEl.addEventListener("pointermove",e=>{if(tdn&&Math.hypot(e.clientX-tdn.x,e.clientY-tdn.y)>10)clearTimeout(lp)},true);
+    chartEl.addEventListener("pointermove",e=>{if(zoomOn)return;if(tdn&&Math.hypot(e.clientX-tdn.x,e.clientY-tdn.y)>10)clearTimeout(lp)},true);
     chartEl.addEventListener("pointerup",()=>clearTimeout(lp),true);chartEl.addEventListener("pointercancel",()=>{clearTimeout(lp);tdn=null},true);
     chartEl.addEventListener("pointerup",e=>{if(e.pointerType==="mouse"||!tdn)return;const d=tdn;tdn=null;
       if(Date.now()-d.t>350||Math.hypot(e.clientX-d.x,e.clientY-d.y)>10||drawingId||brushOn)return;
@@ -1651,7 +1652,7 @@ ${o.onTracker?`<button class="wtrk" title="Marcador de operaciones (ganadas, per
         if(id&&lastTap&&lastTap.id===id&&now-lastTap.t<450&&Math.hypot(x-lastTap.x,y-lastTap.y)<40){lastTap=null;openCtx(id,{x,y},true);return}
         lastTap=id?{id,t:now,x,y}:null},70)});
   }
-  chartEl.addEventListener("pointerdown",e=>{if(e.shiftKey&&!drawingId&&e.button===0)startTool("eagMeasure")},true);
+  chartEl.addEventListener("pointerdown",e=>{if(zoomOn)return;if(e.shiftKey&&!drawingId&&e.button===0)startTool("eagMeasure")},true);
 
   /* ---------- indicadores ---------- */
   function addInd(name,where,silent){const params=ind.params[name];
