@@ -208,14 +208,11 @@ function dayForm(k){const d=dayGet(k)||{},ops=(d.ops||[]).slice().sort((a,b)=>a.
       <input data-av type="text" inputmode="decimal" placeholder="Monto US$" aria-label="Monto de la operación">
       <input data-asym type="text" maxlength="30" placeholder="Mercado (opcional)" aria-label="Mercado" value="${esc(edit.asym||"")}">
       <button class="jr-btn pri" data-aadd>Agregar</button></div>
-    ${A.length?`<div class="jf-list">${ops.map(o=>`<div><span>${hm(o.t)}${o.sym?" · "+esc(o.sym):""}${o.src==="mt5"?" · MT5":""}</span><b class="${cls(o.v)}">${money(o.v)}</b><button data-delop="${o.t}" aria-label="Borrar operación">✕</button></div>`).join("")}
-      ${trk.map(([sid,o])=>`<div><span>${hm(o.t||+sid)} · Marcador · ${o.n} op</span><b class="${cls(o.v)}">${money(o.v)}</b><button data-deltrk="${esc(sid)}" aria-label="Quitar sesión">✕</button></div>`).join("")}
-      <div class="jf-sum"><span>Total del día · ${nOps} op${W||L?` · <i class="jw">${W} ganadas</i> / <i class="jl">${L} perdidas</i>`:""}</span><b class="${cls(sum)}">${money(sum)||"$0"}</b></div></div>`
-      :`<small class="jf-h">Escribe el monto, elige Ganancia o Pérdida y toca Agregar (o Enter). Cada una queda en la lista y el total del día se calcula solo.</small>`}
-    <details class="jf-tot"${man?" open":""}><summary>${man?`Estás usando un total escrito a mano: <b class="${cls(v)}">${money(v)}</b>`:"¿Prefieres poner solo el total del día?"}</summary>
-      <div class="jf-pnl"><div class="jr-seg big"><button data-sg="1" class="${sign>0?"on jw":""}">＋ Ganancia</button><button data-sg="-1" class="${sign<0?"on jl":""}">− Pérdida</button></div>
-        <input data-pnl type="text" inputmode="decimal" placeholder="${A.length?Math.abs(sum).toFixed(2):"0.00"}" value="${v!=null?Math.abs(v):""}" aria-label="Total del día"></div>
-      <small class="jf-h">${man?"Este total reemplaza la suma de las operaciones. Bórralo y guarda para volver a usar la suma.":"Si lo escribes, reemplaza la suma de las operaciones."}</small></details>
+    ${A.length?(()=>{const rows=[...ops.map(o=>({t:o.t,v:+o.v||0,n:1,lab:`${o.sym?esc(o.sym):o.src==="mt5"?"":"Operación"}${o.src==="mt5"?(o.sym?" · ":"")+"MT5":""}`,del:`data-delop="${o.t}"`})),
+        ...trk.map(([sid,o])=>({t:o.t||+sid,v:+o.v||0,n:o.n,lab:`Marcador · ${o.n} op`,del:`data-deltrk="${esc(sid)}"`}))].sort((a,b)=>a.t-b.t);let run=0;
+      return`<div class="jf-list"><div class="jf-lh"><span>Hora · operación</span><span>Monto</span><span>Total del día</span><i></i></div>${rows.map(r=>{run=+(run+r.v).toFixed(2);return`<div><span>${hm(r.t)} · ${r.lab}</span><b class="${cls(r.v)}">${r.v>=0?"+ suma ":"− resta "}${money(Math.abs(r.v)).replace(/^\+/,"")}</b><em class="${cls(run)}">= ${money(run)||"$0"}</em><button ${r.del} aria-label="Borrar">✕</button></div>`}).join("")}
+      <div class="jf-sum"><span>Total del día · ${nOps} op${W||L?` · <i class="jw">${W} ganadas</i> / <i class="jl">${L} perdidas</i>`:""}</span><b class="${cls(sum)}">${money(sum)||"$0"}</b></div></div>`})()
+      :`<small class="jf-h">Escribe el monto, elige Ganancia o Pérdida y toca Agregar (o Enter). Cada una suma o resta al total del día. Si solo tienes el total del día, agrégalo como una sola operación.</small>`}
     <div class="jf-row"><label class="jf-l">Operaciones (si no las agregas una a una)<input data-n type="number" min="0" step="1" inputmode="numeric" placeholder="${nOps}" value="${d.n!=null&&d.n!==""?d.n:""}"></label>
       <div><span class="jf-l">¿Cómo te sentiste?</span><div class="jr-seg">${MOODS.map(([k2,e,t])=>`<button data-mood="${k2}" class="${d.mood===k2?"on":""}" title="${t}">${e} ${t}</button>`).join("")}</div></div></div>
     <div><span class="jf-l">¿Seguiste tu plan?</span><div class="jr-seg">${[[true,"Sí"],[false,"No"]].map(([b,t])=>`<button data-plan="${b}" class="${d.plan===b?"on "+(b?"jw":"jl"):""}">${t}</button>`).join("")}</div></div>
@@ -255,12 +252,12 @@ function bind(c){const q=s=>c.querySelector(s),qa=s=>c.querySelectorAll(s);
     const addOpNow=()=>{const i=q("[data-av]"),val=num(i.value);if(val==null||!val){i.focus();X.toast("Escribe el monto de la operación");return}
       const d=cur(),now=Date.now(),isT=k===today();let t=isT?now:parse(k).getTime()+12*36e5+((d.ops||[]).length)*6e4;while((d.ops||[]).some(o=>o.t===t))t++;
       const sym=(q("[data-asym]").value||"").trim();edit.asym=sym;keepForm();d.ops=d.ops||[];d.ops.push({v:+((edit.asg||1)*Math.abs(val)).toFixed(2),t,src:"manual",sym:sym||undefined});
-      X.save();paintAll();X.toast(`${(edit.asg||1)>0?"Ganancia":"Pérdida"} agregada: ${money((edit.asg||1)*Math.abs(val))}`);const ni=el.querySelector("[data-av]");ni&&ni.focus()};
+      const before=dayPnl(Object.assign({},d,{ops:d.ops.slice(0,-1)}))||0;X.save();paintAll();
+      X.toast(`${(edit.asg||1)>0?"Suma":"Resta"} ${money(Math.abs(val)).replace(/^[+−]/,"")}: total del día ${money(before)||"$0"} → ${money(dayPnl(d))}`);const ni=el.querySelector("[data-av]");ni&&ni.focus()};
     q("[data-aadd]").onclick=addOpNow;q("[data-av]").onkeydown=e=>{if(e.key==="Enter"){e.preventDefault();addOpNow()}};
     qa("[data-deltrk]").forEach(b=>b.onclick=()=>{keepForm();const d=cur();if(d.trk)delete d.trk[b.dataset.deltrk];clean(k);X.save();paintAll()});
     qa("[data-delop]").forEach(b=>b.onclick=()=>{keepForm();const d=cur();d.ops=(d.ops||[]).filter(o=>String(o.t)!==b.dataset.delop);clean(k);X.save();paintAll()});
-    q("[data-savek]").onclick=()=>{const d=cur(),i=q("[data-pnl]"),v=num(i.value);const sg=edit.sign||(d.pnl!=null&&+d.pnl<0?-1:1);
-      d.pnl=v==null?null:+(sg*Math.abs(v)).toFixed(2);const n=q("[data-n]").value;d.n=n===""?null:Math.max(0,parseInt(n,10)||0);
+    q("[data-savek]").onclick=()=>{const d=cur(),i=q("[data-pnl]");if(i){const v=num(i.value),sg=edit.sign||(d.pnl!=null&&+d.pnl<0?-1:1);d.pnl=v==null?null:+(sg*Math.abs(v)).toFixed(2)}const n=q("[data-n]").value;d.n=n===""?null:Math.max(0,parseInt(n,10)||0);
       d.note=q("[data-note]").value.trim()||null;clean(k);edit=null;save();const dd=dayGet(k);X.toast(dd?`Día guardado: ${money(dayPnl(dd))||"sin monto"}.`:"Día vacío.")};
     const dl=q("[data-delk]");dl&&(dl.onclick=()=>{if(!edit.sure){edit.sure=true;dl.textContent="¿Borrar todo el día?";setTimeout(()=>{if(edit&&edit.sure){edit.sure=false;dl.isConnected&&(dl.textContent="Borrar día")}},3000);return}delete D[k];edit=null;save();X.toast("Día borrado.")})}
   if(edit&&edit.acct){q("[data-asave]").onclick=()=>{const j=J(),n=q("[data-an]").value.trim()||"Mi cuenta",s=num(q("[data-as]").value);
@@ -295,6 +292,9 @@ function toggle(on,dayK){const j=J();j.open=on==null?!j.open:!!on;X.save();
     el.hidden=false;paint();place()}else if(el){el.hidden=true;edit=null}
   document.querySelectorAll(".wjr").forEach(b=>b.classList.toggle("on",j.open))}
 
-window.EAGJournal={init(o){X=o;const j=J();for(const a in j.days)for(const k in j.days[a]){const d=j.days[a][k];if(d.ops){d.ops=d.ops.filter(op=>op.src);if(!d.ops.length)delete d.ops}}if(J().open)setTimeout(()=>toggle(true),700)},toggle,open:k=>toggle(true,k),
+window.EAGJournal={init(o){X=o;const j=J();
+  /* el total escrito a mano pasa a ser una operación más ("Total anotado"), así lo que agregues después suma o resta encima */
+  if(!j.mig2){for(const a in j.days)for(const k in j.days[a]){const d=j.days[a][k];if(d.pnl==null||d.pnl==="")continue;const au=autoList(d).reduce((x,o)=>x+(+o.v||0),0),base=+(+d.pnl-au).toFixed(2);
+    if(Math.abs(base)>.004){d.ops=d.ops||[];let t=parse(k).getTime()+9*36e5;while(d.ops.some(o=>o.t===t))t++;d.ops.push({v:base,t,src:"manual",sym:"Total anotado"})}delete d.pnl}j.mig2=true;setTimeout(()=>X.save(),0)}for(const a in j.days)for(const k in j.days[a]){const d=j.days[a][k];if(d.ops){d.ops=d.ops.filter(op=>op.src);if(!d.ops.length)delete d.ops}}if(J().open)setTimeout(()=>toggle(true),700)},toggle,open:k=>toggle(true,k),
   addOp,removeOp,setSession,sessionIn,today:()=>{const d=dayGet(today());return{pnl:dayPnl(d),n:dayN(d)}},importMT5,_stats:stats,_J:J};
 })();
