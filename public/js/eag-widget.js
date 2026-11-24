@@ -640,7 +640,7 @@ ${o.onTracker?`<button class="wtrk" title="Marcador de operaciones (ganadas, per
   let sym=o.symbol,per=o.period,theme=o.theme||"dark",extra={},gen=0,subKey=null,ready=false,selId=null;let lastTouch=false;
   const ind=Object.assign({main:[],sub:{},params:{},st:{},hid:{}},o.indicators||{});ind.st=ind.st||{};ind.hid=ind.hid||{};ind.sub=ind.sub&&!Array.isArray(ind.sub)?ind.sub:{};
   const ovs=new Map(); // id -> definición guardable
-  let magnet=o.magnet||"normal",locked=false,hidden=false;let stay=false;try{stay=localStorage.getItem("eag_stay")==="1"}catch(e){}
+  let magnet=o.magnet||"normal",locked=false,hidden=false;let stay=false,ttWait=null;try{stay=localStorage.getItem("eag_stay")==="1"}catch(e){}
   /* mantener modo dibujo: al terminar un dibujo, la misma herramienta queda lista para el siguiente */
   const again2=n=>{if(!stay||!n||/^(eagBrush|eagHighlighter)$/.test(n))return;setTimeout(()=>{if(stay&&!drawingId)startTool(n)},80)};
 
@@ -1017,7 +1017,7 @@ ${o.onTracker?`<button class="wtrk" title="Marcador de operaciones (ganadas, per
     const scrollLock=!!(brushOn||drawingId||(touch&&selId)),zoomLock=!!(brushOn||(touch&&(drawingId||selId)));
     const k=scrollLock+"|"+zoomLock;if(k===panLocked)return;panLocked=k;
     try{chart.setScrollEnabled(!scrollLock);chart.setZoomEnabled(!zoomLock)}catch(e){}chartEl.classList.toggle("locked",scrollLock)}
-  function cancelDraw(){hideFin();if(drawingId){try{chart.removeOverlay(drawingId)}catch(e){}ovs.delete(drawingId);drawingId=null}dbar.querySelectorAll(".dt").forEach(b=>b.classList.remove("act"));syncPan()}
+  function cancelDraw(){hideFin();if(ttWait){const w=ttWait;ttWait=null;try{chart.removeOverlay(w.id)}catch(e){}ovs.delete(w.id);persist()}if(drawingId){try{chart.removeOverlay(drawingId)}catch(e){}ovs.delete(drawingId);drawingId=null}dbar.querySelectorAll(".dt").forEach(b=>b.classList.remove("act"));syncPan()}
   const toolOK=n=>!o.toolAllowed||o.toolAllowed(n);
   /* herramientas sin número fijo de puntos (Ondas libres): se terminan con doble clic, clic derecho o el botón «Terminar» */
   const FREE=n=>{try{const C=KC.getOverlayClass(n);return C&&new C().totalStep>1000}catch(e){return false}};
@@ -1537,7 +1537,11 @@ ${o.onTracker?`<button class="wtrk" title="Marcador de operaciones (ganadas, per
     const ptAt=(x,y)=>{let p=null;try{p=chart.convertFromPixel([{x,y}],{paneId:"candle_pane"})[0]}catch(e){}if(!p||!isFinite(p.value))return null;return{timestamp:tsOf(p),dataIndex:p.dataIndex,value:p.value}};
     const rel=t=>{const r=chartEl.getBoundingClientRect();return{x:t.clientX-r.left,y:t.clientY-r.top}};
     const setPts=(id,name,a,b)=>{try{chart.overrideOverlay({id,points:BOX.test(name)?boxPts(a,b):[a,b]})}catch(e){}};
-    chartEl.addEventListener("touchstart",e=>{if(dd||!drawingId||brushOn||e.touches.length!==1)return;let ov;try{ov=chart.getOverlayById(drawingId)}catch(x){}
+    chartEl.addEventListener("touchstart",e=>{if(dd||brushOn||e.touches.length!==1)return;
+      /* segundo toque: el segundo punto va justo donde tocas (y puedes arrastrar para ajustarlo) */
+      if(ttWait&&!drawingId){const w=ttWait;if(!ovs.has(w.id)){ttWait=null;return}const t=rel(e.touches[0]),p1=ptAt(t.x,t.y);if(!p1)return;e.stopPropagation();e.preventDefault();ttWait=null;
+        dd={id:w.id,name:w.name,p0:w.p0,x0:w.x0,y0:w.y0,lx:t.x,ly:t.y,moved:true,second:true};setPts(w.id,w.name,w.p0,p1);syncPan();return}
+      if(!drawingId)return;let ov;try{ov=chart.getOverlayById(drawingId)}catch(x){}
       if(!ov||ov.totalStep!==3||(ov.points||[]).length>1)return;const v=ovs.get(drawingId);if(!v)return;
       const t=rel(e.touches[0]),p0=ptAt(t.x,t.y);if(!p0)return;
       e.stopPropagation();e.preventDefault();
@@ -1547,14 +1551,13 @@ ${o.onTracker?`<button class="wtrk" title="Marcador de operaciones (ganadas, per
     chartEl.addEventListener("touchmove",e=>{if(!dd)return;e.stopPropagation();e.preventDefault();const t=rel(e.touches[0]);
       if(Math.hypot(t.x-dd.x0,t.y-dd.y0)>6)dd.moved=true;dd.lx=t.x;dd.ly=t.y;const p1=ptAt(t.x,t.y);if(p1)setPts(dd.id,dd.name,dd.p0,p1)},{capture:true,passive:false});
     const end=e=>{if(!dd)return;e.stopPropagation();e.preventDefault();const d=dd;dd=null;
-      if(!d.moved){/* toque sin arrastrar: se pone de un tamaño normal para estirarlo después */
-        const W=chartEl.clientWidth,dx=BOX.test(d.name)?Math.max(110,W*.3):Math.min(110,W*.28),dy=/^(segment|rayLine|straightLine|fibonacciLine)$/.test(d.name)?-50:60;
-        const p1=ptAt(d.x0+dx,d.y0+dy);if(p1)setPts(d.id,d.name,d.p0,p1)}
+      if(!d.moved){/* toque sin arrastrar: queda el primer punto y el siguiente toque pone el segundo, justo donde toques */
+        ttWait={id:d.id,name:d.name,p0:d.p0,x0:d.x0,y0:d.y0};syncPan();o.onToast&&o.onToast("Ahora toca donde va el segundo punto");return}
       else if(BOX.test(d.name)||d.name==="rect"){/* zonas y rectángulos: ancho mínimo para que el cuadro del centro se vea bien */
         const W=chartEl.clientWidth,minW=Math.max(110,W*.3),dxp=d.lx-d.x0;
         if(Math.abs(dxp)<minW){const sg=dxp<0&&d.x0-minW>8?-1:1,p1=ptAt(d.x0+sg*minW,d.ly);if(p1)setPts(d.id,d.name,d.p0,p1)}}
       dbar.querySelectorAll(".dt").forEach(b=>b.classList.remove("act"));
-      try{capture(chart.getOverlayById(d.id))}catch(x){}syncPan()};
+      try{capture(chart.getOverlayById(d.id))}catch(x){}syncPan();again2(d.name)};
     chartEl.addEventListener("touchend",end,{capture:true,passive:false});chartEl.addEventListener("touchcancel",end,{capture:true,passive:false});
     /* computador: eliges la herramienta, haces clic y arrastras → el dibujo se va viendo y queda al soltar (sin otro clic).
        Si solo das clic sin arrastrar, funciona como antes (clic en el primer punto y clic en el segundo). */
