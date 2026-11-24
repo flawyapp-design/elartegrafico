@@ -79,6 +79,16 @@ function mergeMsgs(a,b){const m=new Map();a.concat(b).forEach(x=>m.set(x.id,Obje
 const readAt={};
 function markRead(room){const L=msgs[room];if(!L||!L.length)return;const last=L[L.length-1].id;const t=threads.find(x=>x.room===room);if(t){t.unread=0}
   unread=threads.reduce((a,t)=>a+(t.room===GEN?0:(+t.unread||0)),0);paintBtn();if(readAt[room]===last)return;readAt[room]=last;X.API.chatRead(room,last).catch(()=>{});if(bc)bc.postMessage({k:"read",r:{user_id:ME.id,room,last_id:last}})}
+/* Grupo: quién leyó cada mensaje (se pregunta cada ~15 s mientras el grupo está abierto) */
+let grpR=[],grpRT=0,grpRBusy=false;
+function loadGrpReads(force){if(view.room!==GEN||!X.API.chatGroupReads||grpRBusy)return;const L=msgs[GEN];if(!L||!L.length)return;if(!force&&Date.now()-grpRT<12000)return;
+  grpRT=Date.now();grpRBusy=true;X.API.chatGroupReads(L[0].id).then(r=>{const old=JSON.stringify(grpR);grpR=(r||[]).filter(x=>x.user_id!==ME.id);if(view.room===GEN&&JSON.stringify(grpR)!==old)paintRoom()}).catch(()=>{}).finally(()=>{grpRBusy=false})}
+const readersOf=m=>grpR.filter(r=>(+r.last_id||0)>=m.id&&r.user_id!==m.sender);
+function eyePop(id,anchor){const old=document.querySelector(".sp-eyes");if(old){old.remove();if(old.dataset.id===String(id))return}const m=(msgs[GEN]||[]).find(x=>x.id===id);if(!m)return;const R=readersOf(m);
+  const el=document.createElement("div");el.className="sp-eyes";el.dataset.id=id;el.innerHTML=`<b>👁 Visto por ${R.length}</b><div>${R.map(r=>`<span>${av({id:r.user_id,username:r.username,avatar_url:r.avatar_url},"sm")}<i>${esc(r.username||"Usuario")}</i></span>`).join("")||"<small>Nadie todavía</small>"}</div>`;
+  document.body.appendChild(el);const a=anchor.getBoundingClientRect();el.style.left=Math.max(8,Math.min(innerWidth-el.offsetWidth-8,a.right-el.offsetWidth))+"px";el.style.top=(a.top-el.offsetHeight-6>8?a.top-el.offsetHeight-6:a.bottom+6)+"px";
+  setTimeout(()=>addEventListener("pointerdown",function f(e){if(!el.contains(e.target)){el.remove();removeEventListener("pointerdown",f,true)}},true),0)}
+setInterval(()=>{if(panel&&view.room===GEN&&!document.hidden)loadGrpReads(true)},15000);
 /* "Visto": hasta dónde leyó la otra persona */
 function onRead(r){if(!r||!r.room||r.user_id===ME.id||r.room===GEN)return;const t=threads.find(x=>x.room===r.room);if(!t)return;
   if((+r.last_id||0)>(+t.other_read||0)){t.other_read=+r.last_id;if(view.room===r.room)paintRoom()}}
@@ -244,6 +254,8 @@ function paintRoom(toBottom){if(!panel||!view.room)return;const room=view.room,i
   box.ondblclick=e=>{const mm=e.target.closest("[data-mid]");if(mm)react(+mm.dataset.mid,"👍",room)};
   box.querySelectorAll("[data-acc]").forEach(b=>b.onclick=()=>acceptCall(b.dataset.acc,room));
   box.querySelectorAll("[data-jg]").forEach(b=>b.onclick=()=>joinVoiceGroup());
+  box.querySelectorAll("[data-eye]").forEach(b=>b.onclick=e=>{e.stopPropagation();eyePop(+b.dataset.eye,b)});
+  if(isG)loadGrpReads(false);
   box.querySelectorAll("[data-rep]").forEach(b=>b.onclick=e=>{e.stopPropagation();const m=(msgs[room]||[]).find(x=>x.id===+b.dataset.rep);if(!m)return;
     replyTo[room]={id:m.id,n:m.sender===ME.id?"ti":(m.username||nameOf(m.sender)),t:snip(m)};paintRoom();const t2=panel.querySelector(".sp-in textarea");t2&&t2.focus()});
   const ur=panel.querySelector("[data-unrep]");if(ur)ur.onclick=()=>{delete replyTo[room];paintRoom()};
@@ -274,7 +286,7 @@ function msgRow(m,prev,isG){const mine=m.sender===ME.id,adm=X.isAdmin();const gr
   const repb=m.id&&["text","idea","share","img"].includes(m.kind)?`<button class="sp-del" data-rep="${m.id}" title="Responder este mensaje">↩</button>`:"";
   const rxb=m.id&&["text","idea","share","img"].includes(m.kind)?`<button class="sp-del" data-rxp="${m.id}" title="Reaccionar (o doble clic = 👍)">😊</button>`:"";
   return`<div class="sp-msg${mine?" me":""}${grp?" grp":""}" data-mid="${m.id}">${!mine&&isG&&!grp?av({id:m.sender,username:m.username,avatar_url:m.avatar_url},"sm"):!mine&&isG?'<span class="sav sm ghost"></span>':""}
-    <div class="sp-bx">${!mine&&isG&&!grp?`<span class="sp-who" style="color:${colorOf(m.sender)}">${esc(m.username||"Usuario")}${m.is_admin?' <span class="sp-tag">Profe</span>':vb(m)}</span>`:""}${quote}${inner}<span class="sp-time">${hhmm(m.created_at)}${m.__seen?` · <span class="sp-seen">${m.__seen}</span>`:""}</span>${rx}</div><span class="sp-tools">${repb}${rxb}${pm}${tools}${mute}</span></div>`}
+    <div class="sp-bx">${!mine&&isG&&!grp?`<span class="sp-who" style="color:${colorOf(m.sender)}">${esc(m.username||"Usuario")}${m.is_admin?' <span class="sp-tag">Profe</span>':vb(m)}</span>`:""}${quote}${inner}<span class="sp-time">${hhmm(m.created_at)}${m.__seen?` · <span class="sp-seen">${m.__seen}</span>`:""}${isG&&m.id&&m.kind!=="call"?(()=>{const n=readersOf(m).length;return n?` · <button class="sp-eye" data-eye="${m.id}" title="Ver quién lo leyó">👁 ${n}</button>`:""})():""}</span>${rx}</div><span class="sp-tools">${repb}${rxb}${pm}${tools}${mute}</span></div>`}
 
 /* ===================== burbuja flotante (estilo Messenger) ===================== */
 let head=null,headPrev=null,headDrop=null,lastFrom=null;

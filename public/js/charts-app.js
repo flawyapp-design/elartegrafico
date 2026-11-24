@@ -536,7 +536,7 @@ function start(){
   /* ---------- gráficos ---------- */
   const DEF=["BOOM1000","CRASH1000","BOOM500","CRASH500","BOOM300N","CRASH300N"];
   SAVE.panes=Array.isArray(SAVE.panes)?SAVE.panes:[];
-  const grid=$("#grid"),panes=[];let active=0;
+  const grid=$("#grid"),panes=[];window.__eagPanes=panes;let active=0;
   /* pestañas de mercados arriba o abajo (como MT5); en Multi-TF van justo encima de la multitemporalidad */
   function placeFt(){const ftw=$(".ftw"),center=$(".center");if(!ftw||!center)return;const bot=SAVE.ftPos==="bottom";appw.classList.toggle("ftbot",bot);
     const mr=grid.classList.contains("mtf")?grid.querySelector(":scope>.mtfrow"):null;
@@ -1331,17 +1331,29 @@ function start(){
   const tfav=document.createElement("div");tfav.className="tfav";appw.appendChild(tfav);
   /* la posición se guarda aparte para celular y para computador (si no, la del PC deja la barra fuera de la pantalla del celular) */
   const tfKey=()=>(innerWidth<760||matchMedia("(hover:none)").matches)?"tfavPosM":"tfavPos";
+  const posKey=()=>tfKey()+(SAVE.tfavMin?"Eye":"");
   function placeTfav(){const r=grid.getBoundingClientRect(),w=tfav.offsetWidth||200,h=tfav.offsetHeight||36,sf=safe();
-    const P=SAVE[tfKey()];let x,y;if(P){x=P.x;y=P.y}else{x=r.left+r.width/2-w/2;y=r.top+(SAVE.hide.pb?36:76)}
+    const P=SAVE[posKey()]||(SAVE.tfavMin?SAVE[tfKey()]:null);let x,y;if(P){x=P.x;y=P.y}else{x=r.left+r.width/2-w/2;y=r.top+(SAVE.hide.pb?36:76)}
     const minY=Math.max(4,sf.t+4);
     tfav.style.left=clamp(x,sf.l+4,Math.max(sf.l+4,innerWidth-w-sf.r-4))+"px";tfav.style.top=clamp(y,minY,Math.max(minY,innerHeight-h-sf.b-4))+"px"}
   addEventListener("resize",()=>requestAnimationFrame(placeTfav));addEventListener("orientationchange",()=>setTimeout(placeTfav,300));
+  const EYE='<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>';
   function renderToolFav(){const T=window.EAGTools;
+    /* minimizada: queda solo un ojito que se arrastra adonde quieras; al tocarlo vuelve la barra */
+    if(SAVE.tfavMin){tfav.classList.add("mini");tfav.classList.remove("vert");tfav.innerHTML=`<button class="teye" title="Mostrar la barra de dibujos favoritos · arrástralo para moverlo">${EYE}</button>`;
+      tfav.style.display=SAVE.toolFav.length&&!SAVE.hide.tf?"":"none";appw.classList.toggle("has-tfav",SAVE.toolFav.length>0);
+      const b=tfav.querySelector(".teye");let st=null;
+      b.addEventListener("pointerdown",e=>{if(e.button!==0)return;e.preventDefault();const r=tfav.getBoundingClientRect();st={x:e.clientX,y:e.clientY,dx:e.clientX-r.left,dy:e.clientY-r.top,mv:false};try{b.setPointerCapture(e.pointerId)}catch(x){}});
+      b.addEventListener("pointermove",e=>{if(!st)return;if(!st.mv&&Math.hypot(e.clientX-st.x,e.clientY-st.y)<5)return;st.mv=true;tfav.classList.add("moving");SAVE[posKey()]={x:Math.round(e.clientX-st.dx),y:Math.round(e.clientY-st.dy)};placeTfav()});
+      b.addEventListener("pointerup",()=>{if(!st)return;const mv=st.mv;st=null;tfav.classList.remove("moving");if(mv){save();return}SAVE.tfavMin=false;save();renderToolFav()});
+      requestAnimationFrame(placeTfav);return}
+    tfav.classList.remove("mini");
     tfav.classList.toggle("vert",!!SAVE.tfavVert);
     tfav.innerHTML=`<span class="tg" title="Arrastra para mover · doble clic: girar">⋮⋮</span>`+SAVE.toolFav.map(k=>`<button data-t="${k}" title="${esc(T.name(k))}">${T.icon(k,18)}</button>`).join("")+
-      `<button class="tx" title="Ocultar barra (vuelve en Vista)">×</button>`;
+      `<button class="tmin" title="Minimizar en un ojito (lo puedes mover adonde quieras)">${EYE}</button><button class="tx" title="Ocultar barra (vuelve en Vista)">×</button>`;
     tfav.style.display=SAVE.toolFav.length&&!SAVE.hide.tf?"":"none";appw.classList.toggle("has-tfav",SAVE.toolFav.length>0);
     tfav.querySelectorAll("[data-t]").forEach(b=>b.onclick=()=>{const p=panes[active];if(p&&p.kc.startTool){tfav.querySelectorAll("[data-t]").forEach(x=>x.classList.toggle("on",x===b));p.kc.startTool(b.dataset.t);setTimeout(()=>b.classList.remove("on"),4000)}});
+    tfav.querySelector(".tmin").onclick=()=>{const r=tfav.getBoundingClientRect();if(!SAVE[tfKey()+"Eye"])SAVE[tfKey()+"Eye"]={x:Math.round(r.left),y:Math.round(r.top)};SAVE.tfavMin=true;save();renderToolFav()};
     tfav.querySelector(".tx").onclick=()=>{SAVE.hide.tf=true;save();applyHide();panes.forEach(p=>{try{p.kc.refreshBar()}catch(e){}});toast("Barra rápida oculta. Vuelve a mostrarla con la ★ de la barra de dibujo.")};
     const g=tfav.querySelector(".tg");
     g.addEventListener("pointerdown",e=>{if(e.button!==0)return;e.preventDefault();const r=tfav.getBoundingClientRect(),dx=e.clientX-r.left,dy=e.clientY-r.top;try{g.setPointerCapture(e.pointerId)}catch(x){}tfav.classList.add("moving");

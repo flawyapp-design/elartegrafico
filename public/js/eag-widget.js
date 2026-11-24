@@ -17,6 +17,7 @@ const hexA=(h,a)=>{h=String(h||GOLD).replace("#","");if(h.length===3)h=h.split("
 const BOX=/^(eagZone|eagRect|eagBuyZone|eagSellZone)$/;
 /* calculadora de lote: id del dibujo → mercado (la fórmula y el riesgo los pone charts-app en window.__eagLot) */
 const OVSYM=new Map();
+const TXTFAM='Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif';
 const lotOf=(id,entry,sl)=>{try{const f=window.__eagLot;return f?f(OVSYM.get(id),entry,sl)||"":""}catch(e){return""}};
 /* de 2 esquinas opuestas a los 8 puntos de la caja */
 /* rectángulo/zonas: 2 esquinas → 8 puntos. Ojo: un punto dibujado a la derecha de la última vela no trae hora (solo índice);
@@ -181,13 +182,15 @@ function registerAll(){
   /* Texto */
   KC.registerOverlay({name:"eagText",totalStep:2,needDefaultPointFigure:false,needDefaultXAxisFigure:true,needDefaultYAxisFigure:true,
     createPointFigures:({overlay,coordinates})=>{const c=coordinates[0];if(!c)return[];const ex=overlay.extendData||{};
-      return[{type:"text",attrs:{x:c.x,y:c.y,text:ex.text||"Texto",align:"left",baseline:"middle"},styles:{color:ex.color||GOLD,size:ex.size||14,backgroundColor:ex.bg||"transparent",borderSize:0,paddingLeft:4,paddingRight:4,paddingTop:2,paddingBottom:2,borderRadius:3}}]}});
+      if(!ex.bg||ex.bg==="transparent")return[{type:"eagLbl",attrs:{x:c.x+4,y:c.y,text:ex.text||"Texto",align:"left",baseline:"middle"},styles:{color:ex.color||GOLD,size:ex.size||14,bold:ex.b!==false,halo:true}},
+        {type:"rect",attrs:{x:c.x,y:c.y-(ex.size||14)*.7,width:Math.max(30,String(ex.text||"Texto").length*(ex.size||14)*.56),height:(ex.size||14)*1.4},styles:{style:"fill",color:"rgba(0,0,0,0)"}}];
+      return[{type:"text",attrs:{x:c.x,y:c.y,text:ex.text||"Texto",align:"left",baseline:"middle"},styles:{color:ex.color||GOLD,size:ex.size||14,family:TXTFAM,weight:"600",backgroundColor:ex.bg,borderSize:0,paddingLeft:6,paddingRight:6,paddingTop:3,paddingBottom:3,borderRadius:4}}]}});
   /* Nota con flecha: un cuadro con tu texto y una flecha que apunta al precio/vela que marcaste */
   KC.registerOverlay({name:"eagNote",totalStep:2,needDefaultPointFigure:true,needDefaultXAxisFigure:true,needDefaultYAxisFigure:true,
     createPointFigures:({overlay,coordinates})=>{const c=coordinates[0];if(!c)return[];const ex=overlay.extendData||{},col=ex.color||GOLD,up=c.y>70,ty=up?c.y-40:c.y+40;
       return[{type:"line",attrs:{coordinates:[{x:c.x,y:up?c.y-28:c.y+28},{x:c.x,y:up?c.y-7:c.y+7}]},styles:{color:col,size:1.5}},
         {type:"polygon",attrs:{coordinates:up?[{x:c.x,y:c.y-3},{x:c.x-4.5,y:c.y-10},{x:c.x+4.5,y:c.y-10}]:[{x:c.x,y:c.y+3},{x:c.x-4.5,y:c.y+10},{x:c.x+4.5,y:c.y+10}]},styles:{style:"fill",color:col}},
-        {type:"text",attrs:{x:c.x,y:ty,text:ex.text||"Nota",align:"center",baseline:"middle"},styles:{color:ex.tc||"#fff",size:ex.size||12,weight:"600",backgroundColor:col,borderColor:col,borderSize:1,paddingLeft:8,paddingRight:8,paddingTop:5,paddingBottom:5,borderRadius:6}}]}});
+        {type:"text",attrs:{x:c.x,y:ty,text:ex.text||"Nota",align:"center",baseline:"middle"},styles:{color:ex.tc||"#fff",size:ex.size||12,weight:"600",family:TXTFAM,backgroundColor:col,borderColor:col,borderSize:1,paddingLeft:8,paddingRight:8,paddingTop:5,paddingBottom:5,borderRadius:6}}]}});
   /* ===================== Herramientas extra (como TradingView) ===================== */
   {
     const LC=ov=>(((ov.styles||{}).line||{}).color)||GOLD;
@@ -336,7 +339,7 @@ function registerAll(){
   /* orden: 0 sup-izq · 1 sup-der · 2 inf-der · 3 inf-izq · 4 mitad arriba · 5 mitad derecha · 6 mitad abajo · 7 mitad izquierda */
   const exactXs=(overlay,coordinates,xAxis)=>{try{const L=xAxis.getParent().getChart().getDataList();const P=overlay.points||[];
       return coordinates.map((c,k)=>{const q=P[k];const fi=q&&okT(q.timestamp)?fiOfTs(L,q.timestamp):null;return fi==null?c.x:xAxis.convertToPixel(fi)})}catch(e){return coordinates.map(c=>c.x)}};
-  const boxFig=kind=>({overlay,coordinates,bounding,xAxis})=>{
+  const boxFig=kind=>({overlay,coordinates,bounding,xAxis,precision})=>{
     if(coordinates.length<2)return[];const ex=overlay.extendData||{};
     const xs0=exactXs(overlay,coordinates,xAxis),ys=coordinates.map(c=>c.y);let x1=Math.min(...xs0),x2=Math.max(...xs0);if(x2-x1<2)x2=x1+2;const xR=x2;const y1=Math.min(...ys),y2=Math.max(...ys),h=y2-y1;
     if(kind==="zoneR")x2=bounding.width;
@@ -350,7 +353,9 @@ function registerAll(){
       F.push({type:"line",key:"edgeB",attrs:{coordinates:[{x:0,y:y2},{x:bounding.width,y:y2}]},styles:{color:bot,size:lw}});
       const tv=overlay.points&&overlay.points.length?Math.max(...overlay.points.map(q=>q.value)):null,bv=overlay.points&&overlay.points.length?Math.min(...overlay.points.map(q=>q.value)):null;
       const lot=tv!=null?lotOf(overlay.id,kind==="buy"?tv:bv,kind==="buy"?bv:tv):"";
-      F.push({type:"text",ignoreEvent:true,attrs:{x:x1+6,y:y1+6,text:(ex.text||(kind==="buy"?"Compra":"Venta"))+(lot?" · "+lot:""),baseline:"top"},styles:{color:"#fff",size:11,backgroundColor:kind==="buy"?top:top,paddingLeft:6,paddingRight:6,paddingTop:2,paddingBottom:2,borderRadius:4}});
+      /* cuántos puntos mide la zona (de la entrada al SL) */
+      const pr=(precision&&precision.price!=null)?precision.price:2,pts=tv!=null?Math.abs(tv-bv):null,ptsT=pts!=null?pts.toLocaleString("en-US",{minimumFractionDigits:pr,maximumFractionDigits:pr})+" pts":"";
+      F.push({type:"text",ignoreEvent:true,attrs:{x:x1+6,y:y1+6,text:(ex.text||(kind==="buy"?"Compra":"Venta"))+(ptsT?" · "+ptsT:"")+(lot?" · "+lot:""),baseline:"top"},styles:{color:"#fff",size:11,backgroundColor:kind==="buy"?top:top,paddingLeft:6,paddingRight:6,paddingTop:2,paddingBottom:2,borderRadius:4}});
       /* etiquetas en cada línea: verde = Entrada, roja = SL (a la derecha, junto a la regla de precios) */
       const tag=(y,txt,c,above)=>F.push({type:"text",ignoreEvent:true,attrs:{x:bounding.width-6,y:above?y-4:y+4,text:txt,align:"right",baseline:above?"bottom":"top"},styles:{color:"#fff",size:AXF-.5,weight:"bold",backgroundColor:c,paddingLeft:Math.round(AXF*.45),paddingRight:Math.round(AXF*.45),paddingTop:2,paddingBottom:2,borderRadius:3}});
       tag(y1,kind==="buy"?"Entrada":"SL",top,true);tag(y2,kind==="buy"?"SL":"Entrada",bot,false);
@@ -391,10 +396,12 @@ function registerAll(){
       Object.keys(tpl).forEach(k=>tpl[k]===undefined&&delete tpl[k]);KC.registerOverlay(tpl)})}catch(e){console.warn("ejes",e)}
   /* ---------- texto en cualquier dibujo (como TradingView): extendData.lbl = {t, c, s, b, i, h:left|center|right, v:top|middle|bottom} ---------- */
   try{
-    const FAM=(()=>{try{return getComputedStyle(document.body).fontFamily||"sans-serif"}catch(e){return"sans-serif"}})();
-    KC.registerFigure({name:"eagLbl",checkEventOn:()=>false,draw:(ctx,a,st)=>{if(!a.text)return;ctx.save();ctx.translate(a.x,a.y);if(a.rot)ctx.rotate(a.rot);
-      ctx.font=`${st.italic?"italic ":""}${st.bold?"700 ":"500 "}${st.size||13}px ${FAM}`;ctx.textAlign=a.align||"left";ctx.textBaseline=a.baseline||"bottom";
-      if(st.halo){ctx.lineJoin="round";ctx.lineWidth=3;ctx.strokeStyle=st.halo;ctx.strokeText(a.text,0,a.dy||0)}ctx.fillStyle=st.color||GOLD;ctx.fillText(a.text,0,a.dy||0);ctx.restore()}});
+    /* letra de los textos de los dibujos: limpia y normal de ancho (antes salía gruesa por el borde negro) */
+    const FAM=TXTFAM;let bgC="",bgT=0;const bgNow=()=>{const n=Date.now();if(n-bgT>1500){bgT=n;try{bgC=getComputedStyle(document.documentElement).getPropertyValue("--bg").trim()||"#0b1020"}catch(e){bgC="#0b1020"}}return bgC};
+    KC.registerFigure({name:"eagLbl",checkEventOn:()=>false,draw:(ctx,a,st)=>{if(!a.text)return;ctx.save();ctx.translate(a.x,a.y);if(a.rot)ctx.rotate(a.rot);const sz=st.size||13;
+      ctx.font=`${st.italic?"italic ":""}${st.bold?"700 ":"500 "}${sz}px ${FAM}`;try{ctx.letterSpacing="0px";ctx.fontKerning="normal"}catch(e){}ctx.textAlign=a.align||"left";ctx.textBaseline=a.baseline||"bottom";
+      if(st.halo){ctx.lineJoin="round";ctx.miterLimit=2;ctx.lineWidth=Math.max(2,sz/5);ctx.globalAlpha=.85;ctx.strokeStyle=bgNow();ctx.strokeText(a.text,0,a.dy||0);ctx.globalAlpha=1}
+      ctx.fillStyle=st.color||GOLD;ctx.fillText(a.text,0,a.dy||0);ctx.restore()}});
     const colOf=ov=>{const lb=(ov.extendData||{}).lbl||{},s2=ov.styles||{},ex=ov.extendData||{};return lb.c||(s2.line&&s2.line.color)||(s2.polygon&&s2.polygon.borderColor)||ex.color||GOLD};
     const HL=/^(horizontalStraightLine|horizontalRayLine|horizontalSegment|priceLine)$/,VL=/^(verticalStraightLine|verticalRayLine|verticalSegment)$/,
       TL=/^(segment|rayLine|straightLine|arrow|parallelStraightLine|priceChannelLine)$/,BX=/^(rect|eagRect|eagZone|eagBuyZone|eagSellZone)$/;
@@ -641,7 +648,14 @@ ${o.onTracker?`<button class="wtrk" title="Marcador de operaciones (ganadas, per
   let noMore=false;
   /* escala de precios automática otra vez (si se estiró a mano, al cambiar de mercado quedaba congelada) */
   function autoScale(){try{const ax=chart._candlePane&&chart._candlePane.getAxisComponent();if(ax){ax._autoCalcTickFlag=true;chart.adjustPaneViewport(false,true,true,true)}}catch(e){}}
-  async function loadData(){
+  /* al cambiar de temporalidad estando atrás en el historial (buscando zonas), se queda en esa misma fecha */
+  let pinTs=null;/* la fecha en la que se centró al cambiar de temporalidad: si sigue a la vista, se conserva en el siguiente cambio */
+  function anchorTs(){try{const L=chart.getDataList(),r=chart.getVisibleRange();if(!L.length||!r)return null;
+    if(r.realTo<L.length-2){const i=Math.max(0,Math.min(L.length-1,Math.round((r.realFrom+r.realTo)/2)));return pinTs=L[i].timestamp}
+    const a=L[Math.max(0,r.realFrom)].timestamp;if(pinTs&&pinTs>=a)return pinTs;return pinTs=null}catch(e){return null}}
+  function centerOn(ts){pinTs=ts;try{const L=chart.getDataList();if(!L.length)return;let i=L.findIndex(k=>k.timestamp>=ts);if(i<0)i=L.length-1;
+    chart.scrollToDataIndex(i,0);for(let n=0;n<3;n++){const r=chart.getVisibleRange(),mid=(r.realFrom+r.realTo)/2,d=(i-mid)*chart.getBarSpace();if(Math.abs(d)<chart.getBarSpace())break;chart.scrollByDistance(-d,0)}}catch(e){}}
+  async function loadData(anchor){
     const g=++gen;ready=false;noMore=false;
     if(subKey){o.datafeed.unsubscribe(subKey.s,subKey.p);subKey=null}
     bulk=true;try{chart.clearData()}catch(e){}bulk=false;applyDec();
@@ -654,6 +668,12 @@ ${o.onTracker?`<button class="wtrk" title="Marcador de operaciones (ganadas, per
     chart.applyNewData(viewOf(list),list.length>0&&XF!=="renko");autoScale();ready=true;applyStyles();offR=null;fixOffR(true);
     o.datafeed.subscribe(sym,per,d=>{if(g===gen){liveUpdate(d);cdKick(120)}});subKey={s:sym,p:per};
     restoreDrawings();azKey=null;setTimeout(refreshAuto,50);
+    if(anchor&&list.length){/* si esa fecha es más vieja que lo cargado, trae más historial (hasta 6 veces) */
+      let first=list[0].timestamp,more=true;for(let n=0;n<6&&anchor<first+msOf(per)*20&&more;n++){const to2=first-1,from2=to2-msOf(per)*990;
+        let old=[];try{old=await o.datafeed.getHistoryKLineData(sym,per,from2,to2)}catch(e){break}if(g!==gen)return;
+        old=old.filter(k=>k.timestamp<first).sort((x,y)=>x.timestamp-y.timestamp);more=old.length>0;if(!more){noMore=true;break}
+        RAW=old.concat(RAW);try{chart.applyMoreData(viewOf(old),true)}catch(e){break}first=old[0].timestamp}
+      setTimeout(()=>{if(g===gen)centerOn(anchor)},30)}
   }
   chart.setLoadDataCallback(async({type,data,callback})=>{
     if(type!=="forward"||!data){callback([],false);return}
@@ -803,7 +823,7 @@ ${o.onTracker?`<button class="wtrk" title="Marcador de operaciones (ganadas, per
   {const tb=root.querySelector(".wtrk");if(tb){tb.onclick=e=>{e.stopPropagation();o.onTracker()};tb.addEventListener("pointerdown",e=>e.stopPropagation())}}
   root.querySelectorAll(".wnav button").forEach(b=>b.onclick=e=>{e.stopPropagation();const n=b.dataset.n,w=chartEl.clientWidth;
     try{if(n==="left")chart.scrollByDistance(w*.35,250);else if(n==="right")chart.scrollByDistance(-w*.35,250);
-      else if(n==="reset"){if(bs0)chart.setBarSpace(bs0);chart.scrollToRealTime(300);autoScale()}
+      else if(n==="reset"){pinTs=null;if(bs0)chart.setBarSpace(bs0);chart.scrollToRealTime(300);autoScale()}
       else if(n==="reload"){if(o.onFullReload&&o.onFullReload()){b.classList.add("spin");return}b.classList.add("spin");setTimeout(()=>b.classList.remove("spin"),900);if(bs0)chart.setBarSpace(bs0);loadData();o.onReload&&o.onReload()}}catch(x){}});
 
   /* ---------- barra de dibujo ---------- */
@@ -1374,7 +1394,7 @@ ${o.onTracker?`<button class="wtrk" title="Marcador de operaciones (ganadas, per
     menu.querySelectorAll("[data-om]").forEach(b=>b.onclick=()=>{const t=b.dataset.om;if(!b.classList.contains("sure")){b.classList.add("sure");b.title="Toca otra vez para borrar";b.innerHTML="¿Seguro?";return}
       const all2=loadD();delete all2[t];saveD(all2);o.onDrawingsChange&&o.onDrawingsChange(t);o.onToast&&o.onToast("Dibujos de "+t+" borrados");re()})}
   o.openObjList=()=>openObjList();
-  function resetView(){try{chart.setBarSpace(8);chart.scrollToRealTime(200)}catch(e){}autoScale();fixOffR(true)}
+  function resetView(){pinTs=null;try{chart.setBarSpace(8);chart.scrollToRealTime(200)}catch(e){}autoScale();fixOffR(true)}
   function quickLine(name,ts,v){if(!toolOK(name)){o.onLocked&&o.onLocked("tool",TNAME[name]||name);return}
     const st=(o.getToolStyle&&o.getToolStyle(name))||{};const id=makeOverlay({name,points:[{timestamp:ts,value:v}],styles:st.styles||undefined,extendData:(st.ex&&Object.keys(st.ex).length)?st.ex:undefined},false);
     if(id){const vv=ovs.get(id);if(vv){if(!vv.tfv&&o.drawTfOnly&&o.drawTfOnly())vv.tfv=[curTf()];vv.done=true}persist()}}
@@ -1597,7 +1617,7 @@ ${o.onTracker?`<button class="wtrk" title="Marcador de operaciones (ganadas, per
   return{chart,el:root,laser:on=>setLaser(on),laserOn:()=>laserOn,laserRemote,startTool:n=>{stopBrush();startTool(n)},stopBrush:()=>stopBrush(),startBrush:()=>startBrush(),undo,redo,renderAlerts,cancelDraw:()=>cancelDraw(),
     getSymbol:()=>sym,setSymbol(s,p){if(!s||(sym&&s.ticker===sym.ticker&&s.pricePrecision===sym.pricePrecision))return;if(sym&&s.ticker!==sym.ticker)clearHist();sym=s;if(p&&p.text)per=p;loadData();try{paintBar()}catch(e){}},
     getPeriod:()=>per,getData:()=>chart.getDataList(),getRaw:()=>RAW,
-    refreshXform(){if(xfNow()!==XF||XF==="renko")loadData()},setPeriod(p){if(!p||p.text===per.text)return;per=p;loadData()},
+    refreshXform(){if(xfNow()!==XF||XF==="renko")loadData()},setPeriod(p){if(!p||p.text===per.text)return;const a=anchorTs();per=p;loadData(a)},
     getTheme:()=>theme,setTheme(t){theme=t;applyStyles()},
     setStyles(s){extra=s||{};applyStyles()},setDecimals(){applyDec();applyStyles()},
     refreshBar:paintBar,
