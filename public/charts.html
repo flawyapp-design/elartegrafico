@@ -264,7 +264,15 @@ body.lzall .mini .mc,body.lzall .mini .mc *{cursor:none}
 .wmenu .sw.auto{font-weight:700;font-size:11px;color:var(--fg)}
 .wmenu .tfc{gap:5px}
 .wmenu .tfx{min-width:44px;height:30px;border:1px solid var(--line2);border-radius:7px;background:transparent;color:var(--mut);cursor:pointer;font-size:12px;font-weight:600}
-.wmenu .tfx.on{background:var(--gold);border-color:var(--gold);color:#16120a}.wmenu .tfx.cur{box-shadow:0 0 0 2px var(--fg2) inset}.wmenu .tfx.on.cur{box-shadow:0 0 0 2px #16120a inset}
+.wmenu .tfx.on{background:rgba(216,176,98,.16);border-color:var(--gold);color:var(--gold)}.wmenu .tfx{position:relative}.wmenu .tfx.cur::after{content:"";position:absolute;left:50%;bottom:3px;width:4px;height:4px;margin-left:-2px;border-radius:50%;background:currentColor}
+.wmenu .vopts{display:grid;gap:4px;margin-bottom:8px}
+.wmenu .vopt{display:flex;align-items:center;gap:10px;width:100%;text-align:left;padding:8px 10px;border:1px solid var(--line2);border-radius:9px;background:transparent;color:var(--fg);cursor:pointer;font:inherit}
+@media (hover:hover){.wmenu .vopt:hover{border-color:var(--gold)}}
+.wmenu .vopt i{flex:none;width:14px;height:14px;border-radius:50%;border:2px solid var(--mut);box-sizing:border-box}
+.wmenu .vopt.on{border-color:var(--gold);background:rgba(216,176,98,.12)}.wmenu .vopt.on i{border-color:var(--gold);background:radial-gradient(circle,var(--gold) 0 3px,transparent 3.5px)}
+.wmenu .vopt span{display:grid;gap:1px;min-width:0}.wmenu .vopt b{font-size:13px;font-weight:600}.wmenu .vopt small{font-size:11.5px;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wmenu .vall{margin-top:10px;padding-top:10px;border-top:1px solid var(--line)}
+.wmenu .vchk{display:flex;gap:8px;align-items:flex-start;margin-top:8px;font-size:12.5px;line-height:1.35;color:var(--fg2);cursor:pointer}.wmenu .vchk input{margin-top:2px;accent-color:var(--gold)}
 .wmenu .mtag{font-style:normal;font-size:10.5px;background:var(--gold);color:#16120a;border-radius:8px;padding:0 6px;margin-left:6px;font-weight:700}
 .wstyle [data-a="pvs"].on{color:var(--gold);background:var(--gbg)}
 .top .pfb{flex:0 0 auto;display:inline-flex;align-items:center;gap:6px;height:34px;padding:0 10px;border-radius:10px;border:1px solid var(--line2);background:var(--card);color:var(--fg);font-size:12.5px;cursor:pointer;white-space:nowrap}

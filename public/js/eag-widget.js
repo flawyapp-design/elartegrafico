@@ -1215,9 +1215,15 @@ ${o.onTracker?`<button class="wtrk" title="Marcador de operaciones (ganadas, per
     const sel=new Set(v.tfv&&v.tfv.length?v.tfv:STDTF.map(x=>x[0]));const all=!v.tfv||!v.tfv.length;
     const idx=STDTF.findIndex(x=>x[0]===tf),KS=STDTF.map(x=>x[0]),qL={only:[tf],up:KS.slice(Math.max(0,idx)),down:KS.slice(0,idx+1)};
     const qIs=q=>!all&&qL[q].length<KS.length&&qL[q].join()===(v.tfv||[]).join();
-    const visHTML=`<p class="mhint">Marca en qué temporalidades se ve este dibujo. Así puedes marcar cosas distintas en cada temporalidad y cada mercado. Ahora estás en <b>${esc(tf)}</b>.</p>
-      <div class="mrow tfq"><button class="tbn wide${all?" on":""}" data-tq="all">Todas</button><button class="tbn wide${qIs("only")?" on":""}" data-tq="only">Solo ${esc(tf)}</button><button class="tbn wide${qIs("up")?" on":""}" data-tq="up">${esc(tf)} y mayores</button><button class="tbn wide${qIs("down")?" on":""}" data-tq="down">${esc(tf)} y menores</button></div>
-      <div class="mrow tfc">${STDTF.map(([t])=>`<button class="tfx${sel.has(t)?" on":""}${t===tf?" cur":""}" data-tf="${t}">${t}</button>`).join("")}</div>`;
+    const mode=all?"all":qIs("only")?"only":qIs("up")?"up":qIs("down")?"down":"custom",chips=mode==="custom"||visCustom===id;
+    const lst=k=>{const L=qL[k];return L.length>4?L[0]+" · "+L[1]+" … "+L[L.length-1]:L.join(" · ")};
+    const nAll=[...ovs.values()].filter(x=>x.done&&x.points&&x.points.length).length,symN=esc((sym&&(sym.shortName||sym.name||sym.ticker))||"este mercado");
+    const visHTML=`<div class="ml">¿Dónde se ve este dibujo?</div>
+      <div class="vopts">${[["all","En todas las temporalidades",""],["only",`Solo en ${esc(tf)}`,""],["up",`En ${esc(tf)} y mayores`,idx<0?"":lst("up")],["down",`En ${esc(tf)} y menores`,idx<0?"":lst("down")],["custom","Elegir a mano",mode==="custom"?(v.tfv||[]).join(" · "):""]].filter(r=>idx>=0||r[0]==="all"||r[0]==="custom").map(([k,t,sm])=>`<button class="vopt${(k==="custom"?chips:mode===k&&!chips)?" on":""}" data-tq="${k}"><i></i><span><b>${t}</b>${sm?`<small>${esc(sm)}</small>`:""}</span></button>`).join("")}</div>
+      ${chips?`<div class="mrow tfc">${STDTF.map(([t])=>`<button class="tfx${sel.has(t)?" on":""}${t===tf?" cur":""}" data-tf="${t}" title="${t===tf?"Temporalidad actual":""}">${t}</button>`).join("")}</div>`:""}
+      <div class="vall"><div class="ml">Todos los dibujos de ${symN} (${nAll})</div>
+        <div class="mrow"><button class="tbn wide" data-va="only" ${nAll?"":"disabled"}>Todos solo en ${esc(tf)}</button><button class="tbn wide" data-va="all" ${nAll?"":"disabled"}>Todos en todas</button></div>
+        <label class="vchk"><input type="checkbox" data-vnew${o.drawTfOnly&&o.drawTfOnly()?" checked":""}><span>Lo que dibuje de ahora en adelante, que se vea solo en la temporalidad donde lo hago</span></label></div>`;
     const isFib=FIBK.test(v.name),fc=isFib?fibCfg(v):null;
     const nivHTML=isFib?`<div class="fibl">${fc.levels.map((l,i)=>`<div class="fibr${l.on===false?" off":""}"><label class="fck"><input type="checkbox" data-fon="${i}"${l.on===false?"":" checked"}></label><input class="fiv" data-fv="${i}" type="number" step="any" value="${l.v}"><label class="fcl" style="background:${l.c}"><input type="color" data-fc="${i}" value="${/^#/.test(l.c)?l.c.slice(0,7):"#e2b55c"}"></label><button class="fix" data-fx="${i}" title="Quitar nivel">×</button></div>`).join("")}</div>
       <div class="mrow"><button class="tbn wide" data-fa="add">+ Agregar nivel</button><button class="tbn wide" data-fa="one" title="Pone todos los niveles del color del dibujo">Un solo color</button></div>
@@ -1282,10 +1288,15 @@ ${o.onTracker?`<button class="wtrk" title="Marcador de operaciones (ganadas, per
         if(a==="def"&&o.onToolStyle){const vv=ovs.get(id)||v,prev=(o.getToolStyle&&o.getToolStyle(vv.name))||{};o.onToolStyle(vv.name,{styles:vv.styles||prev.styles||null,ex:Object.assign({},prev.ex||{},{fib:c})});o.onToast&&o.onToast("Listo: tus próximos "+(TNAME[vv.name]||"dibujos")+" salen con estos niveles")}})}
     /* visibilidad */
     const visDone=ok=>{if(ok)again();else{closeMenu();hideStyleBar();selId=null;o.onToast&&o.onToast(`Listo: este dibujo ya no se ve en ${tf} (sigue guardado; aparece en las temporalidades que marcaste)`)}};
-    menu.querySelectorAll("[data-tf]").forEach(b=>b.onclick=()=>{const t=b.dataset.tf,cur=new Set(v.tfv&&v.tfv.length?v.tfv:STDTF.map(x=>x[0]));if(cur.has(t))cur.delete(t);else cur.add(t);
+    menu.querySelectorAll("[data-tf]").forEach(b=>b.onclick=()=>{visCustom=id;const t=b.dataset.tf,cur=new Set(v.tfv&&v.tfv.length?v.tfv:STDTF.map(x=>x[0]));if(cur.has(t))cur.delete(t);else cur.add(t);
       if(!cur.size){o.onToast&&o.onToast("Debe verse al menos en una temporalidad");return}visDone(setTfv(id,STDTF.map(x=>x[0]).filter(k=>cur.has(k))))});
     menu.querySelectorAll("[data-tq]").forEach(b=>b.onclick=()=>{const q=b.dataset.tq,ks=STDTF.map(x=>x[0]);let L=ks;
+      if(q==="custom"){visCustom=id;again();return}visCustom=null;
       if(q==="only")L=[tf];else if(q==="up")L=ks.slice(Math.max(0,idx));else if(q==="down")L=ks.slice(0,idx+1);visDone(setTfv(id,q==="all"?null:L))});
+    menu.querySelectorAll("[data-va]").forEach(b=>b.onclick=()=>{const one=b.dataset.va==="only";let n=0;
+      ovs.forEach((x,k)=>{if(x.done&&x.points&&x.points.length){setTfv(k,one?[tf]:null);n++}});visCustom=null;
+      o.onToast&&o.onToast(one?`Listo: ${n} dibujo${n===1?"":"s"} de ${sym&&(sym.shortName||sym.name)||"este mercado"} ahora se ven solo en ${tf}`:`Listo: ${n} dibujo${n===1?"":"s"} se ven en todas las temporalidades`);again()});
+    const vn=menu.querySelector("[data-vnew]");vn&&(vn.onchange=()=>{o.setDrawTfOnly&&o.setDrawTfOnly(vn.checked);o.onToast&&o.onToast(vn.checked?"Lo nuevo que dibujes se verá solo en la temporalidad donde lo hagas":"Lo nuevo que dibujes se verá en todas las temporalidades")});
     /* acciones */
     menu.querySelectorAll(".mi").forEach(b=>b.onclick=()=>{const a=b.dataset.a;
       if(a==="ptexto"||a==="pvis"){const rr=chartEl.getBoundingClientRect(),mx=menu.offsetLeft-rr.left,my=menu.offsetTop-rr.top;openCtx(id,{x:mx,y:my},true,a==="ptexto"?"texto":"vis");return}
@@ -1357,7 +1368,7 @@ ${o.onTracker?`<button class="wtrk" title="Marcador de operaciones (ganadas, per
       else if(k==="thist"){histSet(!histOn());if(histOn())paintHist(true);else{clearHist();o.onToast&&o.onToast("Historial de operaciones oculto")}}
       else if(k==="cfg")o.onSettings&&o.onSettings(root.querySelector('[data-a="cfg"]'))})}
   /* ---------- lista de dibujos (como la lista de objetos de MT5): ver, mostrar/ocultar, bloquear, editar y borrar uno por uno o varios ---------- */
-  let olPos=null,olSel=new Set();
+  let olPos=null,olSel=new Set();let visCustom=null;
   const descOf=v=>{const P=v.points||[],pp=dec(),ex=v.extendData||{};const t=(ex.lbl&&ex.lbl.t)||((v.name==="eagText"||v.name==="eagNote"||v.name==="eagEmoji")?ex.text:"")||"";
     const pr=P.length?P.map(q=>(+q.value).toFixed(pp)).slice(0,2).join(" → "):"";return{t,pr}};
   const fdt=ts=>{try{const d=new Date(ts);return d.toLocaleDateString("es-CO",{day:"2-digit",month:"short"})+" "+d.toLocaleTimeString("es-CO",{hour:"2-digit",minute:"2-digit",hour12:false})}catch(e){return""}};
@@ -1367,7 +1378,7 @@ ${o.onTracker?`<button class="wtrk" title="Marcador de operaciones (ganadas, per
     menu=document.createElement("div");menu.className="wmenu ctx panel olist";
     menu.innerHTML=`<div class="ph2"><span class="mti">${svg("list",16)}<b>Dibujos · ${esc(sym.shortName||sym.name||sym.ticker)} (${L.length})</b></span><button class="px" title="Cerrar">×</button></div>
       ${L.length?`<div class="olbar"><label><input type="checkbox" data-all${olSel.size&&olSel.size===L.length?" checked":""}> Todos</label><span class="grow"></span>
-        <button class="tbn" data-ob="hide" ${olSel.size?"":"disabled"} title="Ocultar / mostrar los marcados">${svg("eye",15)}</button><button class="tbn" data-ob="lock" ${olSel.size?"":"disabled"} title="Bloquear / desbloquear los marcados">${svg("lock",15)}</button>
+        <button class="tbn" data-ob="hide" ${olSel.size?"":"disabled"} title="Ocultar / mostrar los marcados">${svg("eye",15)}</button><button class="tbn" data-ob="lock" ${olSel.size?"":"disabled"} title="Bloquear / desbloquear los marcados">${svg("lock",15)}</button><button class="tbn" data-ob="tf" ${olSel.size?"":"disabled"} title="Los marcados se verán solo en la temporalidad actual">Solo ${esc(curTf())}</button>
         <button class="tbn danger" data-ob="del" ${olSel.size?"":"disabled"}>${svg("trash",15)} Borrar${olSel.size?" ("+olSel.size+")":""}</button></div>
       <div class="olrows">${L.map(([id,v])=>{const d=descOf(v),onTf=tfOk(v)||v.hid;return`<div class="olr${olSel.has(id)?" sel":""}${v.hid?" hid":""}${selId===id?" cur":""}" data-id="${esc(id)}">
         <input type="checkbox" data-ck${olSel.has(id)?" checked":""}>
@@ -1403,6 +1414,7 @@ ${o.onTracker?`<button class="wtrk" title="Marcador de operaciones (ganadas, per
       if(a==="del"){if(!b.classList.contains("sure")){b.classList.add("sure");b.innerHTML=`¿Borrar ${ids.length}?`;return}delMany(ids);o.onToast&&o.onToast(`${ids.length} ${ids.length===1?"dibujo borrado":"dibujos borrados"} · Ctrl+Z para deshacer`);re();return}
       if(a==="hide"){const anyVis=ids.some(id=>!(ovs.get(id)||{}).hid);ids.forEach(id=>setHid(id,anyVis))}
       if(a==="lock"){const anyUn=ids.some(id=>!(ovs.get(id)||{}).lock);ids.forEach(id=>setLock(id,anyUn))}
+      if(a==="tf"){const t=curTf();ids.forEach(id=>setTfv(id,[t]));o.onToast&&o.onToast(`Listo: ${ids.length} dibujo${ids.length===1?"":"s"} ahora se ven solo en ${t}`)}
       persist();re()});
     menu.querySelectorAll("[data-om]").forEach(b=>b.onclick=()=>{const t=b.dataset.om;if(!b.classList.contains("sure")){b.classList.add("sure");b.title="Toca otra vez para borrar";b.innerHTML="¿Seguro?";return}
       const all2=loadD();delete all2[t];saveD(all2);o.onDrawingsChange&&o.onDrawingsChange(t);o.onToast&&o.onToast("Dibujos de "+t+" borrados");re()})}
