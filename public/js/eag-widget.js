@@ -1148,20 +1148,33 @@ ${o.onTracker?`<button class="wtrk" title="Marcador de operaciones (ganadas, per
   function dupOv(id){const v=ovs.get(id);if(!v||!v.points)return;const L=chart.getDataList(),last=L[L.length-1],first=L[0],shift=(last&&first&&L.length>2)?(L[1].timestamp-L[0].timestamp)*5:0;
     const d=JSON.parse(JSON.stringify(v));d.points=d.points.map(p=>({timestamp:p.timestamp+shift,value:p.value}));const nid=makeOverlay(d,false);if(nid){ovs.get(nid).done=true;persist()}}
   function toggleLock(id){const v=ovs.get(id);if(!v)return;v.lock=!v.lock;chart.overrideOverlay({id,lock:v.lock});persist();if(!sbar.hidden)showStyleBar(id)}
-  function showStyleBar(id){const v=ovs.get(id);if(!v)return;const c=curStyle(id);
-    sbar.innerHTML=`<span class="sn">${tsvg(v.name,16)}${esc(TNAME[v.name]||v.name)}</span><label class="cc" title="Color"><i style="background:${c.color}"></i><input type="color" value="${/^#/.test(c.color)?c.color.slice(0,7):GOLD}"></label>
-      ${/^eag(Position|Long|Short)$/.test(v.name)?"":`<select title="Grosor">${[1,2,3,4].map(n=>`<option value="${n}" ${+c.size===n?"selected":""}>${n}px</option>`).join("")}</select>
-      <select title="Tipo de línea"><option value="solid" ${c.dash==="solid"?"selected":""}>━ Sólida</option><option value="dash" ${c.dash==="dash"?"selected":""}>╍ Guiones</option><option value="dot" ${c.dash==="dot"?"selected":""}>┈ Puntos</option></select>`}
-      ${v.name==="eagText"||v.name==="eagNote"?`<button data-a="txt" title="Editar texto">Aa</button>`:v.name==="eagEmoji"?`<button data-a="ptx" title="Cambiar emoji">🙂</button>`:!LBLX.test(v.name)?`<button data-a="ptx" title="Texto en este dibujo">Aa</button>`:""}<button data-a="pvs" class="${v.tfv&&v.tfv.length?"on":""}" title="En qué temporalidades se ve">${svg("eye",16)}</button>
-      ${alertable(v)?`<button data-a="alert" title="Crear alerta en este nivel">🔔</button>`:""}<button data-a="lock" title="${v.lock?"Desbloquear":"Bloquear"}">${svg(v.lock?"lock":"unlock",16)}</button><button data-a="dup" title="Duplicar">${svg("copy",16)}</button><button data-a="del" title="Eliminar (Supr)">${svg("trash",16)}</button><button data-a="cfg" title="Configurar este dibujo">${svg("gear",16)}</button>`;
-    sbar.hidden=false;
+  /* barra de estilo al seleccionar un dibujo — sencilla como TradingView: solo íconos, se arrastra y recuerda dónde la dejaste */
+  const SBPOS="eag_sbar_pos";const sbPos=()=>{try{return JSON.parse(localStorage.getItem(SBPOS)||"null")}catch(e){return null}};
+  function placeSbar(){const P=sbPos(),W=chartEl.clientWidth,H=chartEl.clientHeight,w=sbar.offsetWidth||300,h=sbar.offsetHeight||36;
+    let x=P?P.fx*W:8,y=P?P.fy*H:8;x=Math.max(4,Math.min(W-w-4,x));y=Math.max(4,Math.min(H-h-4,y));sbar.style.left=x+"px";sbar.style.top=y+"px";sbar.style.transform="none"}
+  const DASHI={solid:'<svg width="22" height="16" viewBox="0 0 22 16"><path d="M2 8h18" stroke="currentColor" stroke-width="2"/></svg>',dash:'<svg width="22" height="16" viewBox="0 0 22 16"><path d="M2 8h18" stroke="currentColor" stroke-width="2" stroke-dasharray="5 3"/></svg>',dot:'<svg width="22" height="16" viewBox="0 0 22 16"><path d="M2 8h18" stroke="currentColor" stroke-width="2" stroke-dasharray="1.5 3" stroke-linecap="round"/></svg>'};
+  function showStyleBar(id){const v=ovs.get(id);if(!v)return;const c=curStyle(id),pos=/^eag(Position|Long|Short)$/.test(v.name);
+    const txtB=v.name==="eagText"||v.name==="eagNote"?`<button data-a="txt" title="Editar texto">Aa</button>`:v.name==="eagEmoji"?`<button data-a="ptx" title="Cambiar emoji">🙂</button>`:!LBLX.test(v.name)?`<button data-a="ptx" title="Agregar texto a este dibujo">Aa</button>`:"";
+    sbar.innerHTML=`<span class="sg" title="${esc(TNAME[v.name]||v.name)} · arrastra para mover esta barra">⋮⋮</span>
+      <label class="cc" title="Color"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 20l4-1 11-11-3-3L5 16z"/></svg><i style="background:${c.color}"></i><input type="color" value="${/^#/.test(c.color)?c.color.slice(0,7):GOLD}"></label>
+      ${pos?"":`<button data-a="w" class="sw" title="Grosor (toca para cambiar)">${+c.size||1}px</button><button data-a="d" title="Tipo de línea (toca para cambiar)">${DASHI[c.dash]||DASHI.solid}</button>`}
+      ${txtB}<button data-a="cfg" title="Configurar este dibujo">${svg("gear",16)}</button><button data-a="lock" class="${v.lock?"on":""}" title="${v.lock?"Desbloquear":"Bloquear"}">${svg(v.lock?"lock":"unlock",16)}</button><button data-a="del" title="Eliminar (Supr)">${svg("trash",16)}</button>
+      <button data-a="more" title="Más: temporalidades, alerta, duplicar">⋯</button>
+      <div class="smore" hidden><button data-a="pvs" class="${v.tfv&&v.tfv.length?"on":""}">${svg("eye",16)}<span>En qué temporalidades se ve</span></button>${alertable(v)?`<button data-a="alert">🔔<span>Crear alerta en este nivel</span></button>`:""}<button data-a="dup">${svg("copy",16)}<span>Duplicar</span></button></div>`;
+    sbar.hidden=false;placeSbar();
     sbar.querySelector("input[type=color]").oninput=e=>{sbar.querySelector(".cc i").style.background=e.target.value};
     sbar.querySelector("input[type=color]").onchange=e=>setStyle(id,{color:e.target.value,fill:null});
-    const sels=sbar.querySelectorAll("select");if(sels[0])sels[0].onchange=e=>setStyle(id,{size:+e.target.value});if(sels[1])sels[1].onchange=e=>setStyle(id,{dash:e.target.value});
+    const wb=sbar.querySelector('[data-a="w"]');wb&&(wb.onclick=()=>{const n=(+curStyle(id).size||1)%4+1;setStyle(id,{size:n})});
+    const db=sbar.querySelector('[data-a="d"]');db&&(db.onclick=()=>{const L=["solid","dash","dot"],cur=curStyle(id).dash||"solid";setStyle(id,{dash:L[(L.indexOf(cur)+1)%3]})});
     const tb=sbar.querySelector('[data-a="txt"]');tb&&(tb.onclick=()=>editText(id));
     const openP=t=>{const r=chartEl.getBoundingClientRect(),b=sbar.getBoundingClientRect();openCtx(id,{x:b.left-r.left,y:b.bottom-r.top+8},true,t)};
     const px2=sbar.querySelector('[data-a="ptx"]');px2&&(px2.onclick=()=>openP("texto"));const pv2=sbar.querySelector('[data-a="pvs"]');pv2&&(pv2.onclick=()=>openP("vis"));
-    sbar.querySelector('[data-a="lock"]').onclick=()=>toggleLock(id);const ab=sbar.querySelector('[data-a="alert"]');ab&&(ab.onclick=()=>alertFrom(id));sbar.querySelector('[data-a="dup"]').onclick=()=>dupOv(id);sbar.querySelector('[data-a="del"]').onclick=()=>removeOv(id);const cfb=sbar.querySelector('[data-a="cfg"]');if(cfb)cfb.onclick=()=>{const r=chartEl.getBoundingClientRect(),b=cfb.getBoundingClientRect();openCtx(id,{x:b.left-r.left-120,y:b.bottom-r.top+8},true,"estilo")}}
+    const mo=sbar.querySelector('[data-a="more"]'),sm=sbar.querySelector(".smore");mo.onclick=e=>{e.stopPropagation();sm.hidden=!sm.hidden;mo.classList.toggle("on",!sm.hidden)};
+    sbar.querySelector('[data-a="lock"]').onclick=()=>toggleLock(id);const ab=sbar.querySelector('[data-a="alert"]');ab&&(ab.onclick=()=>alertFrom(id));sbar.querySelector('[data-a="dup"]').onclick=()=>dupOv(id);sbar.querySelector('[data-a="del"]').onclick=()=>removeOv(id);const cfb=sbar.querySelector('[data-a="cfg"]');if(cfb)cfb.onclick=()=>{const r=chartEl.getBoundingClientRect(),b=cfb.getBoundingClientRect();openCtx(id,{x:b.left-r.left-120,y:b.bottom-r.top+8},true,"estilo")};
+    /* arrastrar la barra */
+    const g=sbar.querySelector(".sg");g.onpointerdown=e=>{e.preventDefault();e.stopPropagation();const r=chartEl.getBoundingClientRect(),b=sbar.getBoundingClientRect(),dx=e.clientX-b.left,dy=e.clientY-b.top;try{g.setPointerCapture(e.pointerId)}catch(x){}
+      const mv=ev=>{const W=chartEl.clientWidth,H=chartEl.clientHeight;try{localStorage.setItem(SBPOS,JSON.stringify({fx:(ev.clientX-dx-r.left)/W,fy:(ev.clientY-dy-r.top)/H}))}catch(x){}placeSbar()};
+      const up=()=>{g.removeEventListener("pointermove",mv);g.removeEventListener("pointerup",up)};g.addEventListener("pointermove",mv);g.addEventListener("pointerup",up)}}
   function hideStyleBar(){sbar.hidden=true}
   /* menú de clic derecho sobre un dibujo */
   let panelPos=null;
