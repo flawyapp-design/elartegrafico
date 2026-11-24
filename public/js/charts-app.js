@@ -881,6 +881,8 @@ function start(){
   $("#cfgb").onclick=e=>{e.stopPropagation();openSettings()};
   if(window.EAGN)EAGN.mount($("#ntb"));
   organizeTop();
+  /* celular: vista ordenada tipo MT5 (barra de pestañas abajo). En el PC no hace nada. */
+  if(window.EAGMobile)try{window.EAGMobile.init({SAVE,save,toast,isPhone:DEV==="cel"})}catch(e){console.warn(e)}
   $("#alb").onclick=e=>{e.stopPropagation();if(LOCK.alerts)return upsell("Las alertas de precio");openSettings("alertas")};
   /* ---------- Estudio (Replay + Práctica): Premium; el admin puede incluirlo en la prueba de 3 días ---------- */
   let SITE={};try{API.site&&API.site().then(d=>{SITE=d||{}}).catch(()=>{})}catch(e){}
@@ -1343,7 +1345,19 @@ function start(){
     ["✅","¡Listo!","Puedes volver a ver estas novedades en Configuración → Ayuda y atajos. Datos de Deriv solo para análisis educativo.",null]]};
   let TOUR=TOUR_PC,TOURK="main";
   function showNews(i){TOURK="news";showTour(i||0,true)}
-  function showTour(i,keep){i=i||0;if(!keep)TOURK="main";TOUR=TOURK==="news"?newsList():isTouchUI()?TOUR_M:TOUR_PC;let ov=$(".tour");if(!ov){ov=document.createElement("div");ov.className="tour";appw.appendChild(ov)}
+  /* celular con la vista nueva (pestañas abajo, estilo MT5) */
+  const TOUR_M5=[
+    ["👋","Nueva vista para celular","El gráfico ahora ocupa casi toda la pantalla, como en MT5. Todo lo demás está en las pestañas de abajo.",null],
+    ["📈","Mercados","Abre la lista de mercados: busca, marca ☆ tus favoritos y toca uno para verlo.",'.m5bar [data-m="mkt"]'],
+    ["⏱️","Mercado y temporalidad","Arriba: toca el nombre para cambiar de mercado y el botón dorado para cambiar la temporalidad.",".wbar .wtf"],
+    ["✏️","Dibujar","El lápiz muestra u oculta la barra de dibujo. Escóndela cuando no la uses y tendrás más gráfico.",".m5wb"],
+    TOUR_M[5],TOUR_M[6],TOUR_M[8],
+    ["💹","Operar","Conecta tu cuenta y opera desde el gráfico, con tus líneas de entrada, TP y SL.",'.m5bar [data-m="trade"]'],
+    ["💬","Chat","Habla con la comunidad. El número rojo son mensajes sin leer.",'.m5bar [data-m="chat"]'],
+    ["⋯","Más","Journal, plan y lote, Marcador, Avisos, Alertas, Estudio, Modo Clase, diseño (1 gráfico, 2 o Multi-TF), captura y configuración. Si prefieres la vista de antes, toca Vista clásica.",'.m5bar [data-m="more"]'],
+    TOUR_M[TOUR_M.length-1]];
+  const isM5=()=>document.documentElement.classList.contains("m5");
+  function showTour(i,keep){i=i||0;if(!keep)TOURK="main";TOUR=TOURK==="news"?newsList():isM5()?TOUR_M5:isTouchUI()?TOUR_M:TOUR_PC;let ov=$(".tour");if(!ov){ov=document.createElement("div");ov.className="tour";appw.appendChild(ov)}
     const [ic,t,d,sel]=TOUR[i],el=sel&&$(sel),r=el&&el.offsetParent!==null?el.getBoundingClientRect():null;
     ov.innerHTML=`${r?`<div class="tring" style="left:${r.left-6}px;top:${r.top-6}px;width:${r.width+12}px;height:${r.height+12}px"></div>`:`<div class="tdim"></div>`}
       <div class="tcard" role="dialog" aria-label="Tutorial"><div class="tic">${ic}</div><b>${t}</b><p>${d}</p>
@@ -1355,12 +1369,13 @@ function start(){
       else if(r.width>innerWidth*.45&&r.height>innerHeight*.3){x=r.left+r.width/2-cw/2;y=r.top+r.height/2-chh/2}
       else{const below=r.bottom+14+chh<innerHeight;y=below?r.bottom+14:Math.max(12,r.top-chh-14);x=r.left+r.width/2-cw/2}
       card.style.left=Math.max(12,Math.min(innerWidth-cw-12,x))+"px";card.style.top=Math.max(12,y)+"px"}
-    const end=()=>{ov.remove();if(TOURK==="news")SAVE.newsSeen=NEWS_V;else{if(TOUR===TOUR_M)SAVE.tourDoneM=1;else SAVE.tourDone=2;SAVE.newsSeen=NEWS_V}save()};
+    const end=()=>{ov.remove();if(TOURK==="news")SAVE.newsSeen=NEWS_V;else{if(TOUR===TOUR_M5){SAVE.tourDoneM=1;SAVE.m5tour=1}else if(TOUR===TOUR_M)SAVE.tourDoneM=1;else SAVE.tourDone=2;SAVE.newsSeen=NEWS_V}save()};
     ov.querySelector('[data-t="skip"]').onclick=end;
     ov.querySelector('[data-t="next"]').onclick=()=>i<TOUR.length-1?showTour(i+1,true):end();
     const pv=ov.querySelector('[data-t="prev"]');pv&&(pv.onclick=()=>showTour(i-1,true))}
   /* quien nunca vio el tutorial ve el de bienvenida; quien ya lo vio ve solo las novedades (una vez) */
-  if(isTouchUI()?!SAVE.tourDoneM:(SAVE.tourDone||0)<2)setTimeout(()=>showTour(0),1200);
+  if(isM5()&&!SAVE.m5tour)setTimeout(()=>showTour(0),1200);
+  else if(isTouchUI()?!SAVE.tourDoneM:(SAVE.tourDone||0)<2)setTimeout(()=>showTour(0),1200);
   else if((SAVE.newsSeen||0)<NEWS_V)setTimeout(()=>showNews(0),1500);
   /* sin zoom de página en celular (pellizcar es para el gráfico, no para la página) */
   ["gesturestart","gesturechange"].forEach(ev=>document.addEventListener(ev,e=>e.preventDefault(),{passive:false}));
@@ -1386,6 +1401,7 @@ function start(){
     top.appendChild(tail);document.body.appendChild(menu);
     const paintMenu=()=>{menu.innerHTML=`<div class="tmh">Herramientas ${narrow?"":"<small>📌 = verla en la barra</small>"}</div>`+X.map(([id,n,d])=>{const b=g(id)||menu.querySelector("#"+id);if(!b)return"";
         const hid=b.hidden&&id!=="fsb";return hid?"":`<div class="tmr" data-id="${id}"><button class="tgo" data-go="${id}">${b.querySelector("svg")?b.querySelector("svg").outerHTML:""}<span><b>${n}</b><small>${d}</small></span></button>${narrow?"":`<button class="tpin${SAVE.topPins.includes(id)?" on":""}" data-pin="${id}" title="${SAVE.topPins.includes(id)?"Quitar de la barra":"Fijar en la barra"}">📌</button>`}</div>`}).join("");
+      if(DEV==="cel"&&SAVE.m5off){menu.insertAdjacentHTML("beforeend",`<div class="tmr"><button class="tgo" data-m5on><span style="font-size:18px">📱</span><span><b>Modo celular</b><small>Vista ordenada con pestañas abajo</small></span></button></div>`);menu.querySelector("[data-m5on]").onclick=()=>{window.EAGMobile&&window.EAGMobile.enable()}}
       menu.querySelectorAll("[data-go]").forEach(b=>b.onclick=()=>{menu.hidden=true;const el=g(b.dataset.go)||document.getElementById(b.dataset.go);el&&el.click()});
       menu.querySelectorAll("[data-pin]").forEach(b=>b.onclick=e=>{e.stopPropagation();const id=b.dataset.pin,P=SAVE.topPins,i=P.indexOf(id);if(i>=0)P.splice(i,1);else P.push(id);save();place();paintMenu()})};
     /* las que no están fijadas quedan guardadas (ocultas) para que sigan funcionando desde el menú */

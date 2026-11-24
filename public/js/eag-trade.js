@@ -374,6 +374,6 @@ window.EAGTrade={
     if(ws&&ws.readyState===1){any=true;try{await dvHistory(tk,out)}catch(e){}}
     if(!any)throw new Error("Conecta tu cuenta en el panel Operar para ver tu historial en el gráfico.");
     return out.sort((a,b)=>a.openT-b.openT)},
-  open,close,onChange:()=>{onChange();window.EAGCT&&window.EAGCT.onChange();window.EAGMT5B&&window.EAGMT5B.onChange()},
+  open,close,isOpen:()=>!!panel&&!panel.hidden,onChange:()=>{onChange();window.EAGCT&&window.EAGCT.onChange();window.EAGMT5B&&window.EAGMT5B.onChange()},
   _test:{parseAccounts,onPoc,contracts:()=>contracts,lines:()=>lineMap,dragS:()=>drag}};
 })();

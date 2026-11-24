@@ -614,6 +614,7 @@ function stopRingOut(){clearTimeout(ringOutT)}
 
 /* ===================== API pública ===================== */
 window.EAGSocial={
+  unread:()=>unread||0,isOpen:()=>!!panel,close:()=>close(),
   init(o){X=o;const pr=(X.API.profile&&X.API.profile())||{};const u=X.API.user&&X.API.user();if(!u)return;ME={id:u.id,name:pr.username||"Yo"};
     imgClean();paintBtn();headPaint();if(X.btn)X.btn.onclick=e=>{e.stopPropagation();panel?close():open()};
     localBus();rtConnect();sub("voz-general",vozHandler);loadThreads();setTimeout(loadPeople,2500);setTimeout(missedMentions,4000);setInterval(()=>{if(!document.hidden&&!(panel&&!view.room))loadPeople()},60000);
