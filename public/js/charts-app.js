@@ -1079,7 +1079,7 @@ function start(){
         <p class="shelp"><b>Lote = riesgo en US$ ÷ (puntos hasta el SL × tamaño del contrato)</b>. En Boom, Crash y los sintéticos de Deriv el contrato es de 1: con 1 lote, cada punto vale US$ 1. Ejemplo: arriesgas US$ 10 y el SL está a 25 puntos → lote 0,40. En forex se usa el contrato de 100.000 (exacto en pares que terminan en USD; en los demás es aproximado, por eso sale con ≈).</p>
         </div><p class="shelp">Antes de entrar revisa en tu MT5 el <b>lote mínimo</b> del mercado (en Boom y Crash suele ser 0,20 y en Boom/Crash 300 es 1). Es una herramienta educativa, no una asesoría financiera.</p>`}
     if(cat==="atajos"){const K=(k,t)=>`<div class="krow"><span>${t}</span><kbd>${k}</kbd></div>`;const mac=/Mac|iP/.test(navigator.platform),A=mac?"⌥":"Alt",C=mac?"⌘":"Ctrl";
-      return`<h3>Ayuda y atajos</h3><div class="sbtns"><button class="btn sm gold" data-a="tour">▶ Ver el tutorial otra vez</button><button class="btn sm" data-a="fb">💬 Dar mi opinión</button></div><div class="slabel">Dibujo</div>${K(A+" + B","Pincel (dibujo libre)")}${K(A+" + T","Línea de tendencia")}${K(A+" + H","Línea horizontal")}${K(A+" + J","Rayo horizontal")}${K(A+" + V","Línea vertical")}${K(A+" + F","Retroceso de Fibonacci")}${K(A+" + C","Canal paralelo")}${K(A+" + Z","Zona")}${K(A+" + R","Rectángulo")}${K(A+" + L","Posición larga (compra)")}${K(A+" + S","Posición corta (venta)")}${K(A+" + M","Regla (o Shift + clic)")}${K(A+" + X","Texto")}
+      return`<h3>Ayuda y atajos</h3><div class="sbtns"><button class="btn sm gold" data-a="news">✨ Ver las novedades</button><button class="btn sm" data-a="tour">▶ Ver el tutorial otra vez</button><button class="btn sm" data-a="fb">💬 Dar mi opinión</button></div><div class="slabel">Dibujo</div>${K(A+" + B","Pincel (dibujo libre)")}${K(A+" + T","Línea de tendencia")}${K(A+" + H","Línea horizontal")}${K(A+" + J","Rayo horizontal")}${K(A+" + V","Línea vertical")}${K(A+" + F","Retroceso de Fibonacci")}${K(A+" + C","Canal paralelo")}${K(A+" + Z","Zona")}${K(A+" + R","Rectángulo")}${K(A+" + L","Posición larga (compra)")}${K(A+" + S","Posición corta (venta)")}${K(A+" + M","Regla (o Shift + clic)")}${K(A+" + X","Texto")}
         <div class="slabel">Edición</div>${K(C+" + Z","Deshacer")}${K(C+" + Shift + Z","Rehacer")}${K("Supr","Borrar el dibujo seleccionado")}${K("Esc","Cancelar dibujo / salir de modo limpio")}
         <div class="slabel">Temporalidad</div>${K("15 ↵","Escribe el número y Enter: 15 minutos")}${K("1h ↵ · 4h ↵","Horas")}${K("1d ↵","Diario")}`}
     return""}
@@ -1114,6 +1114,7 @@ function start(){
     const cl=ov.querySelector('[data-a="clean"]');cl&&(cl.onclick=()=>{const all=!allHidden();PARTS.forEach(([k])=>SAVE.hide[k]=all);save();applyHide();ov.remove();if(all)toast("Modo limpio · toca <b>Mostrar barras</b> o presiona <b>Esc</b> para volver")});
     const rs=ov.querySelector('[data-a="rs"]');rs&&(rs.onclick=()=>{delete SAVE.wlw;delete SAVE.mtfh;SAVE.split={c:.5,r:.5};save();applyLayoutPrefs();toast("Tamaños restablecidos")});
     const tb=ov.querySelector('[data-a="tour"]');tb&&(tb.onclick=()=>{ov.remove();showTour(0)});
+    const nb=ov.querySelector('[data-a="news"]');nb&&(nb.onclick=()=>{ov.remove();showNews(0)});
     const fbb=ov.querySelector('[data-a="fb"]');fbb&&(fbb.onclick=()=>{ov.remove();window.__openFb()});
     const na=ov.querySelector('[data-a="newal"]');na&&(na.onclick=()=>{const t=curSym(active),i=bySym[t]||{},v=last[t];ov.remove();alertDialog({symbol:t,symbol_name:i.display_name||t,kind:"nivel",price:v!=null?+(+v).toFixed(prec(i.pip)):null,price2:null})});
     {const oj=ov.querySelector("[data-ojp]");oj&&(oj.onclick=()=>{ov.remove();window.EAGJournal&&EAGJournal.openPlan()})}
@@ -1304,6 +1305,8 @@ function start(){
     ["📏","Regla y posiciones","Shift + clic mide puntos, %, velas y tiempo. Posición larga o corta: un clic pone la entrada y salen stop y objetivo 1:2 que puedes arrastrar.",null],
     ["🔔","Alertas al celular","Selecciona una línea o zona y toca 🔔 en su barrita (o clic derecho → Crear alerta). Cuando el precio llegue te avisamos al celular, aunque tengas la página cerrada.","#alb"],
     ["🔴","Modo Clase","Cuando el profe esté en vivo, actívalo aquí y verás en tu gráfico lo mismo que él dibuja. Con Oro y Diamond también ves sus Zonas publicadas.","#clb"],
+    ["📅","Journal y plan","Lleva tu cuenta día a día: operaciones, depósitos y retiros, notas y estadísticas. En Plan calculas el lote con tu saldo real y pones tu pérdida máxima y tu meta: te avisamos al llegar.",".wjr"],
+    ["📥","Avisos","Cuando pasa algo importante (alertas, spikes, tus operaciones, menciones) suena y sale una tarjeta. Aquí ves el historial y eliges los sonidos.","#ntb"],
     ["⚙️","Hazlo tuyo","En Configuración eliges tema (Oscuro, Claro o Arte Gráfico), decimales, tamaño de letra para transmitir, marca de agua y qué barras ver. Todo se guarda en tu cuenta. Atajos: Alt+T línea, Alt+H horizontal, Ctrl+Z deshacer.","#cfgb"],
     ["✅","¡Listo para analizar!","Puedes volver a ver este tutorial en Configuración → Ayuda y atajos. Datos de Deriv solo para análisis educativo; compara siempre con tu plataforma.",null]];
   const TOUR_M=[
@@ -1318,10 +1321,29 @@ function start(){
     ["🧭","Mover el gráfico","Arrastra con un dedo para moverte, también hacia arriba y abajo. Pellizca para acercar. Arrastra la escala de precios para estirarla. Los botones ‹ › ⟲ ↻ mueven, vuelven al precio actual o recargan; el 👁 de la esquina los oculta.",".wnavt"],
     ["🔔","Alertas al celular","Toca una línea o zona y luego 🔔 en su barrita. Cuando el precio llegue te llega una notificación, aunque tengas la app cerrada.","#alb"],
     ["🔴","Modo Clase","Cuando el profe esté en vivo, actívalo aquí y verás en tu gráfico lo mismo que él dibuja.","#clb"],
+    ["📅","Journal y plan","Lleva tu cuenta día a día: operaciones, depósitos y retiros y estadísticas. En Plan calculas el lote con tu saldo real y pones tu pérdida máxima y tu meta.",".wjr"],
+    ["📥","Avisos","Cuando pasa algo importante suena y sale una tarjeta. Aquí ves el historial y eliges los sonidos.","#ntb"],
     ["📲","Instálala como app","Con el botón de descarga de arriba queda en tu pantalla de inicio: pantalla completa, como una app. En iPhone: Safari → Compartir → Agregar a inicio.","#instb"],
     ["✅","¡Listo para analizar!","Puedes volver a ver este tutorial en Configuración → Ayuda y atajos. Datos de Deriv solo para análisis educativo; compara siempre con tu plataforma.",null]];
-  let TOUR=TOUR_PC;
-  function showTour(i){i=i||0;TOUR=isTouchUI()?TOUR_M:TOUR_PC;let ov=$(".tour");if(!ov){ov=document.createElement("div");ov.className="tour";appw.appendChild(ov)}
+  /* ---------- NOVEDADES: se muestran una vez a quien ya conocía los charts (sube NEWS_V cuando haya otras) ---------- */
+  const NEWS_V=3;
+  const newsList=()=>{const T=isTouchUI();return[
+    ["✨","Novedades en EAG Charts","Agregamos un montón de cosas para que operes y lleves tu cuenta como un profesional. Te las mostramos en 1 minuto.",null],
+    ["📥","Centro de avisos","Ahora los charts te avisan con sonido y una tarjeta cuando pasa algo importante: alertas de precio, spikes, tus operaciones (abiertas, cerradas, SL o TP), menciones y si se cae la conexión. Aquí ves el historial y en Ajustes eliges sonidos, volumen, 🌙 No molestar y los avisos con la pestaña cerrada.","#ntb"],
+    ["🧩","Barra más ordenada",T?"Lo que menos se usa (láser, gráfico flotante, Modo Clase, alertas, configuración) quedó en ⋯ Más.":"Los diseños quedaron en un solo botón (tócalo para elegir otro) y lo que menos se usa está en ⋯ Más. Con el 📌 fijas en la barra las herramientas que más usas.",T?"#moreb":".lay"],
+    ["📅","Journal: tu cuenta completa","Calendario de días verdes y rojos, semana, año y estadísticas. Agrega cada operación (suma o resta sola), tus depósitos y retiros, notas y cómo te sentiste. Puedes tener una cuenta por reto o broker.",".wjr"],
+    ["🎯","Plan y calculadora de lote","En el Journal → Plan: el lote sale del saldo real de tu cuenta, pones tu riesgo, tu pérdida máxima y tu meta del día y tus reglas. Te avisamos con sonido cuando llegues a la pérdida máxima, a la meta o al máximo de operaciones.",".wjr"],
+    ["➕","Marcador → Journal","Marca tus operaciones con + Gané / − Perdí escribiendo el monto, y con 📅 Agregar al journal se guardan en el día de hoy sin duplicarse.",".wtrk"],
+    ["✏️","Dibujos más fáciles",T?"Al tocar un dibujo sale una barrita sencilla: color, grosor y tipo de línea con un toque, ⚙ y 🗑; lo demás en ⋯. Las zonas de compra y venta dicen cuántos puntos miden.":"Al seleccionar un dibujo sale una barrita sencilla como TradingView: color, grosor y tipo de línea con un clic, ⚙ y 🗑; lo demás en ⋯. Arrástrala por ⋮⋮ y se queda ahí. Las zonas de compra y venta dicen cuántos puntos miden.",null],
+    ["👁","Barra de favoritos en un ojito","Con el 👁 de la barra rápida de dibujos la minimizas en un ojito que puedes arrastrar adonde quieras. Tócalo y vuelve la barra.",".tfav"],
+    ["🕘","Historial de tus operaciones en el gráfico",T?"En Operar toca 🕘: verás flechas donde abriste y cerraste cada operación, con su resultado, como en MT5.":"Clic derecho en el gráfico → Mostrar historial de operaciones (o 🕘 en Operar): flechas donde abriste y cerraste, con el resultado, como en MT5.",T?null:"#trb"],
+    ["🔎","Buscar zonas sin perderte","Si te devuelves en el historial y cambias de temporalidad, el gráfico se queda en esa misma fecha. En Multi-TF, si no caben todas, usa las flechas ‹ ›"+(T?" o desliza.":" o la ruedita del mouse."),null],
+    ["💬","Chat y comunidad","Escribe @ y elige a quién mencionar: le avisamos aunque no esté conectado. En el grupo ves 👁 quién leyó cada mensaje. En la llamada grupal tocas un nombre para bajarle el volumen o silenciarlo.","#chb"],
+    ["📺","Gráfico flotante","En ⋯ Más → Gráfico flotante: el gráfico sigue encima mientras ves el live de TikTok u otra app.",T?"#moreb":null],
+    ["✅","¡Listo!","Puedes volver a ver estas novedades en Configuración → Ayuda y atajos. Datos de Deriv solo para análisis educativo.",null]]};
+  let TOUR=TOUR_PC,TOURK="main";
+  function showNews(i){TOURK="news";showTour(i||0,true)}
+  function showTour(i,keep){i=i||0;if(!keep)TOURK="main";TOUR=TOURK==="news"?newsList():isTouchUI()?TOUR_M:TOUR_PC;let ov=$(".tour");if(!ov){ov=document.createElement("div");ov.className="tour";appw.appendChild(ov)}
     const [ic,t,d,sel]=TOUR[i],el=sel&&$(sel),r=el&&el.offsetParent!==null?el.getBoundingClientRect():null;
     ov.innerHTML=`${r?`<div class="tring" style="left:${r.left-6}px;top:${r.top-6}px;width:${r.width+12}px;height:${r.height+12}px"></div>`:`<div class="tdim"></div>`}
       <div class="tcard" role="dialog" aria-label="Tutorial"><div class="tic">${ic}</div><b>${t}</b><p>${d}</p>
@@ -1333,11 +1355,13 @@ function start(){
       else if(r.width>innerWidth*.45&&r.height>innerHeight*.3){x=r.left+r.width/2-cw/2;y=r.top+r.height/2-chh/2}
       else{const below=r.bottom+14+chh<innerHeight;y=below?r.bottom+14:Math.max(12,r.top-chh-14);x=r.left+r.width/2-cw/2}
       card.style.left=Math.max(12,Math.min(innerWidth-cw-12,x))+"px";card.style.top=Math.max(12,y)+"px"}
-    const end=()=>{ov.remove();if(TOUR===TOUR_M)SAVE.tourDoneM=1;else SAVE.tourDone=2;save()};
+    const end=()=>{ov.remove();if(TOURK==="news")SAVE.newsSeen=NEWS_V;else{if(TOUR===TOUR_M)SAVE.tourDoneM=1;else SAVE.tourDone=2;SAVE.newsSeen=NEWS_V}save()};
     ov.querySelector('[data-t="skip"]').onclick=end;
-    ov.querySelector('[data-t="next"]').onclick=()=>i<TOUR.length-1?showTour(i+1):end();
-    const pv=ov.querySelector('[data-t="prev"]');pv&&(pv.onclick=()=>showTour(i-1))}
+    ov.querySelector('[data-t="next"]').onclick=()=>i<TOUR.length-1?showTour(i+1,true):end();
+    const pv=ov.querySelector('[data-t="prev"]');pv&&(pv.onclick=()=>showTour(i-1,true))}
+  /* quien nunca vio el tutorial ve el de bienvenida; quien ya lo vio ve solo las novedades (una vez) */
   if(isTouchUI()?!SAVE.tourDoneM:(SAVE.tourDone||0)<2)setTimeout(()=>showTour(0),1200);
+  else if((SAVE.newsSeen||0)<NEWS_V)setTimeout(()=>showNews(0),1500);
   /* sin zoom de página en celular (pellizcar es para el gráfico, no para la página) */
   ["gesturestart","gesturechange"].forEach(ev=>document.addEventListener(ev,e=>e.preventDefault(),{passive:false}));
   /* evitar selección accidental (doble clic, arrastres) y el menú del navegador, menos en los campos de texto */
