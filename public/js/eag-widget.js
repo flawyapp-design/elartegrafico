@@ -18,6 +18,13 @@ const BOX=/^(eagZone|eagRect|eagBuyZone|eagSellZone)$/;
 /* calculadora de lote: id del dibujo → mercado (la fórmula y el riesgo los pone charts-app en window.__eagLot) */
 const OVSYM=new Map();
 const TXTFAM='Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif';
+/* Texto de dibujo: fuentes y medidas (una sola fuente de verdad para dibujar y para tocar/seleccionar) */
+const TXTFAMS={inter:TXTFAM,serif:'Georgia,"Times New Roman",serif',mono:'ui-monospace,"SF Mono",Menlo,Consolas,monospace',impact:'Impact,"Arial Black","Helvetica Neue",sans-serif',hand:'"Marker Felt","Segoe Print","Comic Sans MS",cursive'};
+let _txM=null;
+const txtLay=(ex,ctx)=>{ex=ex||{};const c=ctx||(_txM||(_txM=document.createElement("canvas").getContext("2d")));const sz=Math.max(8,Math.min(160,+ex.size||14));
+  c.font=`${ex.i?"italic ":""}${ex.b===false?"500":"700"} ${sz}px ${TXTFAMS[ex.fam]||TXTFAM}`;const lines=String(ex.text||"Texto").split("\n").slice(0,10),ws=lines.map(l=>c.measureText(l).width);
+  const hasBg=!!(ex.bg&&ex.bg!=="transparent"),px=hasBg?Math.round(sz*.5):0,py=hasBg?Math.round(sz*.28):0,lh=sz*1.22,W=Math.max(8,...ws),H=lh*lines.length,ox=hasBg?0:4;
+  return{sz,lines,ws,W,H,px,py,lh,hasBg,ox,w:W+px*2+ox,h:H+py*2}};
 const lotOf=(id,entry,sl)=>{try{const f=window.__eagLot;return f?f(OVSYM.get(id),entry,sl)||"":""}catch(e){return""}};
 /* de 2 esquinas opuestas a los 8 puntos de la caja */
 /* rectángulo/zonas: 2 esquinas → 8 puntos. Ojo: un punto dibujado a la derecha de la última vela no trae hora (solo índice);
@@ -181,16 +188,16 @@ function registerAll(){
       return F}});
   /* Texto */
   KC.registerOverlay({name:"eagText",totalStep:2,needDefaultPointFigure:false,needDefaultXAxisFigure:true,needDefaultYAxisFigure:true,
-    createPointFigures:({overlay,coordinates})=>{const c=coordinates[0];if(!c)return[];const ex=overlay.extendData||{};
-      if(!ex.bg||ex.bg==="transparent")return[{type:"eagLbl",attrs:{x:c.x+4,y:c.y,text:ex.text||"Texto",align:"left",baseline:"middle"},styles:{color:ex.color||GOLD,size:ex.size||14,bold:ex.b!==false,halo:true}},
-        {type:"rect",attrs:{x:c.x,y:c.y-(ex.size||14)*.7,width:Math.max(30,String(ex.text||"Texto").length*(ex.size||14)*.56),height:(ex.size||14)*1.4},styles:{style:"fill",color:"rgba(0,0,0,0)"}}];
-      return[{type:"text",attrs:{x:c.x,y:c.y,text:ex.text||"Texto",align:"left",baseline:"middle"},styles:{color:ex.color||GOLD,size:ex.size||14,family:TXTFAM,weight:"600",backgroundColor:ex.bg,borderSize:0,paddingLeft:6,paddingRight:6,paddingTop:3,paddingBottom:3,borderRadius:4}}]}});
+    createPointFigures:({overlay,coordinates})=>{const c=coordinates[0];if(!c)return[];const ex=overlay.extendData||{},m=txtLay(ex);
+      return[{type:"eagTxt",ignoreEvent:true,attrs:{x:c.x,y:c.y,ex}},{type:"rect",attrs:{x:c.x,y:c.y-m.h/2,width:Math.max(30,m.w),height:Math.max(16,m.h)},styles:{style:"fill",color:"rgba(0,0,0,0)"}}]}});
   /* Nota con flecha: un cuadro con tu texto y una flecha que apunta al precio/vela que marcaste */
   KC.registerOverlay({name:"eagNote",totalStep:2,needDefaultPointFigure:true,needDefaultXAxisFigure:true,needDefaultYAxisFigure:true,
-    createPointFigures:({overlay,coordinates})=>{const c=coordinates[0];if(!c)return[];const ex=overlay.extendData||{},col=ex.color||GOLD,up=c.y>70,ty=up?c.y-40:c.y+40;
-      return[{type:"line",attrs:{coordinates:[{x:c.x,y:up?c.y-28:c.y+28},{x:c.x,y:up?c.y-7:c.y+7}]},styles:{color:col,size:1.5}},
+    createPointFigures:({overlay,coordinates})=>{const c=coordinates[0];if(!c)return[];const ex=overlay.extendData||{},col=ex.color||GOLD,bg=ex.bg===null?null:(ex.bg||col);
+      const tex=Object.assign({size:12,b:true,r:6,bga:1},ex,{color:ex.tc||"#ffffff",bg,text:ex.text||"Nota",fx:ex.fx||(bg?"none":"halo"),rot:0}),m=txtLay(tex),up=c.y>m.h+40,ty=up?c.y-29-m.h/2:c.y+29+m.h/2;
+      return[{type:"line",attrs:{coordinates:[{x:c.x,y:up?c.y-29:c.y+29},{x:c.x,y:up?c.y-7:c.y+7}]},styles:{color:col,size:1.5}},
         {type:"polygon",attrs:{coordinates:up?[{x:c.x,y:c.y-3},{x:c.x-4.5,y:c.y-10},{x:c.x+4.5,y:c.y-10}]:[{x:c.x,y:c.y+3},{x:c.x-4.5,y:c.y+10},{x:c.x+4.5,y:c.y+10}]},styles:{style:"fill",color:col}},
-        {type:"text",attrs:{x:c.x,y:ty,text:ex.text||"Nota",align:"center",baseline:"middle"},styles:{color:ex.tc||"#fff",size:ex.size||12,weight:"600",family:TXTFAM,backgroundColor:col,borderColor:col,borderSize:1,paddingLeft:8,paddingRight:8,paddingTop:5,paddingBottom:5,borderRadius:6}}]}});
+        {type:"eagTxt",ignoreEvent:true,attrs:{x:c.x,y:ty,ex:tex,anc:"center"}},
+        {type:"rect",attrs:{x:c.x-m.w/2,y:ty-m.h/2,width:m.w,height:m.h},styles:{style:"fill",color:"rgba(0,0,0,0)"}}]}});
   /* ===================== Herramientas extra (como TradingView) ===================== */
   {
     const LC=ov=>(((ov.styles||{}).line||{}).color)||GOLD;
@@ -273,13 +280,13 @@ function registerAll(){
       for(let k=0;k<=30;k++){const t=k/30,u=1-t;P.push({x:u*u*c[0].x+2*u*t*c[1].x+t*t*c[2].x,y:u*u*c[0].y+2*u*t*c[1].y+t*t*c[2].y})}return[PL(P)]}});
     R("polyLine",{totalStep:Number.MAX_SAFE_INTEGER,createPointFigures:({coordinates})=>coordinates.length>1?[PL(coordinates)]:[]});
     /* Marcas: flechas arriba/abajo, bandera, etiqueta de precio y emoji */
-    const ARW=(n,up)=>R(n,{totalStep:2,needDefaultPointFigure:false,createPointFigures:({overlay,coordinates})=>{const c=coordinates[0];if(!c)return[];const ex=overlay.extendData||{},col=ex.color||(up?"#089981":"#f23645"),s=up?1:-1,y=c.y+s*6;
-      return[{type:"polygon",attrs:{coordinates:[{x:c.x,y},{x:c.x-9,y:y+s*11},{x:c.x-4,y:y+s*11},{x:c.x-4,y:y+s*24},{x:c.x+4,y:y+s*24},{x:c.x+4,y:y+s*11},{x:c.x+9,y:y+s*11}]},styles:{style:"fill",color:col}}]}});
+    const ARW=(n,up)=>R(n,{totalStep:2,needDefaultPointFigure:false,createPointFigures:({overlay,coordinates})=>{const c=coordinates[0];if(!c)return[];const ex=overlay.extendData||{},col=ex.color||(up?"#089981":"#f23645"),k=+ex.sc||1,s=(up?1:-1)*k,y=c.y+s*6;
+      return[{type:"polygon",attrs:{coordinates:[{x:c.x,y},{x:c.x-9*k,y:y+s*11},{x:c.x-4*k,y:y+s*11},{x:c.x-4*k,y:y+s*24},{x:c.x+4*k,y:y+s*24},{x:c.x+4*k,y:y+s*11},{x:c.x+9*k,y:y+s*11}]},styles:{style:"fill",color:col}}]}});
     ARW("arrowMarkUp",true);ARW("arrowMarkDown",false);
-    R("flagMark",{totalStep:2,needDefaultPointFigure:false,createPointFigures:({overlay,coordinates})=>{const c=coordinates[0];if(!c)return[];const col=(overlay.extendData||{}).color||"#f23645";
-      return[LN({x:c.x,y:c.y},{x:c.x,y:c.y-30},{color:col,size:2}),{type:"polygon",attrs:{coordinates:[{x:c.x,y:c.y-30},{x:c.x+18,y:c.y-25},{x:c.x,y:c.y-19}]},styles:{style:"fill",color:col}}]}});
-    R("priceLabel",{totalStep:2,needDefaultPointFigure:false,createPointFigures:({overlay,coordinates,precision})=>{const c=coordinates[0],p=overlay.points[0];if(!c||!p)return[];const pp=(precision&&precision.price)||3,col=(overlay.extendData||{}).color||GOLD;
-      return[LN({x:c.x,y:c.y},{x:c.x+12,y:c.y-16},{color:col,size:1}),{type:"circle",attrs:{x:c.x,y:c.y,r:2.5},styles:{style:"fill",color:col}},BOXT(c.x+10,c.y-22,(+p.value).toFixed(pp),col,{al:"left",st:{color:"#111",size:11}})]}});
+    R("flagMark",{totalStep:2,needDefaultPointFigure:false,createPointFigures:({overlay,coordinates})=>{const c=coordinates[0];if(!c)return[];const col=(overlay.extendData||{}).color||"#f23645",k=+(overlay.extendData||{}).sc||1;
+      return[LN({x:c.x,y:c.y},{x:c.x,y:c.y-30*k},{color:col,size:Math.max(2,2*k)}),{type:"polygon",attrs:{coordinates:[{x:c.x,y:c.y-30*k},{x:c.x+18*k,y:c.y-25*k},{x:c.x,y:c.y-19*k}]},styles:{style:"fill",color:col}}]}});
+    R("priceLabel",{totalStep:2,needDefaultPointFigure:false,createPointFigures:({overlay,coordinates,precision})=>{const c=coordinates[0],p=overlay.points[0];if(!c||!p)return[];const pp=(precision&&precision.price)||3,ex=overlay.extendData||{},col=ex.color||GOLD,k=+ex.sc||1;
+      return[LN({x:c.x,y:c.y},{x:c.x+12*k,y:c.y-16*k},{color:col,size:1}),{type:"circle",attrs:{x:c.x,y:c.y,r:2.5*Math.sqrt(k)},styles:{style:"fill",color:col}},BOXT(c.x+10*k,c.y-22*k,(+p.value).toFixed(pp),col,{al:"left",st:{color:ex.tc||"#111",size:Math.round(11*k)}})]}});
     R("eagEmoji",{totalStep:2,needDefaultPointFigure:false,createPointFigures:({overlay,coordinates})=>{const c=coordinates[0];if(!c)return[];const ex=overlay.extendData||{};
       return[{type:"text",attrs:{x:c.x,y:c.y,text:ex.text||"🚀",align:"center",baseline:"middle"},styles:{color:"#fff",size:ex.size||28,backgroundColor:"transparent",paddingLeft:2,paddingRight:2,paddingTop:2,paddingBottom:2}}]}});
   }
@@ -402,6 +409,20 @@ function registerAll(){
       ctx.font=`${st.italic?"italic ":""}${st.bold?"700 ":"500 "}${sz}px ${FAM}`;try{ctx.letterSpacing="0px";ctx.fontKerning="normal"}catch(e){}ctx.textAlign=a.align||"left";ctx.textBaseline=a.baseline||"bottom";
       if(st.halo){ctx.lineJoin="round";ctx.miterLimit=2;ctx.lineWidth=Math.max(2,sz/5);ctx.globalAlpha=.85;ctx.strokeStyle=bgNow();ctx.strokeText(a.text,0,a.dy||0);ctx.globalAlpha=1}
       ctx.fillStyle=st.color||GOLD;ctx.fillText(a.text,0,a.dy||0);ctx.restore()}});
+    /* texto de dibujo con efectos: contorno, neón, sombra, fondo, rotación, varias líneas */
+    KC.registerFigure({name:"eagTxt",checkEventOn:()=>false,draw:(ctx,a)=>{const e=a.ex||{};ctx.save();ctx.translate(a.x,a.y);const m=txtLay(e,ctx);if(a.anc==="center")ctx.translate(-m.w/2,0);if(e.rot)ctx.rotate((+e.rot||0)*Math.PI/180);
+      const A=e.op!=null?Math.max(.1,Math.min(1,+e.op)):1;ctx.globalAlpha=A;ctx.textBaseline="middle";ctx.textAlign="left";
+      const x0=m.ox,y0=-m.h/2,col=e.color||GOLD,fx=e.fx||(m.hasBg?"none":"halo"),fc=e.fxc||(fx==="neon"?col:"#000000");
+      if(m.hasBg){ctx.beginPath();const r=e.r!=null?+e.r:4,bw=m.W+m.px*2,bh=m.h;if(ctx.roundRect)ctx.roundRect(x0,y0,bw,bh,Math.min(r,bh/2));else ctx.rect(x0,y0,bw,bh);
+        ctx.fillStyle=/^#/.test(e.bg)?hexA(e.bg,e.bga!=null?+e.bga:.9):e.bg;ctx.fill();if(e.bd){ctx.lineWidth=Math.max(1,m.sz/12);ctx.strokeStyle=e.bd;ctx.stroke()}}
+      m.lines.forEach((l,k)=>{const al=e.al||"left",tx=x0+m.px+(al==="center"?(m.W-m.ws[k])/2:al==="right"?m.W-m.ws[k]:0),ty=y0+m.py+m.lh*(k+.5);ctx.lineJoin="round";ctx.miterLimit=2;
+        if(fx==="halo"){ctx.globalAlpha=A*.85;ctx.lineWidth=Math.max(2,m.sz/5);ctx.strokeStyle=bgNow();ctx.strokeText(l,tx,ty);ctx.globalAlpha=A}
+        if(fx==="outline"){ctx.lineWidth=Math.max(2,m.sz/6);ctx.strokeStyle=fc;ctx.strokeText(l,tx,ty)}
+        if(fx==="neon"){ctx.shadowColor=fc;ctx.fillStyle=fc;ctx.shadowBlur=m.sz*1.1;ctx.fillText(l,tx,ty);ctx.shadowBlur=m.sz*.45;ctx.fillText(l,tx,ty);ctx.shadowBlur=m.sz*.12}
+        if(fx==="shadow"){ctx.shadowColor=hexA(fc,.75);ctx.shadowBlur=m.sz*.22;ctx.shadowOffsetX=Math.max(1,m.sz*.07);ctx.shadowOffsetY=Math.max(1,m.sz*.09)}
+        ctx.fillStyle=fx==="neon"?(e.core||"#ffffff"):col;ctx.fillText(l,tx,ty);ctx.shadowBlur=0;ctx.shadowOffsetX=0;ctx.shadowOffsetY=0;
+        if(e.u||e.s){ctx.fillStyle=fx==="neon"?fc:col;const th=Math.max(1,m.sz/14);if(e.u)ctx.fillRect(tx,ty+m.sz*.55,m.ws[k],th);if(e.s)ctx.fillRect(tx,ty-th/2,m.ws[k],th)}});
+      ctx.restore()}});
     const colOf=ov=>{const lb=(ov.extendData||{}).lbl||{},s2=ov.styles||{},ex=ov.extendData||{};return lb.c||(s2.line&&s2.line.color)||(s2.polygon&&s2.polygon.borderColor)||ex.color||GOLD};
     const HL=/^(horizontalStraightLine|horizontalRayLine|horizontalSegment|priceLine)$/,VL=/^(verticalStraightLine|verticalRayLine|verticalSegment)$/,
       TL=/^(segment|rayLine|straightLine|arrow|parallelStraightLine|priceChannelLine)$/,BX=/^(rect|eagRect|eagZone|eagBuyZone|eagSellZone)$/;
@@ -577,6 +598,7 @@ const TI={
   simpleTag:'<path d="M3 12h7"/><path d="M10 7h9l2 5-2 5h-9z"/>'};
 const tsvg=(k,s=18)=>`<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${TI[k]||""}</svg>`;
 const svg=(k,s=18)=>`<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${IC[k]||""}</svg>`;
+const MARKX=/^(eagNote|arrowMarkUp|arrowMarkDown|flagMark|priceLabel)$/;
 const STDTF=[["Ticks",0],["1m",60],["2m",120],["3m",180],["5m",300],["10m",600],["15m",900],["30m",1800],["1H",3600],["2H",7200],["4H",14400],["8H",28800],["1D",86400]];
 const COLORS=["#e2b55c","#f3d08a","#ffffff","#9da1aa","#2962ff","#089981","#f23645","#ff9800","#9c27b0","#e91e63","#00bcd4","#000000"];
 const IND=[ // [nombre, nombre en español, dónde]
@@ -1128,11 +1150,11 @@ ${o.onTracker?`<button class="wtrk" title="Marcador de operaciones (ganadas, per
   /* ---------- personalizar un dibujo: barra flotante + clic derecho ---------- */
   const sbar=document.createElement("div");sbar.className="wstyle";sbar.hidden=true;chartEl.appendChild(sbar);
   const isFill=n=>/^(rect|circle|triangle|parallelogram|eagZone|eagRect|fibonacciCircle|gannBox)$/.test(n);
-  const curStyle=id=>{const v=ovs.get(id)||{},s=v.styles||{},isTxt=v.name==="eagText"||BOX.test(v.name)||v.name==="eagBrush";
+  const curStyle=id=>{const v=ovs.get(id)||{},s=v.styles||{},isTxt=v.name==="eagText"||BOX.test(v.name)||v.name==="eagBrush"||MARKX.test(v.name);
     return{color:isTxt?((v.extendData||{}).color||GOLD):((s.line&&s.line.color)||(s.polygon&&s.polygon.borderColor)||GOLD),size:(v.name==="eagBrush"||BOX.test(v.name))?((v.extendData||{}).size||(v.name==="eagBrush"||/Buy|Sell/.test(v.name)?2:1)):((s.line&&s.line.size)||(s.polygon&&s.polygon.borderSize)||1),
       dash:(s.line&&s.line.style)==="dashed"?((s.line.dashedValue||[4,4])[0]<=2?"dot":"dash"):"solid",fill:s.polygon?s.polygon.color:null}};
   function setStyle(id,ch){const v=ovs.get(id);if(!v)return;const c=Object.assign(curStyle(id),ch);
-    if(v.name==="eagText"||BOX.test(v.name)||v.name==="eagBrush"||/^eag(Position|Long|Short)$/.test(v.name)){v.extendData=Object.assign({},v.extendData||{},/^eag(Position|Long|Short)$/.test(v.name)?{}:{color:c.color});if(ch.size&&v.name==="eagText")v.extendData.size=10+ch.size*2;if(ch.size&&(v.name==="eagBrush"||BOX.test(v.name)))v.extendData.size=ch.size;if(ch.fill!==undefined&&BOX.test(v.name))v.extendData.fill=ch.fill;chart.overrideOverlay({id,extendData:v.extendData})}
+    if(v.name==="eagText"||MARKX.test(v.name)||BOX.test(v.name)||v.name==="eagBrush"||/^eag(Position|Long|Short)$/.test(v.name)){v.extendData=Object.assign({},v.extendData||{},/^eag(Position|Long|Short)$/.test(v.name)?{}:{color:c.color});if(ch.size&&v.name==="eagText")v.extendData.size=10+ch.size*2;if(ch.size&&(v.name==="eagBrush"||BOX.test(v.name)))v.extendData.size=ch.size;if(ch.fill!==undefined&&BOX.test(v.name))v.extendData.fill=ch.fill;chart.overrideOverlay({id,extendData:v.extendData})}
     else{const st={line:{color:c.color,size:c.size,style:c.dash==="solid"?"solid":"dashed",dashedValue:c.dash==="dot"?[1,3]:[5,4]},
         polygon:{borderColor:c.color,borderSize:c.size,borderStyle:c.dash==="solid"?"solid":"dashed",color:c.fill!=null?c.fill:hexA(c.color,.14)},
         rect:{borderColor:c.color,borderSize:c.size,color:c.fill!=null?c.fill:hexA(c.color,.14)},circle:{borderColor:c.color,borderSize:c.size,color:c.fill!=null?c.fill:hexA(c.color,.14)},
@@ -1195,19 +1217,42 @@ ${o.onTracker?`<button class="wtrk" title="Marcador de operaciones (ganadas, per
   let fibT=null;
   function setFib(id,cf,quiet){const v=ovs.get(id);if(!v)return;v.extendData=Object.assign({},v.extendData||{},{fib:cf});try{chart.overrideOverlay({id,extendData:v.extendData})}catch(e){}
     clearTimeout(fibT);if(quiet)fibT=setTimeout(persist,500);else persist()}
+  /* ---------- panel completo de la herramienta Texto ---------- */
+  const TXPRE=[["Neón dorado",{color:"#fff3c4",fx:"neon",fxc:"#e2b55c",core:"#fff3c4",bg:null,size:28,b:true,fam:"inter"}],["Neón azul",{color:"#d6f6ff",fx:"neon",fxc:"#00bcd4",core:"#d6f6ff",bg:null,size:28,b:true,fam:"inter"}],
+    ["Etiqueta",{color:"#16120a",fx:"none",bg:"#e2b55c",bga:1,r:6,size:14,b:true,fam:"inter"}],["Titular",{color:"#ffffff",fx:"outline",fxc:"#000000",bg:null,size:40,b:true,fam:"impact"}],
+    ["Alerta",{color:"#ffffff",fx:"none",bg:"#f23645",bga:1,r:20,size:16,b:true,fam:"inter"}],["Compra",{color:"#ffffff",fx:"none",bg:"#089981",bga:1,r:20,size:16,b:true,fam:"inter"}],
+    ["A mano",{color:"#f3d08a",fx:"shadow",fxc:"#000000",bg:null,size:24,b:false,fam:"hand"}],["Simple",{color:"#e2b55c",fx:"halo",bg:null,size:14,b:true,fam:"inter",i:false,u:false,s:false,rot:0,op:1}]];
+  const FAMN=[["inter","Normal"],["serif","Clásica"],["mono","Código"],["impact","Impacto"],["hand","A mano"]];
+  function txtPanel(ex,kind){const note=kind==="note",cK=note?"tc":"color",cDef=note?"#ffffff":GOLD,sz=+ex.size||(note?12:14),bg0=note&&ex.bg===undefined?(ex.color||GOLD):ex.bg,fx=ex.fx||(bg0&&bg0!=="transparent"?"none":"halo"),bg=bg0&&bg0!=="transparent"?bg0:"",fam=ex.fam||"inter",sw=(k,on,att)=>`<button class="sw${on?" on":""}" ${att}="${k}" style="background:${k}" title="${k}"></button>`,pick=(att,val)=>`<label class="sw pick" title="Otro color">+<input type="color" ${att} value="${/^#/.test(val||"")?String(val).slice(0,7):GOLD}"></label>`;
+    return`<textarea class="ptxt ptxa" data-ot maxlength="200" rows="2" placeholder="Escribe aquí (Enter = nueva línea)">${esc(ex.text||"")}</textarea>
+      <div class="ml">Estilos rápidos</div><div class="txpre">${TXPRE.map(([t,st],i)=>`<button data-xp="${i}" style="font-family:${(TXTFAMS[st.fam]||TXTFAM).replace(/"/g,"'")};${st.bg?`background:${st.bg};color:${st.color}`:`color:${st.color}`};${st.fx==="neon"?`text-shadow:0 0 6px ${st.fxc},0 0 12px ${st.fxc}`:st.fx==="outline"?"text-shadow:0 1px 0 #000,0 -1px 0 #000,1px 0 0 #000,-1px 0 0 #000;letter-spacing:.5px":""}">${t}</button>`).join("")}</div>
+      <div class="ml">Tamaño <b class="txv">${sz}</b></div><div class="mrow txsz"><button class="tbn" data-xs="-">−</button><input type="range" min="8" max="120" step="1" value="${sz}" data-xsz><button class="tbn" data-xs="+">+</button></div>
+      <div class="mrow">${[12,16,24,36,56,80].map(n=>`<button class="tbn${sz===n?" on":""}" data-xsn="${n}">${n}</button>`).join("")}</div>
+      <div class="ml">Color${note?" del texto":""}</div><div class="mrow">${COLORS.map(k=>sw(k,(ex[cK]||cDef)===k,"data-xc")).join("")}${pick("data-xcp",ex[cK]||cDef)}</div>${note?`<div class="ml">Color de la flecha</div><div class="mrow">${COLORS.map(k=>sw(k,(ex.color||GOLD)===k,"data-xac")).join("")}${pick("data-xacp",ex.color)}</div>`:""}
+      <div class="ml">Letra</div><div class="mrow">${FAMN.map(([k,t])=>`<button class="tbn${fam===k?" on":""}" data-xf="${k}" style="font-family:${TXTFAMS[k].replace(/"/g,"'")}">${t}</button>`).join("")}</div>
+      <div class="mrow"><button class="tbn${ex.b!==false?" on":""}" data-xt="b" title="Negrita"><b>B</b></button><button class="tbn${ex.i?" on":""}" data-xt="i" title="Cursiva"><i>I</i></button><button class="tbn${ex.u?" on":""}" data-xt="u" title="Subrayado"><u>U</u></button><button class="tbn${ex.s?" on":""}" data-xt="s" title="Tachado"><s>S</s></button><i class="tsp"></i>${["left","center","right"].map(k=>`<button class="tbn${(ex.al||"left")===k?" on":""}" data-xa="${k}" title="${{left:"Izquierda",center:"Centro",right:"Derecha"}[k]}">${ico(k)}</button>`).join("")}</div>
+      <div class="ml">Efecto</div><div class="mrow">${[["none","Ninguno"],["halo","Suave"],["outline","Contorno"],["neon","Neón"],["shadow","Sombra"]].map(([k,t])=>`<button class="tbn${fx===k?" on":""}" data-xx="${k}">${t}</button>`).join("")}</div>
+      ${fx==="outline"||fx==="neon"||fx==="shadow"?`<div class="ml">Color del ${fx==="neon"?"brillo":fx==="outline"?"contorno":"sombra"}</div><div class="mrow">${COLORS.map(k=>sw(k,(ex.fxc||(fx==="neon"?ex[cK]||cDef:"#000000"))===k,"data-xfc")).join("")}${pick("data-xfcp",ex.fxc)}</div>`:""}
+      <div class="ml">${note?"Caja":"Fondo"}</div><div class="mrow"><button class="sw none${bg?"":" on"}" data-xb="" title="Sin ${note?"caja":"fondo"}">⌀</button>${COLORS.map(k=>sw(k,bg===k,"data-xb")).join("")}${pick("data-xbp",bg)}</div>
+      ${bg?`<div class="ml">Fondo: transparencia y bordes</div><div class="mrow txsz"><input type="range" min="10" max="100" step="5" value="${Math.round((ex.bga!=null?+ex.bga:.9)*100)}" data-xba title="Opacidad del fondo"></div>
+        <div class="mrow">${[[0,"Recto"],[4,"Suave"],[10,"Redondo"],[40,"Píldora"]].map(([r,t])=>`<button class="tbn${(ex.r!=null?+ex.r:4)===r?" on":""}" data-xr="${r}">${t}</button>`).join("")}<button class="tbn${ex.bd?" on":""}" data-xbd title="Borde del color del texto">Borde</button></div>`:""}
+      ${note?"":`<div class="ml">Girar <b class="txv">${+ex.rot||0}°</b></div><div class="mrow txsz"><input type="range" min="-90" max="90" step="5" value="${+ex.rot||0}" data-xrot><button class="tbn" data-xrot0>0°</button></div>`}
+      <div class="ml">Opacidad <b class="txv">${Math.round((ex.op!=null?+ex.op:1)*100)}%</b></div><div class="mrow txsz"><input type="range" min="10" max="100" step="5" value="${Math.round((ex.op!=null?+ex.op:1)*100)}" data-xop></div>
+      <div class="mrow"><button class="tbn wide" data-xdef>⭐ Usar este estilo en ${note?"mis próximas notas":"mis próximos textos"}</button></div>`}
   function openCtx(id,e,panel,tab){panel=true;const prev=menu&&menu.classList.contains("panel")?{x:menu.offsetLeft,y:menu.offsetTop}:null;closeMenu();const v=ovs.get(id);if(!v)return;selId=id;showStyleBar(id);const c=curStyle(id);
     if(tab)panelTab=tab;const again=t=>openCtx(id,e,panel,t);
     menu=document.createElement("div");menu.className="wmenu ctx"+(panel?" panel":"");
     const isOldTxt=v.name==="eagText"||v.name==="eagNote";const canLbl=!LBLX.test(v.name);const tf=curTf();
     const styleHTML=`<div class="mrow">${COLORS.map(k=>`<button class="sw${c.color===k?" on":""}" data-c="${k}" style="background:${k}" title="${k}"></button>`).join("")}<label class="sw pick" title="Otro color">+<input type="color" value="${/^#/.test(c.color)?c.color.slice(0,7):GOLD}"></label></div>
-      ${/^eag(Position|Long|Short)$/.test(v.name)?"":`<div class="ml">Grosor</div><div class="mrow">${[1,2,3,4].map(n=>`<button class="wd${+c.size===n?" on":""}" data-w="${n}" title="${n}px"><i style="height:${n}px"></i></button>`).join("")}</div>
+      ${/^(eagNote|arrowMarkUp|arrowMarkDown|flagMark|priceLabel)$/.test(v.name)&&v.name!=="eagNote"?`<div class="ml">Tamaño</div><div class="mrow">${[[.75,"S"],[1,"M"],[1.5,"L"],[2,"XL"],[3,"XXL"]].map(([k,t])=>`<button class="tbn${(+(v.extendData||{}).sc||1)===k?" on":""}" data-msc="${k}">${t}</button>`).join("")}</div>`:""}${/^eag(Position|Long|Short)$/.test(v.name)||v.name==="eagText"||MARKX.test(v.name)?"":`<div class="ml">Grosor</div><div class="mrow">${[1,2,3,4].map(n=>`<button class="wd${+c.size===n?" on":""}" data-w="${n}" title="${n}px"><i style="height:${n}px"></i></button>`).join("")}</div>
       <div class="ml">Línea</div><div class="mrow">${[["solid","Sólida"],["dash","Guiones"],["dot","Puntos"]].map(([k,t])=>`<button class="ls${c.dash===k?" on":""}" data-d="${k}" title="${t}"><i class="${k}"></i></button>`).join("")}</div>`}
       ${isFill(v.name)?`<div class="ml">Relleno</div><div class="mrow">${[0,.08,.16,.3,.5].map(a=>`<button class="fa" data-f="${a}" title="${Math.round(a*100)}%"><i style="background:${hexA(c.color,a||.0001)};${a?"":"border:1px dashed var(--dim)"}"></i></button>`).join("")}</div>`:""}`;
     const lb=lblOf(v);
     const EMO=["🚀","🔥","💰","💎","✅","❌","⚠️","🎯","📈","📉","👀","⭐","🟢","🔴","⏰","🐂","🐻","💥"];
     const textHTML=v.name==="eagEmoji"?`<div class="ml">Elige un emoji</div><div class="mrow emo">${EMO.map(k=>`<button class="tbn emj${(v.extendData||{}).text===k?" on":""}" data-emo="${k}">${k}</button>`).join("")}</div>
       <div class="ml">O escribe el tuyo</div><div class="mrow"><input class="ptxt" data-ot maxlength="8" value="${esc((v.extendData||{}).text||"")}"></div>
-      <div class="ml">Tamaño</div><div class="mrow">${[20,28,36,48,64].map(n=>`<button class="tbn${+((v.extendData||{}).size||28)===n?" on":""}" data-esz="${n}">${n}</button>`).join("")}</div>`
+      <div class="ml">Tamaño</div><div class="mrow">${[20,28,36,48,64,96,128].map(n=>`<button class="tbn${+((v.extendData||{}).size||28)===n?" on":""}" data-esz="${n}">${n}</button>`).join("")}</div>`
+      :v.name==="eagText"?txtPanel(v.extendData||{}):v.name==="eagNote"?txtPanel(v.extendData||{},"note")
       :isOldTxt?`<div class="ml">Texto</div><div class="mrow"><input class="ptxt" data-ot maxlength="80" value="${esc((v.extendData||{}).text||"")}" placeholder="Escribe aquí"></div>`
       :canLbl?`<div class="mrow"><input class="ptxt" data-lt maxlength="120" value="${esc(lb.t)}" placeholder="Escribe un texto para este dibujo"></div>
       <div class="ml">Color del texto</div><div class="mrow"><button class="sw${!lb.c?" on":""} auto" data-lc="" title="Igual que el dibujo">A</button>${COLORS.slice(0,10).map(k=>`<button class="sw${lb.c===k?" on":""}" data-lc="${k}" style="background:${k}"></button>`).join("")}</div>
@@ -1265,9 +1310,30 @@ ${o.onTracker?`<button class="wtrk" title="Marcador de operaciones (ganadas, per
     const pk=menu.querySelector(".pick input");pk&&(pk.onchange=ev=>{setStyle(id,{color:ev.target.value,fill:null});again()});
     menu.querySelectorAll("[data-w]").forEach(b=>b.onclick=()=>{setStyle(id,{size:+b.dataset.w});again()});
     menu.querySelectorAll("[data-d]").forEach(b=>b.onclick=()=>{setStyle(id,{dash:b.dataset.d});again()});
+    menu.querySelectorAll("[data-msc]").forEach(b=>b.onclick=()=>{v.extendData=Object.assign({},v.extendData||{},{sc:+b.dataset.msc});try{chart.overrideOverlay({id,extendData:v.extendData})}catch(e){}persist();again()});
     menu.querySelectorAll("[data-f]").forEach(b=>b.onclick=()=>{setStyle(id,{fill:hexA(curStyle(id).color,+b.dataset.f)});again()});
     /* texto */
-    const ot=menu.querySelector("[data-ot]");ot&&(ot.onkeydown=ev=>ev.stopPropagation(),ot.onchange=()=>{v.extendData=Object.assign({},v.extendData||{},{text:ot.value.trim()||(v.name==="eagText"?"Texto":"")});chart.overrideOverlay({id,extendData:v.extendData});persist()});
+    const ot=menu.querySelector("input[data-ot]");ot&&(ot.onkeydown=ev=>ev.stopPropagation(),ot.onchange=()=>{v.extendData=Object.assign({},v.extendData||{},{text:ot.value.trim()||(v.name==="eagText"?"Texto":"")});chart.overrideOverlay({id,extendData:v.extendData});persist()});
+    if(v.name==="eagText"||v.name==="eagNote"){const note=v.name==="eagNote",cK=note?"tc":"color";const setX=(pt,re)=>{if(note&&pt.color!==undefined&&pt.__p){pt.tc=pt.color;delete pt.color}delete pt.__p;v.extendData=Object.assign({},v.extendData||{},pt);try{chart.overrideOverlay({id,extendData:v.extendData})}catch(e){}persist();if(re)again()};
+      const ta=menu.querySelector("textarea[data-ot]");if(ta){ta.onkeydown=ev=>ev.stopPropagation();ta.oninput=()=>{v.extendData=Object.assign({},v.extendData||{},{text:ta.value.replace(/\s+$/,"")||"Texto"});try{chart.overrideOverlay({id,extendData:v.extendData})}catch(e){}};ta.onchange=()=>setX({text:ta.value.replace(/\s+$/,"")||"Texto"})}
+      const Q=(sel,fn)=>menu.querySelectorAll(sel).forEach(fn);
+      Q("[data-xp]",b=>b.onclick=()=>setX(Object.assign({__p:1,u:false,s:false,i:false,rot:0,op:1,bd:false,al:"left",bga:1,r:4},TXPRE[+b.dataset.xp][1],note?{size:Math.min(24,TXPRE[+b.dataset.xp][1].size)}:{}),true));
+      const zs=menu.querySelector("[data-xsz]");if(zs){zs.oninput=()=>{const n=+zs.value;zs.closest(".mrow").previousElementSibling.querySelector(".txv").textContent=n;v.extendData=Object.assign({},v.extendData||{},{size:n});try{chart.overrideOverlay({id,extendData:v.extendData})}catch(e){}};zs.onchange=()=>setX({size:+zs.value},true)}
+      Q("[data-xs]",b=>b.onclick=()=>{const n=Math.max(8,Math.min(120,(+(v.extendData||{}).size||14)+(b.dataset.xs==="+"?2:-2)));setX({size:n},true)});
+      Q("[data-xsn]",b=>b.onclick=()=>setX({size:+b.dataset.xsn},true));
+      Q("[data-xc]",b=>b.onclick=()=>setX({[cK]:b.dataset.xc},true));Q("[data-xcp]",i=>i.onchange=()=>setX({[cK]:i.value},true));Q("[data-xac]",b=>b.onclick=()=>setX({color:b.dataset.xac},true));Q("[data-xacp]",i=>i.onchange=()=>setX({color:i.value},true));
+      Q("[data-xf]",b=>b.onclick=()=>setX({fam:b.dataset.xf},true));
+      Q("[data-xt]",b=>b.onclick=()=>{const k=b.dataset.xt,ex=v.extendData||{},cur=k==="b"?ex.b!==false:!!ex[k];setX({[k]:!cur},true)});
+      Q("[data-xa]",b=>b.onclick=()=>setX({al:b.dataset.xa},true));
+      Q("[data-xx]",b=>b.onclick=()=>{const k=b.dataset.xx,ex=v.extendData||{};setX(k==="neon"?{fx:k,fxc:ex.fxc&&ex.fx==="neon"?ex.fxc:(ex[cK]||(note?ex.color:GOLD)||GOLD),core:"#ffffff"}:{fx:k,fxc:k==="outline"||k==="shadow"?(ex.fx===k&&ex.fxc?ex.fxc:"#000000"):ex.fxc},true)});
+      Q("[data-xfc]",b=>b.onclick=()=>setX({fxc:b.dataset.xfc},true));Q("[data-xfcp]",i=>i.onchange=()=>setX({fxc:i.value},true));
+      Q("[data-xb]",b=>b.onclick=()=>setX(b.dataset.xb?{bg:b.dataset.xb,fx:(v.extendData||{}).fx==="halo"?"none":(v.extendData||{}).fx}:{bg:null},true));Q("[data-xbp]",i=>i.onchange=()=>setX({bg:i.value},true));
+      Q("[data-xba]",r=>{r.oninput=()=>{v.extendData=Object.assign({},v.extendData||{},{bga:+r.value/100});try{chart.overrideOverlay({id,extendData:v.extendData})}catch(e){}};r.onchange=()=>setX({bga:+r.value/100})});
+      Q("[data-xr]",b=>b.onclick=()=>setX({r:+b.dataset.xr},true));Q("[data-xbd]",b=>b.onclick=()=>setX({bd:(v.extendData||{}).bd?false:((v.extendData||{})[cK]||(note?"#ffffff":GOLD))},true));
+      Q("[data-xrot]",r=>{r.oninput=()=>{r.closest(".mrow").previousElementSibling.querySelector(".txv").textContent=r.value+"°";v.extendData=Object.assign({},v.extendData||{},{rot:+r.value});try{chart.overrideOverlay({id,extendData:v.extendData})}catch(e){}};r.onchange=()=>setX({rot:+r.value})});
+      Q("[data-xrot0]",b=>b.onclick=()=>setX({rot:0},true));
+      Q("[data-xop]",r=>{r.oninput=()=>{r.closest(".mrow").previousElementSibling.querySelector(".txv").textContent=r.value+"%";v.extendData=Object.assign({},v.extendData||{},{op:+r.value/100});try{chart.overrideOverlay({id,extendData:v.extendData})}catch(e){}};r.onchange=()=>setX({op:+r.value/100})});
+      Q("[data-xdef]",b=>b.onclick=()=>{if(!o.onToolStyle)return;const ex=Object.assign({},v.extendData||{});delete ex.text;const prev=(o.getToolStyle&&o.getToolStyle(v.name))||{};o.onToolStyle(v.name,{styles:prev.styles||null,ex});o.onToast&&o.onToast(note?"Listo: tus próximas notas salen con este estilo":"Listo: tus próximos textos salen con este estilo")});}
     const lt=menu.querySelector("[data-lt]");if(lt){lt.onkeydown=ev=>{ev.stopPropagation();if(ev.key==="Enter")lt.blur()};lt.oninput=()=>setLbl(id,{t:lt.value},true);lt.onchange=()=>setLbl(id,{t:lt.value});if(panel&&panelTab==="texto"&&!lastTouch)setTimeout(()=>{try{lt.focus()}catch(x){}},30)}
     menu.querySelectorAll("[data-lc]").forEach(b=>b.onclick=()=>{setLbl(id,{c:b.dataset.lc||null});again()});
     const ls=menu.querySelector("[data-ls]");ls&&(ls.onchange=()=>{setLbl(id,{s:+ls.value})});
@@ -1312,11 +1378,11 @@ ${o.onTracker?`<button class="wtrk" title="Marcador de operaciones (ganadas, per
   /* editar texto en el mismo gráfico (sin ventanas del navegador) */
   function editText(id){const v=ovs.get(id),ov=chart.getOverlayById(id);if(!v||!ov||!ov.points[0])return;
     const px=chart.convertToPixel({timestamp:ov.points[0].timestamp,value:ov.points[0].value},{paneId:"candle_pane"})||{x:40,y:40};
-    const box=document.createElement("div");box.className="wtxt";box.innerHTML=`<input type="text" maxlength="80" value="${esc((v.extendData||{}).text||"")}" placeholder="Escribe y presiona Enter">`;
+    const box=document.createElement("div");box.className="wtxt";box.innerHTML=`<textarea rows="${Math.min(6,String((v.extendData||{}).text||"").split("\n").length)}" maxlength="200" placeholder="Escribe · Enter guarda · Shift+Enter nueva línea">${esc((v.extendData||{}).text||"")}</textarea>`;
     chartEl.appendChild(box);box.style.left=Math.max(4,Math.min(px.x,chartEl.clientWidth-230))+"px";box.style.top=Math.max(4,px.y-16)+"px";
-    const inp=box.querySelector("input");inp.focus();inp.select();
-    let fin=false;const done=ok=>{if(fin||!box.isConnected)return;fin=true;if(ok){v.extendData=Object.assign({},v.extendData||{},{text:inp.value.trim()||(v.name==="eagText"?"Texto":v.name==="eagNote"?"Nota":"")});chart.overrideOverlay({id,extendData:v.extendData});persist()}box.remove()};
-    inp.onkeydown=e=>{e.stopPropagation();if(e.key==="Enter")done(true);if(e.key==="Escape")done(false)};inp.onblur=()=>done(true)}
+    const inp=box.querySelector("textarea");inp.focus();inp.select();inp.oninput=()=>{inp.rows=Math.min(6,inp.value.split("\n").length)};
+    let fin=false;const done=ok=>{if(fin||!box.isConnected)return;fin=true;if(ok){v.extendData=Object.assign({},v.extendData||{},{text:inp.value.replace(/^\s+|\s+$/g,"")||(v.name==="eagText"?"Texto":v.name==="eagNote"?"Nota":"")});chart.overrideOverlay({id,extendData:v.extendData});persist()}box.remove()};
+    inp.onkeydown=e=>{e.stopPropagation();if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();done(true)}if(e.key==="Escape")done(false)};inp.onblur=()=>done(true)}
   root.tabIndex=-1;
   root.addEventListener("keydown",e=>{if((e.key==="Delete"||e.key==="Backspace")&&selId&&!/input|select|textarea/i.test(e.target.tagName)){removeOv(selId);selId=null}if(e.key==="Escape"){cancelDraw();closeMenu();stopBrush()}});
   /* ---------- clic derecho en el gráfico: menú como TradingView ---------- */
@@ -1517,8 +1583,8 @@ ${o.onTracker?`<button class="wtrk" title="Marcador de operaciones (ganadas, per
     if(/^vertical/.test(n))return Math.abs(x-P[0].x);
     if(n==="straightLine"&&P[1])return seg(P[0],P[1],true);
     if(BOX.test(n)||/^(rect|eagLong|eagShort|eagMeasure|eagPosition|circle|triangle|parallelogram|fibonacciLine|eagText)$/.test(n)||/^fib|^gann|^abcd|^xabcd/.test(n)){
-      const xs=P.map(p=>p.x),ys=P.map(p=>p.y);let x0=Math.min(...xs),x1=/^(eagZone|eagBuyZone|eagSellZone|fibonacciLine)$/.test(n)?W:Math.max(...xs);if(n==="eagText"){x1=x0+90}
-      let y0=Math.min(...ys),y1=Math.max(...ys);if(n==="eagText"){y0-=14;y1+=6}
+      const xs=P.map(p=>p.x),ys=P.map(p=>p.y);let x0=Math.min(...xs),x1=/^(eagZone|eagBuyZone|eagSellZone|fibonacciLine)$/.test(n)?W:Math.max(...xs);if(n==="eagText"){x1=x0+txtLay(v.extendData).w}
+      let y0=Math.min(...ys),y1=Math.max(...ys);if(n==="eagText"){const hh=txtLay(v.extendData).h/2;y0-=hh;y1+=hh}
       if(n==="circle"&&P[1]){const r=Math.hypot(P[1].x-P[0].x,P[1].y-P[0].y);return Math.max(0,Math.hypot(x-P[0].x,y-P[0].y)-r)}
       const dx=Math.max(x0-x,0,x-x1),dy=Math.max(y0-y,0,y-y1);return Math.hypot(dx,dy)}
     let d=1e9;for(let i=0;i<P.length;i++){d=Math.min(d,Math.hypot(x-P[i].x,y-P[i].y));if(i&&n!=="eagBrush")d=Math.min(d,seg(P[i-1],P[i],false))}

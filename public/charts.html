@@ -22,7 +22,7 @@
 *{box-sizing:border-box}
 /* sin selección de texto: se siente como una app, no como una página */
 .app,.app *,.pop,.pop *,.wmenu,.wmenu *,.wmodal,.wmodal *{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
-.app input,.app textarea,.pop input,.wmenu input,.wmodal input,.wtxt input{-webkit-user-select:text;user-select:text}
+.app input,.app textarea,.pop input,.wmenu input,.wmodal input,.wtxt input,.wtxt textarea{-webkit-user-select:text;user-select:text}
 html,body{-webkit-tap-highlight-color:transparent;overscroll-behavior:none}
 img,svg{-webkit-user-drag:none;user-drag:none}html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);font:13.5px/1.4 Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;font-feature-settings:"tnum" 1,"cv11" 1;-webkit-font-smoothing:antialiased;overflow:hidden}
 a{color:var(--gold2)}button,select,input{font:inherit;color:inherit}
@@ -167,7 +167,7 @@ html.light .lay button.on,.app.light .mini.on .mh em{color:#fff}
 .ft{color:var(--mut)}.ft b{color:var(--fg2)}.ft.on b{color:var(--fg)}
 .ft.on{background:var(--bg2)}.ftw{background:var(--bg)}
 .wl{background:var(--bg2)}.wl input,.spq,.wmbox .mq{background:var(--bg);border-color:var(--line2);height:34px}
-.wl input:focus,.spq:focus,.wmbox .mq:focus,.wtxt input:focus{outline:none;border-color:var(--gold);box-shadow:0 0 0 3px var(--gbg)}
+.wl input:focus,.spq:focus,.wmbox .mq:focus,.wtxt input:focus,.wtxt textarea:focus{outline:none;border-color:var(--gold);box-shadow:0 0 0 3px var(--gbg)}
 .tabs button{background:transparent;border-color:var(--line2);color:var(--mut)}.tabs button:hover{color:var(--fg)}.tabs button.on{background:var(--gbg);border-color:transparent;color:var(--gold2)}
 .sy{border-radius:8px}.sy:hover{background:var(--card2)}.sy.on{background:var(--gbg);border-color:transparent}
 .sy small{color:var(--dim)}.fv{color:var(--dim)}
@@ -271,6 +271,14 @@ body.lzall .mini .mc,body.lzall .mini .mc *{cursor:none}
 .wmenu .vopt i{flex:none;width:14px;height:14px;border-radius:50%;border:2px solid var(--mut);box-sizing:border-box}
 .wmenu .vopt.on{border-color:var(--gold);background:rgba(216,176,98,.12)}.wmenu .vopt.on i{border-color:var(--gold);background:radial-gradient(circle,var(--gold) 0 3px,transparent 3.5px)}
 .wmenu .vopt span{display:grid;gap:1px;min-width:0}.wmenu .vopt b{font-size:13px;font-weight:600}.wmenu .vopt small{font-size:11.5px;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wtxt textarea{display:block;width:260px;max-width:70vw;resize:none;background:var(--card);border:1px solid var(--gold);border-radius:8px;padding:7px 10px;color:var(--fg);font:500 14px/1.35 Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif}
+.wmenu .ptxa{width:100%;box-sizing:border-box;resize:vertical;min-height:44px;font:500 13.5px/1.35 inherit;font-family:inherit}
+.wmenu .txpre{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin-bottom:4px}
+.wmenu .txpre button{height:34px;border-radius:8px;border:1px solid var(--line2);background:#0b0f19;font-size:12.5px;font-weight:700;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:0 4px}
+.wmenu .txpre button:active{transform:scale(.96)}
+.wmenu .txsz{align-items:center;flex-wrap:nowrap}.wmenu .txsz input[type=range]{flex:1;min-width:0;accent-color:var(--gold)}
+.wmenu .ml .txv{color:var(--gold);font-weight:700;margin-left:4px}
+.wmenu .sw.none{display:grid;place-items:center;color:var(--mut);background:transparent;border:1px dashed var(--line2);font-size:13px}
 .wmenu .vbig{display:grid;gap:2px;width:100%;text-align:left;padding:9px 11px;margin:2px 0 6px;border:1px solid var(--gold);border-radius:9px;background:rgba(216,176,98,.14);color:var(--fg);cursor:pointer;font:inherit}.wmenu .vbig b{font-size:13px;color:var(--gold)}.wmenu .vbig small{font-size:11.5px;color:var(--mut)}.wmenu .vbig:disabled{opacity:.5}
 .wmenu .vall{margin-top:10px;padding-top:10px;border-top:1px solid var(--line)}
 .wmenu .vchk{display:flex;gap:8px;align-items:flex-start;margin-top:8px;font-size:12.5px;line-height:1.35;color:var(--fg2);cursor:pointer}.wmenu .vchk input{margin-top:2px;accent-color:var(--gold)}
