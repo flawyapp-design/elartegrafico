@@ -621,6 +621,9 @@ ${o.onTracker?`<button class="wtrk" title="Marcador de operaciones (ganadas, per
   const msOf=p=>p.multiplier*({tick:1e3,minute:6e4,hour:36e5,day:864e5,week:6048e5}[p.timespan]||6e4);
   /* ---------- en qué temporalidades se ve cada dibujo (v.tfv = ["5m","15m"]; vacío = todas) ---------- */
   const curTf=()=>{if(!per||per.timespan==="tick")return"Ticks";const g=msOf(per)/1000;let k="1m";for(const[t,gg]of STDTF){if(gg&&gg<=g)k=t}return k};
+  /* temporalidad donde se hizo el dibujo: guardada (ctf) o, en dibujos viejos, deducida de sus puntos (cada punto cae en la apertura de una vela) */
+  const tfOf=v=>{if(v.ctf)return v.ctf;const P=(v.points||[]).map(q=>+q.timestamp).filter(x=>isFinite(x)&&x>0);if(!P.length)return null;
+    for(let i=STDTF.length-1;i>0;i--){const g=STDTF[i][1]*1000;if(P.every(x=>x%g===0))return STDTF[i][0]}return"Ticks"};
   const tfOk=v=>!v||(!v.hid&&(!v.tfv||!v.tfv.length||v.tfv.includes(curTf())));
   const isTk=()=>per&&per.timespan==="tick";
   /* ---------- Heikin Ashi y Renko: se calculan a partir de las velas normales (RAW) ---------- */
@@ -1031,7 +1034,7 @@ ${o.onTracker?`<button class="wtrk" title="Marcador de operaciones (ganadas, per
       onRemoved:e=>{SELBOX.delete(e.overlay.id);if(bulk)return false;ovs.delete(e.overlay.id);if(selId===e.overlay.id){selId=null;hideStyleBar()}persist();return false},
       onDoubleClick:e=>{if(e.overlay.id!==drawingId)openCtx(e.overlay.id,e,true);return false},
       onRightClick:e=>{ovCtxAt=Date.now();try{if(e.overlay.id===drawingId){if(!finishFree())cancelDraw();return true}panelPos=null;closeMenu();openCtx(e.overlay.id,e,true,"estilo")}catch(x){}return true}});
-    if(id){OVSYM.set(id,sym&&sym.ticker);ovs.set(id,{name:def.name,styles:def.styles||null,extendData:def.extendData||null,lock:!!def.lock,points:def.points||null,tfv:def.tfv&&def.tfv.length?def.tfv.slice():null,hid:!!def.hid});if(!drawing)ovs.get(id).done=true}
+    if(id){OVSYM.set(id,sym&&sym.ticker);ovs.set(id,{name:def.name,styles:def.styles||null,extendData:def.extendData||null,lock:!!def.lock,points:def.points||null,tfv:def.tfv&&def.tfv.length?def.tfv.slice():null,ctf:def.ctf||null,hid:!!def.hid});if(!drawing)ovs.get(id).done=true}
     return id}
   /* ---------- capas de solo lectura (Modo Clase y Zonas del profe): no se guardan ni se pueden mover ---------- */
   let guest={},guestIds=[];const guestG={};
@@ -1082,11 +1085,11 @@ ${o.onTracker?`<button class="wtrk" title="Marcador de operaciones (ganadas, per
     const bars=Math.max(8,Math.round((vr.to-vr.from)*.16)),t0=tsOf(p0),ts=t0+bars*msOf(per);
     const pts=[{timestamp:t0,value:p0.value},{timestamp:ts,value:long?p0.value-d:p0.value+d},{timestamp:ts,value:long?p0.value+2*d:p0.value-2*d}];
     chart.overrideOverlay({id:ov.id,points:pts})}
-  function capture(ov){const v=ovs.get(ov.id);if(!v)return;if(!v.done&&!v.tfv&&o.drawTfOnly&&o.drawTfOnly())v.tfv=[curTf()];v.points=(ov.points||[]).map(p=>({timestamp:tsOf(p),value:p.value}));v.done=true;v.lock=!!ov.lock;persist()}
+  function capture(ov){const v=ovs.get(ov.id);if(!v)return;if(!v.done&&!v.ctf)v.ctf=curTf();if(!v.done&&!v.tfv&&o.drawTfOnly&&o.drawTfOnly())v.tfv=[curTf()];v.points=(ov.points||[]).map(p=>({timestamp:tsOf(p),value:p.value}));v.done=true;v.lock=!!ov.lock;persist()}
   /* guardado por mercado (todas las temporalidades), como en TradingView */
   /* deshacer / rehacer: historial de los dibujos de este mercado */
   let hist=[],fut=[],snap="[]",bulk=false;
-  function persist(){if(!sym)return;const all=loadD();const arr=[];ovs.forEach(v=>{if(v.done&&v.points&&v.points.length){const d={name:v.name,points:v.points,styles:v.styles,extendData:v.extendData,lock:v.lock};if(v.tfv&&v.tfv.length)d.tfv=v.tfv;if(v.hid)d.hid=true;arr.push(d)}});
+  function persist(){if(!sym)return;const all=loadD();const arr=[];ovs.forEach(v=>{if(v.done&&v.points&&v.points.length){const d={name:v.name,points:v.points,styles:v.styles,extendData:v.extendData,lock:v.lock};if(v.tfv&&v.tfv.length)d.tfv=v.tfv;if(v.ctf)d.ctf=v.ctf;if(v.hid)d.hid=true;arr.push(d)}});
     const ns=JSON.stringify(arr);if(ns!==snap){hist.push(snap);if(hist.length>60)hist.shift();fut=[];snap=ns}
     if(arr.length)all[sym.ticker]=arr;else delete all[sym.ticker];saveD(all);o.onDrawingsChange&&o.onDrawingsChange(sym.ticker)}
   function applySnap(ns){const all=loadD(),arr=JSON.parse(ns);if(arr.length)all[sym.ticker]=arr;else delete all[sym.ticker];saveD(all);snap=ns;restoreDrawings(true);o.onDrawingsChange&&o.onDrawingsChange(sym.ticker)}
@@ -1217,12 +1220,14 @@ ${o.onTracker?`<button class="wtrk" title="Marcador de operaciones (ganadas, per
     const qIs=q=>!all&&qL[q].length<KS.length&&qL[q].join()===(v.tfv||[]).join();
     const mode=all?"all":qIs("only")?"only":qIs("up")?"up":qIs("down")?"down":"custom",chips=mode==="custom"||visCustom===id;
     const lst=k=>{const L=qL[k];return L.length>4?L[0]+" · "+L[1]+" … "+L[L.length-1]:L.join(" · ")};
-    const nAll=[...ovs.values()].filter(x=>x.done&&x.points&&x.points.length).length,symN=esc((sym&&(sym.shortName||sym.name||sym.ticker))||"este mercado");
+    const DV=[...ovs.values()].filter(x=>x.done&&x.points&&x.points.length),nAll=DV.length,nHere=DV.filter(x=>tfOf(x)===tf).length,
+      byTf=(()=>{const c={};DV.forEach(x=>{const k=tfOf(x)||"?";c[k]=(c[k]||0)+1});return STDTF.map(z=>z[0]).concat("?").filter(k=>c[k]).map(k=>`${c[k]} en ${k==="?"?"sin dato":k}`).join(" · ")||"Sin dibujos"})(),symN=esc((sym&&(sym.shortName||sym.name||sym.ticker))||"este mercado");
     const visHTML=`<div class="ml">¿Dónde se ve este dibujo?</div>
       <div class="vopts">${[["all","En todas las temporalidades",""],["only",`Solo en ${esc(tf)}`,""],["up",`En ${esc(tf)} y mayores`,idx<0?"":lst("up")],["down",`En ${esc(tf)} y menores`,idx<0?"":lst("down")],["custom","Elegir a mano",mode==="custom"?(v.tfv||[]).join(" · "):""]].filter(r=>idx>=0||r[0]==="all"||r[0]==="custom").map(([k,t,sm])=>`<button class="vopt${(k==="custom"?chips:mode===k&&!chips)?" on":""}" data-tq="${k}"><i></i><span><b>${t}</b>${sm?`<small>${esc(sm)}</small>`:""}</span></button>`).join("")}</div>
       ${chips?`<div class="mrow tfc">${STDTF.map(([t])=>`<button class="tfx${sel.has(t)?" on":""}${t===tf?" cur":""}" data-tf="${t}" title="${t===tf?"Temporalidad actual":""}">${t}</button>`).join("")}</div>`:""}
       <div class="vall"><div class="ml">Todos los dibujos de ${symN} (${nAll})</div>
-        <div class="mrow"><button class="tbn wide" data-va="only" ${nAll?"":"disabled"}>Todos solo en ${esc(tf)}</button><button class="tbn wide" data-va="all" ${nAll?"":"disabled"}>Todos en todas</button></div>
+        <button class="vbig" data-va="own" ${nAll?"":"disabled"}><b>Cada uno en la temporalidad donde lo hice</b><small>${esc(byTf)}</small></button>
+        <div class="mrow"><button class="tbn wide" data-va="only" ${nHere?"":"disabled"}>Los de ${esc(tf)} (${nHere}) solo en ${esc(tf)}</button><button class="tbn wide" data-va="all" ${nAll?"":"disabled"}>Todos en todas</button></div>
         <label class="vchk"><input type="checkbox" data-vnew${o.drawTfOnly&&o.drawTfOnly()?" checked":""}><span>Lo que dibuje de ahora en adelante, que se vea solo en la temporalidad donde lo hago</span></label></div>`;
     const isFib=FIBK.test(v.name),fc=isFib?fibCfg(v):null;
     const nivHTML=isFib?`<div class="fibl">${fc.levels.map((l,i)=>`<div class="fibr${l.on===false?" off":""}"><label class="fck"><input type="checkbox" data-fon="${i}"${l.on===false?"":" checked"}></label><input class="fiv" data-fv="${i}" type="number" step="any" value="${l.v}"><label class="fcl" style="background:${l.c}"><input type="color" data-fc="${i}" value="${/^#/.test(l.c)?l.c.slice(0,7):"#e2b55c"}"></label><button class="fix" data-fx="${i}" title="Quitar nivel">×</button></div>`).join("")}</div>
@@ -1293,9 +1298,11 @@ ${o.onTracker?`<button class="wtrk" title="Marcador de operaciones (ganadas, per
     menu.querySelectorAll("[data-tq]").forEach(b=>b.onclick=()=>{const q=b.dataset.tq,ks=STDTF.map(x=>x[0]);let L=ks;
       if(q==="custom"){visCustom=id;again();return}visCustom=null;
       if(q==="only")L=[tf];else if(q==="up")L=ks.slice(Math.max(0,idx));else if(q==="down")L=ks.slice(0,idx+1);visDone(setTfv(id,q==="all"?null:L))});
-    menu.querySelectorAll("[data-va]").forEach(b=>b.onclick=()=>{const one=b.dataset.va==="only";let n=0;
-      ovs.forEach((x,k)=>{if(x.done&&x.points&&x.points.length){setTfv(k,one?[tf]:null);n++}});visCustom=null;
-      o.onToast&&o.onToast(one?`Listo: ${n} dibujo${n===1?"":"s"} de ${sym&&(sym.shortName||sym.name)||"este mercado"} ahora se ven solo en ${tf}`:`Listo: ${n} dibujo${n===1?"":"s"} se ven en todas las temporalidades`);again()});
+    menu.querySelectorAll("[data-va]").forEach(b=>b.onclick=()=>{const m=b.dataset.va;let n=0;const pl=k=>k===1?"":"s";
+      ovs.forEach((x,k)=>{if(!(x.done&&x.points&&x.points.length))return;const t=tfOf(x);
+        if(m==="all"){setTfv(k,null);n++}else if(m==="own"){if(t){setTfv(k,[t]);n++}}else if(m==="only"&&t===tf){setTfv(k,[tf]);n++}});visCustom=null;
+      const msg=m==="all"?`Listo: ${n} dibujo${pl(n)} se ven en todas las temporalidades`:m==="own"?`Listo: cada dibujo quedó en su temporalidad (${byTf})`:`Listo: ${n} dibujo${pl(n)} hecho${pl(n)} en ${tf} ahora se ven solo en ${tf}; los demás no cambiaron`;
+      o.onToast&&o.onToast(msg);const me=ovs.get(id);if(me&&!tfOk(me)){closeMenu();hideStyleBar();selId=null}else again()});
     const vn=menu.querySelector("[data-vnew]");vn&&(vn.onchange=()=>{o.setDrawTfOnly&&o.setDrawTfOnly(vn.checked);o.onToast&&o.onToast(vn.checked?"Lo nuevo que dibujes se verá solo en la temporalidad donde lo hagas":"Lo nuevo que dibujes se verá en todas las temporalidades")});
     /* acciones */
     menu.querySelectorAll(".mi").forEach(b=>b.onclick=()=>{const a=b.dataset.a;
@@ -1422,7 +1429,7 @@ ${o.onTracker?`<button class="wtrk" title="Marcador de operaciones (ganadas, per
   function resetView(){pinTs=null;try{chart.setBarSpace(8);chart.scrollToRealTime(200)}catch(e){}autoScale();fixOffR(true)}
   function quickLine(name,ts,v){if(!toolOK(name)){o.onLocked&&o.onLocked("tool",TNAME[name]||name);return}
     const st=(o.getToolStyle&&o.getToolStyle(name))||{};const id=makeOverlay({name,points:[{timestamp:ts,value:v}],styles:st.styles||undefined,extendData:(st.ex&&Object.keys(st.ex).length)?st.ex:undefined},false);
-    if(id){const vv=ovs.get(id);if(vv){if(!vv.tfv&&o.drawTfOnly&&o.drawTfOnly())vv.tfv=[curTf()];vv.done=true}persist()}}
+    if(id){const vv=ovs.get(id);if(vv){if(!vv.done&&!vv.ctf)vv.ctf=curTf();if(!vv.tfv&&o.drawTfOnly&&o.drawTfOnly())vv.tfv=[curTf()];vv.done=true}persist()}}
   chartEl.addEventListener("contextmenu",e=>{e.preventDefault();if(drawingId){if(finishFree())return;cancelDraw();o.onToast&&o.onToast("Herramienta cancelada");return}
     const ev={clientX:e.clientX,clientY:e.clientY};setTimeout(()=>{if(Date.now()-ovCtxAt<250)return;if(lastTouch)return;chartMenu(ev)},30)});
   /* rueda del mouse (clic del centro) sobre un dibujo: lo borra */
