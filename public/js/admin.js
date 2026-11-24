@@ -90,7 +90,8 @@ async function chat(sel){
   const paintOn=async()=>{const h=$("#dmOn");if(!h)return;const on=Object.values(ONL).filter(x=>x.online&&x.user_id!==(API.profile()||{}).id);
     if(!on.length){h.hidden=true;return}if(!users){try{users=await API.users()}catch(e){users=[]}}
     const U=id=>users.find(u=>u.id===id)||{};h.hidden=false;
-    h.innerHTML=`<div class="dm-onh"><i class="ondot"></i><b>En línea ahora</b><small>${on.length}</small></div><div class="dm-onr">${on.sort((a,b)=>new Date(b.last_seen)-new Date(a.last_seen)).map(x=>{const u=U(x.user_id);return`<a href="#admin-chat-${esc(x.user_id)}" title="${esc((u.username||"Alumno")+" · "+(x.place||"")+(x.device?" · "+x.device:""))}"><span class="dm-av">${A.avatar?A.avatar({username:u.username,avatar_url:u.avatar_url},40):""}<i class="ondot"></i></span><small>${esc(u.username||"Alumno")}</small></a>`}).join("")}</div>`};
+    h.innerHTML=`<div class="dm-onh"><i class="ondot"></i><b>En línea ahora</b><small>${on.length}</small></div><div class="dm-onr">${on.sort((a,b)=>new Date(b.last_seen)-new Date(a.last_seen)).map(x=>{const u=U(x.user_id);return`<a href="#admin-chat-${esc(x.user_id)}" title="${esc((u.username||"Alumno")+" · "+(x.place||"")+(x.device?" · "+x.device:""))}"><span class="dm-av">${A.avatar?A.avatar({username:u.username,avatar_url:u.avatar_url},40):""}<i class="ondot"></i></span><small>${esc(u.username||"Alumno")}</small></a>`}).join("")}</div>`;
+    const r=h.querySelector(".dm-onr");if(r)r.onwheel=e=>{if(Math.abs(e.deltaY)>Math.abs(e.deltaX)&&r.scrollWidth>r.clientWidth){r.scrollLeft+=e.deltaY;e.preventDefault()}}};
   await loadOnline();
   $("#dmQ").oninput=async()=>{const q=$("#dmQ").value.trim().toLowerCase(),r=$("#dmRes");if(q.length<2){r.hidden=true;return}
     if(!users){try{users=await API.users()}catch(e){users=[]}}
