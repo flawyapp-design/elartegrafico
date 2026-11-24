@@ -644,11 +644,16 @@ function start(){
     while(panes.length<n)panes.push(makePane(panes.length));
     panes.forEach((p,j)=>p.el.style.display=j<n?"":"none");
     document.querySelectorAll(".lay button").forEach(b=>b.classList.toggle("on",b.dataset.l===k));
+    if(k!=="mtf")SAVE.lastGridLay=k;{const cur=k!=="mtf"?k:(SAVE.lastGridLay||"l1");document.querySelectorAll(".lay button").forEach(b=>b.classList.toggle("cur",b.dataset.l===cur))}
     if(active>=n)active=0;
     if(k==="mtf"&&MTFS[0]&&MTFS[0].el.classList.contains("pstrip"))destroyMTF(0);syncStrips();
     setActive(active);placeSplits();relayout();
   }
-  document.querySelectorAll(".lay button").forEach(b=>b.onclick=()=>setLayout(b.dataset.l));
+  /* diseños: solo se ve el que estás usando (y Multi-TF); al tocarlo se despliegan los demás */
+  {const L=document.querySelector(".lay");L.classList.add("compact");
+    const close=()=>L.classList.remove("open");
+    document.querySelectorAll(".lay button").forEach(b=>b.onclick=e=>{e.stopPropagation();if(!L.classList.contains("open")&&b.classList.contains("cur")&&b.dataset.l!=="mtf"){L.classList.add("open");return}setLayout(b.dataset.l);close()});
+    addEventListener("pointerdown",e=>{if(!L.contains(e.target))close()},true)}
   function setSym(s){const p=panes[active];if(!p)return;tradeKick();
     const targets=[active];
     /* cada mercado recuerda su propia temporalidad: al volver a él se abre en la última que usaste */
@@ -875,6 +880,7 @@ function start(){
 
   $("#cfgb").onclick=e=>{e.stopPropagation();openSettings()};
   if(window.EAGN)EAGN.mount($("#ntb"));
+  organizeTop();
   $("#alb").onclick=e=>{e.stopPropagation();if(LOCK.alerts)return upsell("Las alertas de precio");openSettings("alertas")};
   /* ---------- Estudio (Replay + Práctica): Premium; el admin puede incluirlo en la prueba de 3 días ---------- */
   let SITE={};try{API.site&&API.site().then(d=>{SITE=d||{}}).catch(()=>{})}catch(e){}
@@ -1335,6 +1341,32 @@ function start(){
   document.addEventListener("selectstart",e=>{if(!editable(e.target))e.preventDefault()});
   document.addEventListener("dragstart",e=>{if(!editable(e.target))e.preventDefault()});
   document.addEventListener("contextmenu",e=>{if(!editable(e.target))e.preventDefault()});
+  /* ---------- barra superior ordenada: grupos con separador y lo menos usado en "Más" (cada cosa se puede fijar a la barra) ---------- */
+  function organizeTop(){const top=$("#top");if(!top||top.dataset.org)return;top.dataset.org="1";
+    const X=[["lzb","Puntero láser","Para explicar: tus alumnos lo ven en Modo Clase"],["pipb","Gráfico flotante","Ver el gráfico encima de otra app"],["clb","Modo Clase","Zonas del profe y quién te sigue"],["instb","Instalar como app","EAG Charts en tu escritorio o celular"],["fsb","Pantalla completa","Toda la plataforma sin bordes"]];
+    if(!Array.isArray(SAVE.topPins))SAVE.topPins=API.isAdmin&&API.isAdmin()?["clb","fsb"]:["fsb"];
+    /* en celular (pantalla angosta) también van al menú las alertas y la configuración, y nada queda fijado */
+    const narrow=innerWidth<700;if(narrow)X.push(["alb","Alertas de precio","Avisos cuando el precio llegue a tu nivel"],["cfgb","Configuración","Apariencia, barras, sonidos y atajos"]);
+    const pins=()=>narrow?[]:SAVE.topPins;
+    const g=id=>top.querySelector("#"+id),sep=()=>{const s=document.createElement("span");s.className="tsep";return s};
+    const more=document.createElement("button");more.className="btn ic moreb";more.id="moreb";more.title="Más herramientas (y elige cuáles ver en la barra)";more.innerHTML='<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>';
+    const menu=document.createElement("div");menu.className="tmore";menu.hidden=true;menu.setAttribute("role","menu");
+    /* orden: comunicación | estudio | herramientas fijadas + Más | alertas y ajustes | operar, mercados */
+    const order=["ntb","chb",0,"prob",0,...X.map(x=>x[0]).filter(id=>pins().includes(id)),"moreb",0,...(narrow?[]:["alb","cfgb",0]),"trb","wlb"];
+    const tail=document.createDocumentFragment();
+    order.forEach(id=>{if(id===0){tail.appendChild(sep());return}const el=id==="moreb"?more:g(id);if(el)tail.appendChild(el)});
+    top.appendChild(tail);document.body.appendChild(menu);
+    const paintMenu=()=>{menu.innerHTML=`<div class="tmh">Herramientas ${narrow?"":"<small>📌 = verla en la barra</small>"}</div>`+X.map(([id,n,d])=>{const b=g(id)||menu.querySelector("#"+id);if(!b)return"";
+        const hid=b.hidden&&id!=="fsb";return hid?"":`<div class="tmr" data-id="${id}"><button class="tgo" data-go="${id}">${b.querySelector("svg")?b.querySelector("svg").outerHTML:""}<span><b>${n}</b><small>${d}</small></span></button>${narrow?"":`<button class="tpin${SAVE.topPins.includes(id)?" on":""}" data-pin="${id}" title="${SAVE.topPins.includes(id)?"Quitar de la barra":"Fijar en la barra"}">📌</button>`}</div>`}).join("");
+      menu.querySelectorAll("[data-go]").forEach(b=>b.onclick=()=>{menu.hidden=true;const el=g(b.dataset.go)||document.getElementById(b.dataset.go);el&&el.click()});
+      menu.querySelectorAll("[data-pin]").forEach(b=>b.onclick=e=>{e.stopPropagation();const id=b.dataset.pin,P=SAVE.topPins,i=P.indexOf(id);if(i>=0)P.splice(i,1);else P.push(id);save();place();paintMenu()})};
+    /* las que no están fijadas quedan guardadas (ocultas) para que sigan funcionando desde el menú */
+    const park=document.createElement("span");park.hidden=true;park.id="tpark";top.appendChild(park);
+    const place=()=>{X.forEach(([id])=>{const el=document.getElementById(id);if(!el)return;if(pins().includes(id)){if(el.parentElement!==top){top.insertBefore(el,more);el.classList.remove("parked")}}else if(el.parentElement!==park)park.appendChild(el)})};
+    place();
+    more.onclick=e=>{e.stopPropagation();if(!menu.hidden){menu.hidden=true;return}paintMenu();menu.hidden=false;const r=more.getBoundingClientRect();menu.style.top=r.bottom+6+"px";menu.style.right=Math.max(8,innerWidth-r.right-8)+"px"};
+    addEventListener("pointerdown",e=>{if(!menu.hidden&&!menu.contains(e.target)&&!more.contains(e.target))menu.hidden=true},true)}
+
   /* ---------- barra flotante de dibujos favoritos (se arrastra adonde quieras) ---------- */
   SAVE.toolFav=Array.isArray(SAVE.toolFav)?SAVE.toolFav.flatMap(k=>k==="eagPosition"?["eagLong","eagShort"]:[k]):["segment","horizontalStraightLine","eagZone","fibonacciLine","eagLong","eagShort","eagMeasure"];
   const tfav=document.createElement("div");tfav.className="tfav";appw.appendChild(tfav);
