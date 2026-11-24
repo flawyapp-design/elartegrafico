@@ -1016,6 +1016,7 @@ html.light .jc.jw b,html.light .jc.jl b{color:#fff;text-shadow:0 1px 2px rgba(0,
 .jd{display:flex;gap:3px;align-items:center;font-size:11.5px;font-weight:700;color:var(--mut)}.jd i{font-style:normal;font-size:10.5px}
 .jc b{font-size:13px;font-weight:800;margin-top:auto}.jc small{font-size:10px;color:var(--mut)}
 .jc.jwk{cursor:default;background:var(--card2)}.jc.jwk.jw::before,.jc.jwk.jl::before{opacity:.14}.jc.jwk.jw b{color:var(--ok)}.jc.jwk.jl b{color:var(--bad)}.jc.jwk.jw small,.jc.jwk.jl small,.jc.jwk.jw .jd,.jc.jwk.jl .jd{color:var(--mut)}.jc.jwk:hover{border-color:var(--line)}.jc.jwk.jw,.jc.jwk.jl{border-color:var(--line)}
+.jfl{display:block;font-style:normal;font-size:11.5px;color:var(--mut)}.jfl .jw{color:var(--ok)}.jfl .jl{color:var(--bad)}.jr-ab{display:flex;flex-direction:column;align-items:flex-end}
 .jp{display:grid;gap:12px}.jps{display:grid;gap:9px;padding:12px;border:1px solid var(--line);border-radius:12px;background:var(--bg2)}.jps h4{margin:0;font-size:13.5px}
 .jpg{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}.jpg>div{display:grid;gap:4px;background:var(--card2);border-radius:10px;padding:8px 10px}.jpg small{font-size:10.5px;color:var(--mut)}.jpg b{font-size:15px}
 .jpw{margin:0;padding:9px 12px;border-radius:10px;font-weight:700;font-size:13px}.jpw.bad{background:rgba(242,54,69,.14);color:var(--bad)}.jpw.ok{background:rgba(8,153,129,.14);color:var(--ok)}
@@ -1023,7 +1024,10 @@ html.light .jc.jw b,html.light .jc.jl b{color:#fff;text-shadow:0 1px 2px rgba(0,
 .jpf{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
 .jpt{display:flex;gap:10px;align-items:flex-start;cursor:pointer}.jpt span{display:grid;gap:2px}.jpt small{color:var(--mut);font-size:11.5px}
 .jrl{display:grid;gap:4px}.jrl>div{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:9px;background:var(--card2);font-size:13px}.jrl span{flex:1}.jrl button{border:0;background:transparent;color:var(--mut);cursor:pointer}
-.jps .jr-form,.jps input{font-size:15px}.jps input[type=text]{width:100%;box-sizing:border-box;padding:9px 11px;border-radius:10px;border:1px solid var(--line2);background:var(--card);color:var(--fg);font:inherit;font-weight:600}
+.jps .jr-form,.jps input{font-size:15px}#jflows .jf-add input[data-fv]{flex:1 1 110px}#jflows .jf-add input[data-fd]{flex:0 0 150px}#jflows .jf-add input[data-fn]{flex:1 1 160px}
+@media (max-width:640px){#jflows .jf-add .jr-seg{flex-basis:100%}#jflows .jf-add input[data-fd]{flex:1 1 140px}}
+.jps input[type=date]{padding:8px 10px;border-radius:10px;border:1px solid var(--line2);background:var(--card);color:var(--fg);font:inherit}
+.jps input[type=text]{width:100%;box-sizing:border-box;padding:9px 11px;border-radius:10px;border:1px solid var(--line2);background:var(--card);color:var(--fg);font:inherit;font-weight:600}
 @media (max-width:640px){.jpg{grid-template-columns:repeat(2,1fr)}.jpf{grid-template-columns:1fr}}
 .jr-wks{display:none}
 .jr-hint{font-size:11.5px;color:var(--mut);margin:10px 0 0}.jr-empty{color:var(--mut);font-size:13px;padding:24px 4px;text-align:center}

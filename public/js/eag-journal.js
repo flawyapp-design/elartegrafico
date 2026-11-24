@@ -109,8 +109,13 @@ function paintAll(){if(el&&!el.hidden)paint();X.onChange&&X.onChange();try{planC
    El saldo sale solo del journal (saldo inicial + todo lo ganado/perdido) y con él se calcula el riesgo y el lote. */
 const PLAN0={mode:"pct",pct:1,usd:0,lossMode:"pct",loss:3,goal:0,maxT:0,minRR:0,rules:[]};
 const planOf=a=>{a=a||acct();if(!a.plan)a.plan={};Object.keys(PLAN0).forEach(k=>{if(a.plan[k]===undefined)a.plan[k]=Array.isArray(PLAN0[k])?[]:PLAN0[k]});if(!Array.isArray(a.plan.rules))a.plan.rules=[];return a.plan};
-const balNow=()=>{const a=acct();return a.start!=null&&a.start!==""?+a.start+totalAll():null};
-const balAtDay=k=>{const a=acct();if(a.start==null||a.start==="")return null;return +a.start+stats(null,prevKey(k)).tot};
+/* depósitos y retiros: cambian el saldo pero NO cuentan como ganancia o pérdida del trading */
+const flowsOf=a=>{a=a||acct();if(!Array.isArray(a.flows))a.flows=[];return a.flows};
+const flowSum=(to,a)=>flowsOf(a).filter(f=>!to||f.k<=to).reduce((x,f)=>x+(+f.v||0),0);
+const flowParts=a=>{let d=0,r=0;flowsOf(a).forEach(f=>{if(f.v>0)d+=+f.v;else r-=+f.v});return{d,r}};
+const hasStart=a=>{a=a||acct();return a.start!=null&&a.start!==""};
+const balNow=()=>{const a=acct();return hasStart(a)||flowsOf(a).length?(+a.start||0)+totalAll()+flowSum(null,a):null};
+const balAtDay=k=>{const a=acct();if(!hasStart(a)&&!flowsOf(a).length)return null;return (+a.start||0)+stats(null,prevKey(k)).tot+flowSum(k,a)};
 const riskUsdOf=(pl,bal)=>pl.mode==="usd"?(+pl.usd||0):(bal||0)*(+pl.pct||0)/100;
 const lossUsdOf=(pl,bal)=>pl.lossMode==="usd"?(+pl.loss||0):(bal||0)*(+pl.loss||0)/100;
 function todayState(){const k=today(),d=dayGet(k),pl=planOf(),b0=balAtDay(k),pnl=dayPnl(d)||0,n=dayN(d);
@@ -131,6 +136,12 @@ function planView(){const a=acct(),pl=planOf(a),balV=balNow(),t=todayState(),ris
       <div><small>Meta del día</small><b>${t.goal>0?money(t.goal):"—"}</b>${t.goal>0?bar(Math.max(0,t.pnl),t.goal):""}</div>
       <div><small>Operaciones</small><b>${t.n}${t.maxT?" / "+t.maxT:""}</b>${t.maxT?bar(t.n,t.maxT,t.n>=t.maxT):""}</div></div>
     ${t.loss>0&&t.pnl<=-t.loss?`<p class="jpw bad">🛑 Llegaste a tu pérdida máxima. Tu plan dice: para por hoy.</p>`:t.goal>0&&t.pnl>=t.goal?`<p class="jpw ok">🎯 Meta cumplida. Cuida lo ganado.</p>`:t.maxT&&t.n>=t.maxT?`<p class="jpw bad">✋ Ya hiciste tus ${t.maxT} operaciones de hoy.</p>`:""}
+   </section>
+   <section class="jps" id="jflows"><h4>Depósitos y retiros</h4>
+    <p class="jf-h">Así el saldo queda igual al de tu broker. No cuentan como ganancia ni pérdida en tus estadísticas.</p>
+    <div class="jf-add"><div class="jr-seg big"><button data-fk="1" class="${(view.fk||1)>0?"on jw":""}">＋ Depósito</button><button data-fk="-1" class="${(view.fk||1)<0?"on jl":""}">− Retiro</button></div>
+      <input data-fv type="text" inputmode="decimal" placeholder="Monto US$"><input data-fd type="date" value="${today()}" max="${today()}" aria-label="Fecha"><input data-fn type="text" maxlength="60" placeholder="Nota (opcional)"><button class="jr-btn pri" data-fadd>Agregar</button></div>
+    ${flowsOf().length?`<div class="jf-list">${flowsOf().slice().sort((x,y)=>y.k<x.k?-1:y.k>x.k?1:y.t-x.t).map(f=>`<div><span>${parse(f.k).getDate()} ${MES[parse(f.k).getMonth()].slice(0,3)} ${parse(f.k).getFullYear()} · ${f.v>0?"Depósito":"Retiro"}${f.note?" · "+esc(f.note):""}</span><b class="${f.v>0?"jw":"jl"}">${f.v>0?"+":"−"}${bal(Math.abs(f.v)).replace("US$ ","$")}</b><button data-fdel="${f.id}" aria-label="Borrar">✕</button></div>`).join("")}</div>`:""}
    </section>
    <section class="jps"><h4>Calculadora de lote</h4>
     <p class="jf-h">Usa el saldo de esta cuenta: ${balV!=null?`<b>${bal(balV)}</b>`:`<button class="jr-lnk" data-eacct>pon el saldo inicial</button> para que se calcule solo`}.</p>
@@ -153,6 +164,12 @@ function planView(){const a=acct(),pl=planOf(a),balV=balNow(),t=todayState(),ris
     <div class="jf-add"><input data-rnew type="text" maxlength="120" placeholder="Escribe una regla y Enter"><button class="jr-btn" data-radd>Agregar</button></div>
    </section></div>`}
 function bindPlan(c){const q=s=>c.querySelector(s),qa=s=>c.querySelectorAll(s),pl=planOf();
+  qa("[data-fk]").forEach(b=>b.onclick=()=>{view.fk=+b.dataset.fk;qa("[data-fk]").forEach(x=>{const on=+x.dataset.fk===view.fk;x.className=on?"on "+(view.fk>0?"jw":"jl"):""});q("[data-fv]").focus()});
+  const fadd=()=>{const v=num(q("[data-fv]").value);if(!v){q("[data-fv]").focus();X.toast("Escribe el monto");return}const k=q("[data-fd]").value||today(),sg=view.fk||1;
+    flowsOf().push({id:uid(),k,t:Date.now(),v:+(sg*Math.abs(v)).toFixed(2),note:(q("[data-fn]").value||"").trim()||undefined});X.save();paintAll();
+    X.toast(`${sg>0?"Depósito":"Retiro"} de ${bal(Math.abs(v))} agregado. Saldo: ${bal(balNow())}`);const s2=el.querySelector("#jflows");s2&&s2.scrollIntoView({block:"nearest"})};
+  q("[data-fadd]").onclick=fadd;q("[data-fv]").onkeydown=e=>{e.stopPropagation();if(e.key==="Enter"){e.preventDefault();fadd()}};
+  qa("[data-fdel]").forEach(b=>b.onclick=()=>{const a=acct();a.flows=flowsOf(a).filter(f=>f.id!==b.dataset.fdel);X.save();paintAll()});
   const upd=()=>{X.save();try{X.lotRepaint&&X.lotRepaint()}catch(e){}const bal=balNow(),r=riskUsdOf(pl,bal),ru=q("[data-rusd]");if(ru)ru.textContent=r>0?"US$ "+r.toFixed(2):"—";
     const pts=num((q("[data-calc]")||{}).value||""),lt=q("[data-lot]");if(lt){const lot=r>0&&pts>0?Math.floor(r/pts*100+1e-9)/100:null;lt.innerHTML=lot!=null?(lot>=0.01?`Lote <b>${lot.toFixed(2)}</b> en Boom, Crash y sintéticos (1 punto = US$ 1 por lote)`:"El SL está muy lejos: lote menor a 0.01"):"Escribe los puntos para ver el lote"}};
   qa("[data-pm]").forEach(b=>b.onclick=()=>{pl.mode=b.dataset.pm;X.save();paint()});
@@ -177,9 +194,11 @@ function paint(){const j=J();
   c.innerHTML=edit&&edit.acct?acctForm():edit&&edit.day?dayForm(edit.day):view.tab==="mes"?monthView():view.tab==="sem"?weekView():view.tab==="ano"?yearView():view.tab==="plan"?planView():statsView();
   bind(c)}
 
-function head(){const a=acct(),tot=totalAll(),st=a.start!=null&&a.start!==""?+a.start:null;
-  return `<div class="jr-acct"><div><small>${esc(a.name)}</small>${st!=null?`<b>${bal(st+tot)}</b><i class="${cls(tot||null)}">${money(tot)} desde ${bal(st)}${st>0?` · ${pct(tot/st*100)}`:""}</i>`:`<b class="${cls(tot||null)}">${money(tot)||"$0"}</b><i>Resultado total</i>`}</div>
-    <button class="jr-lnk" data-eacct>Editar cuenta</button></div>`}
+function head(){const a=acct(),tot=totalAll(),b=balNow(),st=hasStart(a)?+a.start:0,fp=flowParts(a),inv=st+fp.d;
+  return `<div class="jr-acct"><div><small>${esc(a.name)}</small>${b!=null?`<b>${bal(b)}</b><i class="${cls(tot||null)}">Trading ${money(tot)||"$0"}${inv>0?` · ${pct(tot/inv*100)}`:""}</i>
+      <i class="jfl">${hasStart(a)?`Inicial ${bal(st)}`:""}${fp.d?` · Depósitos <span class="jw">+${bal(fp.d).replace("US$ ","$")}</span>`:""}${fp.r?` · Retiros <span class="jl">−${bal(fp.r).replace("US$ ","$")}</span>`:""}</i>`
+      :`<b class="${cls(tot||null)}">${money(tot)||"$0"}</b><i>Resultado total</i>`}</div>
+    <div class="jr-ab"><button class="jr-lnk" data-goflow>± Depósito / retiro</button><button class="jr-lnk" data-eacct>Editar cuenta</button></div></div>`}
 function sumStrip(s,label){return `<div class="jr-sum">
   <div><small>${label}</small><b class="${cls(s.days?s.tot:null)}">${s.days?money(s.tot):"—"}</b></div>
   <div><small>Días</small><b><span class="jw">${s.win}</span> / <span class="jl">${s.loss}</span></b></div>
@@ -193,7 +212,7 @@ function monthView(){const y=view.y,m=view.m,first=new Date(y,m,1),nd=new Date(y
     rows+=wk.map(d=>{if(!d)return`<div class="jc jo"></div>`;const k=y+"-"+pad(m+1)+"-"+pad(d),o=D[k],v=dayPnl(o),n=dayN(o);if(v!=null){ws+=v;wd++}wn+=n;
       const a=v==null?0:.18+.62*Math.min(1,Math.abs(v)/mx);
       return`<button class="jc ${cls(v)}${k===t?" jt":""}${k>t?" jf":""}" data-day="${k}" style="--a:${a.toFixed(2)}" aria-label="${d} de ${MES[m]}${v!=null?", "+money(v):""}">
-        <span class="jd">${d}${o&&o.note?`<i class="jnote" title="Tiene notas">✎</i>`:""}${o&&o.mood?`<i>${(MOODS.find(x=>x[0]===o.mood)||[])[1]||""}</i>`:""}</span>
+        <span class="jd">${d}${flowsOf().some(f=>f.k===k)?`<i title="Depósito o retiro">💵</i>`:""}${o&&o.note?`<i class="jnote" title="Tiene notas">✎</i>`:""}${o&&o.mood?`<i>${(MOODS.find(x=>x[0]===o.mood)||[])[1]||""}</i>`:""}</span>
         ${v!=null?`<b>${money(v,true)}</b>`:""}${n?`<small>${n} op</small>`:""}</button>`}).join("")+
       `<div class="jc jwk ${wd?cls(ws):""}"><span class="jd">Sem ${r/7+1}</span>${wd?`<b>${money(ws,true)}</b><small>${wd} ${wd===1?"día":"días"}</small>`:""}</div>`;wks.push({i:r/7+1,ws,wd})}
   return head()+`<div class="jr-nav"><button data-mv="-1" aria-label="Mes anterior">‹</button><b>${MES[m]} ${y}</b><button data-mv="1" aria-label="Mes siguiente">›</button><button class="jr-lnk" data-hoy>Hoy</button></div>
@@ -246,8 +265,8 @@ function statsView(){const y=view.y,m=view.m,sc=view.scope,now=new Date();
     <p class="jr-hint">Racha actual: ${s.cur.n?`${s.cur.n} ${s.cur.n===1?"día":"días"} ${s.cur.s>0?"en verde 🔥":"en rojo"}`:"sin racha"}.</p>`}
 
 function drawEq(cv){const s=view.scope,y=view.y,m=view.m;const [from,to]=s==="mes"?[y+"-"+pad(m+1)+"-01",y+"-"+pad(m+1)+"-31"]:s==="ano"?[y+"-01-01",y+"-12-31"]:[null,null];
-  const st=stats(from,to);const a=acct(),base=a.start!=null&&a.start!==""?+a.start+(from?stats(null,prevKey(from)).tot:0):0;
-  const pts=[base];st.P.forEach(v=>pts.push(pts[pts.length-1]+v));const dpr=devicePixelRatio||1,W=cv.clientWidth||600,H=180;cv.width=W*dpr;cv.height=H*dpr;
+  const st=stats(from,to);const a=acct(),base=hasStart(a)||flowsOf(a).length?(+a.start||0)+(from?stats(null,prevKey(from)).tot+flowSum(prevKey(from),a):0):0;
+  const pts=[base];let lastK=from?prevKey(from):"";st.P.forEach((v,i)=>{const k=st.ks[i],fl=flowsOf(a).filter(f=>f.k>lastK&&f.k<=k).reduce((x,f)=>x+(+f.v||0),0);lastK=k;pts.push(pts[pts.length-1]+v+fl)});const dpr=devicePixelRatio||1,W=cv.clientWidth||600,H=180;cv.width=W*dpr;cv.height=H*dpr;
   const c=cv.getContext("2d");c.scale(dpr,dpr);const css=getComputedStyle(el),ok=css.getPropertyValue("--ok").trim()||"#089981",bad=css.getPropertyValue("--bad").trim()||"#f23645",mut=css.getPropertyValue("--mut").trim()||"#888",line=css.getPropertyValue("--line").trim()||"#333";
   const lo=Math.min(...pts),hi=Math.max(...pts),pd=(hi-lo)*.1||1,yy=v=>12+(hi+pd-v)/(hi-lo+2*pd)*(H-30),xx=i=>8+i/(Math.max(1,pts.length-1))*(W-70);
   c.strokeStyle=line;c.lineWidth=1;c.setLineDash([3,4]);c.beginPath();c.moveTo(8,yy(base));c.lineTo(W-62,yy(base));c.stroke();c.setLineDash([]);
@@ -301,6 +320,7 @@ function bind(c){const q=s=>c.querySelector(s),qa=s=>c.querySelectorAll(s);
   qa("[data-gom]").forEach(b=>b.onclick=()=>{view.m=+b.dataset.gom;view.tab="mes";paint()});
   qa("[data-sc]").forEach(b=>b.onclick=()=>{view.scope=b.dataset.sc;paint()});
   q("[data-eacct]")&&(q("[data-eacct]").onclick=()=>{edit={acct:J().cur};paint()});
+  q("[data-goflow]")&&(q("[data-goflow]").onclick=()=>{view.tab="plan";edit=null;paint();const s2=el.querySelector("#jflows");if(s2){s2.scrollIntoView({block:"start"});const i=s2.querySelector("[data-fv]");i&&i.focus()}});
   q("[data-back]")&&(q("[data-back]").onclick=()=>{edit=null;paint()});
   const eq=q("[data-eq]");eq&&requestAnimationFrame(()=>drawEq(eq));
   if(!edit&&view.tab==="plan")bindPlan(c);
