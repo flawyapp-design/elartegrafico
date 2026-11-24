@@ -47,7 +47,22 @@ async function poll(){if(polling)return;polling=true;
     (r.commands||[]).forEach(c=>{const prev=cmds[c.id];cmds[c.id]=c;if(FINAL[c.status]&&(!prev||!FINAL[prev.status])&&waiters[c.id]){const w=waiters[c.id];delete waiters[c.id];w(c)}});
     lastErr="";ensureWatch()}
   catch(e){lastErr=e.message||"Sin conexión"}
-  finally{polling=false;paint();paintQT();paintTB();S.syncLinesSoon()}}
+  finally{polling=false;try{mtNotes()}catch(e){}paint();paintQT();paintTB();S.syncLinesSoon()}}
+/* avisos de MT5: operación abierta / cerrada (con SL o TP), orden pendiente que se activó, y si el EA se desconecta o vuelve */
+let nPrev=null,nOn=null,nPend={},nLogin=null;
+function mtNotes(){const N=window.EAGN;if(!N||!st)return;if(String(st.login)!==nLogin){nLogin=String(st.login);nPrev=null;nOn=null;nPend={}}const fmt=v=>(v>=0?"+":"−")+"$"+Math.abs(+v).toFixed(2);
+  const P={};(st.positions||[]).forEach(p=>P[p.ticket]=p);const on=!!st.online;
+  if(nOn!==null&&on!==nOn)N.notify({cat:"sistema",title:on?"MT5 conectado":"MT5 se desconectó",body:on?`Cuenta ${st.login} en línea`:"Revisa que MT5 esté abierto y el EA con Algo Trading activado",tone:on?"ok":"bad",sound:on?"ding":"error",important:!on,key:"mt5on-"+on});
+  nOn=on;
+  if(nPrev){Object.keys(P).forEach(t=>{if(!nPrev[t]){const p=P[t];N.notify({cat:"trade",title:`MT5: ${p.type==="sell"?"venta":"compra"} abierta`,body:`${p.symbol} · ${S.fmtLot(p.volume)} lotes a ${p.open_price}`,sound:"moneda",key:"mt5o-"+t})}});
+    Object.keys(nPrev).forEach(t=>{if(P[t])return;nPend[t]={p:nPrev[t],at:Date.now()}})}
+  /* el resultado real llega en el historial: se espera hasta 20 s para leerlo */
+  Object.keys(nPend).forEach(t=>{const x=nPend[t],p=x.p;const d=(st.history||[]).find(h=>String(h.position)===String(t));
+    if(!d&&Date.now()-x.at<20000)return;delete nPend[t];
+    const pr=d?(+d.profit||0)+(+d.commission||0)+(+d.swap||0):(+p.profit||0)+(+p.swap||0),cp=d?+d.price:null,tol=Math.abs(+p.open_price)*0.00005+1e-9;
+    const why=cp!=null&&+p.tp>0&&Math.abs(cp-p.tp)<=Math.max(tol,Math.abs(p.tp-p.open_price)*0.02)?"Take profit":cp!=null&&+p.sl>0&&Math.abs(cp-p.sl)<=Math.max(tol,Math.abs(p.sl-p.open_price)*0.02)?"Stop loss":"";
+    N.notify({cat:"trade",title:`MT5: ${why?why+" · ":""}${pr>=0?"ganaste":"perdiste"} ${fmt(pr).replace(/^[+−]/,"")}`,body:`${p.symbol} · ${p.type==="sell"?"venta":"compra"} ${S.fmtLot(p.volume)} cerrada${cp!=null?" en "+cp:""}`,tone:pr>=0?"ok":"bad",sound:pr>=0?"exito":"error",important:true,key:"mt5c-"+t})});
+  nPrev=P}
 function schedule(){clearTimeout(pollT);const fast=(S&&S.isOpen()&&S.cfg.broker==="mt5")||qtVisible()||(G.tb.open&&!G.tb.min);
   pollT=setTimeout(async()=>{await poll();schedule()},fast?1000:(st&&((st.positions||[]).length||(st.orders||[]).length)?2500:8000))}
 async function send(action,params,quiet){

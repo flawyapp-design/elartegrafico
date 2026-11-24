@@ -187,6 +187,7 @@ function SupabaseAPI(url,key){
     chatFind(q){return rpc("chat_find",{p_q:q})},
     chatRead(room,last){return rpc("chat_read",{p_room:room,p_last:last||0})},
     chatGroupReads(min){return rpc("chat_group_reads",{p_min:min||0})},
+    chatMyMentions(){return rpc("chat_my_mentions")},chatMentionsSeen(){return rpc("chat_mentions_seen")},
     chatDelete(id){return rpc("chat_delete",{p_id:id})},
     chatReact(id,emoji){return rpc("chat_react",{p_id:id,p_emoji:emoji})},
     chatHide(room){return rpc("chat_hide",{p_room:room})},
@@ -382,6 +383,10 @@ function LocalAPI(){
           unread:L.filter(m=>m.sender!==uid&&m.id>Math.max(R[uid+"|"+r]||0,(db.chid||{})[uid+"|"+r]||0)).length,other_read:o?(R[o+"|"+r]||0):null,verified:o?vf(p):null,plan:o?pl(p):null,__hid:r!=="g:general"&&(l.id||0)<=((db.chid||{})[uid+"|"+r]||0)}}).filter(t=>!t.__hid).sort((a,b)=>(b.last_id||0)-(a.last_id||0))},
     async chatPeople(){reload();return Object.keys(db.presence||{}).filter(on).map(id=>{const p=pf(id),x=db.presence[id];return{id,username:p.username,avatar_url:p.avatar_url||null,is_admin:p.role==="admin",symbol:x.symbol,symbol_name:x.name,tf:x.tf,hidden:!!p.chat_hidden,verified:vf(p),plan:pl(p)}}).filter(x=>!x.hidden||x.id===uid)},
     async chatFind(q){reload();q=String(q||"").toLowerCase();return q.length<2?[]:db.profiles.filter(p=>!p.banned&&String(p.username||"").toLowerCase().includes(q)).slice(0,15).map(p=>({id:p.id,username:p.username,avatar_url:p.avatar_url||null,is_admin:p.role==="admin",verified:vf(p),plan:pl(p)}))},
+    async chatMyMentions(){reload();if(!uid)return[];const me=(db.profiles.find(x=>x.id===uid)||{}).username||"";if(!me)return[];db.cment=db.cment||{};
+      return(db.cmsgs||[]).filter(m=>m.room==="g:general"&&m.sender!==uid&&!db.cment[uid+"|"+m.id]&&new RegExp("@"+me.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")+"\\b","i").test(m.body||"")).slice(-20).reverse()
+        .map(m=>({id:m.id,msg_id:m.id,sender:m.sender,username:(db.profiles.find(x=>x.id===m.sender)||{}).username,body:m.body,created_at:m.created_at}))},
+    async chatMentionsSeen(){reload();db.cment=db.cment||{};(db.cmsgs||[]).forEach(m=>{if(m.room==="g:general")db.cment[uid+"|"+m.id]=1});save()},
     async chatGroupReads(min){reload();const R=db.creads||{},out=[];Object.keys(R).forEach(k=>{const [u,room]=k.split("|");if(room!=="g:general"||R[k]<(min||0))return;const p=db.profiles.find(x=>x.id===u)||{};out.push({user_id:u,username:p.username,avatar_url:p.avatar_url,last_id:R[k]})});return out},
     async chatRead(room,last){reload();db.creads=db.creads||{};const k=uid+"|"+room;db.creads[k]=Math.max(db.creads[k]||0,last||0);save()},
     async chatCleanup(){reload();const lim=Date.now()-10*864e5;db.cmsgs=(db.cmsgs||[]).filter(m=>new Date(m.created_at).getTime()>=lim);save()},

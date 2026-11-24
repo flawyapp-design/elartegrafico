@@ -34,7 +34,24 @@ function colorOf(id){let h=0;for(const c of String(id))h=(h*31+c.charCodeAt(0))>
 const hhmm=t=>{try{const d=new Date(t),n=new Date();const s=d.toLocaleTimeString("es-CO",{hour:"numeric",minute:"2-digit"});return d.toDateString()===n.toDateString()?s:d.toLocaleDateString("es-CO",{day:"numeric",month:"short"})+" "+s}catch(e){return""}};
 const nameOf=id=>{if(id===ME.id)return ME.name;const p=people.find(x=>x.id===id);if(p)return p.username;const t=threads.find(x=>x.other===id);return t?t.username:"Alguien"};
 const uuid=()=>crypto.randomUUID?crypto.randomUUID():"r"+Date.now().toString(36)+Math.random().toString(36).slice(2);
-function linkify(s){return esc(s).replace(/(https?:\/\/[^\s<]+)/g,'<a href="$1" target="_blank" rel="noopener">$1</a>').replace(/\n/g,"<br>")}
+function linkify(s){return esc(s).replace(/(https?:\/\/[^\s<]+)/g,'<a href="$1" target="_blank" rel="noopener">$1</a>')
+  .replace(/(^|\s)@([\wÀ-ÿ.\-]{2,40})/g,(a,sp,n)=>`${sp}<b class="sp-at${ME&&String(ME.name).toLowerCase()===n.toLowerCase()?" me":""}">@${n}</b>`).replace(/\n/g,"<br>")}
+/* @menciones: lista de personas al escribir @ (conectados primero) */
+function atPeople(){const M=new Map();const add=(id,n,a,on)=>{if(!id||!n||id===ME.id)return;const o=M.get(id);if(o){o.on=o.on||on;return}M.set(id,{id,n,a,on})};
+  people.forEach(p=>add(p.id,p.username,p.avatar_url,true));(msgs[GEN]||[]).slice(-300).forEach(m=>add(m.sender,m.username,m.avatar_url,false));grpR.forEach(r=>add(r.user_id,r.username,r.avatar_url,false));
+  threads.forEach(t=>t.other&&add(t.other,t.username,t.avatar_url,false));return[...M.values()]}
+function atWire(ta,fm){let list=null,sel=0,items=[],q=null;
+  const close=()=>{if(list){list.remove();list=null}q=null};
+  const at=()=>{const pos=ta.selectionStart,before=ta.value.slice(0,pos),m=before.match(/(^|\s)@([\wÀ-ÿ.\-]{0,30})$/);return m?{start:pos-m[2].length-1,q:m[2].toLowerCase(),pos}:null};
+  const pick=i=>{const it=items[i];if(!it||!q)return;const v=ta.value,ins="@"+it.n+" ";ta.value=v.slice(0,q.start)+ins+v.slice(q.pos);const c=q.start+ins.length;ta.setSelectionRange(c,c);ta.dispatchEvent(new Event("input"));close();ta.focus()};
+  const paint=()=>{q=at();if(!q){close();return}const L=atPeople().map(p=>{const k=p.n.toLowerCase().indexOf(q.q);return{p,k}}).filter(x=>!q.q||x.k>=0)
+      .sort((a,b)=>(b.p.on-a.p.on)||(a.k-b.k)||a.p.n.localeCompare(b.p.n)).slice(0,8).map(x=>x.p);items=L;if(!L.length){close();return}sel=Math.min(sel,L.length-1);
+    if(!list){list=document.createElement("div");list.className="sp-atl";list.setAttribute("role","listbox");fm.appendChild(list)}
+    list.innerHTML=`<small>Mencionar · se le avisa</small>`+L.map((p,i)=>`<button type="button" role="option" class="${i===sel?"on":""}" data-i="${i}">${av({id:p.id,username:p.n,avatar_url:p.a},"sm")}<span>${esc(p.n)}</span>${p.on?'<i class="ond"></i>':""}</button>`).join("");
+    list.querySelectorAll("[data-i]").forEach(b=>{b.onpointerdown=e=>{e.preventDefault();pick(+b.dataset.i)}})};
+  ta.addEventListener("input",()=>{sel=0;paint()});ta.addEventListener("click",paint);ta.addEventListener("blur",()=>setTimeout(close,150));
+  return e=>{if(!list)return false;if(e.key==="ArrowDown"||e.key==="ArrowUp"){e.preventDefault();sel=(sel+(e.key==="ArrowDown"?1:-1)+items.length)%items.length;paint();return true}
+    if(e.key==="Enter"||e.key==="Tab"){e.preventDefault();pick(sel);return true}if(e.key==="Escape"){e.preventDefault();close();return true}return false}}
 
 /* ===================== transporte en tiempo real ===================== */
 function rtConnect(){if(!X.API.rt||rt)return;let ws;try{ws=new WebSocket(X.API.rt.url)}catch(e){return}rt=ws;rtJoined=false;
@@ -70,6 +87,14 @@ function localBus(){if(X.API.rt||!window.BroadcastChannel)return;bc=new Broadcas
 /* ===================== datos ===================== */
 async function loadThreads(){try{threads=(await X.API.chatThreads())||[]}catch(e){threads=threads||[]}
   unread=threads.reduce((a,t)=>a+(t.room===GEN?0:(+t.unread||0)),0);paintBtn();if(panel&&!view.room)paintPanel()}
+/* menciones que te hicieron mientras no estabas: se avisan al entrar */
+async function missedMentions(){if(!X.API.chatMyMentions)return;let L=[];try{L=await X.API.chatMyMentions()||[]}catch(e){return}
+  L=L.filter(x=>x.sender!==ME.id);if(!L.length)return;const N=window.EAGN;
+  const go={label:"Ver en el grupo",fn:()=>{try{open(GEN)}catch(e){}}};
+  if(N){if(L.length===1){const x=L[0];N.notify({cat:"msg",icon:"@",title:`${x.username||"Alguien"} te mencionó en el grupo`,body:String(x.body||"").slice(0,140),important:true,sound:"pop",act:go,key:"mm-"+x.msg_id})}
+    else N.notify({cat:"msg",icon:"@",title:`Te mencionaron ${L.length} veces en el grupo`,body:[...new Set(L.map(x=>x.username||"Alguien"))].slice(0,4).join(", ")+" · mientras no estabas",important:true,sound:"pop",act:go,key:"mm-n"})}
+  else X.toast(`@ Te mencionaron ${L.length} ${L.length===1?"vez":"veces"} en el grupo`);
+  try{await X.API.chatMentionsSeen()}catch(e){}}
 async function loadPeople(){try{people=(await X.API.chatPeople())||[]}catch(e){}paintBtn();if(panel&&!view.room)paintPanel()}
 async function loadRoom(room,more){const L=msgs[room]||(msgs[room]=[]);const before=more&&L.length?L[0].id:null;
   try{const r=((await X.API.chatHistory(room,before))||[]).slice().reverse();
@@ -78,7 +103,7 @@ async function loadRoom(room,more){const L=msgs[room]||(msgs[room]=[]);const bef
 function mergeMsgs(a,b){const m=new Map();a.concat(b).forEach(x=>m.set(x.id,Object.assign({},m.get(x.id)||{},x)));return[...m.values()].sort((x,y)=>x.id-y.id)}
 const readAt={};
 function markRead(room){const L=msgs[room];if(!L||!L.length)return;const last=L[L.length-1].id;const t=threads.find(x=>x.room===room);if(t){t.unread=0}
-  unread=threads.reduce((a,t)=>a+(t.room===GEN?0:(+t.unread||0)),0);paintBtn();if(readAt[room]===last)return;readAt[room]=last;X.API.chatRead(room,last).catch(()=>{});if(bc)bc.postMessage({k:"read",r:{user_id:ME.id,room,last_id:last}})}
+  unread=threads.reduce((a,t)=>a+(t.room===GEN?0:(+t.unread||0)),0);paintBtn();if(readAt[room]===last)return;readAt[room]=last;X.API.chatRead(room,last).catch(()=>{});if(room===GEN&&X.API.chatMentionsSeen)X.API.chatMentionsSeen().catch(()=>{});if(bc)bc.postMessage({k:"read",r:{user_id:ME.id,room,last_id:last}})}
 /* Grupo: quién leyó cada mensaje (se pregunta cada ~15 s mientras el grupo está abierto) */
 let grpR=[],grpRT=0,grpRBusy=false;
 function loadGrpReads(force){if(view.room!==GEN||!X.API.chatGroupReads||grpRBusy)return;const L=msgs[GEN];if(!L||!L.length)return;if(!force&&Date.now()-grpRT<12000)return;
@@ -108,7 +133,10 @@ function onMsg(m){if(!m||!m.room)return;if(!(m.room===GEN||(m.room.startsWith("d
   threads.sort((a,b)=>(b.last_id||0)-(a.last_id||0));
   const mine=m.sender===ME.id,open=panel&&view.room===m.room&&!document.hidden;
   const inOther=panel&&view.room&&view.room!==m.room&&!document.hidden;
-  if(!mine&&!open){t.unread=(+t.unread||0)+1;if(m.room!==GEN||mentioned(m)||m.is_admin){if(inOther)peek(m);else headNotify(m);SND.play(m.room!==GEN?"in":mentioned(m)?"mention":"in")}}
+  if(!mine&&!open){t.unread=(+t.unread||0)+1;if(m.room!==GEN||mentioned(m)||m.is_admin){if(inOther)peek(m);else headNotify(m);SND.play(m.room!==GEN?"in":mentioned(m)?"mention":"in");
+    /* queda en el centro de avisos y, con la pestaña de fondo, llega como notificación del sistema (sin repetir sonido ni tarjeta) */
+    try{if(window.EAGN&&m.kind!=="call"){const who=m.username||nameOf(m.sender),txt=m.kind==="img"?"📷 Imagen":m.kind==="share"?"📡 Compartió su gráfico":String(m.body||"").slice(0,120);
+      window.EAGN.notify({cat:"msg",icon:m.room===GEN?(mentioned(m)?"@":"👥"):"💬",title:m.room===GEN?(mentioned(m)?`${who} te mencionó`:`${who} en el grupo`):`Mensaje de ${who}`,body:txt,card:false,sound:false,tag:"msg-"+m.room,key:"msg-"+m.id})}}catch(e){}}}
   else if(!mine&&open)SND.play("inSoft");
   if(!mine&&typers[m.room]){delete typers[m.room][m.sender];paintTyping()}
   if(!mine&&m.kind==="call"&&m.payload&&m.payload.act==="start")m.room===GEN?incomingGroup(m):incoming(m);
@@ -236,7 +264,8 @@ function paintRoom(toBottom){if(!panel||!view.room)return;const room=view.room,i
   drop.ondragleave=()=>drop.classList.remove("over");drop.ondrop=e=>{drop.classList.remove("over");const f=[...(e.dataTransfer.files||[])].find(x=>x.type.startsWith("image/"));if(f){e.preventDefault();sendImg(room,f,ta)}};
   panel.querySelector("[data-menu]").onclick=e=>{e.stopPropagation();roomMenu(e.currentTarget,room)};
   box.querySelectorAll(".sp-img").forEach(im=>im.onclick=()=>lightbox(im.dataset.full||im.src));
-  ta.onkeydown=e=>{e.stopPropagation();if(e.key==="Escape"&&replyTo[room]){e.preventDefault();delete replyTo[room];paintRoom();return}if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();fm.requestSubmit()}};
+  const atKey=atWire(ta,fm);
+  ta.onkeydown=e=>{e.stopPropagation();if(atKey(e))return;if(e.key==="Escape"&&replyTo[room]){e.preventDefault();delete replyTo[room];paintRoom();return}if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();fm.requestSubmit()}};
   fm.onsubmit=async e=>{e.preventDefault();const v=ta.value.trim();if(!v)return;ta.value="";drafts[room]="";ta.style.height="auto";const rp=takeReply(room);const ok=await send(room,v,"text",rp?{reply:rp}:null);
     if(!ok){const t2=panel&&panel.querySelector(".sp-in textarea");if(t2&&!t2.value){t2.value=v;drafts[room]=v}}};
   requestAnimationFrame(pin);
@@ -587,7 +616,7 @@ function stopRingOut(){clearTimeout(ringOutT)}
 window.EAGSocial={
   init(o){X=o;const pr=(X.API.profile&&X.API.profile())||{};const u=X.API.user&&X.API.user();if(!u)return;ME={id:u.id,name:pr.username||"Yo"};
     imgClean();paintBtn();headPaint();if(X.btn)X.btn.onclick=e=>{e.stopPropagation();panel?close():open()};
-    localBus();rtConnect();sub("voz-general",vozHandler);loadThreads();setTimeout(loadPeople,2500);setInterval(()=>{if(!document.hidden&&!(panel&&!view.room))loadPeople()},60000);
+    localBus();rtConnect();sub("voz-general",vozHandler);loadThreads();setTimeout(loadPeople,2500);setTimeout(missedMentions,4000);setInterval(()=>{if(!document.hidden&&!(panel&&!view.room))loadPeople()},60000);
     clearInterval(thrT);thrT=setInterval(()=>{if(document.hidden)return;if(!rtJoined)loadThreads();if(panel&&view.room&&!rtJoined)loadRoom(view.room)},rtJoined?60000:15000);
     if(cfg().hidden)X.API.chatHidden(true).catch(()=>{});
     /* si recargó la página mientras compartía, vuelve a entrar */

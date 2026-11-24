@@ -101,7 +101,7 @@ async function connect(){
     if(p&&!m.subscription)delete pending[m.req_id];
     if(m.msg_type==="balance"&&m.balance){bal=+m.balance.balance;cur=m.balance.currency||cur;paintTop()}
     if(m.msg_type==="proposal_open_contract"&&m.proposal_open_contract&&m.proposal_open_contract.contract_id)onPoc(m.proposal_open_contract);
-    if(m.msg_type==="buy"&&m.buy){toast(`Operación abierta · ${money(m.buy.buy_price,cur)}`);watch(m.buy.contract_id)}};
+    if(m.msg_type==="buy"&&m.buy){if(!note({title:"Operación abierta",body:`${m.buy.longcode?String(m.buy.longcode).split(".")[0]:"Deriv"} · ${money(m.buy.buy_price,cur)}`,key:"dvb-"+m.buy.contract_id,sound:"moneda"}))toast(`Operación abierta · ${money(m.buy.buy_price,cur)}`);watch(m.buy.contract_id)}};
   s.onclose=()=>{ws=null;clearInterval(pingT);if(tok()&&acc){setState("Reconectando…");wsTimer=setTimeout(connect,2500)}};
   s.onerror=()=>{}}
 function send(o){return new Promise((res,rej)=>{if(!ws||ws.readyState!==1)return rej(new Error("Sin conexión con Deriv"));const id=reqN++;pending[id]={res,rej};ws.send(JSON.stringify(Object.assign({},o,{req_id:id})));
@@ -139,7 +139,8 @@ function sell(id){const c=contracts[id];if(c)c._closing=true;render();
   send({sell:+id,price:0}).then(r=>{toast(`Cerrada · ${money((r.sell||{}).sold_for,cur)}`)}).catch(e=>{if(c)c._closing=false;toast(e.message);render()})}
 function onPoc(p){const id=String(p.contract_id);const old=contracts[id]||{};contracts[id]=Object.assign(old,p);
   if(+p.is_sold===1||p.status==="sold"||p.status==="won"||p.status==="lost"){
-    const pr=+p.profit;if(!old._done){old._done=true;toast(`${pr>=0?"Ganaste":"Perdiste"} ${money(Math.abs(pr),cur)} · ${p.underlying_symbol||""}`)}
+    const pr=+p.profit;if(!old._done){old._done=true;if(!note({title:`${pr>=0?"Ganaste":"Perdiste"} ${money(Math.abs(pr),cur)}`,body:`Operación cerrada · ${p.display_name||p.underlying_symbol||""}`,tone:pr>=0?"ok":"bad",sound:pr>=0?"exito":"error",important:true,key:"dvs-"+id}))
+        toast(`${pr>=0?"Ganaste":"Perdiste"} ${money(Math.abs(pr),cur)} · ${p.underlying_symbol||""}`)}
     setTimeout(()=>{delete contracts[id];syncLines();render()},4000)}
   syncLinesSoon();paintPos()}
 
@@ -240,6 +241,8 @@ document.addEventListener("pointercancel",()=>{if(drag)endDrag()},true);
 let stateMsg="";
 function setState(t){stateMsg=t;render()}
 function toast(t){try{O&&O.toast?O.toast(t):console.log(t)}catch(e){}}
+/* aviso importante (suena, queda en el historial y avisa aunque la pestaña esté de fondo) */
+function note(n){try{if(window.EAGN){window.EAGN.notify(Object.assign({cat:"trade"},n));return true}}catch(e){}return false}
 function open(){if(!panel){panel=document.createElement("div");panel.className="trd";document.body.appendChild(panel);dragPanel()}
   panel.hidden=false;render();if(cfg.broker==="ct"&&window.EAGCT){window.EAGCT.onOpen();return}if(cfg.broker==="mt5"&&window.EAGMT5B){window.EAGMT5B.onOpen();return}if(tok()&&!ws&&!accounts.length)loadAccounts();else if(ws)loadCF()}
 function close(){if(panel)panel.hidden=true}

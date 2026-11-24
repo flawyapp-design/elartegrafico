@@ -213,6 +213,7 @@ function start(){
       <span class="grow"></span>
       <span class="who">${esc(prof.username||"")}</span>
       ${window.__free?`<a class="btn ic freeb" href="${MAIN}#premium" title="${window.__affKeys&&window.__affKeys.size?"Miembro verificado: tienes funciones extra desbloqueadas. Mejora a Plata, Oro o Diamond para tenerlo todo":"Estás en la versión gratis. Mejora a Plata, Oro o Diamond para tenerlo todo"}"><span class="pi">⭐</span><span class="t">${window.__affKeys&&window.__affKeys.size?"Miembro · Mejorar":"Gratis · Mejorar"}</span></a>`:""}
+      <button class="btn ic ntb" id="ntb" title="Avisos: lo que pasó (alertas, spikes, operaciones, mensajes, conexión) y sus sonidos"></button>
       <button class="btn ic lzb" id="lzb" title="Puntero láser (para explicar). En Modo Clase tus alumnos lo ven. Esc para apagarlo." aria-pressed="false"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3" fill="currentColor"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1"/></svg></button>
       <button class="btn ic pipb" id="pipb" hidden aria-pressed="false" title="Gráfico flotante"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><rect x="12" y="12" width="8" height="6" rx="1" fill="currentColor"/></svg></button>
       <button class="btn ic clb" id="clb" title="Modo Clase y Zonas del profe"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="12" rx="1.5"/><path d="m7 12 3-3 2 2 4-4"/><path d="M9 20l3-4 3 4"/></svg><span class="t">Clase</span><i class="cdot"></i></button>
@@ -240,7 +241,12 @@ function start(){
   </div>`;
 
   const appw=$("#appw"),stEl=$("#st"),main=$("#main"),list=$("#list"),q=$("#q"),ftabs=$("#ftabs"),pop=$("#pop");
-  const feedSt=s=>{stEl.className="st "+(s==="live"?"live":s==="off"?"err":"");stEl.lastChild.textContent=s==="live"?"En vivo":s==="off"?"Reconectando…":s==="pause"?"En pausa":"Conectando…"};
+  /* conexión de los precios: avisa si se cae más de 8 s y cuando vuelve */
+  let offT=null,offSaid=false;
+  const feedNote=s=>{if(!window.EAGN)return;if(s==="off"){if(!offT&&!offSaid)offT=setTimeout(()=>{offT=null;offSaid=true;EAGN.notify({cat:"sistema",title:"Se perdió la conexión con los precios",body:"Estamos reconectando solos. Revisa tu internet si tarda.",tone:"bad",sound:"error",key:"feed-off"})},8000)}
+    else if(s==="live"){clearTimeout(offT);offT=null;if(offSaid){offSaid=false;EAGN.notify({cat:"sistema",title:"Conexión recuperada",body:"Los precios ya están otra vez en vivo.",tone:"ok",sound:"ding",key:"feed-on"})}}
+    else if(s==="pause"){clearTimeout(offT);offT=null}};
+  const feedSt=s=>{feedNote(s);stEl.className="st "+(s==="live"?"live":s==="off"?"err":"");stEl.lastChild.textContent=s==="live"?"En vivo":s==="off"?"Reconectando…":s==="pause"?"En pausa":"Conectando…"};
   const feed=window.__feedPre||Feed(feedSt);if(window.__feedPre){window.__feedStCb=feedSt;if(window.__feedSt)feedSt(window.__feedSt)}
   const relayout=()=>requestAnimationFrame(()=>{window.dispatchEvent(new Event("resize"));mtfResize()});
 
@@ -868,6 +874,7 @@ function start(){
       try{loadAlerts()}catch(e){}},300)});
 
   $("#cfgb").onclick=e=>{e.stopPropagation();openSettings()};
+  if(window.EAGN)EAGN.mount($("#ntb"));
   $("#alb").onclick=e=>{e.stopPropagation();if(LOCK.alerts)return upsell("Las alertas de precio");openSettings("alertas")};
   /* ---------- Estudio (Replay + Práctica): Premium; el admin puede incluirlo en la prueba de 3 días ---------- */
   let SITE={};try{API.site&&API.site().then(d=>{SITE=d||{}}).catch(()=>{})}catch(e){}
@@ -1131,7 +1138,9 @@ function start(){
   const sysNote=(title,body,tag)=>{try{if(!document.hidden||!("Notification" in window)||Notification.permission!=="granted")return;navigator.serviceWorker&&navigator.serviceWorker.ready.then(r=>r.showNotification(title,{body,tag,icon:"/assets/icon-192.png",badge:"/assets/badge-72.png",renotify:true,data:{url:location.href}})).catch(()=>{})}catch(e){}};
   /* sonido cuando llega una alerta (el service worker avisa a la página abierta) */
   const heard=new Set();
-  function alertRing(key,title){if(key&&heard.has(key))return;if(key)heard.add(key);const c=SCFG();SND.play(c.al,c.vol);if(title)toast(esc(title))}
+  function alertRing(key,title){if(key&&heard.has(key))return;if(key)heard.add(key);const c=SCFG();
+    if(window.EAGN){EAGN.notify({cat:"precio",title:String(title||"🔔 Alerta de precio").replace(/^🔔\s*/,""),body:"Toca para ver tus alertas",sound:c.al,important:true,sticky:true,act:{label:"Ver alertas",fn:()=>openSettings("alertas")}});return}
+    SND.play(c.al,c.vol);if(title)toast(esc(title))}
   try{navigator.serviceWorker&&navigator.serviceWorker.addEventListener("message",e=>{const d=e.data||{};if(d.type==="push"&&/^alerta-/.test(d.tag||""))alertRing(d.tag+"|"+Math.floor(Date.now()/20000),d.title)})}catch(e){}
   /* ---------- vigilante de spikes: suena apenas sale un spike (Boom/Crash) en los mercados que elijas ---------- */
   const WATCH=(()=>{const S=new Map();let cool={};
@@ -1147,8 +1156,8 @@ function start(){
     function stopOne(t){if(!S.has(t))return;S.delete(t);tickOff(t,"watch")}
     function fire(t,up,sz,ep){const c=SCFG(),pr=bySym[t]?prec(bySym[t].pip):2;const d=new Date((ep||Date.now()/1000)*1000),m5=new Date(Math.floor(d.getTime()/300000)*300000);
       const hh=x=>String(x.getHours()).padStart(2,"0")+":"+String(x.getMinutes()).padStart(2,"0");
-      SND.play(c.sp.snd,c.vol);toast(`⚡ <b>Spike en ${esc(nm(t))}</b>: ${up?"+":"−"}${sz.toFixed(pr)} pts · vela M5 de las ${hh(m5)}`);
-      sysNote(`⚡ Spike en ${nm(t)}`,`${up?"+":"−"}${sz.toFixed(pr)} pts · vela M5 de las ${hh(m5)}`,"spk-"+t);
+      if(window.EAGN)EAGN.notify({cat:"spike",title:`Spike en ${nm(t)}`,body:`${up?"+":"−"}${sz.toFixed(pr)} pts · vela M5 de las ${hh(m5)}`,sound:c.sp.snd,important:true,tone:up?"ok":"bad",tag:"spk-"+t,act:{label:"Ver gráfico",fn:()=>{try{const s2=bySym[t];if(s2)panes[active].kc.setSymbol(info(s2))}catch(e){}}}});
+      else{SND.play(c.sp.snd,c.vol);toast(`⚡ <b>Spike en ${esc(nm(t))}</b>: ${up?"+":"−"}${sz.toFixed(pr)} pts · vela M5 de las ${hh(m5)}`);sysNote(`⚡ Spike en ${nm(t)}`,`${up?"+":"−"}${sz.toFixed(pr)} pts · vela M5 de las ${hh(m5)}`,"spk-"+t)}
       const b=$("#alb");if(b){b.classList.remove("spkfl");void b.offsetWidth;b.classList.add("spkfl")}
       if(c.sp.show!==false)showChart(t)}
     /* te muestra ese gráfico: si ya está en uno de tus gráficos lo enfoca; si no, lo abre en el gráfico activo */
