@@ -51,6 +51,7 @@ const isWlOpen=()=>{const m=$("#main");return!!(m&&m.classList.contains("wlopen"
 
 /* ---------- hoja "Más" ---------- */
 function tiles(){const T=[],add=(id,ic,t,fn,badge)=>T.push({id,ic,t,fn,badge});const vis=id=>{const e=document.getElementById(id);return e&&!e.hidden};
+  add("draw","✏️",X.SAVE.m5draw?"Ocultar dibujo":"Herramientas de dibujo",()=>{X.SAVE.m5draw=!X.SAVE.m5draw;X.save();apply()});
   add("jr","📅","Journal",()=>window.EAGJournal&&window.EAGJournal.toggle(true));
   add("plan","🎯","Plan y lote",()=>window.EAGJournal&&window.EAGJournal.openPlan());
   add("trk","➕","Marcador",()=>{const b=document.querySelector(".wtrk");b&&b.click()});
