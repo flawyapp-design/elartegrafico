@@ -509,6 +509,7 @@ const IC={
   txt:'<path d="M5 6V4h14v2M12 4v16M9 20h6"/>',
   cross:'<path d="M12 3v18M3 12h18"/>',
   ruler:'<path d="M3 17 17 3l4 4L7 21z"/><path d="m7 13 2 2M10 10l2 2M13 7l2 2"/>',
+  stay:'<path d="M14.5 4.5l3 3L8 17l-4 1 1-4z"/><rect x="14" y="15" width="7" height="6" rx="1"/><path d="M15.5 15v-1.5a2 2 0 0 1 4 0V15"/>',
   magnet:'<path d="M6 3v8a6 6 0 0 0 12 0V3h-4v8a2 2 0 0 1-4 0V3z"/>',
   lock:'<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
   unlock:'<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 7.5-2"/>',
@@ -598,6 +599,8 @@ const TI={
   simpleTag:'<path d="M3 12h7"/><path d="M10 7h9l2 5-2 5h-9z"/>'};
 const tsvg=(k,s=18)=>`<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${TI[k]||""}</svg>`;
 const svg=(k,s=18)=>`<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${IC[k]||""}</svg>`;
+/* el texto y los emojis no se pegan a las velas con el imán: se mueven libres */
+const NOMAG=/^(eagText|eagEmoji)$/;
 const MARKX=/^(eagNote|arrowMarkUp|arrowMarkDown|flagMark|priceLabel)$/;
 const STDTF=[["Ticks",0],["1m",60],["2m",120],["3m",180],["5m",300],["10m",600],["15m",900],["30m",1800],["1H",3600],["2H",7200],["4H",14400],["8H",28800],["1D",86400]];
 const COLORS=["#e2b55c","#f3d08a","#ffffff","#9da1aa","#2962ff","#089981","#f23645","#ff9800","#9c27b0","#e91e63","#00bcd4","#000000"];
@@ -637,7 +640,9 @@ ${o.onTracker?`<button class="wtrk" title="Marcador de operaciones (ganadas, per
   let sym=o.symbol,per=o.period,theme=o.theme||"dark",extra={},gen=0,subKey=null,ready=false,selId=null;let lastTouch=false;
   const ind=Object.assign({main:[],sub:{},params:{},st:{},hid:{}},o.indicators||{});ind.st=ind.st||{};ind.hid=ind.hid||{};ind.sub=ind.sub&&!Array.isArray(ind.sub)?ind.sub:{};
   const ovs=new Map(); // id -> definición guardable
-  let magnet=o.magnet||"normal",locked=false,hidden=false;
+  let magnet=o.magnet||"normal",locked=false,hidden=false;let stay=false;try{stay=localStorage.getItem("eag_stay")==="1"}catch(e){}
+  /* mantener modo dibujo: al terminar un dibujo, la misma herramienta queda lista para el siguiente */
+  const again2=n=>{if(!stay||!n||/^(eagBrush|eagHighlighter)$/.test(n))return;setTimeout(()=>{if(stay&&!drawingId)startTool(n)},80)};
 
   /* ---------- datos ---------- */
   const msOf=p=>p.multiplier*({tick:1e3,minute:6e4,hour:36e5,day:864e5,week:6048e5}[p.timespan]||6e4);
@@ -866,7 +871,7 @@ ${o.onTracker?`<button class="wtrk" title="Marcador de operaciones (ganadas, per
   function paintDbar(){
     dbar.innerHTML=`<div class="dmini"><button class="dt dtf" title="Temporalidad (todas)"><b>${esc(per.text)}</b></button><button class="dt" data-mi="sym" title="Cambiar mercado">${svg("list",17)}</button><button class="dt" data-mi="ind" title="Indicadores">${svg("fx",17)}</button><i class="dsep"></i></div><button class="dt" data-k="cross" title="Cursor (cancelar dibujo)">${svg("cross",21)}</button><i class="dsep"></i>`+
       TOOLS.map(g=>{const cur=lastTool[g.g]||g.items[0][0];return`<div class="dg" data-g="${g.g}"><button class="dt${cur==="eagBrush"&&brushOn?" act":""}" data-k="${cur}" title="${esc(TNAME[cur])} · doble clic: ver todas">${tsvg(cur,22)}</button><button class="more" title="${esc(g.t)}">${svg("caret",9)}</button></div>`}).join("")+
-      `<i class="dsep"></i><button class="dt tg${magnet!=="normal"?" on":""}" data-x="magnet" title="${magnet==="strong_magnet"?"Imán fuerte":magnet==="weak_magnet"?"Imán débil":"Imán apagado"}">${svg("magnet",21)}<em>${magnet==="strong_magnet"?"F":magnet==="weak_magnet"?"D":""}</em></button>
+      `<i class="dsep"></i><button class="dt tg${stay?" on":""}" data-x="stay" title="${stay?"Modo dibujo fijo: activado (sigues dibujando con la misma herramienta)":"Mantener modo dibujo: dibuja seguido sin volver a elegir la herramienta"}">${svg("stay",21)}</button><button class="dt tg${magnet!=="normal"?" on":""}" data-x="magnet" title="${magnet==="strong_magnet"?"Imán fuerte":magnet==="weak_magnet"?"Imán débil":"Imán apagado"}">${svg("magnet",21)}<em>${magnet==="strong_magnet"?"F":magnet==="weak_magnet"?"D":""}</em></button>
       <button class="dt tg${locked?" on":""}" data-x="lock" title="${locked?"Desbloquear dibujos":"Bloquear todos los dibujos"}">${svg(locked?"lock":"unlock",21)}</button>
       <button class="dt tg${hidden?" on":""}" data-x="hide" title="${hidden?"Mostrar dibujos":"Ocultar todos los dibujos"}">${svg(hidden?"eyeoff":"eye",21)}</button>
       ${o.onTfav?`<button class="dt tg" data-x="tfav" title="Barra rápida de dibujos favoritos (mostrar u ocultar)"><b class="dstar">★</b></button>`:""}
@@ -891,7 +896,8 @@ ${o.onTracker?`<button class="wtrk" title="Marcador de operaciones (ganadas, per
         if(opened){const t=document.elementFromPoint(e.clientX,e.clientY),it=t&&t.closest(".wmenu button");if(it&&it===hv&&Date.now()-hvT>=180)it.click();else if(menu)menu.querySelectorAll("button.hov").forEach(x=>x.classList.remove("hov"));hv=null;b.dataset.skip="1";setTimeout(()=>delete b.dataset.skip,50)}});
       b.addEventListener("pointercancel",()=>{clearTimeout(tm);st=null;b.classList.remove("hold")});
       b.addEventListener("click",e=>{if(b.dataset.skip){e.stopImmediatePropagation();e.preventDefault()}},true)});
-    dbar.querySelector('[data-x="magnet"]').onclick=()=>{magnet=magnet==="normal"?"weak_magnet":magnet==="weak_magnet"?"strong_magnet":"normal";ovs.forEach((v,id)=>chart.overrideOverlay({id,mode:magnet}));o.onMagnet&&o.onMagnet(magnet);paintDbar()};
+    dbar.querySelector('[data-x="magnet"]').onclick=()=>{magnet=magnet==="normal"?"weak_magnet":magnet==="weak_magnet"?"strong_magnet":"normal";ovs.forEach((v,id)=>chart.overrideOverlay({id,mode:NOMAG.test(v.name)?"normal":magnet}));o.onMagnet&&o.onMagnet(magnet);paintDbar()};
+    dbar.querySelector('[data-x="stay"]').onclick=()=>{stay=!stay;try{localStorage.setItem("eag_stay",stay?"1":"0")}catch(e){}if(!stay&&drawingId)cancelDraw();paintDbar();o.onToast&&o.onToast(stay?"Modo dibujo fijo: elige una herramienta y dibuja seguido. Para salir: Esc o toca este botón":"Modo dibujo fijo apagado")};
     dbar.querySelector('[data-x="lock"]').onclick=()=>{locked=!locked;ovs.forEach((v,id)=>{v.lock=locked;chart.overrideOverlay({id,lock:locked})});persist();paintDbar()};
     dbar.querySelector('[data-x="hide"]').onclick=()=>{hidden=!hidden;ovs.forEach((v,id)=>chart.overrideOverlay({id,visible:!hidden&&tfOk(v)}));guestIds.forEach(id=>{try{chart.overrideOverlay({id,visible:!hidden})}catch(e){}});paintDbar()};
     const tfb=dbar.querySelector('[data-x="tfav"]');if(tfb)tfb.onclick=e=>{e.stopPropagation();o.onTfav()};
@@ -1036,12 +1042,13 @@ ${o.onTracker?`<button class="wtrk" title="Marcador de operaciones (ganadas, per
   function refreshPt(id){const v=ovs.get(id);if(!v)return;try{chart.overrideOverlay({id,styles:withPt(v)})}catch(e){}}
   function makeOverlay(def,drawing){
     if(!drawing&&BOX.test(def.name)&&def.points&&def.points.length===2)def=Object.assign({},def,{points:boxPts(def.points[0],def.points[1]).map(p=>({timestamp:p.timestamp,value:p.value}))});
-    const id=chart.createOverlay({name:def.name,points:def.points,styles:withPt(def),extendData:def.extendData,lock:!!def.lock,visible:!hidden&&tfOk(def),mode:magnet,
+    const id=chart.createOverlay({name:def.name,points:def.points,styles:withPt(def),extendData:def.extendData,lock:!!def.lock,visible:!hidden&&tfOk(def),mode:NOMAG.test(def.name)?"normal":magnet,
       onDrawEnd:e=>{drawingId=null;hideFin();dbar.querySelectorAll(".dt").forEach(b=>b.classList.remove("act"));setTimeout(syncPan,0);
         if((e.overlay.name==="eagLong"||e.overlay.name==="eagShort")&&e.overlay.points.length<3)autoPos(e.overlay);
         if(BOX.test(e.overlay.name)&&e.overlay.points.length<8&&e.overlay.points.length>=2){const ps=e.overlay.points;chart.overrideOverlay({id:e.overlay.id,points:boxPts({timestamp:tsOf(ps[0]),dataIndex:ps[0].dataIndex,value:ps[0].value},{timestamp:tsOf(ps[1]),dataIndex:ps[1].dataIndex,value:ps[1].value})})}
         capture(chart.getOverlayById(e.overlay.id)||e.overlay);if(e.overlay.name==="eagText"||e.overlay.name==="eagNote")setTimeout(()=>editText(e.overlay.id),30);
-        if(e.overlay.name==="eagEmoji")setTimeout(()=>{const pt=chart.convertToPixel(e.overlay.points[0],{paneId:"candle_pane"})||{x:60,y:60};panelPos=null;openCtx(e.overlay.id,{x:pt.x+20,y:pt.y-20},true,"texto")},30);return false},
+        if(e.overlay.name==="eagEmoji"&&!stay)setTimeout(()=>{const pt=chart.convertToPixel(e.overlay.points[0],{paneId:"candle_pane"})||{x:60,y:60};panelPos=null;openCtx(e.overlay.id,{x:pt.x+20,y:pt.y-20},true,"texto")},30);
+        if(!/^(eagText|eagNote)$/.test(e.overlay.name))again2(e.overlay.name);return false},
       onPressedMoveStart:e=>{movingOv=true;chartEl.classList.add("ovdrag");try{movSnap={id:e.overlay.id,points:JSON.parse(JSON.stringify(e.overlay.points||[]))}}catch(x){movSnap=null}
         boxDrag=BOX.test(e.overlay.name)?boxHit(e):null;return false},
       onPressedMoving:e=>boxDragMove(e),
@@ -1381,7 +1388,7 @@ ${o.onTracker?`<button class="wtrk" title="Marcador de operaciones (ganadas, per
     const box=document.createElement("div");box.className="wtxt";box.innerHTML=`<textarea rows="${Math.min(6,String((v.extendData||{}).text||"").split("\n").length)}" maxlength="200" placeholder="Escribe · Enter guarda · Shift+Enter nueva línea">${esc((v.extendData||{}).text||"")}</textarea>`;
     chartEl.appendChild(box);box.style.left=Math.max(4,Math.min(px.x,chartEl.clientWidth-230))+"px";box.style.top=Math.max(4,px.y-16)+"px";
     const inp=box.querySelector("textarea");inp.focus();inp.select();inp.oninput=()=>{inp.rows=Math.min(6,inp.value.split("\n").length)};
-    let fin=false;const done=ok=>{if(fin||!box.isConnected)return;fin=true;if(ok){v.extendData=Object.assign({},v.extendData||{},{text:inp.value.replace(/^\s+|\s+$/g,"")||(v.name==="eagText"?"Texto":v.name==="eagNote"?"Nota":"")});chart.overrideOverlay({id,extendData:v.extendData});persist()}box.remove()};
+    let fin=false;const done=ok=>{if(fin||!box.isConnected)return;fin=true;if(ok){v.extendData=Object.assign({},v.extendData||{},{text:inp.value.replace(/^\s+|\s+$/g,"")||(v.name==="eagText"?"Texto":v.name==="eagNote"?"Nota":"")});chart.overrideOverlay({id,extendData:v.extendData});persist()}box.remove();if(ok)again2(v.name)};
     inp.onkeydown=e=>{e.stopPropagation();if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();done(true)}if(e.key==="Escape")done(false)};inp.onblur=()=>done(true)}
   root.tabIndex=-1;
   root.addEventListener("keydown",e=>{if((e.key==="Delete"||e.key==="Backspace")&&selId&&!/input|select|textarea/i.test(e.target.tagName)){removeOv(selId);selId=null}if(e.key==="Escape"){cancelDraw();closeMenu();stopBrush()}});
@@ -1569,7 +1576,7 @@ ${o.onTracker?`<button class="wtrk" title="Marcador de operaciones (ganadas, per
           d.target.dispatchEvent(new MouseEvent("mousedown",Object.assign({buttons:1},o2)));d.target.dispatchEvent(new MouseEvent("mouseup",Object.assign({buttons:0},o2)))}catch(x){}synth=false;return}
       e.stopPropagation();chartEl.classList.remove("ovdrag");panLocked=null;
       dbar.querySelectorAll(".dt").forEach(b=>b.classList.remove("act"));
-      try{const ov=chart.getOverlayById(d.id);capture(ov);if(ov&&ov.name==="eagText")setTimeout(()=>editText(d.id),30)}catch(x){}
+      try{const ov=chart.getOverlayById(d.id);capture(ov);if(ov&&ov.name==="eagText")setTimeout(()=>editText(d.id),30);else if(ov)again2(ov.name)}catch(x){}
       /* un clic que llegue justo después no debe empezar nada nuevo */
       const stop=ev=>{ev.stopPropagation();ev.preventDefault()};chartEl.addEventListener("click",stop,{capture:true,once:true});setTimeout(()=>chartEl.removeEventListener("click",stop,true),60);syncPan()},true);
   }
