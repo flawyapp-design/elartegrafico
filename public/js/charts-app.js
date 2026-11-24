@@ -907,7 +907,7 @@ function start(){
   else{const cb=$("#clb");cb&&(cb.hidden=true)}
   /* Comunidad: chat privado y grupal, conectados, compartir gráfico y voz */
   if(window.EAGSocial&&API.chatSend){
-    if(window.EAGJournal)window.EAGJournal.init({SAVE,save,toast,onChange:()=>{try{TRK.paint()}catch(e){}}});
+    if(window.EAGJournal)window.EAGJournal.init({SAVE,save,toast,onChange:()=>{try{TRK.paint()}catch(e){}},lotRepaint:()=>{try{lotRepaint()}catch(e){}}});
     if(window.EAGPip)window.EAGPip.init({btn:$("#pipb"),toast,panes:()=>panes.slice(0,visible()),active:()=>active});
     window.EAGSocial.init({API,toast,SAVE,save,btn:$("#chb"),host:main,isAdmin:()=>API.isAdmin(),
       panes:()=>panes.slice(0,visible()),active:()=>active,
@@ -956,7 +956,8 @@ function start(){
   const row=(t,d,ctl)=>`<div class="srow"><div><b>${t}</b>${d?`<p>${d}</p>`:""}</div><div class="sctl">${ctl}</div></div>`;
   const tog=(attr,on)=>`<label class="sw2"><input type="checkbox" ${attr} ${on?"checked":""}><i></i></label>`;
   /* ---------- calculadora de lote ---------- */
-  const RISK=()=>Object.assign({on:false,bal:0,mode:"pct",pct:1,usd:0},SAVE.risk||{});
+  /* el saldo y el riesgo salen del Journal (Plan y lote de la cuenta activa); aquí solo queda si se muestra el lote en los dibujos */
+  const RISK=()=>{const b=Object.assign({on:false,bal:0,mode:"pct",pct:1,usd:0},SAVE.risk||{});let j=null;try{j=window.EAGJournal&&EAGJournal.risk&&EAGJournal.risk()}catch(e){}return j?Object.assign(b,{bal:j.bal,mode:j.mode,pct:j.pct,usd:j.usd}):b};
   const riskUsd=r=>r.mode==="usd"?(+r.usd||0):(+r.bal||0)*(+r.pct||0)/100;
   /* tamaño del contrato en MT5: sintéticos y cripto 1, forex 100.000, oro y platino 100, plata 5.000 */
   const contractOf=tk=>{const i=bySym[tk]||{},m=i.market||"";if(/XAU|XPT|XPD/.test(tk))return[100,true];if(/XAG/.test(tk))return[5000,true];
@@ -1063,7 +1064,9 @@ function start(){
         ${old.length?`<div class="slabel">Ya avisadas</div>${old.map(li).join("")}`:""}
         <p class="shelp">Las notificaciones llegan a los dispositivos donde las activaste en la academia (en iPhone, con la app agregada a la pantalla de inicio). Se revisan cada minuto.</p>`}
     if(cat==="riesgo"){const r=RISK();const usd=riskUsd(r);
-      return`<h3>Calculadora de lote</h3><p class="shelp">Dibuja una <b>zona de compra o venta</b> (Entrada y SL) o una <b>posición larga/corta</b>: en su etiqueta te sale el <b>lote</b> exacto para arriesgar lo que elijas aquí. Si mueves el SL, el lote se recalcula solo.</p>
+      return`<h3>Calculadora de lote</h3><div class="sgrp"><p class="shelp">📅 La calculadora ahora vive en el <b>Journal → Plan y lote</b>: toma el saldo de tu cuenta (saldo inicial + lo que ganas o pierdes) y ahí pones tu riesgo, tu pérdida máxima del día y tus reglas.</p><button class="btn" data-ojp>Abrir Plan y lote</button>
+        <p class="shelp">${usd>0?`Hoy arriesgas <b>US$ ${usd.toFixed(2)}</b> por operación (saldo US$ ${(+r.bal||0).toFixed(2)}).`:"Aún no tienes saldo o riesgo en el plan."}</p></div>
+        ${row("Mostrar el lote en mis zonas y posiciones","",tog('data-rk="on"',r.on))}<div hidden><p class="shelp">Dibuja una <b>zona de compra o venta</b> (Entrada y SL) o una <b>posición larga/corta</b>: en su etiqueta te sale el <b>lote</b> exacto para arriesgar lo que elijas aquí. Si mueves el SL, el lote se recalcula solo.</p>
         ${row("Mostrar el lote en mis zonas y posiciones","",tog('data-rk="on"',r.on))}
         <div class="sgrp${r.on?"":" off"}">
         <label class="af"><span>Saldo de tu cuenta (USD)</span><input type="number" min="0" step="any" data-rv="bal" value="${r.bal||""}" placeholder="Ej: 100"></label>
@@ -1074,7 +1077,7 @@ function start(){
         <p class="shelp" data-rinfo>${usd>0?`Arriesgas <b>US$ ${usd.toFixed(2)}</b> por operación.`:"Escribe tu saldo y tu riesgo."}</p></div>
         <div class="slabel">Cómo se calcula</div>
         <p class="shelp"><b>Lote = riesgo en US$ ÷ (puntos hasta el SL × tamaño del contrato)</b>. En Boom, Crash y los sintéticos de Deriv el contrato es de 1: con 1 lote, cada punto vale US$ 1. Ejemplo: arriesgas US$ 10 y el SL está a 25 puntos → lote 0,40. En forex se usa el contrato de 100.000 (exacto en pares que terminan en USD; en los demás es aproximado, por eso sale con ≈).</p>
-        <p class="shelp">Antes de entrar revisa en tu MT5 el <b>lote mínimo</b> del mercado (en Boom y Crash suele ser 0,20 y en Boom/Crash 300 es 1). Es una herramienta educativa, no una asesoría financiera.</p>`}
+        </div><p class="shelp">Antes de entrar revisa en tu MT5 el <b>lote mínimo</b> del mercado (en Boom y Crash suele ser 0,20 y en Boom/Crash 300 es 1). Es una herramienta educativa, no una asesoría financiera.</p>`}
     if(cat==="atajos"){const K=(k,t)=>`<div class="krow"><span>${t}</span><kbd>${k}</kbd></div>`;const mac=/Mac|iP/.test(navigator.platform),A=mac?"⌥":"Alt",C=mac?"⌘":"Ctrl";
       return`<h3>Ayuda y atajos</h3><div class="sbtns"><button class="btn sm gold" data-a="tour">▶ Ver el tutorial otra vez</button><button class="btn sm" data-a="fb">💬 Dar mi opinión</button></div><div class="slabel">Dibujo</div>${K(A+" + B","Pincel (dibujo libre)")}${K(A+" + T","Línea de tendencia")}${K(A+" + H","Línea horizontal")}${K(A+" + J","Rayo horizontal")}${K(A+" + V","Línea vertical")}${K(A+" + F","Retroceso de Fibonacci")}${K(A+" + C","Canal paralelo")}${K(A+" + Z","Zona")}${K(A+" + R","Rectángulo")}${K(A+" + L","Posición larga (compra)")}${K(A+" + S","Posición corta (venta)")}${K(A+" + M","Regla (o Shift + clic)")}${K(A+" + X","Texto")}
         <div class="slabel">Edición</div>${K(C+" + Z","Deshacer")}${K(C+" + Shift + Z","Rehacer")}${K("Supr","Borrar el dibujo seleccionado")}${K("Esc","Cancelar dibujo / salir de modo limpio")}
@@ -1113,6 +1116,7 @@ function start(){
     const tb=ov.querySelector('[data-a="tour"]');tb&&(tb.onclick=()=>{ov.remove();showTour(0)});
     const fbb=ov.querySelector('[data-a="fb"]');fbb&&(fbb.onclick=()=>{ov.remove();window.__openFb()});
     const na=ov.querySelector('[data-a="newal"]');na&&(na.onclick=()=>{const t=curSym(active),i=bySym[t]||{},v=last[t];ov.remove();alertDialog({symbol:t,symbol_name:i.display_name||t,kind:"nivel",price:v!=null?+(+v).toFixed(prec(i.pip)):null,price2:null})});
+    {const oj=ov.querySelector("[data-ojp]");oj&&(oj.onclick=()=>{ov.remove();window.EAGJournal&&EAGJournal.openPlan()})}
     ov.querySelectorAll('input[data-rk="on"]').forEach(i=>i.onchange=()=>{SAVE.risk=Object.assign(RISK(),{on:i.checked});save();lotRepaint();re()});
     ov.querySelectorAll("[data-rm]").forEach(b=>b.onclick=()=>{SAVE.risk=Object.assign(RISK(),{mode:b.dataset.rm});save();lotRepaint();re()});
     ov.querySelectorAll("[data-rv]").forEach(i=>i.oninput=()=>{const v=parseFloat(String(i.value).replace(",","."));SAVE.risk=Object.assign(RISK(),{[i.dataset.rv]:isFinite(v)&&v>=0?v:0});save();lotRepaint();

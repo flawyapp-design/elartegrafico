@@ -78,7 +78,7 @@ function build(){el=document.createElement("div");el.className="jr";el.setAttrib
     <button data-eye title="Ocultar montos (para mostrar en el live sin enseñar el dinero)">👁</button>
     <button data-share title="Descargar imagen del mes para compartir">⤓</button>
     <button data-min title="Minimizar">—</button><button data-x title="Cerrar">✕</button></div>
-    <div class="jr-b"><nav class="jr-tabs" role="tablist">${[["mes","Mes"],["sem","Semana"],["ano","Año"],["est","Estadísticas"]].map(([k,t])=>`<button role="tab" data-tab="${k}">${t}</button>`).join("")}</nav>
+    <div class="jr-b"><nav class="jr-tabs" role="tablist">${[["mes","Mes"],["sem","Semana"],["ano","Año"],["est","Estadísticas"],["plan","Plan"]].map(([k,t])=>`<button role="tab" data-tab="${k}">${t}</button>`).join("")}</nav>
     <div class="jr-c" data-c></div></div><div class="jr-rs" data-rs title="Cambiar tamaño"></div>`;
   document.body.appendChild(el);el.addEventListener("pointerdown",e=>e.stopPropagation());
   el.querySelectorAll("[data-tab]").forEach(b=>b.onclick=()=>{view.tab=b.dataset.tab;edit=null;paint()});
@@ -103,7 +103,69 @@ function place(){if(!el)return;const j=J(),mob=innerWidth<=640;el.classList.togg
   const w=Math.min(j.w||760,innerWidth-12),h=j.min?null:Math.min(j.h||780,innerHeight-12);el.style.width=w+"px";el.style.height=h?h+"px":"";
   const hh=el.offsetHeight;let x=j.x==null?(innerWidth-w)/2:j.x,y=j.y==null?Math.max(8,(innerHeight-hh)/2):j.y;
   x=Math.min(Math.max(6,x),innerWidth-w-6);y=Math.min(Math.max(6,y),innerHeight-Math.min(hh,innerHeight-12)-6);el.style.left=x+"px";el.style.top=y+"px"}
-function paintAll(){if(el&&!el.hidden)paint();X.onChange&&X.onChange()}
+function paintAll(){if(el&&!el.hidden)paint();X.onChange&&X.onChange();try{planCheck()}catch(e){}try{X.lotRepaint&&X.lotRepaint()}catch(e){}}
+
+/* ================= Plan de trading + calculadora de lote (por cuenta) =================
+   El saldo sale solo del journal (saldo inicial + todo lo ganado/perdido) y con él se calcula el riesgo y el lote. */
+const PLAN0={mode:"pct",pct:1,usd:0,lossMode:"pct",loss:3,goal:0,maxT:0,minRR:0,rules:[]};
+const planOf=a=>{a=a||acct();if(!a.plan)a.plan={};Object.keys(PLAN0).forEach(k=>{if(a.plan[k]===undefined)a.plan[k]=Array.isArray(PLAN0[k])?[]:PLAN0[k]});if(!Array.isArray(a.plan.rules))a.plan.rules=[];return a.plan};
+const balNow=()=>{const a=acct();return a.start!=null&&a.start!==""?+a.start+totalAll():null};
+const balAtDay=k=>{const a=acct();if(a.start==null||a.start==="")return null;return +a.start+stats(null,prevKey(k)).tot};
+const riskUsdOf=(pl,bal)=>pl.mode==="usd"?(+pl.usd||0):(bal||0)*(+pl.pct||0)/100;
+const lossUsdOf=(pl,bal)=>pl.lossMode==="usd"?(+pl.loss||0):(bal||0)*(+pl.loss||0)/100;
+function todayState(){const k=today(),d=dayGet(k),pl=planOf(),b0=balAtDay(k),pnl=dayPnl(d)||0,n=dayN(d);
+  return{k,pl,b0,pnl,n,loss:lossUsdOf(pl,b0),goal:+pl.goal||0,maxT:+pl.maxT||0}}
+/* avisa una sola vez por día cuando llegas a la pérdida máxima, a la meta o al máximo de operaciones */
+function planCheck(){const N=window.EAGN;if(!N)return;const t=todayState(),j=J();j.planN=j.planN||{};const key=j.cur+"|"+t.k,f=j.planN[key]=j.planN[key]||{};let ch=false;
+  if(t.loss>0&&t.pnl<=-t.loss&&!f.loss){f.loss=1;ch=true;N.notify({cat:"trade",icon:"🛑",title:"Llegaste a tu pérdida máxima del día",body:`Vas ${money(t.pnl)} y tu límite es ${money(-t.loss)}. Tu plan dice: para por hoy.`,tone:"bad",sound:"alarma",important:true,sticky:true})}
+  if(t.goal>0&&t.pnl>=t.goal&&!f.goal){f.goal=1;ch=true;N.notify({cat:"trade",icon:"🎯",title:"¡Meta del día cumplida!",body:`Vas ${money(t.pnl)} (meta ${money(t.goal)}). Cuida lo ganado.`,tone:"ok",sound:"exito",important:true})}
+  if(t.maxT>0&&t.n>=t.maxT&&!f.maxT){f.maxT=1;ch=true;N.notify({cat:"trade",icon:"✋",title:"Llegaste al máximo de operaciones de hoy",body:`${t.n} de ${t.maxT} operaciones. Tu plan dice que no hagas más.`,tone:"bad",sound:"aviso",important:true})}
+  if(ch){const ks=Object.keys(j.planN).sort();if(ks.length>60)ks.slice(0,ks.length-60).forEach(x=>delete j.planN[x]);X.save()}}
+function planView(){const a=acct(),pl=planOf(a),balV=balNow(),t=todayState(),risk=riskUsdOf(pl,balV),on=!!(X.SAVE.risk&&X.SAVE.risk.on);
+  const bar=(v,max,bad)=>`<span class="jbar"><i class="${bad?"jl":"jw"}" style="width:${max>0?Math.max(2,Math.min(100,Math.abs(v)/max*100)):0}%"></i></span>`;
+  const pts=view.calc||"";const lot=risk>0&&+pts>0?Math.floor(risk/(+pts)*100+1e-9)/100:null;
+  return head()+`<div class="jp">
+   <section class="jps"><h4>Hoy según tu plan</h4>
+    <div class="jpg"><div><small>Resultado de hoy</small><b class="${cls(t.pnl||null)}">${money(t.pnl)||"$0"}</b></div>
+      <div><small>Pérdida máxima</small><b>${t.loss>0?money(-t.loss):"—"}</b>${t.loss>0?bar(Math.min(0,t.pnl),t.loss,true):""}</div>
+      <div><small>Meta del día</small><b>${t.goal>0?money(t.goal):"—"}</b>${t.goal>0?bar(Math.max(0,t.pnl),t.goal):""}</div>
+      <div><small>Operaciones</small><b>${t.n}${t.maxT?" / "+t.maxT:""}</b>${t.maxT?bar(t.n,t.maxT,t.n>=t.maxT):""}</div></div>
+    ${t.loss>0&&t.pnl<=-t.loss?`<p class="jpw bad">🛑 Llegaste a tu pérdida máxima. Tu plan dice: para por hoy.</p>`:t.goal>0&&t.pnl>=t.goal?`<p class="jpw ok">🎯 Meta cumplida. Cuida lo ganado.</p>`:t.maxT&&t.n>=t.maxT?`<p class="jpw bad">✋ Ya hiciste tus ${t.maxT} operaciones de hoy.</p>`:""}
+   </section>
+   <section class="jps"><h4>Calculadora de lote</h4>
+    <p class="jf-h">Usa el saldo de esta cuenta: ${balV!=null?`<b>${bal(balV)}</b>`:`<button class="jr-lnk" data-eacct>pon el saldo inicial</button> para que se calcule solo`}.</p>
+    <div class="jr-seg"><button data-pm="pct" class="${pl.mode!=="usd"?"on":""}">% de la cuenta</button><button data-pm="usd" class="${pl.mode==="usd"?"on":""}">Monto fijo</button></div>
+    <label class="jf-l">${pl.mode==="usd"?"Arriesgo por operación (US$)":"Arriesgo por operación (%)"}<input data-pv="${pl.mode==="usd"?"usd":"pct"}" type="text" inputmode="decimal" value="${pl.mode==="usd"?(pl.usd||""):(pl.pct||"")}" placeholder="${pl.mode==="usd"?"5":"1"}"></label>
+    <p class="jpr">Arriesgas <b data-rusd>${risk>0?"US$ "+risk.toFixed(2):"—"}</b> por operación</p>
+    <label class="jf-l">Puntos hasta tu SL (para calcular aquí)<input data-calc type="text" inputmode="decimal" value="${esc(pts)}" placeholder="Ej: 25"></label>
+    <p class="jpr" data-lot>${lot!=null?(lot>=0.01?`Lote <b>${lot.toFixed(2)}</b> en Boom, Crash y sintéticos (1 punto = US$ 1 por lote)`:"El SL está muy lejos: lote menor a 0.01"):"Escribe los puntos para ver el lote"}</p>
+    <label class="jpt"><input type="checkbox" class="ntsw" data-lon ${on?"checked":""}><span><b>Mostrar el lote en mis zonas y posiciones</b><small>Al dibujar una zona de compra/venta o una posición, su etiqueta dice el lote exacto.</small></span></label>
+   </section>
+   <section class="jps"><h4>Reglas del plan</h4>
+    <div class="jr-seg"><button data-lm="pct" class="${pl.lossMode!=="usd"?"on":""}">Pérdida máx. en %</button><button data-lm="usd" class="${pl.lossMode==="usd"?"on":""}">en US$</button></div>
+    <div class="jpf"><label class="jf-l">Pérdida máxima del día ${pl.lossMode==="usd"?"(US$)":"(% del saldo)"}<input data-pv="loss" type="text" inputmode="decimal" value="${pl.loss||""}" placeholder="${pl.lossMode==="usd"?"10":"3"}"></label>
+      <label class="jf-l">Meta del día (US$)<input data-pv="goal" type="text" inputmode="decimal" value="${pl.goal||""}" placeholder="Opcional"></label>
+      <label class="jf-l">Máximo de operaciones al día<input data-pv="maxT" type="text" inputmode="numeric" value="${pl.maxT||""}" placeholder="Opcional"></label>
+      <label class="jf-l">Riesgo:beneficio mínimo (1:X)<input data-pv="minRR" type="text" inputmode="decimal" value="${pl.minRR||""}" placeholder="Ej: 2"></label></div>
+    <p class="jf-h">Te avisamos (con sonido) cuando llegues a la pérdida máxima, a la meta o al máximo de operaciones.</p>
+    <span class="jf-l">Mis reglas (lo que debes cumplir antes de entrar)</span>
+    <div class="jrl">${pl.rules.map((r,i)=>`<div><span>✓ ${esc(r)}</span><button data-rdel="${i}" aria-label="Quitar regla">✕</button></div>`).join("")||`<small class="jf-h">Ej: "Solo opero en zonas marcadas en 1H", "Espero confirmación en 5m", "No opero después de 2 pérdidas".</small>`}</div>
+    <div class="jf-add"><input data-rnew type="text" maxlength="120" placeholder="Escribe una regla y Enter"><button class="jr-btn" data-radd>Agregar</button></div>
+   </section></div>`}
+function bindPlan(c){const q=s=>c.querySelector(s),qa=s=>c.querySelectorAll(s),pl=planOf();
+  const upd=()=>{X.save();try{X.lotRepaint&&X.lotRepaint()}catch(e){}const bal=balNow(),r=riskUsdOf(pl,bal),ru=q("[data-rusd]");if(ru)ru.textContent=r>0?"US$ "+r.toFixed(2):"—";
+    const pts=num((q("[data-calc]")||{}).value||""),lt=q("[data-lot]");if(lt){const lot=r>0&&pts>0?Math.floor(r/pts*100+1e-9)/100:null;lt.innerHTML=lot!=null?(lot>=0.01?`Lote <b>${lot.toFixed(2)}</b> en Boom, Crash y sintéticos (1 punto = US$ 1 por lote)`:"El SL está muy lejos: lote menor a 0.01"):"Escribe los puntos para ver el lote"}};
+  qa("[data-pm]").forEach(b=>b.onclick=()=>{pl.mode=b.dataset.pm;X.save();paint()});
+  qa("[data-lm]").forEach(b=>b.onclick=()=>{pl.lossMode=b.dataset.lm;X.save();paint()});
+  qa("[data-pv]").forEach(i=>i.oninput=()=>{const v=num(i.value);pl[i.dataset.pv]=v!=null&&v>=0?v:0;upd()});
+  /* al cambiar una regla solo se actualiza el resumen de hoy (sin redibujar los campos: no se pierde lo que escribes) */
+  qa("[data-pv]").forEach(i=>i.onchange=()=>{const j=J();if(j.planN)delete j.planN[j.cur+"|"+today()];X.save();
+    const t=document.createElement("div");t.innerHTML=planView();const nw=t.querySelector(".jp .jps"),old=c.querySelector(".jp .jps");if(nw&&old)old.replaceWith(nw);try{planCheck()}catch(e){}});
+  const cc=q("[data-calc]");cc&&(cc.oninput=()=>{view.calc=cc.value;upd()});
+  const lo=q("[data-lon]");lo&&(lo.onchange=()=>{X.SAVE.risk=Object.assign({},X.SAVE.risk||{},{on:lo.checked});upd();X.toast&&X.toast(lo.checked?"El lote sale en tus zonas y posiciones":"Lote oculto en los dibujos")});
+  const add=()=>{const i=q("[data-rnew]"),t=i.value.trim();if(!t)return;pl.rules.push(t.slice(0,120));X.save();paint();const n=el.querySelector("[data-rnew]");n&&n.focus()};
+  q("[data-radd]").onclick=add;q("[data-rnew]").onkeydown=e=>{e.stopPropagation();if(e.key==="Enter"){e.preventDefault();add()}};
+  qa("[data-rdel]").forEach(b=>b.onclick=()=>{pl.rules.splice(+b.dataset.rdel,1);X.save();paint()})}
 function paint(){const j=J();
   el.querySelectorAll("[data-tab]").forEach(b=>{b.classList.toggle("on",b.dataset.tab===view.tab);b.setAttribute("aria-selected",String(b.dataset.tab===view.tab))});
   const sel=el.querySelector("[data-acct]");if(document.activeElement!==sel)sel.innerHTML=j.accts.map(a=>`<option value="${esc(a.id)}"${a.id===j.cur?" selected":""}>${esc(a.name)}</option>`).join("")+`<option value="+">＋ Nueva cuenta…</option>`+(window.EAGMT5B&&window.EAGMT5B.history?`<option value="mt5">⤓ Traer historial de MT5</option>`:"");
@@ -112,7 +174,7 @@ function paint(){const j=J();
   el.querySelector("[data-mt]").innerHTML=j.min?`${MES[view.m]} <b class="${cls(ms.tot||null)}">${ms.days?money(ms.tot):"—"}</b>`:"";
   if(j.min)return;
   const c=el.querySelector("[data-c]");
-  c.innerHTML=edit&&edit.acct?acctForm():edit&&edit.day?dayForm(edit.day):view.tab==="mes"?monthView():view.tab==="sem"?weekView():view.tab==="ano"?yearView():statsView();
+  c.innerHTML=edit&&edit.acct?acctForm():edit&&edit.day?dayForm(edit.day):view.tab==="mes"?monthView():view.tab==="sem"?weekView():view.tab==="ano"?yearView():view.tab==="plan"?planView():statsView();
   bind(c)}
 
 function head(){const a=acct(),tot=totalAll(),st=a.start!=null&&a.start!==""?+a.start:null;
@@ -215,7 +277,7 @@ function dayForm(k){const d=dayGet(k)||{},ops=(d.ops||[]).slice().sort((a,b)=>a.
       :`<small class="jf-h">Escribe el monto, elige Ganancia o Pérdida y toca Agregar (o Enter). Cada una suma o resta al total del día. Si solo tienes el total del día, agrégalo como una sola operación.</small>`}
     <div class="jf-row"><label class="jf-l">Operaciones (si no las agregas una a una)<input data-n type="number" min="0" step="1" inputmode="numeric" placeholder="${nOps}" value="${d.n!=null&&d.n!==""?d.n:""}"></label>
       <div><span class="jf-l">¿Cómo te sentiste?</span><div class="jr-seg">${MOODS.map(([k2,e,t])=>`<button data-mood="${k2}" class="${d.mood===k2?"on":""}" title="${t}">${e} ${t}</button>`).join("")}</div></div></div>
-    <div><span class="jf-l">¿Seguiste tu plan?</span><div class="jr-seg">${[[true,"Sí"],[false,"No"]].map(([b,t])=>`<button data-plan="${b}" class="${d.plan===b?"on "+(b?"jw":"jl"):""}">${t}</button>`).join("")}</div></div>
+    <div><span class="jf-l">¿Seguiste tu plan?</span>${(()=>{const R=planOf().rules;return R.length?`<div class="jrl" style="margin:4px 0 8px">${R.map(r=>`<div><span>✓ ${esc(r)}</span></div>`).join("")}</div>`:""})()}<div class="jr-seg">${[[true,"Sí"],[false,"No"]].map(([b,t])=>`<button data-plan="${b}" class="${d.plan===b?"on "+(b?"jw":"jl"):""}">${t}</button>`).join("")}</div></div>
     <label class="jf-l">Notas del día<textarea data-note rows="4" placeholder="Qué viste, por qué entraste, qué aprendiste, errores…">${esc(d.note||"")}</textarea></label>
     <div class="jf-act"><button class="jr-btn pri" data-savek>Guardar día</button>${has(d)||A.length?`<button class="jr-btn bad" data-delk>${edit.sure?"¿Borrar todo el día?":"Borrar día"}</button>`:""}</div>
   </div>`}
@@ -241,6 +303,7 @@ function bind(c){const q=s=>c.querySelector(s),qa=s=>c.querySelectorAll(s);
   q("[data-eacct]")&&(q("[data-eacct]").onclick=()=>{edit={acct:J().cur};paint()});
   q("[data-back]")&&(q("[data-back]").onclick=()=>{edit=null;paint()});
   const eq=q("[data-eq]");eq&&requestAnimationFrame(()=>drawEq(eq));
+  if(!edit&&view.tab==="plan")bindPlan(c);
   if(edit&&edit.day){const k=edit.day,D=daysOf();const cur=()=>D[k]=D[k]||{};
     qa("[data-sg]").forEach(b=>b.onclick=()=>{edit.sign=+b.dataset.sg;const i=q("[data-pnl]");const v=num(i.value);if(v!=null){cur().pnl=edit.sign*Math.abs(v)}
       qa("[data-sg]").forEach(x=>{const on=+x.dataset.sg===edit.sign;x.className=on?"on "+(edit.sign>0?"jw":"jl"):""});i.focus()});
@@ -293,8 +356,14 @@ function toggle(on,dayK){const j=J();j.open=on==null?!j.open:!!on;X.save();
   document.querySelectorAll(".wjr").forEach(b=>b.classList.toggle("on",j.open))}
 
 window.EAGJournal={init(o){X=o;const j=J();
+  /* la calculadora de lote vivía aparte: su saldo y riesgo pasan al plan de la cuenta (una sola vez) */
+  if(!j.migRisk){const r=X.SAVE.risk||{},a=j.accts.find(x=>x.id===j.cur)||j.accts[0];if(a&&!a.plan){a.plan=Object.assign({},PLAN0,{mode:r.mode==="usd"?"usd":"pct",pct:+r.pct||1,usd:+r.usd||0})}
+    if(a&&(a.start==null||a.start==="")&&+r.bal>0)a.start=+r.bal;j.migRisk=true;setTimeout(()=>X.save(),0)}
   /* el total escrito a mano pasa a ser una operación más ("Total anotado"), así lo que agregues después suma o resta encima */
   if(!j.mig2){for(const a in j.days)for(const k in j.days[a]){const d=j.days[a][k];if(d.pnl==null||d.pnl==="")continue;const au=autoList(d).reduce((x,o)=>x+(+o.v||0),0),base=+(+d.pnl-au).toFixed(2);
     if(Math.abs(base)>.004){d.ops=d.ops||[];let t=parse(k).getTime()+9*36e5;while(d.ops.some(o=>o.t===t))t++;d.ops.push({v:base,t,src:"manual",sym:"Total anotado"})}delete d.pnl}j.mig2=true;setTimeout(()=>X.save(),0)}for(const a in j.days)for(const k in j.days[a]){const d=j.days[a][k];if(d.ops){d.ops=d.ops.filter(op=>op.src);if(!d.ops.length)delete d.ops}}if(J().open)setTimeout(()=>toggle(true),700)},toggle,open:k=>toggle(true,k),
-  addOp,removeOp,setSession,sessionIn,today:()=>{const d=dayGet(today());return{pnl:dayPnl(d),n:dayN(d)}},importMT5,_stats:stats,_J:J};
+  addOp,removeOp,setSession,sessionIn,
+  /* para la calculadora de lote del gráfico: saldo (del journal) y riesgo del plan de la cuenta activa */
+  risk:()=>{if(!X)return null;const a=acct(),pl=planOf(a),b=balNow();return{bal:b!=null?b:0,mode:pl.mode,pct:pl.pct,usd:pl.usd,hasBal:b!=null}},
+  balance:()=>X?balNow():null,openPlan:()=>{view.tab="plan";edit=null;toggle(true)},today:()=>{const d=dayGet(today());return{pnl:dayPnl(d),n:dayN(d)}},importMT5,_stats:stats,_J:J};
 })();
