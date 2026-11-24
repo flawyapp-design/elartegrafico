@@ -192,8 +192,8 @@ function SupabaseAPI(url,key){
     chatReact(id,emoji){return rpc("chat_react",{p_id:id,p_emoji:emoji})},
     chatHide(room){return rpc("chat_hide",{p_room:room})},
     chatCleanup(){return rpc("chat_cleanup")},
-    async chartChatUpload(blob){if(!sess||!sess.user)throw new Error("Inicia sesión");const name=`${sess.user.id}/${Date.now().toString(36)}-${Math.random().toString(36).slice(2,10)}.webp`;
-      await req(`/storage/v1/object/chartchat/${name}`,{method:"POST",body:blob,isFile:true,headers:{"Content-Type":blob.type||"image/webp"}});return `${url}/storage/v1/object/public/chartchat/${name}`},
+    async chartChatUpload(blob){if(!sess||!sess.user)throw new Error("Inicia sesión");const ty=String(blob.type||"").split(";")[0],ext=/audio\/(mp4|aac|x-m4a)/.test(ty)?"m4a":ty==="audio/mpeg"?"mp3":ty==="audio/ogg"?"ogg":/^audio\/webm/.test(ty)?"webm":"webp";const name=`${sess.user.id}/${Date.now().toString(36)}-${Math.random().toString(36).slice(2,10)}.${ext}`;
+      await req(`/storage/v1/object/chartchat/${name}`,{method:"POST",body:blob,isFile:true,headers:{"Content-Type":ty||"image/webp"}});return `${url}/storage/v1/object/public/chartchat/${name}`},
     async chartChatImgDel(u){const m=String(u||"").match(/\/storage\/v1\/object\/public\/chartchat\/(.+)$/);if(!m)return;try{await req("/storage/v1/object/chartchat",{method:"DELETE",body:{prefixes:[decodeURIComponent(m[1])]}})}catch(e){}},
     async chartChatImgClean(days){let L=[];try{L=await rpc("chartchat_img_old",{p_days:days||60})||[]}catch(e){return 0}L=L.map(x=>typeof x==="string"?x:(x&&x.chartchat_img_old)||"").filter(Boolean);
       for(let i=0;i<L.length;i+=100){try{await req("/storage/v1/object/chartchat",{method:"DELETE",body:{prefixes:L.slice(i,i+100)}})}catch(e){}}return L.length},

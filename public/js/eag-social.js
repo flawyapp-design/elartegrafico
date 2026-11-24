@@ -135,7 +135,7 @@ function onMsg(m){if(!m||!m.room)return;if(!(m.room===GEN||(m.room.startsWith("d
   const inOther=panel&&view.room&&view.room!==m.room&&!document.hidden;
   if(!mine&&!open){t.unread=(+t.unread||0)+1;if(m.room!==GEN||mentioned(m)||m.is_admin){if(inOther)peek(m);else headNotify(m);SND.play(m.room!==GEN?"in":mentioned(m)?"mention":"in");
     /* queda en el centro de avisos y, con la pestaña de fondo, llega como notificación del sistema (sin repetir sonido ni tarjeta) */
-    try{if(window.EAGN&&m.kind!=="call"){const who=m.username||nameOf(m.sender),txt=m.kind==="img"?"📷 Imagen":m.kind==="share"?"📡 Compartió su gráfico":String(m.body||"").slice(0,120);
+    try{if(window.EAGN&&m.kind!=="call"){const who=m.username||nameOf(m.sender),txt=m.kind==="img"?"📷 Imagen":m.kind==="audio"?"🎤 Nota de voz":m.kind==="share"?"📡 Compartió su gráfico":String(m.body||"").slice(0,120);
       window.EAGN.notify({cat:"msg",icon:m.room===GEN?(mentioned(m)?"@":"👥"):"💬",title:m.room===GEN?(mentioned(m)?`${who} te mencionó`:`${who} en el grupo`):`Mensaje de ${who}`,body:txt,card:false,sound:false,tag:"msg-"+m.room,key:"msg-"+m.id})}}catch(e){}}}
   else if(!mine&&open)SND.play("inSoft");
   if(!mine&&typers[m.room]){delete typers[m.room][m.sender];paintTyping()}
@@ -225,7 +225,7 @@ function paintPanel(){if(!panel)return;{const of=panel.querySelector("[data-find
       let r=[];try{r=(await X.API.chatFind(q))||[]}catch(e){}box.innerHTML=r.filter(u=>u.id!==ME.id).map(u=>`<button class="sp-row" data-dm="${esc(u.id)}" data-n="${esc(u.username)}">${av(u)}<div class="sp-t"><b>${esc(u.username)}${vb(u)}</b><small>Escribirle</small></div></button>`).join("")||`<p class="sp-empty">No encontramos a nadie con ese nombre.</p>`;
       box.querySelectorAll("[data-dm]").forEach(b=>b.onclick=()=>startDM(b.dataset.dm,b.dataset.n))},250)}}}
 function thRow(t){const isG=t.room===GEN,on=!isG&&(people.some(p=>p.id===t.other)||t.online);
-  const last=t.last_body!=null||t.last_kind?`${t.last_sender===ME.id?"Tú: ":isG&&t.last_sender?esc(nameOf(t.last_sender))+": ":""}${t.last_kind==="share"?"📡 Compartió su gráfico":t.last_kind==="call"?"📞 Llamada":t.last_kind==="img"?"📷 Foto":t.last_kind==="idea"?"📈 Idea":esc(String(t.last_body||"").slice(0,60))}`:(isG?"Habla con todos los que usan EAG Charts":"");
+  const last=t.last_body!=null||t.last_kind?`${t.last_sender===ME.id?"Tú: ":isG&&t.last_sender?esc(nameOf(t.last_sender))+": ":""}${t.last_kind==="share"?"📡 Compartió su gráfico":t.last_kind==="call"?"📞 Llamada":t.last_kind==="img"?"📷 Foto":t.last_kind==="audio"?"🎤 Nota de voz":t.last_kind==="idea"?"📈 Idea":esc(String(t.last_body||"").slice(0,60))}`:(isG?"Habla con todos los que usan EAG Charts":"");
   return`<button class="sp-row th${t.unread?" un":""}" data-room="${esc(t.room)}">${isG?`<span class="sav grp">👥</span>`:av({id:t.other,username:t.username,avatar_url:t.avatar_url})}${on?'<i class="sp-dot"></i>':""}
     <div class="sp-t"><b>${esc(isG?"Grupo general":t.username||"Usuario")}${t.is_admin?' <span class="sp-tag">Profe</span>':isG?"":vb(t)}</b><small>${last}</small></div>
     <div class="sp-m">${t.last_at?`<small>${hhmm(t.last_at)}</small>`:""}${t.unread?`<em>${t.unread>9?"9+":t.unread}</em>`:""}</div>${isG?"":`<span class="sp-thx" data-hide="${esc(t.room)}" title="Eliminar este chat (solo para ti)">🗑</span>`}</button>`}
@@ -243,7 +243,7 @@ function paintRoom(toBottom){if(!panel||!view.room)return;const room=view.room,i
     <div class="sp-act">${isG?`<button class="btn sm${call&&call.kind==="group"?" on":""}" data-vg title="Sala de voz del grupo (hasta ${VMAX})">🎙</button>`:`<button class="btn sm${inShare?" on":""}" data-sh title="Compartir tu gráfico: tus dibujos salen en el suyo con tu nombre y los suyos en el tuyo">📡</button><button class="btn sm${inCall?" on":""}" data-call title="Llamada de voz">📞</button>`}<button class="sx" data-menu title="Más opciones">⋯</button><button class="sx" data-min title="Minimizar (queda en la burbuja)">—</button><button class="sx" data-x title="Cerrar">✕</button></div></div>
   <div class="sp-msgs">${seenMark(L,t,isG),""}${L.__end||!L.length?"":`<button class="sp-more" data-more>Ver mensajes anteriores</button>`}${L.length?L.map((m,i)=>msgRow(m,L[i-1],isG)).join(""):`<p class="sp-empty">${isG?"Saluda al grupo 👋":"Escríbele el primer mensaje 👋"}</p>`}</div>
   <div class="sp-typ" data-typ></div>${replyTo[room]?`<div class="sp-rep"><span><b>↩ Respondiendo a ${esc(replyTo[room].n)}</b><small>${esc(replyTo[room].t)}</small></span><button class="sx" data-unrep title="Cancelar respuesta">✕</button></div>`:""}
-  <form class="sp-in" data-room="${esc(room)}"><button type="button" class="sp-idea" data-pic title="Enviar una foto o captura (también puedes pegarla con Ctrl+V o arrastrarla aquí)">📷</button><input type="file" accept="image/*" data-file hidden><button type="button" class="sp-idea" data-idea title="Compartir una idea: tu mercado, temporalidad y precio actual (escribe tu análisis y toca aquí)">📈</button><textarea rows="1" maxlength="1000" placeholder="${isG?"Escribe al grupo… (usa @nombre para mencionar)":"Escribe un mensaje…"}"></textarea><button class="btn gold sm" type="submit" title="Enviar">➤</button></form>`;
+  <form class="sp-in" data-room="${esc(room)}"><button type="button" class="sp-idea" data-pic title="Enviar una foto o captura (también puedes pegarla con Ctrl+V o arrastrarla aquí)">📷</button><input type="file" accept="image/*" data-file hidden><button type="button" class="sp-idea" data-idea title="Compartir una idea: tu mercado, temporalidad y precio actual (escribe tu análisis y toca aquí)">📈</button><button type="button" class="sp-idea sp-vnote" data-mic title="Nota de voz: toca para grabar">🎤</button><textarea rows="1" maxlength="1000" placeholder="${isG?"Escribe al grupo… (usa @nombre para mencionar)":"Escribe un mensaje…"}"></textarea><button class="btn gold sm" type="submit" title="Enviar">➤</button></form>`;
   const box=panel.querySelector(".sp-msgs");box.__pin=keep==null;const pin=()=>{if(box.__pin)box.scrollTop=box.scrollHeight};
   if(keep!=null)box.scrollTop=box.scrollHeight-keep;else pin();
   /* el último mensaje siempre a la vista: al cargar fotos, al crecer la caja de texto o al cambiar el tamaño del panel */
@@ -258,6 +258,9 @@ function paintRoom(toBottom){if(!panel||!view.room)return;const room=view.room,i
   ta.oninput=()=>{drafts[room]=ta.value;ta.style.height="auto";ta.style.height=Math.min(120,ta.scrollHeight)+"px";typingPing(room)};
   panel.querySelector("[data-idea]").onclick=async()=>{const i=ideaNow();if(!i)return X.toast("Abre un gráfico primero.");const v=ta.value.trim();ta.value="";drafts[room]="";ta.style.height="auto";const rp=takeReply(room);if(rp)i.reply=rp;await send(room,v,"idea",i)};
   paintTyping();
+  panel.querySelector("[data-mic]").onclick=()=>recStart(room,fm);
+  if(rec&&rec.room===room&&rec.bar){fm.appendChild(rec.bar);fm.classList.add("recording");rec.fm=fm}
+  box.querySelectorAll(".vn-aud").forEach(audWire);
   const fi=panel.querySelector("[data-file]");panel.querySelector("[data-pic]").onclick=()=>fi.click();fi.onchange=()=>{const f=fi.files&&fi.files[0];fi.value="";if(f)sendImg(room,f,ta)};
   ta.onpaste=e=>{const it=[...(e.clipboardData&&e.clipboardData.items||[])].find(x=>x.type.startsWith("image/"));if(it){e.preventDefault();sendImg(room,it.getAsFile(),ta)}};
   const drop=panel.querySelector(".sp-msgs");drop.ondragover=e=>{if([...(e.dataTransfer.items||[])].some(x=>x.type.startsWith("image/"))){e.preventDefault();drop.classList.add("over")}};
@@ -272,7 +275,7 @@ function paintRoom(toBottom){if(!panel||!view.room)return;const room=view.room,i
   if(foc){ta.focus();try{ta.setSelectionRange(foc.a,foc.b)}catch(e){}}
   else if(toBottom&&matchMedia("(hover:hover)").matches&&!document.activeElement.closest(".sp-in"))setTimeout(()=>{if(document.activeElement===document.body||!document.activeElement)ta.focus()},20);
   box.querySelectorAll("[data-del]").forEach(b=>b.onclick=async()=>{if(!confirmSoft(b,"¿Borrar?"))return;const id=+b.dataset.del;const m=(msgs[room]||[]).find(x=>x.id===id);
-    try{await X.API.chatDelete(id);if(m&&m.kind==="img"&&m.sender===ME.id&&m.payload)X.API.chartChatImgDel(m.payload.url);onDel(id);if(bc)bc.postMessage({k:"del",id})}catch(e){X.toast("No se pudo borrar.")}});
+    try{await X.API.chatDelete(id);if(m&&(m.kind==="img"||m.kind==="audio")&&m.sender===ME.id&&m.payload)X.API.chartChatImgDel(m.payload.url);onDel(id);if(bc)bc.postMessage({k:"del",id})}catch(e){X.toast("No se pudo borrar.")}});
   box.querySelectorAll("[data-mute]").forEach(b=>b.onclick=async()=>{if(!confirmSoft(b,"¿Silenciar?"))return;try{await X.API.chatBlock(b.dataset.mute,true);X.toast("Listo: esa persona ya no puede escribir en el chat.")}catch(e){X.toast("No se pudo.")}});
   box.querySelectorAll("[data-join]").forEach(b=>b.onclick=()=>joinShare(b.dataset.join,room));
   box.querySelectorAll("[data-rx]").forEach(b=>b.onclick=e=>{e.stopPropagation();const[id,em]=b.dataset.rx.split("|");react(+id,em,room)});
@@ -304,6 +307,8 @@ function msgRow(m,prev,isG){const mine=m.sender===ME.id,adm=X.isAdmin();const gr
   else if(m.kind==="call"){const p=m.payload||{};
     inner=p.act==="end"?`<div class="sp-card"><small>📞 Llamada terminada</small></div>`:p.group?`<div class="sp-card"><b>🎙 ${mine?"Abriste la llamada grupal":esc(m.username||nameOf(m.sender))+" abrió la llamada grupal"}</b>${!(call&&call.room==="voz-general")&&(grpCount()||Date.now()-new Date(m.created_at)<10*60000)?`<button class="btn sm gold" data-jg>Unirme</button>`:""}</div>`:`<div class="sp-card"><b>📞 ${mine?"Llamaste":esc(m.username||nameOf(m.sender))+" te está llamando"}</b>${!mine&&p.room&&!(call&&call.room===p.room)&&Date.now()-new Date(m.created_at)<10*60000?`<button class="btn sm gold" data-acc="${esc(p.room)}">Contestar</button>`:""}</div>`}
   else if(m.kind==="img"){const p=m.payload||{};inner=`<img class="sp-img" src="${esc(p.url)}" alt="Imagen" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('small'),{textContent:'📷 Imagen vencida',className:'sp-exp'}))"${p.w&&p.h?` style="aspect-ratio:${+p.w}/${+p.h}"`:""}>${m.body?`<div class="sp-txt">${linkify(m.body)}</div>`:""}`}
+  else if(m.kind==="audio"){const p=m.payload||{},wv=Array.isArray(p.wv)&&p.wv.length?p.wv.slice(0,40):Array.from({length:32},(_,i)=>3+((i*7)%5));
+    inner=`<div class="vn-aud" data-au="${esc(p.url)}" data-dur="${+p.dur||0}"><button type="button" class="vn-play" title="Escuchar">${PLAY}</button><span class="vn-wv">${wv.map(h=>`<i style="height:${Math.max(3,Math.min(22,(+h||0)*2.4))}px"></i>`).join("")}</span><small class="vn-time">${fmtDur(p.dur)}</small><button type="button" class="vn-spd" title="Velocidad">1×</button></div>`}
   else if(m.kind==="idea"){const p=m.payload||{};
     inner=`<div class="sp-card idea"><b>📈 Idea · ${esc(p.symName||p.sym||"")}${p.tf?" · "+esc(p.tf):""}</b>${p.price!=null?`<small>Precio cuando la compartió: <b>${esc(p.price)}</b></small>`:""}${m.body?`<div class="sp-txt">${linkify(m.body)}</div>`:""}${p.sym?`<button class="btn sm" data-go="${esc(p.sym)}|${esc(p.tf||"")}">Ver en mi gráfico</button>`:""}</div>`}
   else inner=`<div class="sp-txt">${linkify(m.body)}</div>`;
@@ -312,8 +317,8 @@ function msgRow(m,prev,isG){const mine=m.sender===ME.id,adm=X.isAdmin();const gr
   const pm=isG&&!mine?`<button class="sp-del" data-pm="${esc(m.sender)}" data-n="${esc(m.username||"")}" title="Escribirle por privado">💬</button>`:"";
   const rx=m.reacts&&Object.keys(m.reacts).length?`<div class="sp-rx">${Object.keys(m.reacts).map(e=>{const u=m.reacts[e]||[];return`<button class="${u.includes(ME.id)?"on":""}" data-rx="${m.id}|${e}" title="${esc(u.map(nameOf).join(", "))}">${e}${u.length>1?` <small>${u.length}</small>`:""}</button>`}).join("")}</div>`:"";
   const rp=m.payload&&m.payload.reply;const quote=rp&&rp.id?`<button class="sp-q" data-goto="${+rp.id}" title="Ver el mensaje original"><b>${esc(rp.n===ME.name?"Tú":rp.n||"")}</b><small>${esc(rp.t||"")}</small></button>`:"";
-  const repb=m.id&&["text","idea","share","img"].includes(m.kind)?`<button class="sp-del" data-rep="${m.id}" title="Responder este mensaje">↩</button>`:"";
-  const rxb=m.id&&["text","idea","share","img"].includes(m.kind)?`<button class="sp-del" data-rxp="${m.id}" title="Reaccionar (o doble clic = 👍)">😊</button>`:"";
+  const repb=m.id&&["text","idea","share","img","audio"].includes(m.kind)?`<button class="sp-del" data-rep="${m.id}" title="Responder este mensaje">↩</button>`:"";
+  const rxb=m.id&&["text","idea","share","img","audio"].includes(m.kind)?`<button class="sp-del" data-rxp="${m.id}" title="Reaccionar (o doble clic = 👍)">😊</button>`:"";
   return`<div class="sp-msg${mine?" me":""}${grp?" grp":""}" data-mid="${m.id}">${!mine&&isG&&!grp?av({id:m.sender,username:m.username,avatar_url:m.avatar_url},"sm"):!mine&&isG?'<span class="sav sm ghost"></span>':""}
     <div class="sp-bx">${!mine&&isG&&!grp?`<span class="sp-who" style="color:${colorOf(m.sender)}">${esc(m.username||"Usuario")}${m.is_admin?' <span class="sp-tag">Profe</span>':vb(m)}</span>`:""}${quote}${inner}<span class="sp-time">${hhmm(m.created_at)}${m.__seen?` · <span class="sp-seen">${m.__seen}</span>`:""}${isG&&m.id&&m.kind!=="call"?(()=>{const n=readersOf(m).length;return n?` · <button class="sp-eye" data-eye="${m.id}" title="Ver quién lo leyó">👁 ${n}</button>`:""})():""}</span>${rx}</div><span class="sp-tools">${repb}${rxb}${pm}${tools}${mute}</span></div>`}
 
@@ -331,7 +336,7 @@ function headPaint(){if(!X)return;const show=cfg().head&&!panel;if(!show){if(hea
 const hsz=()=>Math.max(40,Math.min(88,+cfg().hs||56));
 function headNotify(m){lastFrom=m;headPaint();if(!head||!cfg().bub)return;if(headPrev)headPrev.remove();
   const who=m.username||nameOf(m.sender);headPrev=document.createElement("button");headPrev.className="shprev "+(head.dataset.side==="l"?"l":"r");
-  headPrev.innerHTML=`<b>${esc(m.room===GEN?"Grupo · "+who:who)}</b><small>${m.kind==="share"?"📡 Compartió su gráfico":m.kind==="call"?(m.room===GEN?"🎙 Llamada grupal":"📞 Te está llamando"):m.kind==="idea"?"📈 Compartió una idea":m.kind==="img"?"📷 Foto":esc(String(m.body||"").slice(0,90))}</small>`;
+  headPrev.innerHTML=`<b>${esc(m.room===GEN?"Grupo · "+who:who)}</b><small>${m.kind==="share"?"📡 Compartió su gráfico":m.kind==="call"?(m.room===GEN?"🎙 Llamada grupal":"📞 Te está llamando"):m.kind==="idea"?"📈 Compartió una idea":m.kind==="img"?"📷 Foto":m.kind==="audio"?"🎤 Nota de voz":esc(String(m.body||"").slice(0,90))}</small>`;
   document.body.appendChild(headPrev);const r=head.getBoundingClientRect();headPrev.style.top=(r.top+6)+"px";
   if(head.dataset.side==="l")headPrev.style.left=(r.right+8)+"px";else headPrev.style.right=(innerWidth-r.left+8)+"px";
   headPrev.onclick=()=>{headPrev&&headPrev.remove();headPrev=null;open(m.room)};
@@ -379,7 +384,7 @@ function typingPing(room){const now=Date.now();if(now-lastPing<2500)return;lastP
 function paintTyping(){if(!panel||!view.room)return;const T=typers[view.room]||{},now=Date.now();Object.keys(T).forEach(k=>{if(now-T[k].at>5000)delete T[k]});
   const ns=Object.values(T).map(x=>x.n||"Alguien");const el=panel.querySelector("[data-typ]");if(el)el.innerHTML=ns.length?`<span class="dots"><i></i><i></i><i></i></span> ${esc(ns.slice(0,2).join(" y "))}${ns.length>2?" y otros":""} ${ns.length>1?"están":"está"} escribiendo…`:"";
   clearTimeout(typT);if(ns.length)typT=setTimeout(paintTyping,1500)}
-function snip(m){return m.kind==="img"?"📷 Foto"+(m.body?" · "+String(m.body).slice(0,60):""):m.kind==="idea"?"📈 Idea"+(m.payload&&m.payload.symName?" · "+m.payload.symName:""):m.kind==="share"?"📡 Gráfico compartido":String(m.body||"").replace(/\s+/g," ").slice(0,90)}
+function snip(m){return m.kind==="audio"?"🎤 Nota de voz"+(m.payload&&m.payload.dur?" · "+fmtDur(m.payload.dur):""):m.kind==="img"?"📷 Foto"+(m.body?" · "+String(m.body).slice(0,60):""):m.kind==="idea"?"📈 Idea"+(m.payload&&m.payload.symName?" · "+m.payload.symName:""):m.kind==="share"?"📡 Gráfico compartido":String(m.body||"").replace(/\s+/g," ").slice(0,90)}
 function takeReply(room){const r=replyTo[room];delete replyTo[room];if(!r)return null;return{id:r.id,n:r.n==="ti"?ME.name:r.n,t:r.t}}
 /* fotos: se comprimen en el navegador (máx. 1280 px, WebP) y se suben al almacenamiento, no a la base de datos */
 async function shrink(file){if(!file||!/^image\//.test(file.type))throw new Error("Eso no es una imagen.");if(file.size>15e6)throw new Error("La imagen es muy pesada (máx. 15 MB).");
@@ -389,6 +394,45 @@ async function shrink(file){if(!file||!/^image\//.test(file.type))throw new Erro
     let q=.82,b=await new Promise(ok=>c.toBlob(ok,"image/webp",q));while(b&&b.size>900e3&&q>.4){q-=.15;b=await new Promise(ok=>c.toBlob(ok,"image/webp",q))}
     if(!b)throw new Error("No se pudo preparar la imagen.");return{blob:b,w,h}}finally{URL.revokeObjectURL(url)}}
 let upBusy=false;
+/* ---------- notas de voz ---------- */
+const PLAY='<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M7 4.5v15l13-7.5z"/></svg>',PAUSE='<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4.5" width="4" height="15" rx="1"/><rect x="14" y="4.5" width="4" height="15" rx="1"/></svg>';
+const fmtDur=d=>{d=Math.max(0,Math.round(+d||0));return Math.floor(d/60)+":"+String(d%60).padStart(2,"0")};
+let rec=null,aud=null,audEl=null;
+function recMime(){if(!window.MediaRecorder)return null;const L=["audio/webm;codecs=opus","audio/mp4","audio/webm","audio/aac","audio/ogg;codecs=opus"];for(const t of L){try{if(MediaRecorder.isTypeSupported(t))return t}catch(e){}}return""}
+async function recStart(room,fm){if(rec)return;const mt=recMime();if(mt===null||!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia)return X.toast("Tu navegador no permite grabar audio aquí.");
+  let st;try{st=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true}})}catch(e){return X.toast("Necesito permiso del micrófono para grabar la nota de voz.")}
+  let mr;try{mr=mt?new MediaRecorder(st,{mimeType:mt,audioBitsPerSecond:32000}):new MediaRecorder(st)}catch(e){st.getTracks().forEach(t=>t.stop());return X.toast("No se pudo empezar a grabar.")}
+  const chunks=[],peaks=[];let ac=null,an=null,buf=null,raf=0;try{ac=new (window.AudioContext||window.webkitAudioContext)();const src=ac.createMediaStreamSource(st);an=ac.createAnalyser();an.fftSize=512;src.connect(an);buf=new Uint8Array(an.fftSize)}catch(e){}
+  const t0=Date.now();rec={room,mr,st,chunks,peaks,t0,cancel:false};
+  const bar=document.createElement("div");bar.className="vn-rec";bar.innerHTML=`<button type="button" class="vn-x" title="Cancelar">✕</button><i class="vn-dot"></i><b class="vn-t">0:00</b><span class="vn-w"></span><button type="button" class="vn-send" title="Enviar nota de voz">➤</button>`;
+  fm.appendChild(bar);fm.classList.add("recording");rec.bar=bar;rec.fm=fm;const rt=bar.querySelector(".vn-t"),rw=bar.querySelector(".vn-w");
+  let lastPk=0,acc=0;const tick=()=>{if(!rec)return;const s=(Date.now()-t0)/1000;rt.textContent=fmtDur(s);if(an){an.getByteTimeDomainData(buf);let m=0;for(let i=0;i<buf.length;i++){const v=Math.abs(buf[i]-128);if(v>m)m=v}acc=Math.max(acc,m);
+      if(Date.now()-lastPk>150){lastPk=Date.now();const h=Math.min(9,Math.round(acc/7));peaks.push(h);acc=0;const i=document.createElement("i");i.style.height=Math.max(3,h*2.4)+"px";rw.appendChild(i);while(rw.children.length>60)rw.firstChild.remove()}}
+    if(s>=120){stop(true);return}raf=requestAnimationFrame(tick)};raf=requestAnimationFrame(tick);
+  mr.ondataavailable=e=>{if(e.data&&e.data.size)chunks.push(e.data)};
+  const stop=send=>{if(!rec||rec.stopping)return;rec.stopping=true;rec.cancel=!send;cancelAnimationFrame(raf);try{mr.stop()}catch(e){fin()}};
+  const fin=async()=>{const r=rec;rec=null;st.getTracks().forEach(t=>t.stop());try{ac&&ac.close()}catch(e){}bar.remove();(r&&r.fm||fm).classList.remove("recording");if(!r||r.cancel)return;
+    const dur=(Date.now()-t0)/1000;if(dur<0.8)return X.toast("Muy corta. Mantén la grabación al menos un segundo.");
+    const blob=new Blob(chunks,{type:(mr.mimeType||mt||"audio/webm").split(";")[0]});if(blob.size>3e6)return X.toast("La nota es muy pesada. Grábala más corta.");
+    sendAudio(room,blob,dur,compress(peaks))};
+  mr.onstop=fin;mr.start(250);
+  bar.querySelector(".vn-x").onclick=()=>stop(false);bar.querySelector(".vn-send").onclick=()=>stop(true)}
+function compress(P){if(!P.length)return[];const n=Math.min(40,P.length),o=[];for(let i=0;i<n;i++){const a=Math.floor(i*P.length/n),b=Math.max(a+1,Math.floor((i+1)*P.length/n));o.push(Math.max(1,Math.max(...P.slice(a,b))))}return o}
+async function sendAudio(room,blob,dur,wv){if(upBusy)return;upBusy=true;X.toast("Enviando nota de voz…");
+  try{const url=await X.API.chartChatUpload(blob);const rp=takeReply(room);const pl={url,dur:Math.round(dur*10)/10,wv};if(rp)pl.reply=rp;await send(room,"","audio",pl)}
+  catch(e){X.toast(esc(e.message||"No se pudo enviar la nota de voz."))}finally{upBusy=false}}
+function audWire(el){const b=el.querySelector(".vn-play"),sp=el.querySelector(".vn-spd"),bars=[...el.querySelectorAll(".vn-wv i")],tm=el.querySelector(".vn-time"),D=+el.dataset.dur||0,url=el.dataset.au;
+  const ui={b,tm,D,paint:f=>{const k=Math.round(f*bars.length);bars.forEach((x,i)=>x.classList.toggle("on",i<k))}};
+  if(aud&&aud.url===url&&audEl){aud.ui=ui;b.innerHTML=audEl.paused?PLAY:PAUSE;sp.textContent=(audEl.playbackRate||1)+"×";el.dataset.rate=audEl.playbackRate||1;audEl.ontimeupdate&&audEl.ontimeupdate()}
+  b.onclick=()=>{if(aud&&aud.url===url&&audEl){if(audEl.paused)audEl.play().catch(()=>{});else audEl.pause();return}
+    if(audEl){audEl.pause();aud&&aud.reset()}audEl=new Audio(url);audEl.playbackRate=+(el.dataset.rate||1);const A=audEl;
+    const reset=()=>{const u=aud&&aud.ui||ui;u.b.innerHTML=PLAY;u.paint(0);u.tm.textContent=fmtDur(u.D)};aud={url,ui,reset};
+    A.onplay=()=>{aud&&aud.ui&&(aud.ui.b.innerHTML=PAUSE)};A.onpause=()=>{aud&&aud.ui&&(aud.ui.b.innerHTML=PLAY)};
+    A.ontimeupdate=()=>{if(!aud||audEl!==A)return;const u=aud.ui,d=isFinite(A.duration)&&A.duration>0?A.duration:u.D;u.paint(d?A.currentTime/d:0);u.tm.textContent=fmtDur(A.currentTime)};
+    A.onended=()=>{if(audEl!==A)return;reset();aud=null;audEl=null};A.onerror=()=>{if(audEl!==A)return;X.toast("Esta nota de voz ya no está disponible.");reset();aud=null;audEl=null};
+    A.play().catch(()=>X.toast("No se pudo reproducir."))};
+  el.querySelector(".vn-wv").onclick=e=>{if(!(aud&&aud.url===url)||!audEl)return;const r=e.currentTarget.getBoundingClientRect(),f=(e.clientX-r.left)/r.width,d=isFinite(audEl.duration)&&audEl.duration>0?audEl.duration:D;if(d)audEl.currentTime=Math.max(0,Math.min(d-.05,f*d))};
+  sp.onclick=()=>{const R=[1,1.5,2],c=+(el.dataset.rate||1),n=R[(R.indexOf(c)+1)%R.length];el.dataset.rate=n;sp.textContent=n+"×";if(aud&&aud.url===url&&audEl)audEl.playbackRate=n}}
 async function sendImg(room,file,ta){if(upBusy)return;upBusy=true;const btn=panel&&panel.querySelector("[data-pic]");btn&&btn.classList.add("busy");X.toast("Subiendo imagen…");
   try{const r=await shrink(file);const u=await X.API.chartChatUpload(r.blob);const cap=ta?ta.value.trim():"";if(ta){ta.value="";ta.style.height="auto";drafts[room]=""}const rp=takeReply(room);await send(room,cap,"img",Object.assign({url:u,w:r.w,h:r.h},rp?{reply:rp}:{}))}
   catch(e){X.toast(esc(e.message||"No se pudo enviar la imagen."))}finally{upBusy=false;btn&&btn.classList.remove("busy")}}
