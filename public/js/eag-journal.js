@@ -198,20 +198,28 @@ function drawEq(cv){const s=view.scope,y=view.y,m=view.m;const [from,to]=s==="me
 const prevKey=k=>{const d=parse(k);d.setDate(d.getDate()-1);return key(d)};
 
 /* ---------- editar un día ---------- */
-function dayForm(k){const d=dayGet(k)||{},ops=d.ops||[],trk=Object.entries(d.trk||{}),A=autoList(d),sum=A.reduce((a,o)=>a+(+o.v||0),0),dt=parse(k),man=d.pnl!=null&&d.pnl!=="";
-  const v=man?+d.pnl:null,sign=v!=null?(v<0?-1:1):(edit.sign||1);
+function dayForm(k){const d=dayGet(k)||{},ops=(d.ops||[]).slice().sort((a,b)=>a.t-b.t),trk=Object.entries(d.trk||{}),A=autoList(d),sum=A.reduce((a,o)=>a+(+o.v||0),0),dt=parse(k),man=d.pnl!=null&&d.pnl!=="";
+  const v=man?+d.pnl:null,sign=v!=null?(v<0?-1:1):(edit.sign||1),asg=edit.asg||1,nOps=A.reduce((a,o)=>a+(+o.n||0),0),W=A.filter(o=>o.v>0).length,L=A.filter(o=>o.v<0).length;
+  const hm=t=>new Date(t).toLocaleTimeString("es-CO",{hour:"2-digit",minute:"2-digit"});
   return `<div class="jr-nav"><button data-back aria-label="Volver">‹</button><b>${DIAL[dow(dt)]} ${dt.getDate()} de ${MES[dt.getMonth()]} ${dt.getFullYear()}</b></div>
   <div class="jr-form">
-    <label class="jf-l">Resultado del día (US$)</label>
-    <div class="jf-pnl"><div class="jr-seg big"><button data-sg="1" class="${sign>0?"on jw":""}">＋ Ganancia</button><button data-sg="-1" class="${sign<0?"on jl":""}">− Pérdida</button></div>
-      <input data-pnl type="text" inputmode="decimal" placeholder="${A.length?Math.abs(sum).toFixed(2):"0.00"}" value="${v!=null?Math.abs(v):""}" aria-label="Monto del día"></div>
-    ${A.length?`<small class="jf-h">${trk.length?"Del Marcador":""}${trk.length&&ops.length?" y ":""}${ops.length?"de MT5":""}: <b class="${cls(sum)}">${money(sum)}</b> en ${A.reduce((a,o)=>a+(+o.n||0),0)} op. ${man?"Estás usando tu monto; bórralo para usar el del marcador.":"Si escribes un monto, se usa el tuyo."}</small>`:""}
-    <div class="jf-row"><label class="jf-l">Operaciones<input data-n type="number" min="0" step="1" inputmode="numeric" placeholder="${A.reduce((x,o)=>x+(+o.n||0),0)}" value="${d.n!=null&&d.n!==""?d.n:""}"></label>
+    <span class="jf-l">Agrega cada operación (se va sumando y restando sola)</span>
+    <div class="jf-add"><div class="jr-seg big"><button data-asg="1" class="${asg>0?"on jw":""}">＋ Ganancia</button><button data-asg="-1" class="${asg<0?"on jl":""}">− Pérdida</button></div>
+      <input data-av type="text" inputmode="decimal" placeholder="Monto US$" aria-label="Monto de la operación">
+      <input data-asym type="text" maxlength="30" placeholder="Mercado (opcional)" aria-label="Mercado" value="${esc(edit.asym||"")}">
+      <button class="jr-btn pri" data-aadd>Agregar</button></div>
+    ${A.length?`<div class="jf-list">${ops.map(o=>`<div><span>${hm(o.t)}${o.sym?" · "+esc(o.sym):""}${o.src==="mt5"?" · MT5":""}</span><b class="${cls(o.v)}">${money(o.v)}</b><button data-delop="${o.t}" aria-label="Borrar operación">✕</button></div>`).join("")}
+      ${trk.map(([sid,o])=>`<div><span>${hm(o.t||+sid)} · Marcador · ${o.n} op</span><b class="${cls(o.v)}">${money(o.v)}</b><button data-deltrk="${esc(sid)}" aria-label="Quitar sesión">✕</button></div>`).join("")}
+      <div class="jf-sum"><span>Total del día · ${nOps} op${W||L?` · <i class="jw">${W} ganadas</i> / <i class="jl">${L} perdidas</i>`:""}</span><b class="${cls(sum)}">${money(sum)||"$0"}</b></div></div>`
+      :`<small class="jf-h">Escribe el monto, elige Ganancia o Pérdida y toca Agregar (o Enter). Cada una queda en la lista y el total del día se calcula solo.</small>`}
+    <details class="jf-tot"${man?" open":""}><summary>${man?`Estás usando un total escrito a mano: <b class="${cls(v)}">${money(v)}</b>`:"¿Prefieres poner solo el total del día?"}</summary>
+      <div class="jf-pnl"><div class="jr-seg big"><button data-sg="1" class="${sign>0?"on jw":""}">＋ Ganancia</button><button data-sg="-1" class="${sign<0?"on jl":""}">− Pérdida</button></div>
+        <input data-pnl type="text" inputmode="decimal" placeholder="${A.length?Math.abs(sum).toFixed(2):"0.00"}" value="${v!=null?Math.abs(v):""}" aria-label="Total del día"></div>
+      <small class="jf-h">${man?"Este total reemplaza la suma de las operaciones. Bórralo y guarda para volver a usar la suma.":"Si lo escribes, reemplaza la suma de las operaciones."}</small></details>
+    <div class="jf-row"><label class="jf-l">Operaciones (si no las agregas una a una)<input data-n type="number" min="0" step="1" inputmode="numeric" placeholder="${nOps}" value="${d.n!=null&&d.n!==""?d.n:""}"></label>
       <div><span class="jf-l">¿Cómo te sentiste?</span><div class="jr-seg">${MOODS.map(([k2,e,t])=>`<button data-mood="${k2}" class="${d.mood===k2?"on":""}" title="${t}">${e} ${t}</button>`).join("")}</div></div></div>
     <div><span class="jf-l">¿Seguiste tu plan?</span><div class="jr-seg">${[[true,"Sí"],[false,"No"]].map(([b,t])=>`<button data-plan="${b}" class="${d.plan===b?"on "+(b?"jw":"jl"):""}">${t}</button>`).join("")}</div></div>
     <label class="jf-l">Notas del día<textarea data-note rows="4" placeholder="Qué viste, por qué entraste, qué aprendiste, errores…">${esc(d.note||"")}</textarea></label>
-    ${trk.length?`<details class="jf-ops" open><summary>Sesiones del Marcador (${trk.length})</summary>${trk.map(([sid,o])=>`<div><span>${new Date(o.t||+sid).toLocaleTimeString("es-CO",{hour:"2-digit",minute:"2-digit"})} · ${o.n} op</span><b class="${cls(o.v)}">${money(o.v)}</b><button data-deltrk="${esc(sid)}" aria-label="Quitar sesión">✕</button></div>`).join("")}</details>`:""}
-    ${ops.length?`<details class="jf-ops"><summary>Operaciones registradas (${ops.length})</summary>${ops.map(o=>`<div><span>${new Date(o.t).toLocaleTimeString("es-CO",{hour:"2-digit",minute:"2-digit"})}${o.sym?" · "+esc(o.sym):""}${o.src==="mt5"?" · MT5":""}</span><b class="${cls(o.v)}">${money(o.v)}</b><button data-delop="${o.t}" aria-label="Borrar operación">✕</button></div>`).join("")}</details>`:""}
     <div class="jf-act"><button class="jr-btn pri" data-savek>Guardar día</button>${has(d)||A.length?`<button class="jr-btn bad" data-delk>${edit.sure?"¿Borrar todo el día?":"Borrar día"}</button>`:""}</div>
   </div>`}
 function acctForm(){const nu=edit.acct==="new",a=nu?{name:"",start:""}:acct();
@@ -241,8 +249,16 @@ function bind(c){const q=s=>c.querySelector(s),qa=s=>c.querySelectorAll(s);
       qa("[data-sg]").forEach(x=>{const on=+x.dataset.sg===edit.sign;x.className=on?"on "+(edit.sign>0?"jw":"jl"):""});i.focus()});
     qa("[data-mood]").forEach(b=>b.onclick=()=>{const d=cur();d.mood=d.mood===b.dataset.mood?null:b.dataset.mood;qa("[data-mood]").forEach(x=>x.classList.toggle("on",x.dataset.mood===d.mood))});
     qa("[data-plan]").forEach(b=>b.onclick=()=>{const d=cur(),v=b.dataset.plan==="true";d.plan=d.plan===v?null:v;qa("[data-plan]").forEach(x=>{const on=d.plan===(x.dataset.plan==="true");x.className=on?"on "+(d.plan?"jw":"jl"):""})});
-    qa("[data-deltrk]").forEach(b=>b.onclick=()=>{const d=cur();if(d.trk)delete d.trk[b.dataset.deltrk];X.save();paint()});
-    qa("[data-delop]").forEach(b=>b.onclick=()=>{const d=cur();d.ops=(d.ops||[]).filter(o=>String(o.t)!==b.dataset.delop);X.save();paint()});
+    /* agregar operación: se guarda al instante; antes se guardan las notas y el número escrito para no perderlos */
+    const keepForm=()=>{const d=cur(),nt=q("[data-note]"),nn=q("[data-n]");if(nt)d.note=nt.value.trim()||null;if(nn)d.n=nn.value===""?null:Math.max(0,parseInt(nn.value,10)||0)};
+    qa("[data-asg]").forEach(b=>b.onclick=()=>{edit.asg=+b.dataset.asg;qa("[data-asg]").forEach(x=>{const on=+x.dataset.asg===edit.asg;x.className=on?"on "+(edit.asg>0?"jw":"jl"):""});q("[data-av]").focus()});
+    const addOpNow=()=>{const i=q("[data-av]"),val=num(i.value);if(val==null||!val){i.focus();X.toast("Escribe el monto de la operación");return}
+      const d=cur(),now=Date.now(),isT=k===today();let t=isT?now:parse(k).getTime()+12*36e5+((d.ops||[]).length)*6e4;while((d.ops||[]).some(o=>o.t===t))t++;
+      const sym=(q("[data-asym]").value||"").trim();edit.asym=sym;keepForm();d.ops=d.ops||[];d.ops.push({v:+((edit.asg||1)*Math.abs(val)).toFixed(2),t,src:"manual",sym:sym||undefined});
+      X.save();paintAll();X.toast(`${(edit.asg||1)>0?"Ganancia":"Pérdida"} agregada: ${money((edit.asg||1)*Math.abs(val))}`);const ni=el.querySelector("[data-av]");ni&&ni.focus()};
+    q("[data-aadd]").onclick=addOpNow;q("[data-av]").onkeydown=e=>{if(e.key==="Enter"){e.preventDefault();addOpNow()}};
+    qa("[data-deltrk]").forEach(b=>b.onclick=()=>{keepForm();const d=cur();if(d.trk)delete d.trk[b.dataset.deltrk];clean(k);X.save();paintAll()});
+    qa("[data-delop]").forEach(b=>b.onclick=()=>{keepForm();const d=cur();d.ops=(d.ops||[]).filter(o=>String(o.t)!==b.dataset.delop);clean(k);X.save();paintAll()});
     q("[data-savek]").onclick=()=>{const d=cur(),i=q("[data-pnl]"),v=num(i.value);const sg=edit.sign||(d.pnl!=null&&+d.pnl<0?-1:1);
       d.pnl=v==null?null:+(sg*Math.abs(v)).toFixed(2);const n=q("[data-n]").value;d.n=n===""?null:Math.max(0,parseInt(n,10)||0);
       d.note=q("[data-note]").value.trim()||null;clean(k);edit=null;save();const dd=dayGet(k);X.toast(dd?`Día guardado: ${money(dayPnl(dd))||"sin monto"}.`:"Día vacío.")};
