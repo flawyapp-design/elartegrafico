@@ -361,22 +361,21 @@ function finish(ses){const m=$(".pro-m",OV);if(!m)return;const n=ses.res.length,
    Replay
    ============================================================ */
 function replayHome(){{const a=X.access("replay");if(!a.ok)return lock(a.why,a.need)}const m=shell();setTab("replay");const S=state(),cur=X.cur()||{};
-  const o=Object.assign({sym:cur.sym||"BOOM1000",tfs:[TFS.find(t=>t[0]===cur.tf)?cur.tf:"5m"],start:"rnd",hide:0},S.ropt||{});if(!Array.isArray(o.tfs)||!o.tfs.length)o.tfs=[o.tf||"5m"];
+  const o=Object.assign({sym:cur.sym||"BOOM1000",tf:TFS.find(t=>t[0]===cur.tf)?cur.tf:"5m",start:"rnd",hide:0},S.ropt||{});if(!TFS.find(t=>t[0]===o.tf))o.tf="5m";
   const all=symsOf("all").slice().sort((a,b)=>String(a.display_name).localeCompare(String(b.display_name)));
   const dflt=new Date(Date.now()-7*86400000),p=tparts(dflt.getTime());
-  m.innerHTML=`<div class="pro-home"><section class="pro-intro"><h1>Replay del mercado</h1><p>Vuelve a un momento del pasado y mira el mercado formarse vela por vela, como si fuera en vivo, en varias temporalidades a la vez. Pausa cuando quieras, analiza cada temporalidad, dibuja tus zonas y haz operaciones simuladas.</p></section>
+  m.innerHTML=`<div class="pro-home"><section class="pro-intro"><h1>Replay del mercado</h1><p>Vuelve a cualquier momento del pasado y mira el mercado formarse vela por vela en tu gráfico de siempre: con todas las herramientas de dibujo e indicadores, todo el historial hacia atrás, y puedes cambiar de temporalidad o de mercado mientras avanza. Pausa, analiza y haz operaciones simuladas.</p></section>
     <h3 class="pro-sub">Mercado</h3><select class="pro-sel" data-sym>${all.map(s=>`<option value="${esc(s.symbol)}"${s.symbol===o.sym?" selected":""}>${esc(s.display_name)}</option>`).join("")}</select>
-    <h3 class="pro-sub">Temporalidades <small class="pro-hint">(hasta 3, avanzan juntas)</small></h3><div class="pro-chips" data-multi="tfs">${TFS.map(([t])=>`<button data-v="${t}" class="${o.tfs.includes(t)?"on":""}">${t}</button>`).join("")}</div>
-    <h3 class="pro-sub">¿Desde cuándo?</h3>${chips("start",[["rnd","Fecha al azar"],["date","Elegir fecha"]],o.start)}
+    <h3 class="pro-sub">Temporalidad <small class="pro-hint">(la cambias cuando quieras durante el replay)</small></h3>${chips("tf",TFS.map(([t])=>[t,t]),o.tf)}
+    <h3 class="pro-sub">¿Desde cuándo?</h3>${chips("start",[["rnd","Fecha al azar"],["date","Elegir fecha"],["pick","Tocar la vela en el gráfico"]],o.start)}
     <input class="pro-sel" type="datetime-local" data-date value="${p.year}-${p.month}-${p.day}T${p.hour}:${p.minute}" ${o.start==="date"?"":"hidden"}>
     <label class="pro-check"><input type="checkbox" data-hide ${o.hide?"checked":""}> Ocultar la fecha mientras avanza (para no saber qué pasó ese día)</label>
     <div class="pro-row sticky"><button class="pro-btn gold big" data-go>Empezar replay</button></div></div>`;
   wireChips(m,(n,v)=>{if(n==="start")$("[data-date]",m).hidden=v!=="date"});
-  const mc=$('[data-multi="tfs"]',m);mc.addEventListener("click",e=>{const b=e.target.closest("button[data-v]");if(!b)return;const on=$$("button.on",mc);
-    if(b.classList.contains("on")){if(on.length>1)b.classList.remove("on")}else{if(on.length>=3){X.toast("Máximo 3 temporalidades");return}b.classList.add("on")}});
-  $("[data-go]",m).onclick=()=>{const tfs=$$("button.on",mc).map(b=>b.dataset.v);const ro={sym:$("[data-sym]",m).value,tfs,start:chipVal(m,"start"),hide:$("[data-hide]",m).checked?1:0};S.ropt=ro;X.save();
-    let at=null;if(ro.start==="date"){const v=$("[data-date]",m).value;if(!v)return;at=Date.parse(v+":00-05:00");if(!isFinite(at)||at>Date.now()-86400e3){X.toast("Elige una fecha de al menos ayer");return}}
-    replay(ro,at)}}
+  $("[data-go]",m).onclick=()=>{const ro={sym:$("[data-sym]",m).value,tf:chipVal(m,"tf")||"5m",start:chipVal(m,"start"),hide:$("[data-hide]",m).checked?1:0};S.ropt=ro;X.save();
+    let at=null;if(ro.start==="date"){const v=$("[data-date]",m).value;if(!v)return;at=Date.parse(v+":00-05:00");if(!isFinite(at)||at>Date.now()-3600e3){X.toast("Elige una fecha de al menos 1 hora atrás");return}}
+    if(window.EAGReplay){close();window.EAGReplay.start({sym:ro.sym,tf:ro.tf,at:ro.start==="pick"?Date.now()-3*86400e3:at,hide:!!ro.hide,pick:ro.start==="pick"});return}
+    replay(Object.assign({tfs:[ro.tf]},ro),at)}}
 
 /* ---------- motor del replay ----------
    Se avanza con velas de una temporalidad menor (la "base") y con ellas se arman las velas de cada temporalidad elegida.

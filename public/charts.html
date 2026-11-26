@@ -1202,6 +1202,47 @@ html.m5 .ntf-stack{bottom:calc(var(--m5h) + 10px)!important}
 .m5ic b{position:absolute;top:-4px;right:-4px;min-width:16px;height:16px;padding:0 4px;box-sizing:border-box;border-radius:8px;background:var(--bad,#e5484d);color:#fff;font:700 10px/16px inherit;font-family:inherit}
 .m5grid small{font-size:11px;line-height:1.2;text-align:center;color:var(--dim)}
 .m5grid button:active .m5ic{transform:scale(.94)}
+
+/* ===== Replay sobre el gráfico ===== */
+html.rp-on .mtfrow{display:none!important}html.rp-on .grid{--mtfh:0px}
+html.rp-on .wcdl,html.rp-on .wfoot .wcd{visibility:hidden}
+html.rp-on .wbar{box-shadow:inset 0 -2px 0 rgba(216,176,98,.55)}
+.rpb{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);z-index:10030;display:flex;align-items:center;gap:6px;padding:6px 8px;max-width:calc(100vw - 16px);box-sizing:border-box;
+  background:var(--card);border:1px solid var(--gold);border-radius:14px;box-shadow:0 14px 40px rgba(0,0,0,.45);font-size:12.5px;color:var(--fg);user-select:none}
+.rpb button,.rpb select{height:32px;border-radius:9px;border:1px solid var(--line2);background:var(--bg2);color:var(--fg);font:600 12.5px inherit;font-family:inherit;cursor:pointer;padding:0 9px;display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+.rpb [hidden]{display:none!important}
+.rpb button:hover{border-color:var(--gold)}
+html.rp-on #top .st{font-size:0}html.rp-on #top .st::after{content:"Replay";font-size:12.5px;color:var(--gold);font-weight:700}html.rp-on #top .st::before{background:var(--gold)!important}
+.rpb .rph{cursor:grab;color:var(--mut);padding:0 2px;font-size:13px;letter-spacing:-2px;touch-action:none}
+.rpb .rpm{display:grid;line-height:1.15;min-width:118px;padding:0 4px}
+.rpb .rpt{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--gold)}
+.rpb .rpdot{width:8px;height:8px;border-radius:50%;background:var(--gold)}
+.rpb .rpd{font-variant-numeric:tabular-nums;font-size:12.5px;color:var(--fg)}
+.rpb .rpg{display:flex;align-items:center;gap:4px;padding-left:6px;border-left:1px solid var(--line)}
+.rpb .play{width:42px;justify-content:center;background:var(--gold);border-color:var(--gold);color:#16120a;font-size:14px}
+.rpb .play.on{background:var(--bg2);color:var(--gold)}
+.rpb [data-rp=back],.rpb [data-rp=fwd]{width:34px;justify-content:center;padding:0}
+.rpb .buy{background:#089981;border-color:#089981;color:#fff}.rpb .sell{background:#f23645;border-color:#f23645;color:#fff}
+.rpb .cls b{font-variant-numeric:tabular-nums}.rpb .up{color:#22c493}.rpb .dn{color:#ff5a66}
+.rpb .rpst{font-size:11.5px;color:var(--mut);white-space:nowrap;font-variant-numeric:tabular-nums}
+.rpb [data-rp=hide].on{border-color:var(--gold);color:var(--gold)}
+.rpb .exit{border-color:var(--line2)}
+.rpb .rpmini{display:none;align-items:center;gap:6px}
+.rpb.min>:not(.rpmini):not(.rph){display:none!important}.rpb.min .rpmini{display:flex}.rpb.min .rpmini span{font-variant-numeric:tabular-nums;color:var(--gold);font-weight:700}
+.rpb .rpdate{position:absolute;left:0;bottom:calc(100% + 8px);display:flex;gap:6px;align-items:center;flex-wrap:wrap;padding:8px;background:var(--card);border:1px solid var(--line2);border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.4)}
+.rpb .rpdate[hidden]{display:none}
+.rpb .rpdate label{display:flex;align-items:center;gap:6px;color:var(--fg2)}.rpb .rpdate input{height:32px;border-radius:8px;border:1px solid var(--line2);background:var(--bg2);color:var(--fg);padding:0 8px;font:inherit}
+.rpb .rpdate .gold{background:var(--gold);border-color:var(--gold);color:#16120a}
+.rppick{position:absolute;inset:0;z-index:9;cursor:crosshair;background:rgba(216,176,98,.05)}
+.rppick span{position:absolute;top:10px;left:50%;transform:translateX(-50%);padding:6px 12px;border-radius:999px;background:var(--card);border:1px solid var(--gold);color:var(--fg);font-size:12.5px;white-space:nowrap;pointer-events:none}
+.rppick i{position:absolute;top:0;bottom:0;width:0;border-left:1.5px dashed var(--gold);pointer-events:none}
+@media (max-width:1100px){.rpb .rpg>button>span{display:none}}
+.rpb.mob,html.m5 .rpb{left:6px;right:6px;transform:none;bottom:calc(var(--m5h,0px) + 6px);flex-wrap:wrap;justify-content:center;gap:5px;padding:6px}
+.rpb.mob .rph,html.m5 .rpb .rph{display:none}
+.rpb.mob .rpm{min-width:0;flex:1 1 100%;display:flex;gap:8px;align-items:center;justify-content:center}
+.rpb.mob .rpg{border-left:0;padding-left:0}
+.rpb.mob .rpg.end [data-rp=hide]{display:none}
+.rpb.mob.min{left:auto;right:8px}
 </style>
 </head>
 <body>
@@ -1224,6 +1265,7 @@ html.m5 .ntf-stack{bottom:calc(var(--m5h) + 10px)!important}
 <script src="js/eag-spikes.js"></script>
 <script src="js/eag-notify.js"></script>
 <script src="js/eag-mobile.js"></script>
+<script src="js/eag-replay.js"></script>
 <script src="js/charts-app.js"></script>
 </body>
 </html>
