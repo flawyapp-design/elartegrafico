@@ -1243,6 +1243,30 @@ html.rp-on #top .st{font-size:0}html.rp-on #top .st::after{content:"Replay";font
 .rpb.mob .rpg{border-left:0;padding-left:0}
 .rpb.mob .rpg.end [data-rp=hide]{display:none}
 .rpb.mob.min{left:auto;right:8px}
+
+/* ===== grupos del chat y @todos ===== */
+.sp-gh{display:flex;align-items:center;justify-content:space-between;margin:10px 4px 4px}.sp-gh small{font-size:11.5px;color:var(--mut);font-weight:600}
+.sp-gh .btn{height:26px;padding:0 10px;font-size:12px}
+.sp-ro{margin:0 10px 8px;padding:8px 10px;border-radius:10px;background:rgba(216,176,98,.1);border:1px solid rgba(216,176,98,.35);color:var(--fg2);font-size:12.5px}
+.sp-in.ro{display:none!important}
+.sp-at.all{background:#f23645;color:#fff;padding:0 5px;border-radius:5px}
+.sp-atl button.all{border-bottom:1px solid var(--line)}.sp-atl button.all small{color:var(--mut);font-weight:500}
+.sp-gbk{position:fixed;inset:0;z-index:10070;background:rgba(0,0,0,.5);display:grid;place-items:center;padding:12px}
+.sp-ged{width:min(520px,100%);max-height:calc(100dvh - 24px);display:flex;flex-direction:column;background:var(--card);border:1px solid var(--line2);border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.5);color:var(--fg)}
+.sp-geh{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid var(--line)}.sp-geh b{font-size:15px}
+.sp-geb{padding:12px 14px;overflow:auto;display:grid;gap:8px}
+.sp-geb input:not([type=checkbox]){width:100%;box-sizing:border-box;height:38px;border-radius:9px;border:1px solid var(--line2);background:var(--bg2);color:var(--fg);padding:0 10px;font:inherit}
+.sp-ger{display:flex;gap:8px}.sp-ger .sp-gemo{width:54px!important;text-align:center;font-size:18px}
+.sp-gel{font-size:12px;color:var(--mut);font-weight:600;margin-top:4px}
+.sp-gew{display:flex;flex-wrap:wrap;gap:6px}.sp-gew button{height:32px;padding:0 11px;border-radius:999px;border:1px solid var(--line2);background:var(--bg2);color:var(--fg);font:600 12.5px inherit;font-family:inherit;cursor:pointer}
+.sp-gew button.on{border-color:var(--gold);background:rgba(216,176,98,.15);color:var(--gold)}
+.sp-gem{display:flex;flex-wrap:wrap;gap:6px}.sp-gem span{display:inline-flex;align-items:center;gap:4px;padding:3px 4px 3px 10px;border-radius:999px;background:var(--bg2);border:1px solid var(--line2);font-size:12.5px}
+.sp-gem span button{border:0;background:none;color:var(--mut);cursor:pointer;font-size:11px}.sp-gem small{color:var(--mut);font-size:12px}
+.sp-gwho{border:1px solid var(--line);border-radius:10px;padding:8px 10px}.sp-gwho summary{cursor:pointer;font-weight:600;font-size:13px}
+.sp-gcols{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:8px 0;max-height:240px;overflow:auto}.sp-gcols>div{display:grid;gap:3px;align-content:start;font-size:12.5px}
+.sp-gcols b{font-size:12px;color:var(--gold)}.sp-gcols>div:last-child b{color:var(--mut)}.sp-gcols i{font-style:normal;font-size:10.5px;color:var(--mut);text-transform:capitalize}
+.sp-gef{display:flex;gap:8px;padding:10px 14px;border-top:1px solid var(--line)}
+.sp-gef .danger{color:#ff5a66;border-color:rgba(242,54,69,.5)}
 </style>
 </head>
 <body>

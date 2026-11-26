@@ -33,8 +33,9 @@ const LIB={
   aviso:(c,o,t)=>{tone(c,o,740,t,.18,"triangle",.5);tone(c,o,554,t+.16,.3,"triangle",.5)},
   alarma:(c,o,t)=>{for(let k=0;k<6;k++)tone(c,o,k%2?660:880,t+k*.16,.15,"square",.26)},
   sirena:(c,o,t)=>{tone(c,o,600,t,.45,"sawtooth",.26,1400);tone(c,o,600,t+.5,.45,"sawtooth",.26,1400)},
+  llamado:(c,o,t)=>{for(let k=0;k<3;k++){const b=t+k*.85;tone(c,o,523,b,.22,"square",.22);tone(c,o,659,b+.18,.22,"square",.22);tone(c,o,784,b+.36,.42,"square",.24);tone(c,o,1568,b+.36,.42,"sine",.18)}},
   spike:(c,o,t)=>{tone(c,o,140,t,.25,"sine",.9,60);tone(c,o,1568,t+.05,.5,"triangle",.5);tone(c,o,2093,t+.18,.6,"triangle",.45)}};
-const SNDS=[["campana","Campana"],["ding","Ding"],["moneda","Moneda"],["exito","Éxito"],["error","Error"],["pop","Pop"],["aviso","Aviso"],["alarma","Alarma"],["sirena","Sirena"],["spike","Golpe + ping"],["no","Sin sonido"]];
+const SNDS=[["campana","Campana"],["ding","Ding"],["moneda","Moneda"],["exito","Éxito"],["error","Error"],["pop","Pop"],["aviso","Aviso"],["alarma","Alarma"],["sirena","Sirena"],["spike","Golpe + ping"],["llamado","Llamado (largo)"],["no","Sin sonido"]];
 function play(k,vol){if(!k||k==="no"||!LIB[k])return;const c=actx();if(!c)return;const v=Math.max(0,Math.min(1,(vol==null?cfg().vol:vol)/100));if(!v)return;
   const g=c.createGain();g.gain.value=v;g.connect(c.destination);try{LIB[k](c,g,c.currentTime+.02)}catch(e){}}
 
@@ -69,7 +70,7 @@ function notify(n){n=Object.assign({cat:"sistema",title:"",body:"",ms:6500},n||{
   const quiet=c.dnd&&!n.important;
   if(!quiet&&n.sound!==false)play(n.sound||cc.snd,c.vol);
   if(n.card!==false)card(Object.assign({},n,{icon:h.icon}));
-  if(!quiet&&n.important)try{navigator.vibrate&&navigator.vibrate([120,60,120])}catch(e){}
+  if(!quiet&&n.important)try{navigator.vibrate&&navigator.vibrate(n.vibrate||[120,60,120])}catch(e){}
   if(document.hidden){flash((n.icon||CAT[n.cat][1])+" "+n.title);if(c.sys&&n.sys!==false)sys(n)}}
 
 /* ---------- campana: historial y ajustes ---------- */

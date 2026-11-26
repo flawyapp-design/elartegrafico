@@ -10,6 +10,15 @@
 "use strict";
 const esc=s=>String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[c]);
 const GEN="g:general";
+/* grupos: el general + los que crea el admin (cada uno con quién lo ve) */
+let GROUPS=new Map();
+const isGrp=r=>!!r&&r.startsWith("g:");
+const myGrp=r=>r===GEN||GROUPS.has(r);
+const gInfo=r=>r===GEN?{id:GEN,name:"Grupo general",emoji:"👥",descr:"Habla con todos los que usan EAG Charts"}:(GROUPS.get(r)||{id:r,name:"Grupo",emoji:"👥",descr:""});
+async function loadGroups(){if(!X.API.chatGroups)return;try{const L=await X.API.chatGroups()||[];GROUPS=new Map(L.map(g=>[g.id,g]))}catch(e){}}
+/* @todos: solo el profe; suena y vibra largo para que respondan */
+const ALLRX=/(^|\s)@(todos|todas|everyone)(?=\s|$|[.,!?;:])/i;
+const isAll=m=>!!(m&&m.is_admin&&isGrp(m.room)&&ALLRX.test(String(m.body||"")));
 const VMAX=6; /* máximo de personas en una llamada (malla entre navegadores) */
 const COLORS=["#4fc3f7","#ff8a65","#ba68c8","#81c784","#f06292","#ffd54f","#4dd0e1","#a1887f"];
 let X=null,ME=null,panel=null,view={tab:"chats",room:null},threads=[],people=[],msgs={},unread=0,peopleT=0,thrT=0;
@@ -35,7 +44,7 @@ const hhmm=t=>{try{const d=new Date(t),n=new Date();const s=d.toLocaleTimeString
 const nameOf=id=>{if(id===ME.id)return ME.name;const p=people.find(x=>x.id===id);if(p)return p.username;const t=threads.find(x=>x.other===id);return t?t.username:"Alguien"};
 const uuid=()=>crypto.randomUUID?crypto.randomUUID():"r"+Date.now().toString(36)+Math.random().toString(36).slice(2);
 function linkify(s){return esc(s).replace(/(https?:\/\/[^\s<]+)/g,'<a href="$1" target="_blank" rel="noopener">$1</a>')
-  .replace(/(^|\s)@([\wÀ-ÿ.\-]{2,40})/g,(a,sp,n)=>`${sp}<b class="sp-at${ME&&String(ME.name).toLowerCase()===n.toLowerCase()?" me":""}">@${n}</b>`).replace(/\n/g,"<br>")}
+  .replace(/(^|\s)@([\wÀ-ÿ.\-]{2,40})/g,(a,sp,n)=>`${sp}<b class="sp-at${/^(todos|todas|everyone)$/i.test(n)?" all":ME&&String(ME.name).toLowerCase()===n.toLowerCase()?" me":""}">@${n}</b>`).replace(/\n/g,"<br>")}
 /* @menciones: lista de personas al escribir @ (conectados primero) */
 function atPeople(){const M=new Map();const add=(id,n,a,on)=>{if(!id||!n||id===ME.id)return;const o=M.get(id);if(o){o.on=o.on||on;return}M.set(id,{id,n,a,on})};
   people.forEach(p=>add(p.id,p.username,p.avatar_url,true));(msgs[GEN]||[]).slice(-300).forEach(m=>add(m.sender,m.username,m.avatar_url,false));grpR.forEach(r=>add(r.user_id,r.username,r.avatar_url,false));
@@ -44,10 +53,10 @@ function atWire(ta,fm){let list=null,sel=0,items=[],q=null;
   const close=()=>{if(list){list.remove();list=null}q=null};
   const at=()=>{const pos=ta.selectionStart,before=ta.value.slice(0,pos),m=before.match(/(^|\s)@([\wÀ-ÿ.\-]{0,30})$/);return m?{start:pos-m[2].length-1,q:m[2].toLowerCase(),pos}:null};
   const pick=i=>{const it=items[i];if(!it||!q)return;const v=ta.value,ins="@"+it.n+" ";ta.value=v.slice(0,q.start)+ins+v.slice(q.pos);const c=q.start+ins.length;ta.setSelectionRange(c,c);ta.dispatchEvent(new Event("input"));close();ta.focus()};
-  const paint=()=>{q=at();if(!q){close();return}const L=atPeople().map(p=>{const k=p.n.toLowerCase().indexOf(q.q);return{p,k}}).filter(x=>!q.q||x.k>=0)
-      .sort((a,b)=>(b.p.on-a.p.on)||(a.k-b.k)||a.p.n.localeCompare(b.p.n)).slice(0,8).map(x=>x.p);items=L;if(!L.length){close();return}sel=Math.min(sel,L.length-1);
+  const paint=()=>{q=at();if(!q){close();return}const ALL=ME.admin&&isGrp(view.room)&&"todos".startsWith(q.q)?[{id:"__all",n:"todos",all:true}]:[];const L=ALL.concat(atPeople().map(p=>{const k=p.n.toLowerCase().indexOf(q.q);return{p,k}}).filter(x=>!q.q||x.k>=0)
+      .sort((a,b)=>(b.p.on-a.p.on)||(a.k-b.k)||a.p.n.localeCompare(b.p.n)).slice(0,8).map(x=>x.p));items=L;if(!L.length){close();return}sel=Math.min(sel,L.length-1);
     if(!list){list=document.createElement("div");list.className="sp-atl";list.setAttribute("role","listbox");fm.appendChild(list)}
-    list.innerHTML=`<small>Mencionar · se le avisa</small>`+L.map((p,i)=>`<button type="button" role="option" class="${i===sel?"on":""}" data-i="${i}">${av({id:p.id,username:p.n,avatar_url:p.a},"sm")}<span>${esc(p.n)}</span>${p.on?'<i class="ond"></i>':""}</button>`).join("");
+    list.innerHTML=`<small>Mencionar · se le avisa</small>`+L.map((p,i)=>p.all?`<button type="button" role="option" class="all${i===sel?" on":""}" data-i="${i}"><span class="sav sm grp">📣</span><span><b>@todos</b> <small>avisa fuerte a todo el grupo</small></span></button>`:`<button type="button" role="option" class="${i===sel?"on":""}" data-i="${i}">${av({id:p.id,username:p.n,avatar_url:p.a},"sm")}<span>${esc(p.n)}</span>${p.on?'<i class="ond"></i>':""}</button>`).join("");
     list.querySelectorAll("[data-i]").forEach(b=>{b.onpointerdown=e=>{e.preventDefault();pick(+b.dataset.i)}})};
   ta.addEventListener("input",()=>{sel=0;paint()});ta.addEventListener("click",paint);ta.addEventListener("blur",()=>setTimeout(close,150));
   return e=>{if(!list)return false;if(e.key==="ArrowDown"||e.key==="ArrowUp"){e.preventDefault();sel=(sel+(e.key==="ArrowDown"?1:-1)+items.length)%items.length;paint();return true}
@@ -86,15 +95,22 @@ function localBus(){if(X.API.rt||!window.BroadcastChannel)return;bc=new Broadcas
 
 /* ===================== datos ===================== */
 async function loadThreads(){try{threads=(await X.API.chatThreads())||[]}catch(e){threads=threads||[]}
-  unread=threads.reduce((a,t)=>a+(t.room===GEN?0:(+t.unread||0)),0);paintBtn();if(panel&&!view.room)paintPanel()}
+  unread=threads.reduce((a,t)=>a+(isGrp(t.room)?0:(+t.unread||0)),0);paintBtn();if(panel&&!view.room)paintPanel()}
 /* menciones que te hicieron mientras no estabas: se avisan al entrar */
 async function missedMentions(){if(!X.API.chatMyMentions)return;let L=[];try{L=await X.API.chatMyMentions()||[]}catch(e){return}
   L=L.filter(x=>x.sender!==ME.id);if(!L.length)return;const N=window.EAGN;
-  const go={label:"Ver en el grupo",fn:()=>{try{open(GEN)}catch(e){}}};
+  const all=L.filter(x=>x.everyone);if(all.length){const x=all[0];loudAll({room:x.room||GEN,username:x.username,body:x.body,id:x.msg_id},true);L=L.filter(y=>!y.everyone);if(!L.length){try{await X.API.chatMentionsSeen()}catch(e){}return}}
+  const go={label:"Ver en el grupo",fn:()=>{try{open(L[0].room||GEN)}catch(e){}}};
   if(N){if(L.length===1){const x=L[0];N.notify({cat:"msg",icon:"@",title:`${x.username||"Alguien"} te mencionó en el grupo`,body:String(x.body||"").slice(0,140),important:true,sound:"pop",act:go,key:"mm-"+x.msg_id})}
     else N.notify({cat:"msg",icon:"@",title:`Te mencionaron ${L.length} veces en el grupo`,body:[...new Set(L.map(x=>x.username||"Alguien"))].slice(0,4).join(", ")+" · mientras no estabas",important:true,sound:"pop",act:go,key:"mm-n"})}
   else X.toast(`@ Te mencionaron ${L.length} ${L.length===1?"vez":"veces"} en el grupo`);
   try{await X.API.chatMentionsSeen()}catch(e){}}
+/* aviso fuerte de @todos: sonido largo, vibración larga, tarjeta fija y notificación del sistema */
+function loudAll(m,missed){const who=m.username||nameOf(m.sender),g=gInfo(m.room),N=window.EAGN;
+  const txt=String(m.body||"").replace(ALLRX,"$1").trim().slice(0,160)||"Llamado a todos";
+  if(N)N.notify({cat:"msg",icon:"📣",title:`${who} llamó a todos${m.room===GEN?"":" en "+g.name}${missed?" (mientras no estabas)":""}`,body:txt,important:true,sticky:true,sound:"llamado",vibrate:[600,180,600,180,1100],
+    act:{label:"Responder",fn:()=>{try{open(m.room)}catch(e){}}},key:"all-"+(m.id||txt),dedupe:600000,sys:true});
+  else{X.toast("📣 "+who+": "+txt)}}
 async function loadPeople(){try{people=(await X.API.chatPeople())||[]}catch(e){}paintBtn();if(panel&&!view.room)paintPanel()}
 async function loadRoom(room,more){const L=msgs[room]||(msgs[room]=[]);const before=more&&L.length?L[0].id:null;
   try{const r=((await X.API.chatHistory(room,before))||[]).slice().reverse();
@@ -103,19 +119,20 @@ async function loadRoom(room,more){const L=msgs[room]||(msgs[room]=[]);const bef
 function mergeMsgs(a,b){const m=new Map();a.concat(b).forEach(x=>m.set(x.id,Object.assign({},m.get(x.id)||{},x)));return[...m.values()].sort((x,y)=>x.id-y.id)}
 const readAt={};
 function markRead(room){const L=msgs[room];if(!L||!L.length)return;const last=L[L.length-1].id;const t=threads.find(x=>x.room===room);if(t){t.unread=0}
-  unread=threads.reduce((a,t)=>a+(t.room===GEN?0:(+t.unread||0)),0);paintBtn();if(readAt[room]===last)return;readAt[room]=last;X.API.chatRead(room,last).catch(()=>{});if(room===GEN&&X.API.chatMentionsSeen)X.API.chatMentionsSeen().catch(()=>{});if(bc)bc.postMessage({k:"read",r:{user_id:ME.id,room,last_id:last}})}
+  unread=threads.reduce((a,t)=>a+(isGrp(t.room)?0:(+t.unread||0)),0);paintBtn();if(readAt[room]===last)return;readAt[room]=last;X.API.chatRead(room,last).catch(()=>{});if(isGrp(room)&&X.API.chatMentionsSeen)X.API.chatMentionsSeen().catch(()=>{});if(bc)bc.postMessage({k:"read",r:{user_id:ME.id,room,last_id:last}})}
 /* Grupo: quién leyó cada mensaje (se pregunta cada ~15 s mientras el grupo está abierto) */
 let grpR=[],grpRT=0,grpRBusy=false;
-function loadGrpReads(force){if(view.room!==GEN||!X.API.chatGroupReads||grpRBusy)return;const L=msgs[GEN];if(!L||!L.length)return;if(!force&&Date.now()-grpRT<12000)return;
-  grpRT=Date.now();grpRBusy=true;X.API.chatGroupReads(L[0].id).then(r=>{const old=JSON.stringify(grpR);grpR=(r||[]).filter(x=>x.user_id!==ME.id);if(view.room===GEN&&JSON.stringify(grpR)!==old)paintRoom()}).catch(()=>{}).finally(()=>{grpRBusy=false})}
+let grpRRoom=null;
+function loadGrpReads(force){const room=view.room;if(!isGrp(room)||!X.API.chatGroupReads||grpRBusy)return;const L=msgs[room];if(!L||!L.length)return;if(!force&&grpRRoom===room&&Date.now()-grpRT<12000)return;
+  if(grpRRoom!==room){grpR=[];grpRRoom=room}grpRT=Date.now();grpRBusy=true;X.API.chatGroupReads(L[0].id,room).then(r=>{const old=JSON.stringify(grpR);grpR=(r||[]).filter(x=>x.user_id!==ME.id);if(view.room===room&&JSON.stringify(grpR)!==old)paintRoom()}).catch(()=>{}).finally(()=>{grpRBusy=false})}
 const readersOf=m=>grpR.filter(r=>(+r.last_id||0)>=m.id&&r.user_id!==m.sender);
-function eyePop(id,anchor){const old=document.querySelector(".sp-eyes");if(old){old.remove();if(old.dataset.id===String(id))return}const m=(msgs[GEN]||[]).find(x=>x.id===id);if(!m)return;const R=readersOf(m);
+function eyePop(id,anchor){const old=document.querySelector(".sp-eyes");if(old){old.remove();if(old.dataset.id===String(id))return}const m=(msgs[view.room]||[]).find(x=>x.id===id);if(!m)return;const R=readersOf(m);
   const el=document.createElement("div");el.className="sp-eyes";el.dataset.id=id;el.innerHTML=`<b>👁 Visto por ${R.length}</b><div>${R.map(r=>`<span>${av({id:r.user_id,username:r.username,avatar_url:r.avatar_url},"sm")}<i>${esc(r.username||"Usuario")}</i></span>`).join("")||"<small>Nadie todavía</small>"}</div>`;
   document.body.appendChild(el);const a=anchor.getBoundingClientRect();el.style.left=Math.max(8,Math.min(innerWidth-el.offsetWidth-8,a.right-el.offsetWidth))+"px";el.style.top=(a.top-el.offsetHeight-6>8?a.top-el.offsetHeight-6:a.bottom+6)+"px";
   setTimeout(()=>addEventListener("pointerdown",function f(e){if(!el.contains(e.target)){el.remove();removeEventListener("pointerdown",f,true)}},true),0)}
-setInterval(()=>{if(panel&&view.room===GEN&&!document.hidden)loadGrpReads(true)},15000);
+setInterval(()=>{if(panel&&isGrp(view.room)&&!document.hidden)loadGrpReads(true)},15000);
 /* "Visto": hasta dónde leyó la otra persona */
-function onRead(r){if(!r||!r.room||r.user_id===ME.id||r.room===GEN)return;const t=threads.find(x=>x.room===r.room);if(!t)return;
+function onRead(r){if(!r||!r.room||r.user_id===ME.id||isGrp(r.room))return;const t=threads.find(x=>x.room===r.room);if(!t)return;
   if((+r.last_id||0)>(+t.other_read||0)){t.other_read=+r.last_id;if(view.room===r.room)paintRoom()}}
 /* reacciones */
 function onReact(r,on){if(!r||!r.msg_id)return;const L=msgs[r.room]||Object.values(msgs).find(a=>a.some(x=>x.id===r.msg_id));if(!L)return;const m=L.find(x=>x.id===r.msg_id);if(!m)return;
@@ -124,7 +141,7 @@ function onReact(r,on){if(!r||!r.msg_id)return;const L=msgs[r.room]||Object.valu
 async function react(id,emoji,room){try{const on=await X.API.chatReact(id,emoji);const r={msg_id:id,user_id:ME.id,emoji,room};onReact(r,on);if(bc)bc.postMessage({k:"rx",r,on});if(on)SND.play("react")}catch(e){X.toast(esc(e.message||"No se pudo reaccionar."))}}
 
 /* mensaje nuevo (de Realtime o de otra pestaña en modo local) */
-function onMsg(m){if(!m||!m.room)return;if(!(m.room===GEN||(m.room.startsWith("dm:")&&m.room.includes(ME.id))))return;
+function onMsg(m){if(!m||!m.room)return;if(isGrp(m.room)&&!myGrp(m.room)){if(!onMsg.__l||Date.now()-onMsg.__l>5000){onMsg.__l=Date.now();loadGroups().then(()=>{if(myGrp(m.room))onMsg(m)})}return}if(!(myGrp(m.room)||(m.room.startsWith("dm:")&&m.room.includes(ME.id))))return;
   if(!m.username)m.username=nameOf(m.sender);
   const L=msgs[m.room];if(L&&!L.some(x=>x.id===m.id)){L.push(m)}
   let t=threads.find(x=>x.room===m.room);
@@ -133,15 +150,16 @@ function onMsg(m){if(!m||!m.room)return;if(!(m.room===GEN||(m.room.startsWith("d
   threads.sort((a,b)=>(b.last_id||0)-(a.last_id||0));
   const mine=m.sender===ME.id,open=panel&&view.room===m.room&&!document.hidden;
   const inOther=panel&&view.room&&view.room!==m.room&&!document.hidden;
-  if(!mine&&!open){t.unread=(+t.unread||0)+1;if(m.room!==GEN||mentioned(m)||m.is_admin){if(inOther)peek(m);else headNotify(m);SND.play(m.room!==GEN?"in":mentioned(m)?"mention":"in");
+  if(!mine&&isAll(m)){loudAll(m);if(window.EAGN&&X.API.chatMentionsSeen&&open)X.API.chatMentionsSeen().catch(()=>{})}
+  if(!mine&&!open){t.unread=(+t.unread||0)+1;if(!isGrp(m.room)||mentioned(m)||m.is_admin){if(inOther)peek(m);else headNotify(m);if(!isAll(m))SND.play(!isGrp(m.room)?"in":mentioned(m)?"mention":"in");
     /* queda en el centro de avisos y, con la pestaña de fondo, llega como notificación del sistema (sin repetir sonido ni tarjeta) */
     try{if(window.EAGN&&m.kind!=="call"){const who=m.username||nameOf(m.sender),txt=m.kind==="img"?"📷 Imagen":m.kind==="audio"?"🎤 Nota de voz":m.kind==="share"?"📡 Compartió su gráfico":String(m.body||"").slice(0,120);
-      window.EAGN.notify({cat:"msg",icon:m.room===GEN?(mentioned(m)?"@":"👥"):"💬",title:m.room===GEN?(mentioned(m)?`${who} te mencionó`:`${who} en el grupo`):`Mensaje de ${who}`,body:txt,card:false,sound:false,tag:"msg-"+m.room,key:"msg-"+m.id})}}catch(e){}}}
+      if(!isAll(m))window.EAGN.notify({cat:"msg",icon:isGrp(m.room)?(mentioned(m)?"@":gInfo(m.room).emoji):"💬",title:isGrp(m.room)?(mentioned(m)?`${who} te mencionó${m.room===GEN?"":" en "+gInfo(m.room).name}`:`${who} en ${m.room===GEN?"el grupo":gInfo(m.room).name}`):`Mensaje de ${who}`,body:txt,card:false,sound:false,tag:"msg-"+m.room,key:"msg-"+m.id})}}catch(e){}}}
   else if(!mine&&open)SND.play("inSoft");
   if(!mine&&typers[m.room]){delete typers[m.room][m.sender];paintTyping()}
   if(!mine&&m.kind==="call"&&m.payload&&m.payload.act==="start")m.room===GEN?incomingGroup(m):incoming(m);
   if(!mine&&m.kind==="call"&&m.payload&&m.payload.act==="end"){if(ringing&&ringing.room===m.payload.room)stopRing("La llamada terminó.");if(call&&call.room===m.payload.room){X.toast("La otra persona colgó.");hangup(true)}}
-  unread=threads.reduce((a,x)=>a+(x.room===GEN?0:(+x.unread||0)),0);paintBtn();
+  unread=threads.reduce((a,x)=>a+(isGrp(x.room)?0:(+x.unread||0)),0);paintBtn();
   if(open){paintRoom(true);markRead(m.room)}else if(panel&&!view.room)paintPanel();else if(inOther)backBadge()}
 /* dentro de un chat: número en la flecha de volver con lo que te escribieron en otros chats */
 function backBadge(){if(!panel||!view.room)return;const b=panel.querySelector("[data-back]");if(!b)return;
@@ -187,13 +205,15 @@ function open(room){if(!panel){panel=document.createElement("aside");panel.class
   headPaint();if(room){view.room=room;typingSub(room);loadRoom(room);paintRoom(true);loadPeople().then(()=>{if(view.room===room)paintRoom()})}else{view.room=null;paintPanel();loadThreads();loadPeople()}}
 function close(){findQ="";if(panel){panel.remove();panel=null}document.body.classList.remove("socopen");typingSub(null);setTimeout(headPaint,0);view.room=null;clearInterval(peopleT)}
 let findFoc=false;
-function paintPanel(){if(!panel)return;{const of=panel.querySelector("[data-find]");findFoc=!!(of&&document.activeElement===of);if(of)findQ=of.value}const tab=view.tab;const g=threads.find(t=>t.room===GEN)||{room:GEN};
-  const dms=threads.filter(t=>t.room!==GEN);
+function paintPanel(){if(!panel)return;{const of=panel.querySelector("[data-find]");findFoc=!!(of&&document.activeElement===of);if(of)findQ=of.value}const tab=view.tab;
+  const grs=[GEN].concat([...GROUPS.keys()]).map(id=>Object.assign({room:id},threads.find(t=>t.room===id)||{}));
+  const dms=threads.filter(t=>!isGrp(t.room));
   panel.innerHTML=`<div class="sp-h"><b>Comunidad</b><span class="sp-on"><i></i>${people.length} en los charts</span><button class="sx" data-min title="Minimizar (queda en la burbuja)">—</button><button class="sx" data-x title="Cerrar">✕</button></div>
   <div class="sp-tabs"><button data-tab="chats" class="${tab==="chats"?"on":""}">Chats${unread?` <em>${unread>9?"9+":unread}</em>`:""}</button><button data-tab="people" class="${tab==="people"?"on":""}">Conectados <small>${people.length}</small></button><button data-tab="cfg" class="${tab==="cfg"?"on":""}" title="Opciones">⚙</button></div>
   <div class="sp-body">${tab==="chats"?`
     <div class="sp-find"><input type="search" placeholder="Buscar a alguien para escribirle…" data-find autocomplete="off"><div class="sp-res" data-res></div></div>
-    ${thRow(Object.assign({username:"Grupo general",grp:true},g))}
+    <div class="sp-gh"><small>Grupos</small>${ME.admin?`<button class="btn sm" data-gnew title="Crear un grupo y elegir quién lo ve">＋ Grupo</button>`:""}</div>
+    ${grs.map(g=>thRow(g)).join("")}<div class="sp-gh"><small>Privados</small></div>
     ${dms.length?dms.map(t=>thRow(t)).join(""):`<p class="sp-empty">Aún no tienes chats privados. Ve a <b>Conectados</b> y escríbele a alguien, o búscalo arriba.</p>`}`
   :tab==="people"?(people.length?people.map(p=>`<div class="sp-row" data-dm="${esc(p.id)}" data-n="${esc(p.username)}">${av(p)}<div class="sp-t"><b>${esc(p.username||"Usuario")}${p.is_admin?' <span class="sp-tag">Profe</span>':""}${p.id===ME.id?' <span class="sp-tag me">Tú</span>':vb(p)}</b><small>${p.symbol_name||p.symbol?`📈 ${esc(p.symbol_name||p.symbol)}${p.tf?" · "+esc(p.tf):""}`:"En EAG Charts"}</small></div>${p.id===ME.id?"":`<button class="btn sm" data-dm="${esc(p.id)}" data-n="${esc(p.username)}">💬</button>`}</div>`).join(""):`<p class="sp-empty">Nadie más conectado ahora.</p>`)
   :`<div class="sp-cfg">
@@ -212,6 +232,7 @@ function paintPanel(){if(!panel)return;{const of=panel.querySelector("[data-find
   panel.querySelector("[data-x]").onclick=close;panel.querySelector("[data-min]").onclick=minimize;handles();
   panel.querySelectorAll("[data-tab]").forEach(b=>b.onclick=()=>{view.tab=b.dataset.tab;paintPanel();if(view.tab==="people")loadPeople()});
   panel.querySelectorAll("[data-room]").forEach(b=>b.onclick=()=>open(b.dataset.room));
+  const gn=panel.querySelector("[data-gnew]");if(gn)gn.onclick=()=>groupEditor(null);
   panel.querySelectorAll("[data-hide]").forEach(b=>b.onclick=e=>{e.stopPropagation();if(!confirmSoft(b,"¿Eliminar?"))return;hideChat(b.dataset.hide)});
   panel.querySelectorAll("[data-dm]").forEach(b=>b.onclick=e=>{e.stopPropagation();startDM(b.dataset.dm,b.dataset.n)});
   const pr=panel.querySelector("[data-pprst]");if(pr)pr.onclick=()=>{cfg().pp=null;X.save();geo();X.toast("Panel en su lugar original.")};
@@ -224,26 +245,26 @@ function paintPanel(){if(!panel)return;{const of=panel.querySelector("[data-find
   if(f){let ft=0;f.oninput=()=>{findQ=f.value;clearTimeout(ft);ft=setTimeout(async()=>{const q=f.value.trim(),box=panel.querySelector("[data-res]");if(!box)return;if(q.length<2){box.innerHTML="";return}
       let r=[];try{r=(await X.API.chatFind(q))||[]}catch(e){}box.innerHTML=r.filter(u=>u.id!==ME.id).map(u=>`<button class="sp-row" data-dm="${esc(u.id)}" data-n="${esc(u.username)}">${av(u)}<div class="sp-t"><b>${esc(u.username)}${vb(u)}</b><small>Escribirle</small></div></button>`).join("")||`<p class="sp-empty">No encontramos a nadie con ese nombre.</p>`;
       box.querySelectorAll("[data-dm]").forEach(b=>b.onclick=()=>startDM(b.dataset.dm,b.dataset.n))},250)}}}
-function thRow(t){const isG=t.room===GEN,on=!isG&&(people.some(p=>p.id===t.other)||t.online);
-  const last=t.last_body!=null||t.last_kind?`${t.last_sender===ME.id?"Tú: ":isG&&t.last_sender?esc(nameOf(t.last_sender))+": ":""}${t.last_kind==="share"?"📡 Compartió su gráfico":t.last_kind==="call"?"📞 Llamada":t.last_kind==="img"?"📷 Foto":t.last_kind==="audio"?"🎤 Nota de voz":t.last_kind==="idea"?"📈 Idea":esc(String(t.last_body||"").slice(0,60))}`:(isG?"Habla con todos los que usan EAG Charts":"");
-  return`<button class="sp-row th${t.unread?" un":""}" data-room="${esc(t.room)}">${isG?`<span class="sav grp">👥</span>`:av({id:t.other,username:t.username,avatar_url:t.avatar_url})}${on?'<i class="sp-dot"></i>':""}
-    <div class="sp-t"><b>${esc(isG?"Grupo general":t.username||"Usuario")}${t.is_admin?' <span class="sp-tag">Profe</span>':isG?"":vb(t)}</b><small>${last}</small></div>
+function thRow(t){const isG=isGrp(t.room),GI=isG?gInfo(t.room):null,on=!isG&&(people.some(p=>p.id===t.other)||t.online);
+  const last=t.last_body!=null||t.last_kind?`${t.last_sender===ME.id?"Tú: ":isG&&t.last_sender?esc(nameOf(t.last_sender))+": ":""}${t.last_kind==="share"?"📡 Compartió su gráfico":t.last_kind==="call"?"📞 Llamada":t.last_kind==="img"?"📷 Foto":t.last_kind==="audio"?"🎤 Nota de voz":t.last_kind==="idea"?"📈 Idea":esc(String(t.last_body||"").slice(0,60))}`:(isG?esc(GI.descr||"Grupo"):"");
+  return`<button class="sp-row th${t.unread?" un":""}" data-room="${esc(t.room)}">${isG?`<span class="sav grp">${esc(GI.emoji||"👥")}</span>`:av({id:t.other,username:t.username,avatar_url:t.avatar_url})}${on?'<i class="sp-dot"></i>':""}
+    <div class="sp-t"><b>${esc(isG?GI.name:t.username||"Usuario")}${isG&&ME.admin&&GI.n_members!=null?` <span class="sp-tag me" title="Personas que pueden ver este grupo">${GI.n_members} 👁</span>`:""}${t.is_admin?' <span class="sp-tag">Profe</span>':isG?"":vb(t)}</b><small>${last}</small></div>
     <div class="sp-m">${t.last_at?`<small>${hhmm(t.last_at)}</small>`:""}${t.unread?`<em>${t.unread>9?"9+":t.unread}</em>`:""}</div>${isG?"":`<span class="sp-thx" data-hide="${esc(t.room)}" title="Eliminar este chat (solo para ti)">🗑</span>`}</button>`}
 function startDM(id,name){if(!id||id===ME.id)return;const room=dmRoom(id);if(!threads.find(t=>t.room===room))threads.unshift({room,other:id,username:name||nameOf(id),unread:0});view.tab="chats";open(room)}
 
-function paintRoom(toBottom){if(!panel||!view.room)return;const room=view.room,isG=room===GEN,oid=otherOf(room),t=threads.find(x=>x.room===room)||{};
-  const name=isG?"Grupo general":(t.username||nameOf(oid)),online=isG||people.some(p=>p.id===oid);const L=msgs[room]||[];
+function paintRoom(toBottom){if(!panel||!view.room)return;const room=view.room,isG=isGrp(room),GI=gInfo(room),oid=otherOf(room),t=threads.find(x=>x.room===room)||{};
+  const name=isG?GI.name:(t.username||nameOf(oid)),online=isG||people.some(p=>p.id===oid);const L=msgs[room]||[];
   const body=panel.querySelector(".sp-msgs");const atBot=!body||body.scrollHeight-body.scrollTop-body.clientHeight<90;
   if(atBot)toBottom=true;const keep=body&&!toBottom?body.scrollHeight-body.scrollTop:null;
   const ota=panel.querySelector(".sp-in textarea");let foc=null;
   if(ota&&ota.dataset.room===room){drafts[room]=ota.value;if(document.activeElement===ota)foc={a:ota.selectionStart,b:ota.selectionEnd}}
   const inShare=share&&share.room&&share.with===room,inCall=call&&call.chat===room;
-  panel.innerHTML=`<div class="sp-h"><button class="sx sp-back" data-back title="Volver a tus chats">‹<em hidden></em><i hidden></i></button>${isG?`<span class="sav grp">👥</span>`:av({id:oid,username:name,avatar_url:t.avatar_url})}
-    <div class="sp-ht"><b>${esc(name)}${isG?"":vb(Object.assign({},t,vInfo(oid)||{},{plan:null}))}</b><small class="sp-sub">${isG?`${people.length} conectado${people.length===1?"":"s"} ahora`:online?"🟢 En los charts":"No está conectado"}</small></div>
-    <div class="sp-act">${isG?`<button class="btn sm${call&&call.kind==="group"?" on":""}" data-vg title="Sala de voz del grupo (hasta ${VMAX})">🎙</button>`:`<button class="btn sm${inShare?" on":""}" data-sh title="Compartir tu gráfico: tus dibujos salen en el suyo con tu nombre y los suyos en el tuyo">📡</button><button class="btn sm${inCall?" on":""}" data-call title="Llamada de voz">📞</button>`}<button class="sx" data-menu title="Más opciones">⋯</button><button class="sx" data-min title="Minimizar (queda en la burbuja)">—</button><button class="sx" data-x title="Cerrar">✕</button></div></div>
+  panel.innerHTML=`<div class="sp-h"><button class="sx sp-back" data-back title="Volver a tus chats">‹<em hidden></em><i hidden></i></button>${isG?`<span class="sav grp">${esc(GI.emoji||"👥")}</span>`:av({id:oid,username:name,avatar_url:t.avatar_url})}
+    <div class="sp-ht"><b>${esc(name)}${isG?"":vb(Object.assign({},t,vInfo(oid)||{},{plan:null}))}</b><small class="sp-sub">${isG?(room===GEN?`${people.length} conectado${people.length===1?"":"s"} ahora`:esc(GI.descr||(GI.only_admin?"Canal de avisos del profe":"Grupo"))):online?"🟢 En los charts":"No está conectado"}</small></div>
+    <div class="sp-act">${isG&&room!==GEN&&ME.admin?`<button class="btn sm" data-gedit="${esc(room)}" title="Editar grupo y quién lo ve">⚙</button>`:""}${room===GEN?`<button class="btn sm${call&&call.kind==="group"?" on":""}" data-vg title="Sala de voz del grupo (hasta ${VMAX})">🎙</button>`:isG?"":`<button class="btn sm${inShare?" on":""}" data-sh title="Compartir tu gráfico: tus dibujos salen en el suyo con tu nombre y los suyos en el tuyo">📡</button><button class="btn sm${inCall?" on":""}" data-call title="Llamada de voz">📞</button>`}<button class="sx" data-menu title="Más opciones">⋯</button><button class="sx" data-min title="Minimizar (queda en la burbuja)">—</button><button class="sx" data-x title="Cerrar">✕</button></div></div>
   <div class="sp-msgs">${seenMark(L,t,isG),""}${L.__end||!L.length?"":`<button class="sp-more" data-more>Ver mensajes anteriores</button>`}${L.length?L.map((m,i)=>msgRow(m,L[i-1],isG)).join(""):`<p class="sp-empty">${isG?"Saluda al grupo 👋":"Escríbele el primer mensaje 👋"}</p>`}</div>
   <div class="sp-typ" data-typ></div>${replyTo[room]?`<div class="sp-rep"><span><b>↩ Respondiendo a ${esc(replyTo[room].n)}</b><small>${esc(replyTo[room].t)}</small></span><button class="sx" data-unrep title="Cancelar respuesta">✕</button></div>`:""}
-  <form class="sp-in" data-room="${esc(room)}"><button type="button" class="sp-idea" data-pic title="Enviar una foto o captura (también puedes pegarla con Ctrl+V o arrastrarla aquí)">📷</button><input type="file" accept="image/*" data-file hidden><button type="button" class="sp-idea" data-idea title="Compartir una idea: tu mercado, temporalidad y precio actual (escribe tu análisis y toca aquí)">📈</button><button type="button" class="sp-idea sp-vnote" data-mic title="Nota de voz: toca para grabar">🎤</button><textarea rows="1" maxlength="1000" placeholder="${isG?"Escribe al grupo… (usa @nombre para mencionar)":"Escribe un mensaje…"}"></textarea><button class="btn gold sm" type="submit" title="Enviar">➤</button></form>`;
+  ${isG&&GI.only_admin&&!ME.admin?`<div class="sp-ro">📣 En este grupo solo escribe el profe. Puedes reaccionar a los mensajes.</div>`:""}<form class="sp-in${isG&&GI.only_admin&&!ME.admin?" ro":""}" data-room="${esc(room)}"><button type="button" class="sp-idea" data-pic title="Enviar una foto o captura (también puedes pegarla con Ctrl+V o arrastrarla aquí)">📷</button><input type="file" accept="image/*" data-file hidden><button type="button" class="sp-idea" data-idea title="Compartir una idea: tu mercado, temporalidad y precio actual (escribe tu análisis y toca aquí)">📈</button><button type="button" class="sp-idea sp-vnote" data-mic title="Nota de voz: toca para grabar">🎤</button><textarea rows="1" maxlength="1000" placeholder="${isG?(ME.admin?"Escribe al grupo… (@nombre menciona · @todos avisa a todos)":"Escribe al grupo… (usa @nombre para mencionar)"):"Escribe un mensaje…"}"></textarea><button class="btn gold sm" type="submit" title="Enviar">➤</button></form>`;
   const box=panel.querySelector(".sp-msgs");box.__pin=keep==null;const pin=()=>{if(box.__pin)box.scrollTop=box.scrollHeight};
   if(keep!=null)box.scrollTop=box.scrollHeight-keep;else pin();
   /* el último mensaje siempre a la vista: al cargar fotos, al crecer la caja de texto o al cambiar el tamaño del panel */
@@ -296,6 +317,7 @@ function paintRoom(toBottom){if(!panel||!view.room)return;const room=view.room,i
   box.querySelectorAll("[data-pm]").forEach(b=>b.onclick=()=>startDM(b.dataset.pm,b.dataset.n));
   const sh=panel.querySelector("[data-sh]");if(sh)sh.onclick=()=>inShare?leaveShare():startShare(room);
   const cb=panel.querySelector("[data-call]");if(cb)cb.onclick=()=>inCall?hangup():startCall(room);
+  const ge=panel.querySelector("[data-gedit]");if(ge)ge.onclick=()=>groupEditor(room);
   const vg=panel.querySelector("[data-vg]");if(vg)vg.onclick=()=>call&&call.kind==="group"?hangup():joinVoiceGroup();
   markRead(room)}
 function confirmSoft(b,txt){if(b.dataset.ok)return true;b.dataset.ok=1;b.textContent=txt;setTimeout(()=>{delete b.dataset.ok},3000);return false}
@@ -439,16 +461,53 @@ async function sendImg(room,file,ta){if(upBusy)return;upBusy=true;const btn=pane
 function lightbox(src){const o=document.createElement("div");o.className="sp-lb";o.innerHTML=`<img src="${esc(src)}" alt=""><button class="sx" title="Cerrar">✕</button>`;document.body.appendChild(o);
   const cl=()=>{o.remove();removeEventListener("keydown",k,true)},k=e=>{if(e.key==="Escape"){e.stopPropagation();cl()}};o.onclick=cl;addEventListener("keydown",k,true)}
 /* borrar un chat (solo para ti) */
-async function hideChat(room){try{await X.API.chatHide(room);threads=threads.filter(t=>t.room!==room);delete msgs[room];unread=threads.reduce((a,t)=>a+(t.room===GEN?0:(+t.unread||0)),0);paintBtn();
+async function hideChat(room){try{await X.API.chatHide(room);threads=threads.filter(t=>t.room!==room);delete msgs[room];unread=threads.reduce((a,t)=>a+(isGrp(t.room)?0:(+t.unread||0)),0);paintBtn();
     if(view.room===room){view.room=null;typingSub(null)}paintPanel();X.toast("Chat eliminado (solo para ti).")}catch(e){X.toast("No se pudo eliminar el chat.")}}
-async function clearGeneral(){try{await X.API.chatHide(GEN);msgs[GEN]=[];msgs[GEN].__end=true;paintRoom();X.toast("Vaciaste el grupo (solo para ti).")}catch(e){X.toast("No se pudo.")}}
-function roomMenu(anchor,room){const old=document.querySelector(".sp-menu");if(old){old.remove();return}const isG=room===GEN,oid=otherOf(room);
-  const m=document.createElement("div");m.className="sp-menu";m.innerHTML=(isG?`<button data-m="clear">🧹 Vaciar el grupo (solo para ti)</button>`:`<button data-m="hide">🗑 Eliminar este chat (solo para ti)</button>`)+
+/* ---------- admin: crear / editar un grupo y elegir quién lo ve ---------- */
+const PLANS=[["cobre","Cobre"],["plata","Plata"],["oro","Oro"],["diamond","Diamond"]];
+const WHO=[["all","Todos los alumnos"],["plan","Por plan"],["verified","Miembros verificados"],["list","Solo los que yo elija"],["admins","Solo admins"]];
+async function groupEditor(id){if(!ME.admin||!X.API.chatGroupSave)return;const g0=id?Object.assign({},GROUPS.get(id)||{}):{name:"",emoji:"👥",descr:"",who:"all",plans:[],members:[],only_admin:false};
+  const st={g:Object.assign({plans:[],members:[]},g0),names:{},people:null};
+  const ov=document.createElement("div");ov.className="sp-gbk";ov.innerHTML=`<div class="sp-ged" role="dialog" aria-label="Grupo"></div>`;document.body.appendChild(ov);const box=ov.firstChild;
+  const close=()=>ov.remove();ov.addEventListener("pointerdown",e=>{if(e.target===ov)close()});ov.addEventListener("keydown",e=>{e.stopPropagation();if(e.key==="Escape")close()});
+  const loadPeople=async()=>{if(!id||!X.API.chatGroupPeople)return;try{st.people=await X.API.chatGroupPeople(id)||[]}catch(e){st.people=[]}paint()};
+  const paint=()=>{const g=st.g;const ok=st.people?st.people.filter(p=>p.ok):null,no=st.people?st.people.filter(p=>!p.ok):null;
+    box.innerHTML=`<div class="sp-geh"><b>${id?"Editar grupo":"Nuevo grupo"}</b><button class="sx" data-x>✕</button></div>
+      <div class="sp-geb"><div class="sp-ger"><input class="sp-gemo" maxlength="4" value="${esc(g.emoji||"👥")}" data-f="emoji" title="Emoji"><input maxlength="40" placeholder="Nombre del grupo (ej. Señales Oro)" value="${esc(g.name||"")}" data-f="name"></div>
+      <input maxlength="200" placeholder="Descripción corta (opcional)" value="${esc(g.descr||"")}" data-f="descr">
+      <div class="sp-gel">¿Quién lo ve?</div><div class="sp-gew">${WHO.map(([k,t])=>`<button class="${g.who===k?"on":""}" data-who="${k}">${t}</button>`).join("")}</div>
+      ${g.who==="plan"?`<div class="sp-gel">Planes que lo ven</div><div class="sp-gew">${PLANS.map(([k,t])=>`<button class="${(g.plans||[]).includes(k)?"on":""}" data-plan="${k}">${t}</button>`).join("")}</div>`:""}
+      <div class="sp-gel">${g.who==="list"?"Personas que lo ven":"Además, estas personas (opcional)"}</div>
+      <div class="sp-gem">${(g.members||[]).map(u=>`<span>${esc(st.names[u]||nameOf(u)||"Usuario")}<button data-rm="${esc(u)}" title="Quitar">✕</button></span>`).join("")||"<small>Nadie agregado</small>"}</div>
+      <div class="sp-find"><input type="search" placeholder="Buscar alumno para agregar…" data-gfind autocomplete="off"><div class="sp-res" data-gres></div></div>
+      <label class="sp-ck"><input type="checkbox" data-oa${g.only_admin?" checked":""}><span><b>Solo el profe escribe</b><small>Canal de avisos: los demás leen y reaccionan.</small></span></label>
+      ${id?`<details class="sp-gwho"${st.people?" open":""}><summary data-wsee>👁 Quién lo ve y quién no${ok?` · ${ok.length} lo ven, ${no.length} no`:""}</summary>${st.people?`<div class="sp-gcols"><div><b>Lo ven (${ok.length})</b>${ok.slice(0,300).map(p=>`<span>${esc(p.username||"Usuario")}${p.plan?` <i>${esc(p.plan)}</i>`:""}</span>`).join("")||"<small>Nadie</small>"}</div><div><b>No lo ven (${no.length})</b>${no.slice(0,300).map(p=>`<span>${esc(p.username||"Usuario")}${p.plan?` <i>${esc(p.plan)}</i>`:""}</span>`).join("")||"<small>Nadie</small>"}</div></div><small>Guarda los cambios para actualizar esta lista.</small>`:"<small>Cargando…</small>"}</details>`:""}
+      </div><div class="sp-gef">${id?`<button class="btn sm danger" data-del>Borrar grupo</button>`:""}<i style="flex:1"></i><button class="btn sm" data-x>Cancelar</button><button class="btn gold sm" data-save>${id?"Guardar":"Crear grupo"}</button></div>`;
+    box.querySelectorAll("[data-x]").forEach(b=>b.onclick=close);
+    box.querySelectorAll("[data-f]").forEach(i=>i.oninput=()=>{st.g[i.dataset.f]=i.value});
+    box.querySelectorAll("[data-who]").forEach(b=>b.onclick=()=>{st.g.who=b.dataset.who;paint()});
+    box.querySelectorAll("[data-plan]").forEach(b=>b.onclick=()=>{const k=b.dataset.plan,a=new Set(st.g.plans||[]);a.has(k)?a.delete(k):a.add(k);st.g.plans=[...a];paint()});
+    box.querySelectorAll("[data-rm]").forEach(b=>b.onclick=()=>{st.g.members=(st.g.members||[]).filter(u=>u!==b.dataset.rm);paint()});
+    box.querySelector("[data-oa]").onchange=e=>{st.g.only_admin=e.target.checked};
+    const ws=box.querySelector("[data-wsee]");if(ws)ws.onclick=()=>{if(!st.people)loadPeople()};
+    const f=box.querySelector("[data-gfind]");let ft=0;f.oninput=()=>{clearTimeout(ft);ft=setTimeout(async()=>{const q=f.value.trim(),r=box.querySelector("[data-gres]");if(q.length<2){r.innerHTML="";return}
+      let L=[];try{L=await X.API.chatFind(q)||[]}catch(e){}r.innerHTML=L.map(u=>`<button class="sp-row" data-add="${esc(u.id)}" data-n="${esc(u.username)}">${av(u)}<div class="sp-t"><b>${esc(u.username)}</b><small>Agregar</small></div></button>`).join("")||`<p class="sp-empty">Nadie con ese nombre.</p>`;
+      r.querySelectorAll("[data-add]").forEach(b=>b.onclick=()=>{const u=b.dataset.add;st.names[u]=b.dataset.n;if(!(st.g.members||[]).includes(u))st.g.members=(st.g.members||[]).concat(u);paint()})},250)};
+    box.querySelector("[data-save]").onclick=async()=>{const g=st.g;if(!String(g.name||"").trim()){X.toast("Ponle un nombre al grupo");return}if(g.who==="plan"&&!(g.plans||[]).length){X.toast("Elige al menos un plan");return}
+      if(g.who==="list"&&!(g.members||[]).length){X.toast("Agrega al menos una persona");return}
+      try{const nid=await X.API.chatGroupSave({id:id||"",name:g.name.trim(),emoji:g.emoji||"👥",descr:g.descr||"",who:g.who,plans:g.plans||[],members:g.members||[],only_admin:!!g.only_admin});
+        await loadGroups();await loadThreads();close();X.toast(id?"Grupo guardado":"Grupo creado");if(!id&&nid)open(nid);else if(panel&&view.room)paintRoom();else if(panel)paintPanel()}catch(e){X.toast(esc(e.message||"No se pudo guardar."))}};
+    const dl=box.querySelector("[data-del]");if(dl)dl.onclick=async()=>{if(!confirmSoft(dl,"Toca otra vez: se borran el grupo y sus mensajes"))return;try{await X.API.chatGroupDelete(id);GROUPS.delete(id);threads=threads.filter(t=>t.room!==id);close();if(view.room===id){view.room=null}if(panel)paintPanel();X.toast("Grupo borrado")}catch(e){X.toast("No se pudo borrar.")}};
+    setTimeout(()=>{const n=box.querySelector('[data-f="name"]');if(n&&!id&&!n.value)n.focus()},30)};
+  paint()}
+async function clearGeneral(room){room=room||GEN;try{await X.API.chatHide(room);msgs[room]=[];msgs[room].__end=true;paintRoom();X.toast("Vaciaste el grupo (solo para ti).")}catch(e){X.toast("No se pudo.")}}
+function roomMenu(anchor,room){const old=document.querySelector(".sp-menu");if(old){old.remove();return}const isG=isGrp(room),oid=otherOf(room);
+  const m=document.createElement("div");m.className="sp-menu";m.innerHTML=(isG?`<button data-m="clear">🧹 Vaciar el grupo (solo para ti)</button>${ME.admin&&room!==GEN?`<button data-m="gedit">⚙ Editar grupo y quién lo ve</button>`:""}`:`<button data-m="hide">🗑 Eliminar este chat (solo para ti)</button>`)+
     (X.isAdmin()&&!isG?`<button data-m="inv">⭐ Invitar a hacerse Miembro verificado</button><button data-m="mute">🔇 Silenciar a esta persona en el chat</button><button data-m="unmute">🔈 Quitarle el silencio</button>`:"");
   panel.appendChild(m);const r=anchor.getBoundingClientRect(),pr=panel.getBoundingClientRect();m.style.top=(r.bottom-pr.top+4)+"px";m.style.right=(pr.right-r.right)+"px";
   const off=e=>{if(!m.contains(e.target)){m.remove();removeEventListener("pointerdown",off,true)}};setTimeout(()=>addEventListener("pointerdown",off,true),0);
   m.querySelectorAll("[data-m]").forEach(b=>b.onclick=async()=>{const k=b.dataset.m;if((k==="hide"||k==="clear")&&!confirmSoft(b,k==="hide"?"Toca otra vez para eliminar":"Toca otra vez para vaciar"))return;m.remove();
-    if(k==="hide")hideChat(room);else if(k==="clear")clearGeneral();
+    if(k==="hide")hideChat(room);else if(k==="clear")clearGeneral(room);else if(k==="gedit")groupEditor(room);
     else if(k==="inv"){const nm=(threads.find(x=>x.room===room)||{}).username||"";send(room,`¡Hola${nm?" "+nm:""}! 👋 ¿Ya eres Miembro verificado de El Arte Gráfico? Es gratis: te desbloquea funciones de EAG Charts y entras a los retos express con premios. Mira cómo hacerlo aquí 👉 https://elartegrafico.com/#miembro-solicitud`,"text")}
     else{try{await X.API.chatBlock(oid,k==="mute");X.toast(k==="mute"?"Silenciado: ya no puede escribir en el chat.":"Listo: ya puede escribir de nuevo.")}catch(e){X.toast("No se pudo.")}}})}
 /* el chat guarda solo 10 días: el admin, al entrar, borra las fotos viejas del almacenamiento y los mensajes viejos (respaldo del cron), cada 6 h */
@@ -659,9 +718,9 @@ function stopRingOut(){clearTimeout(ringOutT)}
 /* ===================== API pública ===================== */
 window.EAGSocial={
   unread:()=>unread||0,isOpen:()=>!!panel,close:()=>close(),
-  init(o){X=o;const pr=(X.API.profile&&X.API.profile())||{};const u=X.API.user&&X.API.user();if(!u)return;ME={id:u.id,name:pr.username||"Yo"};
+  init(o){X=o;const pr=(X.API.profile&&X.API.profile())||{};const u=X.API.user&&X.API.user();if(!u)return;ME={id:u.id,name:pr.username||"Yo",admin:!!(X.API.isAdmin&&X.API.isAdmin())};
     imgClean();paintBtn();headPaint();if(X.btn)X.btn.onclick=e=>{e.stopPropagation();panel?close():open()};
-    localBus();rtConnect();sub("voz-general",vozHandler);loadThreads();setTimeout(loadPeople,2500);setTimeout(missedMentions,4000);setInterval(()=>{if(!document.hidden&&!(panel&&!view.room))loadPeople()},60000);
+    localBus();rtConnect();sub("voz-general",vozHandler);loadGroups().then(loadThreads);setInterval(()=>{if(!document.hidden)loadGroups().then(()=>{if(panel&&!view.room)paintPanel()})},120000);setTimeout(loadPeople,2500);setTimeout(missedMentions,4000);setInterval(()=>{if(!document.hidden&&!(panel&&!view.room))loadPeople()},60000);
     clearInterval(thrT);thrT=setInterval(()=>{if(document.hidden)return;if(!rtJoined)loadThreads();if(panel&&view.room&&!rtJoined)loadRoom(view.room)},rtJoined?60000:15000);
     if(cfg().hidden)X.API.chatHidden(true).catch(()=>{});
     /* si recargó la página mientras compartía, vuelve a entrar */
