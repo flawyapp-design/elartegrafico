@@ -1071,7 +1071,10 @@ ${o.onTracker?`<button class="wtrk" title="Marcador de operaciones (ganadas, per
   let guest={},guestIds=[];const guestG={};
   /* capas de otros (solo lectura): grupos independientes → Modo Clase ("clase"), chat/compartir ("social"), zonas automáticas ("__auto") */
   function rebuildGuest(){guest={};Object.keys(guestG).forEach(g=>{const L=guestG[g]||{};Object.keys(L).forEach(k=>{guest[g==="__auto"?k:g+":"+k]=L[k]})});paintGuest()}
-  function paintGuest(){bulk=true;guestIds.forEach(id=>{try{chart.removeOverlay(id)}catch(e){}OVSYM.delete(id)});bulk=false;guestIds=[];if(!ready)return;
+  /* no se rehacen las capas (zonas automáticas, clase) mientras estás dibujando o arrastrando: eso cortaba tu dibujo */
+  let guestWait=0,ptrIsDown=false;
+  chartEl.addEventListener("pointerdown",()=>{ptrIsDown=true},true);addEventListener("pointerup",()=>{ptrIsDown=false},true);addEventListener("pointercancel",()=>{ptrIsDown=false},true);
+  function paintGuest(){if(drawingId||ttWait||ptrIsDown||brushOn){clearTimeout(guestWait);guestWait=setTimeout(paintGuest,900);return}clearTimeout(guestWait);bulk=true;guestIds.forEach(id=>{try{chart.removeOverlay(id)}catch(e){}OVSYM.delete(id)});bulk=false;guestIds=[];if(!ready)return;
     Object.keys(guest).forEach(k=>(guest[k]||[]).forEach(d=>{if(!d||!d.name||!Array.isArray(d.points)||!d.points.length||!d.points.every(p=>p&&p.timestamp))return;
       let pts=d.points;if(BOX.test(d.name)&&pts.length===2)pts=boxPts(pts[0],pts[1]).map(p=>({timestamp:p.timestamp,value:p.value}));
       try{const id=chart.createOverlay({name:d.name,points:pts,styles:withPt(d),extendData:d.extendData,lock:true,visible:!hidden&&tfOk(d),onRightClick:()=>true,onDoubleClick:()=>true,onPressedMoveStart:()=>true});
@@ -1761,7 +1764,7 @@ ${o.onTracker?`<button class="wtrk" title="Marcador de operaciones (ganadas, per
     reloadDrawings(){if(ready)restoreDrawings()},
     reloadData(){loadData()},
     drawings(){return sym?JSON.parse(JSON.stringify(loadD()[sym.ticker]||[])):[]},
-    setGuest,importDrawings,refreshAuto(){azKey=null;refreshAuto()},
+    setGuest,importDrawings,refreshAuto(){azKey=null;refreshAuto()},_autoN:()=>(guest.auto||[]).length+"/"+guestIds.length,
     repaint(){applyStyles()}}
 };
 })();
