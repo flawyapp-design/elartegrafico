@@ -150,6 +150,7 @@ function SupabaseAPI(url,key){
     users(){return rpc("admin_users")},
     adminReset(user,what,fb,demo){return rpc("admin_reset_progress",{p_user:user||null,p_what:what,p_feedback:!!fb,p_demo:!!demo})},
     setUser(id,patch){return req(`/rest/v1/profiles?id=eq.${id}`,{method:"PATCH",body:patch,headers:{Prefer:"return=minimal"}})},
+    async adminUserBrief(id){const r=await sel("profiles",`&id=eq.${id}`);const p=r&&r[0];return p?{id:p.id,username:p.username,plan:p.plan||"",premium_until:p.premium_until,role:p.role,banned:p.banned}:null},
     async upload(file){const name=Date.now()+"-"+file.name.toLowerCase().replace(/[^a-z0-9.]+/g,"-");
       await req(`/storage/v1/object/media/${name}`,{method:"POST",body:file,isFile:true,headers:{"Content-Type":file.type||"application/octet-stream","x-upsert":"true"}});
       return `${url}/storage/v1/object/public/media/${name}`},
@@ -498,6 +499,7 @@ function LocalAPI(){
       if(fb)db.feedback=(db.feedback||[]).filter(f=>user&&f.user_id!==user);
       if(demo)db.profiles.forEach(p=>{if(!user||p.id===user)p.demo_used=0});save();return n},
     async setUser(id,patch){need();const p=db.profiles.find(x=>x.id===id);Object.assign(p,patch);save()},
+    async adminUserBrief(id){need();reload();const p=db.profiles.find(x=>x.id===id);return p?{id:p.id,username:p.username,plan:p.plan||"",premium_until:p.premium_until,role:p.role,banned:p.banned}:null},
     async upload(file){need();if(file.size>3*1024*1024)throw new Error("En el modo de prueba solo se aceptan archivos de hasta 3 MB.");
       const url=await new Promise((ok,no)=>{const r=new FileReader();r.onload=()=>ok(r.result);r.onerror=no;r.readAsDataURL(file)});db.files.unshift({name:file.name,url,size:file.size});save();return url},
     async files(){return db.files},

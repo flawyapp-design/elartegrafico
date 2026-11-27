@@ -158,6 +158,7 @@ function onMsg(m){if(!m||!m.room)return;if(isGrp(m.room)&&!myGrp(m.room)){if(!on
   else if(!mine&&open)SND.play("inSoft");
   if(!mine&&typers[m.room]){delete typers[m.room][m.sender];paintTyping()}
   if(!mine&&m.kind==="call"&&m.payload&&m.payload.act==="start")m.room===GEN?incomingGroup(m):incoming(m);
+  if(!mine&&m.payload&&m.payload.acc)try{accNotice(m)}catch(e){}
   if(!mine&&m.kind==="share"&&m.payload&&m.payload.room&&!(share&&share.room===m.payload.room)&&Date.now()-new Date(m.created_at)<60000&&(!isGrp(m.room)||m.is_admin)){const p=m.payload,who=m.username||nameOf(m.sender);
     invite({kind:"share",av:{id:m.sender,username:who,avatar_url:m.avatar_url},title:who,sub:`Quiere ver el gráfico contigo${p.symName?" · "+p.symName:""}${p.tf?" "+p.tf:""}`,key:"share-"+p.room,times:5,
       hint:"Sus dibujos aparecen en tu gráfico con su nombre, y los tuyos en el de él. No necesitas permisos.",yes:"Ver en mi gráfico",onYes:()=>joinShare(p.room,m.room)})}
@@ -218,7 +219,7 @@ function paintPanel(){if(!panel)return;{const of=panel.querySelector("[data-find
     <div class="sp-gh"><small>Grupos</small>${ME.admin?`<button class="btn sm" data-gnew title="Crear un grupo y elegir quién lo ve">＋ Grupo</button>`:""}</div>
     ${grs.map(g=>thRow(g)).join("")}<div class="sp-gh"><small>Privados</small></div>
     ${dms.length?dms.map(t=>thRow(t)).join(""):`<p class="sp-empty">Aún no tienes chats privados. Ve a <b>Conectados</b> y escríbele a alguien, o búscalo arriba.</p>`}`
-  :tab==="people"?(people.length?people.map(p=>`<div class="sp-row" data-dm="${esc(p.id)}" data-n="${esc(p.username)}">${av(p)}<div class="sp-t"><b>${esc(p.username||"Usuario")}${p.is_admin?' <span class="sp-tag">Profe</span>':""}${p.id===ME.id?' <span class="sp-tag me">Tú</span>':vb(p)}</b><small>${p.symbol_name||p.symbol?`📈 ${esc(p.symbol_name||p.symbol)}${p.tf?" · "+esc(p.tf):""}`:"En EAG Charts"}</small></div>${p.id===ME.id?"":`<button class="btn sm" data-dm="${esc(p.id)}" data-n="${esc(p.username)}">💬</button>`}</div>`).join(""):`<p class="sp-empty">Nadie más conectado ahora.</p>`)
+  :tab==="people"?(people.length?people.map(p=>`<div class="sp-row" data-dm="${esc(p.id)}" data-n="${esc(p.username)}">${av(p)}<div class="sp-t"><b>${esc(p.username||"Usuario")}${p.is_admin?' <span class="sp-tag">Profe</span>':""}${p.id===ME.id?' <span class="sp-tag me">Tú</span>':vb(p)}</b><small>${p.symbol_name||p.symbol?`📈 ${esc(p.symbol_name||p.symbol)}${p.tf?" · "+esc(p.tf):""}`:"En EAG Charts"}</small></div>${p.id===ME.id?"":`${ME.admin?`<button class="btn sm" data-acc="${esc(p.id)}" data-n="${esc(p.username)}" title="Dar acceso (plan, Replay, Diamond…) por días o meses">🎁</button>`:""}<button class="btn sm" data-dm="${esc(p.id)}" data-n="${esc(p.username)}">💬</button>`}</div>`).join(""):`<p class="sp-empty">Nadie más conectado ahora.</p>`)
   :`<div class="sp-cfg">
      <label class="sp-ck"><input type="checkbox" data-c="head"${cfg().head?" checked":""}><span><b>Burbuja flotante de chat</b><small>Como Messenger: la mueves por toda la pantalla, muestra tus mensajes nuevos y al tocarla abre el chat. Arrástrala a la ✕ de abajo para esconderla.</small></span></label>
      <div class="sp-vol">🪟 Panel del chat <small class="sp-hsv" style="flex:1;text-align:left;white-space:normal">Arrástralo desde arriba y estíralo desde las esquinas</small><button class="btn sm" data-pprst>Restablecer</button></div>
@@ -238,6 +239,7 @@ function paintPanel(){if(!panel)return;{const of=panel.querySelector("[data-find
   const gn=panel.querySelector("[data-gnew]");if(gn)gn.onclick=()=>groupEditor(null);
   panel.querySelectorAll("[data-hide]").forEach(b=>b.onclick=e=>{e.stopPropagation();if(!confirmSoft(b,"¿Eliminar?"))return;hideChat(b.dataset.hide)});
   panel.querySelectorAll("[data-dm]").forEach(b=>b.onclick=e=>{e.stopPropagation();startDM(b.dataset.dm,b.dataset.n)});
+  panel.querySelectorAll("[data-acc]").forEach(b=>b.onclick=e=>{e.stopPropagation();accessPop(b,b.dataset.acc,b.dataset.n)});
   const pr=panel.querySelector("[data-pprst]");if(pr)pr.onclick=()=>{cfg().pp=null;X.save();geo();X.toast("Panel en su lugar original.")};
   const hs=panel.querySelector("[data-hs]");if(hs)hs.oninput=()=>{cfg().hs=+hs.value;X.save();panel.querySelector(".sp-hsv").textContent=hs.value+" px";
     const pv=panel.querySelector(".sp-hsprev");if(pv)pv.style.setProperty("--hs",hs.value+"px");headPaint()};
@@ -264,7 +266,7 @@ function paintRoom(toBottom){if(!panel||!view.room)return;const room=view.room,i
   const inShare=share&&share.room&&share.with===room,inCall=call&&call.chat===room;
   panel.innerHTML=`<div class="sp-h"><button class="sx sp-back" data-back title="Volver a tus chats">‹<em hidden></em><i hidden></i></button>${isG?`<span class="sav grp">${esc(GI.emoji||"👥")}</span>`:av({id:oid,username:name,avatar_url:t.avatar_url})}
     <div class="sp-ht"><b>${esc(name)}${isG?"":vb(Object.assign({},t,vInfo(oid)||{},{plan:null}))}</b><small class="sp-sub">${isG?(room===GEN?`${people.length} conectado${people.length===1?"":"s"} ahora`:esc(GI.descr||(GI.only_admin?"Canal de avisos del profe":"Grupo"))):online?"🟢 En los charts":"No está conectado"}</small></div>
-    <div class="sp-act">${isG&&room!==GEN&&ME.admin?`<button class="btn sm" data-gedit="${esc(room)}" title="Editar grupo y quién lo ve">⚙</button>`:""}${room===GEN?`<button class="btn sm${call&&call.kind==="group"?" on":""}" data-vg title="Sala de voz del grupo (hasta ${VMAX})">🎙</button>`:isG?"":`<button class="btn sm${inShare?" on":""}" data-sh title="Compartir tu gráfico: tus dibujos salen en el suyo con tu nombre y los suyos en el tuyo">📡</button><button class="btn sm${inCall?" on":""}" data-call title="Llamada de voz">📞</button>`}<button class="sx" data-menu title="Más opciones">⋯</button><button class="sx" data-min title="Minimizar (queda en la burbuja)">—</button><button class="sx" data-x title="Cerrar">✕</button></div></div>
+    <div class="sp-act">${isG&&room!==GEN&&ME.admin?`<button class="btn sm" data-gedit="${esc(room)}" title="Editar grupo y quién lo ve">⚙</button>`:""}${room===GEN?`<button class="btn sm${call&&call.kind==="group"?" on":""}" data-vg title="Sala de voz del grupo (hasta ${VMAX})">🎙</button>`:isG?"":`<button class="btn sm${inShare?" on":""}" data-sh title="Compartir tu gráfico: tus dibujos salen en el suyo con tu nombre y los suyos en el tuyo">📡</button><button class="btn sm${inCall?" on":""}" data-call title="Llamada de voz">📞</button>${ME.admin?`<button class="btn sm" data-acc="${esc(oid)}" data-n="${esc(name)}" title="Dar acceso (plan, Replay, Diamond…) por días o meses">🎁</button>`:""}`}<button class="sx" data-menu title="Más opciones">⋯</button><button class="sx" data-min title="Minimizar (queda en la burbuja)">—</button><button class="sx" data-x title="Cerrar">✕</button></div></div>
   <div class="sp-msgs">${seenMark(L,t,isG),""}${L.__end||!L.length?"":`<button class="sp-more" data-more>Ver mensajes anteriores</button>`}${L.length?L.map((m,i)=>msgRow(m,L[i-1],isG)).join(""):`<p class="sp-empty">${isG?"Saluda al grupo 👋":"Escríbele el primer mensaje 👋"}</p>`}</div>
   <div class="sp-typ" data-typ></div>${replyTo[room]?`<div class="sp-rep"><span><b>↩ Respondiendo a ${esc(replyTo[room].n)}</b><small>${esc(replyTo[room].t)}</small></span><button class="sx" data-unrep title="Cancelar respuesta">✕</button></div>`:""}
   ${isG&&GI.only_admin&&!ME.admin?`<div class="sp-ro">📣 En este grupo solo escribe el profe. Puedes reaccionar a los mensajes.</div>`:""}<form class="sp-in${isG&&GI.only_admin&&!ME.admin?" ro":""}" data-room="${esc(room)}"><button type="button" class="sp-idea" data-pic title="Enviar una foto o captura (también puedes pegarla con Ctrl+V o arrastrarla aquí)">📷</button><input type="file" accept="image/*" data-file hidden><button type="button" class="sp-idea" data-idea title="Compartir una idea: tu mercado, temporalidad y precio actual (escribe tu análisis y toca aquí)">📈</button><button type="button" class="sp-idea sp-vnote" data-mic title="Nota de voz: toca para grabar">🎤</button><textarea rows="1" maxlength="1000" placeholder="${isG?(ME.admin?"Escribe al grupo… (@nombre menciona · @todos avisa a todos)":"Escribe al grupo… (usa @nombre para mencionar)"):"Escribe un mensaje…"}"></textarea><button class="btn gold sm" type="submit" title="Enviar">➤</button></form>`;
@@ -274,6 +276,7 @@ function paintRoom(toBottom){if(!panel||!view.room)return;const room=view.room,i
   box.addEventListener("scroll",()=>{box.__pin=box.scrollHeight-box.scrollTop-box.clientHeight<90},{passive:true});
   box.querySelectorAll("img").forEach(im=>{if(!im.complete)im.addEventListener("load",pin,{once:true})});
   try{const ro=new ResizeObserver(pin);ro.observe(box);box.__ro=ro}catch(e){}
+  panel.querySelectorAll("[data-acc]").forEach(b=>b.onclick=e=>{e.stopPropagation();accessPop(b,b.dataset.acc,b.dataset.n)});
   panel.querySelector("[data-back]").onclick=()=>{view.room=null;typingSub(null);paintPanel();loadThreads()};backBadge();
   panel.querySelector("[data-x]").onclick=close;panel.querySelector("[data-min]").onclick=minimize;handles();
   const mb=panel.querySelector("[data-more]");if(mb)mb.onclick=()=>loadRoom(room,true);
@@ -705,6 +708,51 @@ function speakTick(){if(!call||!shBar)return;Object.keys(call.peers).forEach(id=
 /* timbre: suave, se repite unos segundos */
 let ringT=0,ringOutT=0;
 function tone(f,dur,vol){try{actx=actx||new(window.AudioContext||window.webkitAudioContext)();const o=actx.createOscillator(),g=actx.createGain();o.frequency.value=f;g.gain.setValueAtTime(.0001,actx.currentTime);g.gain.exponentialRampToValueAtTime(vol||.05,actx.currentTime+.03);g.gain.exponentialRampToValueAtTime(.0001,actx.currentTime+dur);o.connect(g);g.connect(actx.destination);o.start();o.stop(actx.currentTime+dur+.02)}catch(e){}}
+/* ---------- admin: dar acceso desde el chat (plan por días o meses) ---------- */
+const ACCP=[["plata","Plata","Gráficos completos"],["oro","Oro","+ Replay"],["diamond","Diamond","+ Práctica y todo"]];
+const ACCD=[["d1","1 día"],["d3","3 días"],["d7","7 días"],["d15","15 días"],["m1","1 mes"],["m3","3 meses"],["m6","6 meses"],["m12","12 meses"]];
+const fmtD=d=>new Date(d).toLocaleDateString("es-CO",{day:"numeric",month:"short",year:"numeric"});
+function addSpan(base,k){const d=new Date(base),n=+k.slice(1);if(k[0]==="m")d.setMonth(d.getMonth()+n);else d.setDate(d.getDate()+n);return d}
+async function accessPop(anchor,uid,name){if(!ME.admin)return;document.querySelectorAll(".sp-acc").forEach(x=>x.remove());
+  const el=document.createElement("div");el.className="sp-acc";el.setAttribute("role","dialog");el.setAttribute("aria-label","Dar acceso a "+(name||"usuario"));
+  el.innerHTML=`<div class="sa-h"><b>🎁 Dar acceso a ${esc(name||"usuario")}</b><button class="sx" data-ax aria-label="Cerrar">✕</button></div><div class="sa-now">Cargando su plan…</div>`;
+  document.body.appendChild(el);const place=()=>{const r=anchor.getBoundingClientRect(),w=el.offsetWidth,h=el.offsetHeight;el.style.left=Math.max(6,Math.min(innerWidth-w-6,r.right-w))+"px";el.style.top=Math.max(6,Math.min(innerHeight-h-6,r.bottom+6))+"px"};place();
+  const close=()=>{el.remove();removeEventListener("pointerdown",out,true)};const out=e=>{if(!el.contains(e.target)&&e.target!==anchor)close()};setTimeout(()=>addEventListener("pointerdown",out,true),0);
+  el.querySelector("[data-ax]").onclick=close;
+  let u=null;try{u=await X.API.adminUserBrief(uid)}catch(e){}
+  if(!u){el.querySelector(".sa-now").textContent="No pude leer su cuenta. Intenta de nuevo.";return}
+  const act=u.premium_until&&new Date(u.premium_until)>new Date(),cur=String(u.plan||"").toLowerCase();
+  const st={plan:act&&ACCP.some(x=>x[0]===cur)?cur:"diamond",span:"d7",add:true};
+  const draw=()=>{const base=st.add&&act?new Date(u.premium_until):new Date(),until=addSpan(base,st.span);
+    el.innerHTML=`<div class="sa-h"><b>🎁 Dar acceso a ${esc(u.username||name)}</b><button class="sx" data-ax aria-label="Cerrar">✕</button></div>
+      <div class="sa-now">${u.role==="admin"?"Es admin: ya tiene todo.":act?`Ahora: <b>${esc((ACCP.find(x=>x[0]===cur)||[0,cur||"Premium"])[1])}</b> hasta ${fmtD(u.premium_until)}`:"Ahora: sin plan activo"}</div>
+      <div class="sa-l">Plan</div><div class="sa-g">${ACCP.map(([k,n,d])=>`<button class="sa-c${st.plan===k?" on":""}" data-pl="${k}"><b>${n}</b><small>${d}</small></button>`).join("")}</div>
+      <div class="sa-l">Por cuánto tiempo</div><div class="sa-g sa-d">${ACCD.map(([k,n])=>`<button class="sa-c${st.span===k?" on":""}" data-sp="${k}">${n}</button>`).join("")}</div>
+      <div class="sa-cus"><input type="number" min="1" max="999" data-cn placeholder="Otro" aria-label="Cantidad"><select data-cu aria-label="Unidad"><option value="d">días</option><option value="m">meses</option></select></div>
+      ${act?`<label class="sa-ck"><input type="checkbox" data-add ${st.add?"checked":""}> Sumar al tiempo que ya tiene</label>`:""}
+      <label class="sa-ck"><input type="checkbox" data-tell checked> Avisarle por el chat</label>
+      <div class="sa-res">Queda en <b>${esc(ACCP.find(x=>x[0]===st.plan)[1])}</b> hasta <b>${fmtD(until)}</b></div>
+      <div class="sa-b">${act?`<button class="btn sm" data-rm>Quitar acceso</button>`:""}<button class="btn sm gold" data-go>Dar acceso</button></div>`;
+    el.querySelector("[data-ax]").onclick=close;
+    el.querySelectorAll("[data-pl]").forEach(b=>b.onclick=()=>{st.plan=b.dataset.pl;draw()});
+    el.querySelectorAll("[data-sp]").forEach(b=>b.onclick=()=>{st.span=b.dataset.sp;draw()});
+    const cn=el.querySelector("[data-cn]"),cu=el.querySelector("[data-cu]");const cus=()=>{const n=Math.round(+cn.value);if(n>0&&n<1000){st.span=cu.value+n;const v=cn.value,uu=cu.value;draw();const c2=el.querySelector("[data-cn]");c2.value=v;el.querySelector("[data-cu]").value=uu;c2.focus()}};cn.oninput=cus;cu.onchange=cus;
+    if(/^[dm]\d+$/.test(st.span)&&!ACCD.some(x=>x[0]===st.span)){el.querySelector("[data-cn]").value=st.span.slice(1);el.querySelector("[data-cu]").value=st.span[0]}
+    const ad=el.querySelector("[data-add]");ad&&(ad.onchange=()=>{st.add=ad.checked;draw()});
+    const tell=()=>el.querySelector("[data-tell]").checked;
+    el.querySelector("[data-go]").onclick=async e=>{const b=e.currentTarget;b.disabled=true;const base=st.add&&act?new Date(u.premium_until):new Date(),until=addSpan(base,st.span),pn=ACCP.find(x=>x[0]===st.plan)[1];
+      try{await X.API.setUser(u.id,{plan:st.plan,premium_until:until.toISOString()});u.plan=st.plan;u.premium_until=until.toISOString();
+        if(tell()){try{const r=await X.API.chatDmOpen?await X.API.chatDmOpen(u.id):null;const room=r&&(r.room||r)||dmRoom(u.id);await send(room,`🎁 Te activé ${pn} hasta el ${fmtD(until)}. Recarga EAG Charts para empezar a usarlo.`,"text",{acc:{plan:st.plan,until:until.toISOString()}})}catch(x){}}
+        X.toast(`🎁 ${esc(u.username)}: ${pn} hasta el ${fmtD(until)}`);close()}catch(x){X.toast(x.message||"No se pudo dar el acceso");b.disabled=false}};
+    const rm=el.querySelector("[data-rm]");rm&&(rm.onclick=async()=>{if(!rm.dataset.ok){rm.dataset.ok=1;rm.textContent="Toca otra vez para quitarlo";return}
+      try{await X.API.setUser(u.id,{premium_until:null});X.toast(`Acceso quitado a ${esc(u.username)}`);close()}catch(x){X.toast(x.message)}});
+    place()};
+  draw()}
+/* al alumno: le avisan que le activaron un plan */
+function accNotice(m){const a=m.payload&&m.payload.acc;if(!a||m.sender===ME.id||!m.is_admin)return;if(Date.now()-new Date(m.created_at)>120000)return;
+  const pn=(ACCP.find(x=>x[0]===a.plan)||[0,"Premium"])[1];
+  invite({kind:"pen",kicker:"Acceso activado",title:`Ya tienes ${pn}`,sub:`Hasta el ${fmtD(a.until)}`,key:"acc",times:1,no:"Después",yes:"Recargar y usarlo",hint:"Para que se active en este gráfico hay que recargar la página. Tus dibujos y ajustes se quedan.",onYes:()=>location.reload()})}
+
 /* ---------- invitación grande (llamada, llamada grupal, compartir gráfico, clase): fácil de ver y de tocar ---------- */
 let inv=null;
 const INVK={call:["📞","Llamada de voz","#089981"],group:["🎙","Llamada grupal","#e6b74a"],share:["📡","Compartir gráfico","#4c8dff"],floor:["🎤","Te dieron la palabra","#089981"],pen:["✏️","Puedes marcar","#7bd88f"],clase:["🔴","Clase en vivo","#f23645"],replay:["⏪","Replay de la clase","#b388ff"]};
@@ -747,7 +795,7 @@ function stopRingOut(){clearTimeout(ringOutT)}
 
 /* ===================== API pública ===================== */
 window.EAGSocial={
-  invite,invClose,
+  invite,invClose,_acc:accessPop,_accNotice:accNotice,
   unread:()=>unread||0,isOpen:()=>!!panel,close:()=>close(),
   init(o){X=o;const pr=(X.API.profile&&X.API.profile())||{};const u=X.API.user&&X.API.user();if(!u)return;ME={id:u.id,name:pr.username||"Yo",admin:!!(X.API.isAdmin&&X.API.isAdmin())};
     imgClean();paintBtn();headPaint();if(X.btn)X.btn.onclick=e=>{e.stopPropagation();panel?close():open()};
