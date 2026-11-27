@@ -149,6 +149,7 @@ function paintPanel(){if(!panel)return;const c=cfg(),air=onAir(),adm=X.isAdmin()
       <div class="cl-sec"><div class="cl-st ${txOn?"air":""}"><span class="cl-dot"></span>${txOn?"<b>Estás en vivo</b> · tus dibujos se ven en los gráficos de los alumnos":"No estás transmitiendo"}</div>
       ${txOn?`<button class="btn sm cl-stop" data-a="stop">Terminar la clase</button>`:`<input class="cl-in" data-a="title" maxlength="60" placeholder="Título (opcional): Ej. Live de TikTok · Boom 1000">
         <label class="cl-ck"><input type="checkbox" data-a="push" checked> Avisar al celular a todos los alumnos</label>
+        <label class="cl-ck"><input type="checkbox" data-a="voz" ${X.SAVE.claseVoz===false?"":"checked"}> 🎙 Abrir la voz: los alumnos te escuchan y pueden levantar la mano</label>
         <button class="btn sm gold" data-a="start">🔴 Empezar clase en vivo</button>`}
       <p class="cl-help">Se transmiten los dibujos de todos los gráficos que tienes abiertos, el mercado y la temporalidad del gráfico activo. Los alumnos con el Modo Clase los ven al instante (sin poder moverlos) y pueden seguirte o copiarlos.</p></div>
       <div class="cl-sec"><div class="cl-sub">👥 Te están siguiendo <span data-vcount></span></div><div data-viewers></div></div>
@@ -169,7 +170,7 @@ function paintPanel(){if(!panel)return;const c=cfg(),air=onAir(),adm=X.isAdmin()
         :`<div class="cl-lock">🔒 <b>Exclusivo de Oro y Diamond.</b> El análisis del profe (zonas de compra y venta) directo en tu gráfico, con aviso al celular cuando lo actualice.<a class="btn sm gold" href="${X.planUrl}">Ver planes</a></div>`}</div>`}
   panel.innerHTML=h;
   const q=s=>panel.querySelector(`[data-a="${s}"]`),on=(s,ev,f)=>{const e=q(s);e&&(e[ev]=f)};
-  on("start","onclick",()=>startTx({title:(q("title").value||"").trim(),push:q("push").checked}));
+  on("start","onclick",async()=>{const vz=q("voz")?q("voz").checked:false;X.SAVE.claseVoz=vz;X.save();await startTx({title:(q("title").value||"").trim(),push:q("push").checked});if(vz&&txOn&&window.EAGAula)setTimeout(()=>window.EAGAula.voice(true),300);setTimeout(()=>window.EAGAula&&window.EAGAula.refresh(),400)});
   on("stop","onclick",stopTx);
   on("pub","onclick",()=>publish((q("note").value||"").trim(),q("zpush").checked));
   on("adz","onchange",e=>{c.adminZones=e.target.checked;X.save();apply()});
@@ -205,5 +206,6 @@ window.EAGClase={
   /* el profe mueve el láser: se manda a los alumnos (máximo ~7 veces por segundo, solo mientras transmite) */
   laser(pt){if(!txOn||!rtSend||!pt||!pt.sym)return;rtSend("broadcast",{type:"broadcast",event:"laser",payload:pt})},
   isTx:()=>txOn,
+  inClass:()=>!!(X&&!X.isAdmin()&&cfg().on&&onAir()),title:()=>live&&live.title||"",
   isLive:onAir};
 })();

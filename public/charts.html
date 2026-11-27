@@ -1267,6 +1267,41 @@ html.rp-on #top .st{font-size:0}html.rp-on #top .st::after{content:"Replay";font
 .sp-gcols b{font-size:12px;color:var(--gold)}.sp-gcols>div:last-child b{color:var(--mut)}.sp-gcols i{font-style:normal;font-size:10.5px;color:var(--mut);text-transform:capitalize}
 .sp-gef{display:flex;gap:8px;padding:10px 14px;border-top:1px solid var(--line)}
 .sp-gef .danger{color:#ff5a66;border-color:rgba(242,54,69,.5)}
+
+/* ===== clase en vivo tipo Zoom ===== */
+.au-bar{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);z-index:10028;display:flex;align-items:center;gap:6px;padding:6px 8px;max-width:calc(100vw - 16px);box-sizing:border-box;background:var(--card);border:1px solid #f23645;border-radius:14px;box-shadow:0 14px 40px rgba(0,0,0,.45);color:var(--fg);font-size:12.5px;user-select:none}
+.au-bar[style*="top"]{transform:none}
+.au-bar button{position:relative;height:34px;border-radius:9px;border:1px solid var(--line2);background:var(--bg2);color:var(--fg);font:600 12.5px inherit;font-family:inherit;cursor:pointer;padding:0 10px;display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+.au-bar button:hover{border-color:var(--gold)}.au-bar button.on{border-color:var(--gold);color:var(--gold);background:rgba(216,176,98,.14)}.au-bar button.gold{background:var(--gold);border-color:var(--gold);color:#16120a}
+.au-bar button.hot{border-color:#ffb020;color:#ffb020}.au-bar button.warn{border-color:#f23645;color:#ff5a66}
+.au-bar button em{position:absolute;top:-6px;right:-6px;min-width:16px;height:16px;border-radius:8px;background:#f23645;color:#fff;font:700 10px/16px inherit;font-style:normal;text-align:center;padding:0 3px}
+.au-h{cursor:grab;color:var(--mut);letter-spacing:-2px;touch-action:none}.au-t{display:flex;align-items:center;gap:6px;color:#ff5a66;font-size:12px;padding-right:2px}
+.au-dot{width:8px;height:8px;border-radius:50%;background:#f23645;animation:audot 1.4s ease-in-out infinite}@keyframes audot{50%{opacity:.3}}
+.au-n{font-variant-numeric:tabular-nums;color:var(--fg2);padding:0 4px}.au-n small{color:var(--mut)}
+.au-rx{display:flex;gap:2px}.au-rx button{width:32px;padding:0;justify-content:center;font-size:16px;background:transparent;border-color:transparent}.au-rx button:hover{background:var(--bg2)}
+.au-bar.min .au-rx,.au-bar.min .au-n{display:none}
+.au-pop{position:fixed;z-index:10032;width:min(320px,calc(100vw - 12px));display:grid;gap:7px;padding:10px;background:var(--card);border:1px solid var(--line2);border-radius:12px;box-shadow:0 14px 40px rgba(0,0,0,.45);color:var(--fg);font-size:12.5px}
+.au-pop b{font-size:12.5px}.au-pop small{color:var(--mut)}.au-pop input{height:34px;border-radius:8px;border:1px solid var(--line2);background:var(--bg2);color:var(--fg);padding:0 9px;font:inherit}
+.au-pop button{height:30px;border-radius:8px;border:1px solid var(--line2);background:var(--bg2);color:var(--fg);font:600 12px inherit;font-family:inherit;cursor:pointer;padding:0 9px}.au-pop button.gold{background:var(--gold);border-color:var(--gold);color:#16120a}
+.au-li{display:flex;align-items:center;gap:6px}.au-li span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.au-row{display:flex;gap:6px;flex-wrap:wrap}.au-wide{width:100%}
+.au-bar2{position:relative;display:flex;align-items:center;justify-content:space-between;gap:8px;height:30px;padding:0 9px;border-radius:8px;background:var(--bg2);overflow:hidden}
+.au-bar2 i{position:absolute;left:0;top:0;bottom:0;background:rgba(216,176,98,.28);z-index:0}.au-bar2 span,.au-bar2 em{position:relative;z-index:1;font-style:normal}.au-bar2.me{outline:1px solid var(--gold)}
+.au-poll{position:fixed;right:12px;top:90px;z-index:10027;width:min(300px,calc(100vw - 24px));display:grid;gap:6px;padding:12px;background:var(--card);border:1px solid var(--gold);border-radius:14px;box-shadow:0 14px 40px rgba(0,0,0,.45);color:var(--fg);font-size:13px}
+.au-poll>button:not(.au-x){height:34px;border-radius:9px;border:1px solid var(--line2);background:var(--bg2);color:var(--fg);font:600 13px inherit;font-family:inherit;cursor:pointer}.au-poll>button.on{border-color:var(--gold);color:var(--gold)}
+.au-poll small{color:var(--mut)}.au-poll .au-x{position:absolute;top:6px;right:6px;border:0;background:none;color:var(--mut);cursor:pointer}
+.au-fly{position:fixed;left:12px;bottom:80px;width:120px;height:60vh;pointer-events:none;z-index:10031}
+.au-r{position:absolute;bottom:0;display:grid;justify-items:center;animation:aufly 3.5s ease-out forwards}.au-r span{font-size:30px}.au-r small{font-size:10px;color:#fff;background:rgba(0,0,0,.55);padding:1px 6px;border-radius:8px}
+@keyframes aufly{0%{transform:translateY(0) scale(.6);opacity:0}10%{opacity:1;transform:translateY(-20px) scale(1)}100%{transform:translateY(-55vh);opacity:0}}
+.au-attn{position:fixed;inset:0;z-index:10080;display:grid;place-items:center;background:rgba(0,0,0,.55);animation:auin .25s}
+.au-attn>div{display:grid;justify-items:center;gap:8px;padding:24px 28px;border-radius:18px;background:var(--card);border:2px solid var(--gold);box-shadow:0 20px 60px rgba(0,0,0,.6);text-align:center}
+.au-attn span{font-size:46px;animation:auring .5s ease-in-out 4}.au-attn b{font-size:18px}.au-attn small{color:var(--mut)}.au-attn button{height:38px;padding:0 18px;border-radius:10px;border:0;background:var(--gold);color:#16120a;font:700 14px inherit;font-family:inherit;cursor:pointer}
+@keyframes auring{25%{transform:rotate(-18deg)}75%{transform:rotate(18deg)}}@keyframes auin{from{opacity:0}}
+@media (prefers-reduced-motion:reduce){.au-dot,.au-attn span{animation:none}.au-r{animation-duration:1.5s}}
+@media (max-width:900px){.au-bar button>span{display:none}}
+html.m5 .au-bar,.au-bar.mob{left:6px;right:6px;transform:none;bottom:calc(var(--m5h,0px) + 6px);flex-wrap:wrap;justify-content:center}
+html.m5 .au-bar .au-h{display:none}html.m5 .au-poll{top:60px}
+html.rp-on .au-bar{bottom:76px}
 </style>
 </head>
 <body>
@@ -1283,6 +1318,7 @@ html.rp-on #top .st{font-size:0}html.rp-on #top .st::after{content:"Replay";font
 <script src="js/eag-ctrader.js"></script>
 <script src="js/eag-mt5.js"></script>
 <script src="js/eag-clase.js"></script>
+<script src="js/eag-aula.js"></script>
 <script src="js/eag-pip.js"></script>
 <script src="js/eag-journal.js"></script>
 <script src="js/eag-social.js"></script>

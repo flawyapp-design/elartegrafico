@@ -732,5 +732,6 @@ window.EAGSocial={
   panesChanged(){applyShare()},
   laser(pt){if(share&&pt&&(pt.sym||pt.off))cast(share.room,"laser",{pt})},
   open:r=>open(r),dm:(id,n)=>startDM(id,n),
+  bus:{cast:(r,e,p)=>cast(r,e,p),sub:(r,f)=>sub(r,f),unsub:r=>unsub(r),ice:()=>ice(),getMic:()=>getMic(),me:()=>ME},
   state:()=>({share:!!share,call:!!call,voz:call?Object.keys(call.peers).map(id=>call.peers[id].pc&&call.peers[id].pc.connectionState):[],unread,people:people.length,threads:threads.length})};
 })();
