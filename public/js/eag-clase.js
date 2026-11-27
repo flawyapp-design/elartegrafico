@@ -151,7 +151,7 @@ function paintPanel(){if(!panel)return;const c=cfg(),air=onAir(),adm=X.isAdmin()
   if(adm){const p=X.panes()[X.active()];let nm="",nd=0;try{const s=p.kc.getSymbol();nm=s.name||s.shortName||s.ticker;nd=p.kc.drawings().length}catch(e){}
     h=`<div class="cl-h">🎓 Modo Clase <small>solo tú lo ves así</small></div>
       <div class="cl-sec"><div class="cl-st ${txOn?"air":""}"><span class="cl-dot"></span>${txOn?"<b>Estás en vivo</b> · tus dibujos se ven en los gráficos de los alumnos":"No estás transmitiendo"}</div>
-      ${txOn?`<button class="btn sm cl-stop" data-a="stop">Terminar la clase</button>`:`<input class="cl-in" data-a="title" maxlength="60" placeholder="Título (opcional): Ej. Live de TikTok · Boom 1000">
+      ${txOn?`<div class="cl-tools"><b>Herramientas de la clase</b><span>${X.isAdmin()?"Voz, manos levantadas, quién puede marcar (y ver su gráfico), encuestas y llamar la atención":"Levantar la mano, hablar cuando el profe te da la palabra, reaccionar y votar. Cuando el profe te deje hablar o marcar te sale un aviso grande para aceptar."}: están en la barra roja de abajo.</span><button class="btn sm gold" data-a="aubar">Mostrar la barra de la clase</button></div><button class="btn sm cl-stop" data-a="stop">Terminar la clase</button>`:`<input class="cl-in" data-a="title" maxlength="60" placeholder="Título (opcional): Ej. Live de TikTok · Boom 1000">
         <label class="cl-ck"><input type="checkbox" data-a="push" checked> Avisar al celular a todos los alumnos</label>
         <label class="cl-ck"><input type="checkbox" data-a="voz" ${X.SAVE.claseVoz===false?"":"checked"}> 🎙 Abrir la voz: los alumnos te escuchan y pueden levantar la mano</label>
         <button class="btn sm gold" data-a="start">🔴 Empezar clase en vivo</button>`}
@@ -168,7 +168,7 @@ function paintPanel(){if(!panel)return;const c=cfg(),air=onAir(),adm=X.isAdmin()
       <div class="cl-sec"><div class="cl-st ${air?"air":""}"><span class="cl-dot"></span>${air?`<b>El profe está en vivo</b> · ${esc(live.sym_name||live.sym||"")}${live.tf?" · "+esc(live.tf):""}`:"El profe no está en vivo ahora"}</div>
       <label class="cl-sw"><input type="checkbox" data-a="on" ${c.on?"checked":""}><i></i><span><b>Modo Clase</b><small>Cuando el profe esté en vivo, ves lo mismo que él dibuja, en tu gráfico.</small></span></label>
       <label class="cl-sw"><input type="checkbox" data-a="fol" ${c.follow?"checked":""}><i></i><span><b>Seguir al profe</b><small>Cambia tu gráfico al mercado y temporalidad que él esté mirando.</small></span></label>
-      ${air&&c.on?`<button class="btn sm" data-a="copylive">Copiar sus dibujos a los míos</button>`:""}</div>
+      ${air&&c.on?`<button class="btn sm" data-a="copylive">Copiar sus dibujos a los míos</button><div class="cl-tools"><b>Herramientas de la clase</b><span>${X.isAdmin()?"Voz, manos levantadas, quién puede marcar (y ver su gráfico), encuestas y llamar la atención":"Levantar la mano, hablar cuando el profe te da la palabra, reaccionar y votar. Cuando el profe te deje hablar o marcar te sale un aviso grande para aceptar."}: están en la barra roja de abajo.</span><button class="btn sm gold" data-a="aubar">Mostrar la barra de la clase</button></div>`:""}</div>
       <div class="cl-sec"><div class="cl-sub">📌 Zonas del profe <small>Oro y Diamond</small></div>
       ${canZones()?`<label class="cl-sw"><input type="checkbox" data-a="zon" ${c.zones?"checked":""}><i></i><span><b>Mostrar en mis gráficos</b><small>Las zonas aparecen solas cuando abres ese mercado.</small></span></label>${zoneList(false)}`
         :`<div class="cl-lock">🔒 <b>Exclusivo de Oro y Diamond.</b> El análisis del profe (zonas de compra y venta) directo en tu gráfico, con aviso al celular cuando lo actualice.<a class="btn sm gold" href="${X.planUrl}">Ver planes</a></div>`}</div>`}
@@ -176,6 +176,7 @@ function paintPanel(){if(!panel)return;const c=cfg(),air=onAir(),adm=X.isAdmin()
   const q=s=>panel.querySelector(`[data-a="${s}"]`),on=(s,ev,f)=>{const e=q(s);e&&(e[ev]=f)};
   on("start","onclick",async()=>{const vz=q("voz")?q("voz").checked:false;X.SAVE.claseVoz=vz;X.save();await startTx({title:(q("title").value||"").trim(),push:q("push").checked});if(vz&&txOn&&window.EAGAula)setTimeout(()=>window.EAGAula.voice(true),300);setTimeout(()=>window.EAGAula&&window.EAGAula.refresh(),400)});
   on("stop","onclick",stopTx);
+  on("aubar","onclick",()=>{X.SAVE.aulaMin=false;delete X.SAVE.aulaPos;X.save();try{window.EAGAula&&window.EAGAula.refresh()}catch(e){}const b=document.querySelector(".au-bar");if(b){b.style.left="";b.style.top="";b.style.bottom="";b.animate&&b.animate([{transform:"translateX(-50%) scale(1.08)"},{transform:"translateX(-50%) scale(1)"}],{duration:350});X.toast("Ahí está la barra de la clase, abajo en el centro.")}else X.toast("La barra todavía no carga. Recarga la página una vez.");close()});
   on("pub","onclick",()=>publish((q("note").value||"").trim(),q("zpush").checked));
   on("adz","onchange",e=>{c.adminZones=e.target.checked;X.save();apply()});
   on("on","onchange",e=>setOn(e.target.checked));

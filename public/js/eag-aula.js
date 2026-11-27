@@ -290,10 +290,13 @@ function beat(){if(!B)return;
   else if(A.listen){aDrop();A.listen=false}
   paint()}
 
-window.EAGAula={init(o){X=o;const S=window.EAGSocial;B=o.bus||(S&&S.bus);if(!B){return}ME=B.me&&B.me();if(!ME)return;ADMIN=!!(o.isAdmin&&o.isAdmin());
+let initN=0,initOk=false;
+window.EAGAula={init(o){X=o;if(initOk)return;const S=window.EAGSocial;B=o.bus||(S&&S.bus);ME=B&&B.me&&B.me();
+    /* el chat (y con él tu usuario) puede tardar en cargar: se reintenta hasta 2 minutos en vez de rendirse */
+    if(!B||!ME||!ME.id){if(initN++<80)setTimeout(()=>window.EAGAula.init(o),1500);return}initOk=true;ADMIN=!!(o.isAdmin&&o.isAdmin());
     B.sub(ROOM,onEv);rpWatch();clearInterval(hbT);hbT=setInterval(beat,3000);setTimeout(beat,1500);
     addEventListener("beforeunload",()=>{if(A.listen)cast("c-leave",{});if(T.voice)cast("c-voff",{})})},
-  refresh:()=>{paint();applyD()},onSym:()=>{applyD();if(A.pen)penSend(true)},voice:on=>tVoice(on!==false),
+  ready:()=>initOk,refresh:()=>{paint();applyD()},onSym:()=>{applyD();if(A.pen)penSend(true)},voice:on=>tVoice(on!==false),
   _test(o){Object.assign(X,o.x||{});rpWatch();if(o.bus){B=o.bus;B.sub(ROOM,onEv)}if(o.me)ME=o.me;if(o.admin!=null)ADMIN=o.admin;paint()},
   _state:()=>({SW:SW.id,W:W.id?{all:W.all,id:W.id,v:W.last&&[W.last.sym,W.last.tf,W.last.bars,W.last.live].join("|")}:null,SV:SV.on,D:Object.keys(D).map(k=>D[k].name+":"+Object.values(D[k].boards).reduce((a,b)=>a+b.length,0)),T:{pen:[...T.pen],penAll:T.penAll,voice:T.voice,peers:Object.keys(T.peers).length,hands:T.hands.size,floor:T.floor.size,poll:!!T.poll,votes:T.votes.size},A:{rpOn:!!A.rpOn,rpOut:!!A.rpOut,pen:A.pen,voice:A.voice,listen:A.listen,pc:A.pc&&A.pc.connectionState,hand:A.hand,floor:A.floor,poll:!!A.poll,voted:A.voted,res:!!A.res,audio:!!(A.audio&&A.audio.srcObject)}})};
 })();
