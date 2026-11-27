@@ -76,15 +76,17 @@ function tagD(arr,name,color){return(arr||[]).filter(d=>d&&!d.hid&&d.name!=="eag
 function applyD(){const show=ADMIN||inC();panes().forEach(p=>{let tk;try{tk=p.kc.getSymbol().ticker}catch(e){return}const L={};
   if(show)Object.keys(D).forEach(id=>{const v=D[id];if(v.boards&&Array.isArray(v.boards[tk])&&v.boards[tk].length)L["p"+id]=tagD(v.boards[tk],v.name||"Alumno",v.color)});
   const key=tk+":"+JSON.stringify(L);if(p.__ak===key)return;p.__ak=key;try{p.kc.setGuest(L,"aula")}catch(e){}})}
-function myBoards(){const b={};panes().forEach(p=>{try{const t=p.kc.getSymbol().ticker;b[t]=(p.kc.drawings()||[]).filter(d=>!d.hid)}catch(e){}});return b}
+/* solo lo que dibuja desde que el profe le dio permiso (o desde que el profe borró sus marcas): lo que ya tenía en su gráfico no se comparte */
+function myBoards(){const b={},t0=A.penAt||0;panes().forEach(p=>{try{const t=p.kc.getSymbol().ticker;b[t]=(p.kc.drawings()||[]).filter(d=>!d.hid&&(+d.at||0)>=t0)}catch(e){}});return b}
 function penSend(force){if(!A.pen)return;const b=myBoards(),j=JSON.stringify(b);if(j.length>90000){if(!penSend.warn){penSend.warn=1;toast("Tienes demasiados dibujos para compartir en clase: borra algunos (el pincel ocupa mucho).")}return}
   if(!force&&j===dLast)return;dLast=j;cast("c-draw",{boards:b,color:colOf(ME.id)})}
 function penSet(on,quiet){on=!!on;if(on===A.pen)return;A.pen=on;if(!on)svSet(false);clearInterval(dT);dLast="";
-  if(on){dT=setInterval(()=>penSend(false),1200);dKeep=Date.now();penSend(true);if(!quiet){if(!INV({kind:"pen",title:"Ya puedes marcar en el gráfico",sub:"El profe te dio permiso",key:"pen",times:1,no:false,yes:"Entendido",hint:`Dibuja zonas o líneas como siempre: el profe y toda la clase las ven con tu nombre <b style="color:${colOf(ME.id)}">●</b>.`}))toast("✏️ El profe te dejó marcar: lo que dibujes lo ve toda la clase con tu nombre.")}}
+  if(on){A.penAt=Date.now();dT=setInterval(()=>penSend(false),1200);dKeep=Date.now();penSend(true);if(!quiet){if(!INV({kind:"pen",title:"Ya puedes marcar en el gráfico",sub:"El profe te dio permiso",key:"pen",times:1,no:false,yes:"Entendido",hint:`Dibuja zonas o líneas como siempre: el profe y toda la clase las ven con tu nombre <b style="color:${colOf(ME.id)}">●</b>.`}))toast("✏️ El profe te dejó marcar: lo que dibujes lo ve toda la clase con tu nombre.")}}
   else{cast("c-draw",{boards:{},off:true});if(!quiet)toast("El profe terminó tu turno de marcar. Tus dibujos siguen en tu gráfico.")}
   paint()}
 function tPen(id,on){if(!on&&W.id===id)wStop(true);if(on)T.pen.add(id);else T.pen.delete(id);if(!on)delete D[id];cast("c-pen",{to:id,on:!!on});applyD();paint()}
 function tPenAll(on){T.penAll=!!on;if(!on){if(W.id)wStop(true);[...T.pen].forEach(id=>cast("c-pen",{to:id,on:false}));T.pen.clear();Object.keys(D).forEach(k=>delete D[k])}cast("c-pen",{to:"all",on:!!on});applyD();paint();toast(on?"✏️ Todos pueden marcar. Cada dibujo sale con su nombre.":"Nadie más puede marcar.")}
+function tErase(id){delete D[id];cast("c-perase",{to:id});applyD();paint();toast("🧽 Borraste las marcas de "+esc((penPeople().find(x=>x[0]===id)||[])[1]||"ese alumno")+".")}
 function tPenClear(){Object.keys(D).forEach(k=>delete D[k]);cast("c-pclear",{});applyD();toast("🧽 Quitaste las marcas de los alumnos de la clase.")}
 const penOn=p=>!!(p&&(p.penAll||(Array.isArray(p.pen)&&p.pen.includes(ME.id))));
 const penPeople=()=>{const m=new Map();T.listen.forEach((v,k)=>{if(Date.now()-v.at<30000)m.set(k,v.name)});T.hands.forEach((v,k)=>m.set(k,v.name));Object.keys(D).forEach(k=>m.set(k,D[k].name));T.pen.forEach(k=>{if(!m.has(k))m.set(k,"Alumno")});return[...m.entries()].sort((a,b)=>String(a[1]).localeCompare(String(b[1])))};
@@ -159,7 +161,8 @@ function attnShow(name){const el=document.createElement("div");el.className="au-
 function onEv(ev,p){if(!p||!p.from||p.from===ME.id)return;tick++;
   if(ev==="c-view"&&!ADMIN){if(SW.id&&p.from===SW.id&&p.v){SW.at=Date.now();applyView(p.v,SW)}return}
   if(ev==="c-draw"){if(p.off||!p.boards||!Object.values(p.boards).some(v=>Array.isArray(v)&&v.length))delete D[p.from];else D[p.from]={name:p.fname,color:p.color||colOf(p.from),boards:p.boards,at:Date.now()};applyD();if(ADMIN)paint();return}
-  if(ev==="c-pclear"){Object.keys(D).forEach(k=>delete D[k]);applyD();return}
+  if(ev==="c-pclear"){Object.keys(D).forEach(k=>delete D[k]);applyD();if(!ADMIN&&A.pen){A.penAt=Date.now();dLast="";penSend(true);toast("🧽 El profe limpió las marcas de la clase. Lo que dibujes ahora se vuelve a ver.")}return}
+  if(ev==="c-perase"){delete D[p.to];applyD();if(ADMIN)paint();if(p.to===ME.id&&A.pen){A.penAt=Date.now();dLast="";penSend(true);toast("🧽 El profe borró tus marcas de la clase (en tu gráfico siguen). Lo que dibujes ahora se vuelve a ver.")}return}
   if(ev==="c-pen"&&!ADMIN){if(p.to!=="all"&&p.to!==ME.id){if(!p.on){delete D[p.to];applyD()}return}
     if(p.to==="all"&&!p.on){Object.keys(D).forEach(k=>delete D[k]);applyD()}if(inC())penSet(!!p.on);return}
   if(ADMIN){/* lo que mandan los alumnos */
@@ -254,8 +257,9 @@ function handsPop(anchor){const H=[...T.hands.entries()],F=[...T.floor];const nm
 function penPop(anchor){const P=penPeople(),nD=Object.keys(D).length;
   const p=popAt(anchor,`<b>✏️ Quién puede marcar</b><small class="au-note">Sus dibujos aparecen en tu gráfico y en el de toda la clase, cada uno con su nombre y color.</small>
     <button class="au-wide ${T.penAll?"on":"gold"}" data-pall>${T.penAll?"✓ Todos pueden marcar (quitar)":"Dejar marcar a todos"}</button>
-    ${P.map(([id,n])=>{const on=T.penAll||T.pen.has(id),d=D[id];return`<div class="au-li"><i class="au-pc" style="background:${colOf(id)}"></i><span>${esc(n)}${d?` <small>· marcando</small>`:""}</span>${on?`<button data-wv="${esc(id)}" class="${W.id===id?"on":""}" title="Ver su gráfico en vivo: temporalidad, zoom y cursor">${W.id===id?"👁 Viendo":"👁 Ver"}</button>`:""}${T.penAll?"":`<button data-pn="${esc(id)}" class="${on?"on":"gold"}">${on?"Quitar":"Dejar marcar"}</button>`}</div>`}).join("")||"<small>Todavía no hay alumnos en la clase. Cuando activen el Modo Clase, aparecen aquí.</small>"}
-    ${nD?`<button class="au-wide" data-pclr>🧽 Quitar las marcas de los alumnos</button>`:""}`);if(!p)return;
+    ${P.map(([id,n])=>{const on=T.penAll||T.pen.has(id),d=D[id];return`<div class="au-li"><i class="au-pc" style="background:${colOf(id)}"></i><span>${esc(n)}${d?` <small>· marcando</small>`:""}</span>${d?`<button data-er="${esc(id)}" title="Borrar sus marcas de la clase">🧽</button>`:""}${on?`<button data-wv="${esc(id)}" class="${W.id===id?"on":""}" title="Ver su gráfico en vivo: temporalidad, zoom y cursor">${W.id===id?"👁 Viendo":"👁 Ver"}</button>`:""}${T.penAll?"":`<button data-pn="${esc(id)}" class="${on?"on":"gold"}">${on?"Quitar":"Dejar marcar"}</button>`}</div>`}).join("")||"<small>Todavía no hay alumnos en la clase. Cuando activen el Modo Clase, aparecen aquí.</small>"}
+    ${nD?`<button class="au-wide" data-pclr>🧽 Borrar las marcas de todos los alumnos</button>`:""}`);if(!p)return;
+  p.querySelectorAll("[data-er]").forEach(b=>b.onclick=()=>{tErase(b.dataset.er);p.remove();penPop(anchor)});
   p.querySelectorAll("[data-wv]").forEach(b=>b.onclick=()=>{const id=b.dataset.wv;W.id===id?wStop():wStart(id);p.remove()});
   p.querySelector("[data-pall]").onclick=()=>{tPenAll(!T.penAll);p.remove()};
   p.querySelectorAll("[data-pn]").forEach(b=>b.onclick=()=>{const id=b.dataset.pn;tPen(id,!T.pen.has(id));p.remove();penPop(anchor)});

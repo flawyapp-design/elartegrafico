@@ -1067,7 +1067,7 @@ ${o.onTracker?`<button class="wtrk" title="Marcador de operaciones (ganadas, per
       onRemoved:e=>{SELBOX.delete(e.overlay.id);if(bulk)return false;ovs.delete(e.overlay.id);if(selId===e.overlay.id){selId=null;hideStyleBar()}persist();return false},
       onDoubleClick:e=>{if(e.overlay.id!==drawingId)openCtx(e.overlay.id,e,true);return false},
       onRightClick:e=>{ovCtxAt=Date.now();try{if(e.overlay.id===drawingId){if(!finishFree())cancelDraw();return true}panelPos=null;closeMenu();openCtx(e.overlay.id,e,true,"estilo")}catch(x){}return true}});
-    if(id){OVSYM.set(id,sym&&sym.ticker);ovs.set(id,{name:def.name,styles:def.styles||null,extendData:def.extendData||null,lock:!!def.lock,points:def.points||null,tfv:def.tfv&&def.tfv.length?def.tfv.slice():null,ctf:def.ctf||null,hid:!!def.hid});if(!drawing)ovs.get(id).done=true}
+    if(id){OVSYM.set(id,sym&&sym.ticker);ovs.set(id,{name:def.name,styles:def.styles||null,extendData:def.extendData||null,lock:!!def.lock,points:def.points||null,tfv:def.tfv&&def.tfv.length?def.tfv.slice():null,ctf:def.ctf||null,hid:!!def.hid,at:def.at||(drawing===false?0:Date.now())});if(!drawing)ovs.get(id).done=true}
     return id}
   /* ---------- capas de solo lectura (Modo Clase y Zonas del profe): no se guardan ni se pueden mover ---------- */
   let guest={},guestIds=[];const guestG={};
@@ -1106,7 +1106,7 @@ ${o.onTracker?`<button class="wtrk" title="Marcador de operaciones (ganadas, per
   setInterval(()=>{if(root.isConnected)refreshAuto()},15000);
   /* copiar dibujos de otro (el profe) a los míos: se pueden deshacer */
   function importDrawings(arr){if(!sym||!Array.isArray(arr)||!arr.length)return 0;const all=loadD(),mine=all[sym.ticker]||[];
-    const add=arr.filter(d=>d&&d.name&&Array.isArray(d.points)&&d.points.every(p=>p&&p.timestamp)).map(d=>Object.assign(JSON.parse(JSON.stringify(d)),{lock:false}));if(!add.length)return 0;
+    const add=arr.filter(d=>d&&d.name&&Array.isArray(d.points)&&d.points.every(p=>p&&p.timestamp)).map(d=>Object.assign(JSON.parse(JSON.stringify(d)),{lock:false,at:Date.now()}));if(!add.length)return 0;
     const ns=JSON.stringify(mine.concat(add));hist.push(snap);fut=[];applySnap(ns);return add.length}
   /* stop y objetivo automáticos (1:2) según el rango reciente del gráfico */
   /* tiempo de un punto aunque esté antes de la primera vela o después de la última */
@@ -1125,7 +1125,7 @@ ${o.onTracker?`<button class="wtrk" title="Marcador de operaciones (ganadas, per
   /* guardado por mercado (todas las temporalidades), como en TradingView */
   /* deshacer / rehacer: historial de los dibujos de este mercado */
   let hist=[],fut=[],snap="[]",bulk=false;
-  function persist(){if(!sym)return;const all=loadD();const arr=[];ovs.forEach(v=>{if(v.done&&v.points&&v.points.length){const d={name:v.name,points:v.points,styles:v.styles,extendData:v.extendData,lock:v.lock};if(v.tfv&&v.tfv.length)d.tfv=v.tfv;if(v.ctf)d.ctf=v.ctf;if(v.hid)d.hid=true;arr.push(d)}});
+  function persist(){if(!sym)return;const all=loadD();const arr=[];ovs.forEach(v=>{if(v.done&&v.points&&v.points.length){const d={name:v.name,points:v.points,styles:v.styles,extendData:v.extendData,lock:v.lock};if(v.tfv&&v.tfv.length)d.tfv=v.tfv;if(v.ctf)d.ctf=v.ctf;if(v.hid)d.hid=true;if(v.at)d.at=v.at;arr.push(d)}});
     const ns=JSON.stringify(arr);if(ns!==snap){hist.push(snap);if(hist.length>60)hist.shift();fut=[];snap=ns}
     if(arr.length)all[sym.ticker]=arr;else delete all[sym.ticker];saveD(all);o.onDrawingsChange&&o.onDrawingsChange(sym.ticker)}
   function applySnap(ns){const all=loadD(),arr=JSON.parse(ns);if(arr.length)all[sym.ticker]=arr;else delete all[sym.ticker];saveD(all);snap=ns;restoreDrawings(true);o.onDrawingsChange&&o.onDrawingsChange(sym.ticker)}
@@ -1185,7 +1185,7 @@ ${o.onTracker?`<button class="wtrk" title="Marcador de operaciones (ganadas, per
     o.onCreateAlert({symbol:sym.ticker,symbol_name:sym.name||sym.ticker,kind:zone?"zona":"nivel",price:r(price),price2:zone?r(Math.min(...ps)):null})}
   function removeOv(id){try{chart.removeOverlay(id)}catch(e){}ovs.delete(id);if(selId===id)selId=null;persist();hideStyleBar();closeMenu();syncPan()}
   function dupOv(id){const v=ovs.get(id);if(!v||!v.points)return;const L=chart.getDataList(),last=L[L.length-1],first=L[0],shift=(last&&first&&L.length>2)?(L[1].timestamp-L[0].timestamp)*5:0;
-    const d=JSON.parse(JSON.stringify(v));d.points=d.points.map(p=>({timestamp:p.timestamp+shift,value:p.value}));const nid=makeOverlay(d,false);if(nid){ovs.get(nid).done=true;persist()}}
+    const d=JSON.parse(JSON.stringify(v));d.at=Date.now();d.points=d.points.map(p=>({timestamp:p.timestamp+shift,value:p.value}));const nid=makeOverlay(d,false);if(nid){ovs.get(nid).done=true;persist()}}
   function toggleLock(id){const v=ovs.get(id);if(!v)return;v.lock=!v.lock;chart.overrideOverlay({id,lock:v.lock});persist();if(!sbar.hidden)showStyleBar(id)}
   /* barra de estilo al seleccionar un dibujo — sencilla como TradingView: solo íconos, se arrastra y recuerda dónde la dejaste */
   const SBPOS="eag_sbar_pos";const sbPos=()=>{try{return JSON.parse(localStorage.getItem(SBPOS)||"null")}catch(e){return null}};
