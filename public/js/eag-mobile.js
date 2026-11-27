@@ -70,6 +70,7 @@ function tiles(){const T=[],add=(id,ic,t,fn,badge)=>T.push({id,ic,t,fn,badge});c
   if(vis("instb"))add("instb","📲","Instalar app",()=>tap("instb"));
   if(vis("fsb"))add("fsb","⛶","Pantalla completa",()=>tap("fsb"));
   add("acad","🏠","Academia",()=>{const a=document.querySelector(".brand");a&&(location.href=a.href)});
+  add("swap","⏰","Aviso de swap",()=>{window.EAGSwap&&window.EAGSwap.open(null)});
   add("logout","⎋","Cerrar sesión",()=>{window.__chartsLogout&&window.__chartsLogout()});
   add("classic","🖥️","Vista clásica",()=>{X.SAVE.m5off=true;X.save();X.toast("Vista clásica. Para volver: ⋯ → Modo celular");setTimeout(()=>location.reload(),900)});
   return T}

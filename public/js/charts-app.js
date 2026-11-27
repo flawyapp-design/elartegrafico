@@ -941,6 +941,7 @@ function start(){
     if(window.__trial&&SITE.chartProTrial)return{ok:true};
     return{ok:false,need,why:mode==="replay"?"El Replay del mercado es exclusivo del plan Oro: mira el mercado vela por vela, en varias temporalidades a la vez y con operaciones simuladas.":"La Práctica guiada es exclusiva del plan Diamond: estudia con mercado real proyección, zonas, rompimientos e impulsos, con corrección al instante."}};
   /* Replay sobre los gráficos normales (todas las herramientas, todo el pasado, cambiar temporalidad mientras avanza) */
+  try{window.EAGSwap&&window.EAGSwap.init({SAVE,save,toast})}catch(e){}
   if(window.EAGReplay)window.EAGReplay.init({feed,gran,SAVE,save,toast,onExit:()=>{Object.keys(MTFS).forEach(k=>buildMTF(+k))},panes:()=>panes.slice(0,visible()),active:()=>active,setSym:s=>setSym(s),perFind,
     host:()=>$("#appw")||document.body,grid:()=>$("#grid"),isPhone:()=>DEV==="cel",access:()=>proAccess("replay"),openPro:()=>window.EAGPro&&window.EAGPro.open("replay")});
   if(window.EAGPro){window.EAGPro.init({feed,syms:()=>SYMS,SAVE,save,toast,MAIN,access:proAccess,
@@ -1457,6 +1458,8 @@ function start(){
       if(DEV==="cel"&&SAVE.m5off){menu.insertAdjacentHTML("beforeend",`<div class="tmr"><button class="tgo" data-m5on><span style="font-size:18px">📱</span><span><b>Modo celular</b><small>Vista ordenada con pestañas abajo</small></span></button></div>`);menu.querySelector("[data-m5on]").onclick=()=>{window.EAGMobile&&window.EAGMobile.enable()}}
       {const u=API.profile&&API.profile()||{};menu.insertAdjacentHTML("beforeend",`<div class="tmr tses"><button class="tgo" data-logout><span style="font-size:17px">⎋</span><span><b>Cerrar sesión</b><small>${esc(u.username||"")}${u.username?" · ":""}vuelves a ingresar aquí mismo</small></span></button></div>`);
         menu.querySelector("[data-logout]").onclick=()=>{menu.hidden=true;window.__chartsLogout()}}
+      {const sw=(SAVE.swap||{});menu.insertAdjacentHTML("afterbegin",`<div class="tmr"><button class="tgo" data-swap><span style="font-size:17px">⏰</span><span><b>Aviso de swap</b><small>${sw.on?"Activo · "+(sw.mode==="manual"?(sw.time||"")+" (manual)":"5:00 p. m. Nueva York"):"Te aviso minutos antes de que se cobre el swap"}</small></span></button></div>`);
+        menu.querySelector("[data-swap]").onclick=()=>{menu.hidden=true;window.EAGSwap&&window.EAGSwap.open(document.getElementById("moreb"))}}
       menu.querySelectorAll("[data-go]").forEach(b=>b.onclick=()=>{menu.hidden=true;const el=g(b.dataset.go)||document.getElementById(b.dataset.go);el&&el.click()});
       menu.querySelectorAll("[data-pin]").forEach(b=>b.onclick=e=>{e.stopPropagation();const id=b.dataset.pin,P=SAVE.topPins,i=P.indexOf(id);if(i>=0)P.splice(i,1);else P.push(id);save();place();paintMenu()})};
     /* las que no están fijadas quedan guardadas (ocultas) para que sigan funcionando desde el menú */
