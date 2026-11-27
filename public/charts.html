@@ -1317,6 +1317,17 @@ html.rp-on .au-bar{bottom:76px}
 .rph-pan .up{color:#22c493}.rph-pan .dn{color:#ff5a66}
 .rph-f{display:flex;gap:8px;justify-content:flex-end;padding:10px 14px;border-top:1px solid var(--line)}.rph-f button{height:32px;padding:0 12px;border-radius:9px;border:1px solid var(--line2);background:var(--bg2);color:var(--fg);font:600 12.5px inherit;font-family:inherit;cursor:pointer}
 @media (max-width:700px){.rph-k{grid-template-columns:repeat(3,1fr)}.rpb .rplot{font-size:0}.rpb .rplot input{width:52px}}
+
+/* replay: órdenes marcadas */
+.rpb button{position:relative}.rpb button em{position:absolute;top:-6px;right:-6px;min-width:16px;height:16px;border-radius:8px;background:var(--gold);color:#16120a;font:700 10px/16px inherit;font-style:normal;text-align:center;padding:0 3px}
+.rpo{position:fixed;z-index:10040;width:min(290px,calc(100vw - 12px));display:grid;gap:8px;padding:12px;background:var(--card);border:1px solid var(--line2);border-radius:14px;box-shadow:0 14px 40px rgba(0,0,0,.45);color:var(--fg);font-size:12.5px}
+.rpo small{color:var(--mut)}.rpo label{display:grid;gap:4px;color:var(--fg2)}.rpo input{height:36px;border-radius:9px;border:1px solid var(--line2);background:var(--bg2);color:var(--fg);padding:0 10px;font:600 14px inherit;font-family:inherit}
+.rpo button{height:34px;border-radius:9px;border:1px solid var(--line2);background:var(--bg2);color:var(--fg);font:600 12.5px inherit;font-family:inherit;cursor:pointer}
+.rpo .gold{background:var(--gold);border-color:var(--gold);color:#16120a}
+.rpo-r{display:grid;grid-template-columns:1fr 1fr;gap:6px}.rpo-r .buy.on{background:#089981;border-color:#089981;color:#fff}.rpo-r .sell.on{background:#f23645;border-color:#f23645;color:#fff}
+.rpo-l{display:grid;gap:4px}.rpo-l>div{display:flex;align-items:center;gap:6px;padding:4px 8px;border-radius:8px;background:var(--bg2);font-variant-numeric:tabular-nums}.rpo-l button{margin-left:auto;height:24px;width:24px;padding:0}
+.rpo .up{color:#22c493;font-weight:700}.rpo .dn{color:#ff5a66;font-weight:700}
+.rppick i.h{left:0;right:0;top:50%;bottom:auto;width:auto;height:0;border-left:0;border-top:1.5px dashed var(--gold)}
 </style>
 </head>
 <body>

@@ -102,19 +102,53 @@ const hist=()=>{X.SAVE.rpHist=Array.isArray(X.SAVE.rpHist)?X.SAVE.rpHist:[];retu
 const usd=(o,p)=>(p-o.p)*o.d*o.lot*csOf(o.sym);
 const balance=()=>SIM().bal0+hist().reduce((a,t)=>a+(+t.usd||0),0);
 function curPx(){const t=mainT();return t?priceAt(t,S.cur):null}
-function openTr(d){if(!S||S.open)return;const p=curPx();if(p==null)return;const sim=SIM(),lot=Math.max(0.01,+sim.lot||0.01);
-  S.open={d,p,t:S.cur,sym:mainT(),lot,sl:+sim.sl>0?p-d*sim.sl:null,tp:+sim.tp>0?p+d*sim.tp:null,tf:(()=>{try{return actKc().getPeriod().text}catch(e){return""}})()};lines();paint()}
-function closeTr(px,why){if(!S||!S.open)return;const o=S.open,p=px!=null?px:priceAt(o.sym,S.cur);if(p==null)return;const pts=(p-o.p)*o.d,v=usd(o,p);
-  const t={d:o.d,lot:o.lot,p0:o.p,p1:p,t0:o.t,t1:S.cur,pts,usd:Math.round(v*100)/100,sym:o.sym,tf:o.tf,why:why||"manual",at:Date.now()};S.trades.push(t);hist().unshift(t);if(hist().length>500)hist().length=500;X.save();
-  S.open=null;lines();paint();X.toast(`${why==="tp"?"🎯 Take profit":why==="sl"?"🛑 Stop loss":"Operación cerrada"}: ${v>=0?"+":""}${money(v)} (${pts>=0?"+":""}${fp(pts)} pts)`)}
-function checkSLTP(){const o=S&&S.open;if(!o||(o.sl==null&&o.tp==null))return;const c=base.get(o.sym);if(!c)return;const k=aggregate(o.sym,Math.floor(S.cur/MIN)*MIN,S.cur);if(!k)return;
-  if(o.sl!=null&&(o.d>0?k.low<=o.sl:k.high>=o.sl)){closeTr(o.sl,"sl");return}if(o.tp!=null&&(o.d>0?k.high>=o.tp:k.low<=o.tp))closeTr(o.tp,"tp")}
+const tfNow=()=>{try{return actKc().getPeriod().text}catch(e){return""}};
+let seq=0;
+/* abrir: a mercado (precio actual) o desde una orden pendiente (precio de la orden) */
+function openTr(d,px,o2){if(!S)return;const p=px!=null?px:curPx();if(p==null)return;const sim=SIM(),lot=Math.max(0.01,+((o2&&o2.lot)||sim.lot)||0.01),sl=o2?o2.sl:(+sim.sl>0?sim.sl:0),tp=o2?o2.tp:(+sim.tp>0?sim.tp:0);
+  S.pos.push({id:++seq,d,p,t:S.cur,sym:(o2&&o2.sym)||mainT(),lot,sl:sl>0?p-d*sl:null,tp:tp>0?p+d*tp:null,tf:tfNow()});lines();paint()}
+function closeTr(id,px,why){if(!S)return;const L=id==null?S.pos.slice():S.pos.filter(o=>o.id===id);let tot=0,tp=0;
+  L.forEach(o=>{const p=px!=null?px:priceAt(o.sym,S.cur);if(p==null)return;const pts=(p-o.p)*o.d,v=usd(o,p);tot+=v;tp+=pts;
+    const t={d:o.d,lot:o.lot,p0:o.p,p1:p,t0:o.t,t1:S.cur,pts,usd:Math.round(v*100)/100,sym:o.sym,tf:o.tf,why:why||"manual",at:Date.now()};S.trades.push(t);hist().unshift(t);S.pos=S.pos.filter(x=>x!==o)});
+  if(!L.length)return;if(hist().length>500)hist().length=500;X.save();lines();paint();
+  X.toast(`${why==="tp"?"🎯 Take profit":why==="sl"?"🛑 Stop loss":L.length>1?`Cerraste ${L.length} operaciones`:"Operación cerrada"}: ${tot>=0?"+":""}${money(tot)} (${tp>=0?"+":""}${fp(tp)} pts)`)}
+const kNow=t=>aggregate(t,Math.floor(S.cur/MIN)*MIN,S.cur);
+function checkSLTP(){if(!S)return;
+  /* órdenes pendientes: se activan cuando el precio llega */
+  S.pend.slice().forEach(o=>{const k=kNow(o.sym);if(!k)return;const hit=o.up?k.high>=o.p:k.low<=o.p;if(hit){S.pend=S.pend.filter(x=>x!==o);openTr(o.d,o.p,o);X.toast(`✅ Se activó tu ${o.d>0?"compra":"venta"} en ${fp(o.p)}`);try{window.EAGN&&window.EAGN.notify({cat:"trade",icon:"✅",title:`Orden activada · ${o.d>0?"Compra":"Venta"}`,body:`${o.lot} lote en ${fp(o.p)}`,card:false})}catch(e){}}});
+  S.pos.slice().forEach(o=>{if(o.sl==null&&o.tp==null)return;const k=kNow(o.sym);if(!k)return;
+    if(o.sl!=null&&(o.d>0?k.low<=o.sl:k.high>=o.sl)){closeTr(o.id,o.sl,"sl");return}if(o.tp!=null&&(o.d>0?k.high>=o.tp:k.low<=o.tp))closeTr(o.id,o.tp,"tp")})}
 const money=v=>(v<0?"-":"")+"$"+Math.abs(v).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2});
-/* líneas de entrada, SL y TP en el gráfico */
+/* órdenes marcadas (pendientes) */
+function addPend(d,p){if(!S)return;const cur=curPx();if(cur==null||!isFinite(p))return;const sim=SIM();
+  S.pend.push({id:++seq,d,p,up:p>cur,lot:Math.max(0.01,+sim.lot||0.01),sl:+sim.sl>0?+sim.sl:0,tp:+sim.tp>0?+sim.tp:0,sym:mainT()});lines();paint();
+  X.toast(`📌 ${d>0?"Compra":"Venta"} marcada en ${fp(p)}: se activa sola si el precio llega`)}
+function orderPop(anchor){let pp=document.querySelector(".rpo");if(pp){pp.remove();return}const cur=curPx();
+  pp=document.createElement("div");pp.className="rpo";pp.innerHTML=`<b>Orden marcada</b><small>Se activa sola cuando el precio llegue (sirve para el cambio de hora o una zona).</small>
+    <div class="rpo-r"><button data-od="1" class="on buy">Compra</button><button data-od="-1" class="sell">Venta</button></div>
+    <label>Precio<input type="number" step="any" data-op value="${cur!=null?(+cur).toFixed(prec()):""}"></label>
+    <button data-opick>🎯 Marcar el precio tocando el gráfico</button>
+    <small>Usa el lote ${SIM().lot} y tu SL/TP de la barra.</small>
+    <button data-ogo class="gold">Poner orden</button>
+    <div class="rpo-l">${S.pend.map(o=>`<div><span class="${o.d>0?"up":"dn"}">${o.d>0?"Compra":"Venta"}</span> ${fp(o.p)} · ${o.lot} lote<button data-ox="${o.id}" title="Cancelar">✕</button></div>`).join("")||""}</div>`;
+  document.body.appendChild(pp);const r=anchor.getBoundingClientRect();pp.style.left=Math.max(6,Math.min(innerWidth-pp.offsetWidth-6,r.left-40))+"px";pp.style.top=Math.max(6,r.top-pp.offsetHeight-10)+"px";
+  pp.addEventListener("keydown",e=>e.stopPropagation());pp.addEventListener("pointerdown",e=>e.stopPropagation());let d=1;
+  pp.querySelectorAll("[data-od]").forEach(b=>b.onclick=()=>{d=+b.dataset.od;pp.querySelectorAll("[data-od]").forEach(x=>x.classList.toggle("on",x===b))});
+  pp.querySelector("[data-ogo]").onclick=()=>{const v=parseFloat(pp.querySelector("[data-op]").value);if(!isFinite(v)){X.toast("Escribe el precio de la orden");return}addPend(d,v);pp.remove()};
+  pp.querySelectorAll("[data-ox]").forEach(b=>b.onclick=()=>{S.pend=S.pend.filter(o=>o.id!==+b.dataset.ox);lines();paint();pp.remove();orderPop(anchor)});
+  pp.querySelector("[data-opick]").onclick=()=>{pp.style.display="none";pricePick(v=>{pp.style.display="";if(v!=null)pp.querySelector("[data-op]").value=(+v).toFixed(prec())})}}
+function pricePick(cb){const host=X.grid();if(!host){cb(null);return}const ly=document.createElement("div");ly.className="rppick";ly.innerHTML=`<span>Toca el precio de la orden · Esc para cancelar</span><i class="h"></i>`;host.appendChild(ly);const ln=ly.querySelector("i");
+  const val=e=>{for(const ch of (window.__eagCharts||[])){try{const dom=ch.getDom(),r=dom.getBoundingClientRect();if(!r.width||e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)continue;const q=ch.convertFromPixel([{x:e.clientX-r.left,y:e.clientY-r.top}],{paneId:"candle_pane"})[0];return q&&q.value}catch(x){}}return null};
+  ly.onpointermove=e=>{const r=host.getBoundingClientRect();ln.style.top=(e.clientY-r.top)+"px"};
+  const end=v=>{ly.remove();removeEventListener("keydown",kd,true);cb(v)};const kd=e=>{if(e.key==="Escape"){e.stopPropagation();end(null)}};addEventListener("keydown",kd,true);
+  ly.onclick=e=>end(val(e))}
+/* líneas de entrada, SL, TP y órdenes marcadas en el gráfico */
 let lineIds=[];
-function lines(){(window.__eagCharts||[]).forEach(c=>{lineIds.forEach(id=>{try{c.removeOverlay(id)}catch(e){}})});lineIds=[];const o=S&&S.open;if(!o)return;
-  (window.__eagCharts||[]).forEach(c=>{try{const sym=panes().find(p=>p.el&&p.el.contains(c.getDom()));if(sym&&sym.kc.getSymbol().ticker!==o.sym)return}catch(e){}
-    [[o.p,o.d>0?"#2962ff":"#f23645"],[o.sl,"#f23645"],[o.tp,"#089981"]].forEach(([v,col])=>{if(v==null)return;try{const id=c.createOverlay({name:"horizontalStraightLine",points:[{value:v}],lock:true,mode:"normal",styles:{line:{color:col,size:1,style:"dashed",dashedValue:[6,4]}}});if(id)lineIds.push(id)}catch(e){}})})}
+function lines(){(window.__eagCharts||[]).forEach(c=>{lineIds.forEach(id=>{try{c.removeOverlay(id)}catch(e){}})});lineIds=[];if(!S)return;
+  const L=[];S.pos.forEach(o=>{L.push([o.sym,o.p,o.d>0?"#2962ff":"#f23645",[6,4]]);if(o.sl!=null)L.push([o.sym,o.sl,"#f23645",[2,3]]);if(o.tp!=null)L.push([o.sym,o.tp,"#089981",[2,3]])});
+  S.pend.forEach(o=>L.push([o.sym,o.p,o.d>0?"#2962ff":"#f23645",[10,4,2,4]]));if(!L.length)return;
+  (window.__eagCharts||[]).forEach(c=>{let tk=null;try{const pn=panes().find(p=>p.el&&p.el.contains(c.getDom()));tk=pn&&pn.kc.getSymbol().ticker}catch(e){}
+    L.forEach(([sym,v,col,dash])=>{if(tk&&tk!==sym)return;try{const id=c.createOverlay({name:"horizontalStraightLine",points:[{value:v}],lock:true,mode:"normal",styles:{line:{color:col,size:1,style:"dashed",dashedValue:dash}}});if(id)lineIds.push(id)}catch(e){}})})}
 function histPanel(){let p=document.querySelector(".rph-pan");if(p){p.remove();return}const H=hist(),n=H.length,w=H.filter(t=>t.usd>0).length,tot=H.reduce((a,t)=>a+t.usd,0),sim=SIM();
   const best=H.reduce((a,t)=>Math.max(a,t.usd),0),worst=H.reduce((a,t)=>Math.min(a,t.usd),0);
   p=document.createElement("div");p.className="rph-pan";p.innerHTML=`<div class="rph-h"><b>Historial de operaciones (replay)</b><button data-hx aria-label="Cerrar">✕</button></div>
@@ -145,25 +179,26 @@ function build(){ui=document.createElement("div");ui.className="rpb"+(X.isPhone&
       <select data-rp="spd" title="Velocidad: velas por segundo de la temporalidad que estás viendo">${SPD.map(([v,t])=>`<option value="${v}"${v===S.spd?" selected":""}>${t}</option>`).join("")}</select></div>
     <div class="rpg tr"><label class="rplot" title="Lotaje de la operación simulada">Lote<input type="number" min="0.01" step="0.01" data-lot value="${SIM().lot}"></label>
       <button data-rp="buy" class="buy">Comprar</button><button data-rp="sell" class="sell">Vender</button><button data-rp="close" class="cls" hidden>Cerrar <b data-pl></b></button>
-      <button data-rp="sltp" title="Stop loss y take profit en puntos">SL/TP</button><button data-rp="hist" class="rpbal" title="Historial, balance y ajustes de la simulación"><span data-bal></span></button><span class="rpst" data-st></span></div>
+      <button data-rp="ord" title="Orden marcada: compra o venta que se activa sola si el precio llega">📌<span>Orden</span><em data-npend hidden></em></button><button data-rp="sltp" title="Stop loss y take profit en puntos">SL/TP</button><button data-rp="hist" class="rpbal" title="Historial, balance y ajustes de la simulación"><span data-bal></span></button><span class="rpst" data-st></span></div>
     <div class="rpsl" hidden><label>SL (puntos)<input type="number" min="0" step="any" data-sl value="${SIM().sl||""}" placeholder="sin SL"></label><label>TP (puntos)<input type="number" min="0" step="any" data-tp value="${SIM().tp||""}" placeholder="sin TP"></label><small>Se cierran solos al tocar el precio.</small></div>
     <div class="rpg end"><button data-rp="hide" title="Ocultar la fecha">👁</button><button data-rp="min" title="Minimizar">–</button><button data-rp="exit" class="exit" title="Salir del replay y volver al vivo">Salir</button></div>
     <div class="rpmini"><button data-rp="play2" class="play">▶</button><span data-when2></span><button data-rp="max" title="Abrir la barra">▴</button></div>
     <div class="rpdate" hidden><label>Ir a<input type="datetime-local" data-dt></label><button data-rp="go" class="gold">Ir</button><button data-rp="rnd">Fecha al azar</button></div>`;
   (X.host()||document.body).appendChild(ui);
-  const pos=S.pos||(X.SAVE.rpPos||null);if(pos&&!(X.isPhone&&X.isPhone()))place(pos.x,pos.y);
+  const pos=S.xy||(X.SAVE.rpPos||null);if(pos&&!(X.isPhone&&X.isPhone()))place(pos.x,pos.y);
   ui.addEventListener("click",onClick);ui.addEventListener("keydown",e=>e.stopPropagation());
   ui.querySelector("[data-lot]").onchange=e=>{SIM().lot=Math.max(0.01,Math.round((+e.target.value||0.01)*100)/100);e.target.value=SIM().lot;X.save()};
   ui.querySelector("[data-sl]").onchange=e=>{SIM().sl=Math.max(0,+e.target.value||0);X.save()};ui.querySelector("[data-tp]").onchange=e=>{SIM().tp=Math.max(0,+e.target.value||0);X.save()};ui.querySelector("[data-rp=spd]").onchange=e=>{S.spd=+e.target.value;X.SAVE.rpSpd=S.spd;X.save()};
   ui.addEventListener("pointerdown",e=>e.stopPropagation());ui.addEventListener("wheel",e=>e.stopPropagation());
   drag(ui.querySelector(".rph"))}
-function place(x,y){const r=ui.getBoundingClientRect(),W=innerWidth,H=innerHeight;x=Math.max(4,Math.min(W-r.width-4,x));y=Math.max(4,Math.min(H-r.height-4,y));ui.style.left=x+"px";ui.style.top=y+"px";ui.style.bottom="auto";ui.style.transform="none";S.pos={x,y}}
+function place(x,y){const r=ui.getBoundingClientRect(),W=innerWidth,H=innerHeight;x=Math.max(4,Math.min(W-r.width-4,x));y=Math.max(4,Math.min(H-r.height-4,y));ui.style.left=x+"px";ui.style.top=y+"px";ui.style.bottom="auto";ui.style.transform="none";S.xy={x,y}}
 function drag(h){h.onpointerdown=e=>{e.preventDefault();const r=ui.getBoundingClientRect(),ox=e.clientX-r.left,oy=e.clientY-r.top;h.setPointerCapture(e.pointerId);
-  h.onpointermove=ev=>place(ev.clientX-ox,ev.clientY-oy);h.onpointerup=()=>{h.onpointermove=null;X.SAVE.rpPos=S.pos;X.save()}}}
+  h.onpointermove=ev=>place(ev.clientX-ox,ev.clientY-oy);h.onpointerup=()=>{h.onpointermove=null;X.SAVE.rpPos=S.xy;X.save()}}}
 function onClick(e){const b=e.target.closest("[data-rp]");if(!b)return;const a=b.dataset.rp;
   if(a==="play"||a==="play2")setPlay(!S.play);else if(a==="fwd")step(1);else if(a==="back")step(-1);
+  else if(a==="ord")orderPop(b);
   else if(a==="sltp"){const q=ui.querySelector(".rpsl");q.hidden=!q.hidden}else if(a==="hist")histPanel();
-  else if(a==="buy")openTr(1);else if(a==="sell")openTr(-1);else if(a==="close")closeTr();
+  else if(a==="buy")openTr(1);else if(a==="sell")openTr(-1);else if(a==="close")closeTr(null);
   else if(a==="hide"){S.hide=!S.hide;applyHide();paint()}
   else if(a==="min"){ui.classList.add("min")}else if(a==="max"){ui.classList.remove("min")}
   else if(a==="exit")stop();
@@ -174,11 +209,13 @@ function onClick(e){const b=e.target.closest("[data-rp]");if(!b)return;const a=b
 function paint(){if(!ui||!S)return;const w=S.hide?"Fecha oculta":fdate(S.cur);ui.querySelector("[data-when]").textContent=w+(S.wait&&S.play?" · cargando…":"");ui.querySelector("[data-when2]").textContent=S.hide?"Replay":fdate(S.cur).slice(-5);
   ui.querySelectorAll("[data-rp=play],[data-rp=play2]").forEach(b=>{b.textContent=S.play?"⏸":"▶";b.classList.toggle("on",S.play)});
   ui.querySelector("[data-rp=hide]").classList.toggle("on",!!S.hide);
-  const op=S.open,cb=ui.querySelector("[data-rp=close]");cb.hidden=!op;ui.querySelector("[data-rp=buy]").hidden=ui.querySelector("[data-rp=sell]").hidden=!!op;
-  if(op){const p=priceAt(op.sym,S.cur),v=p==null?0:usd(op,p),pts=p==null?0:(p-op.p)*op.d,pl=cb.querySelector("[data-pl]");pl.textContent=(v>=0?"+":"")+money(v);pl.className=v>=0?"up":"dn";cb.title=`${op.d>0?"Compra":"Venta"} ${op.lot} lote en ${fp(op.p)} · ${pts>=0?"+":""}${fp(pts)} pts`}
+  const P=S.pos,cb=ui.querySelector("[data-rp=close]");cb.hidden=!P.length;
+  const plOf=o=>{const p=priceAt(o.sym,S.cur);return p==null?0:usd(o,p)},open=P.reduce((a,o)=>a+plOf(o),0);
+  if(P.length){const pl=cb.querySelector("[data-pl]");pl.textContent=(P.length>1?P.length+" · ":"")+(open>=0?"+":"")+money(open);pl.className=open>=0?"up":"dn";cb.title=P.map(o=>`${o.d>0?"Compra":"Venta"} ${o.lot} lote en ${fp(o.p)}`).join(" · ")+" — toca para cerrar todo"}
+  const np=ui.querySelector("[data-npend]");np.hidden=!S.pend.length;np.textContent=S.pend.length;
   const n=S.trades.length,wn=S.trades.filter(t=>t.usd>0).length,tot=S.trades.reduce((a,t)=>a+t.usd,0),st=ui.querySelector("[data-st]");
   st.innerHTML=n?`${n} op · ${Math.round(wn/n*100)}% · <b class="${tot>=0?"up":"dn"}">${tot>=0?"+":""}${money(tot)}</b>`:"";
-  ui.querySelector("[data-bal]").textContent=money(balance()+(op?usd(op,priceAt(op.sym,S.cur)||op.p):0));}
+  ui.querySelector("[data-bal]").textContent=money(balance()+open);}
 /* elegir la vela de inicio tocando el gráfico */
 function pickMode(){setPlay(false);const host=X.grid();if(!host)return;X.toast("Toca la vela desde donde quieres empezar el replay");
   const ly=document.createElement("div");ly.className="rppick";ly.innerHTML=`<span>Toca la vela de inicio · Esc para cancelar</span><i></i>`;host.appendChild(ly);const ln=ly.querySelector("i");
@@ -203,7 +240,7 @@ async function randomTs(t){t=t||mainT();const g=mainG(),days={60:20,120:30,180:4
 /* ---------- empezar / salir ---------- */
 async function start(o){o=o||{};if(S){if(o.at)jump(o.at);return}
   const t0=o.sym||mainT();const at0=o.at||await randomTs(t0);
-  S={on:true,cur:Math.min(Date.now()-3600e3,at0),play:false,spd:X.SAVE.rpSpd||1,hide:!!o.hide,open:null,trades:[],wait:false,pos:null};
+  S={on:true,cur:Math.min(Date.now()-3600e3,at0),play:false,spd:X.SAVE.rpSpd||1,hide:!!o.hide,pos:[],pend:[],trades:[],wait:false,xy:null};
   document.documentElement.classList.add("rp-on");
   try{window.EAGTrade&&window.EAGTrade.isOpen&&window.EAGTrade.isOpen()&&window.EAGTrade.close()}catch(e){}
   build();paint();
@@ -215,7 +252,7 @@ async function start(o){o=o||{};if(S){if(o.at)jump(o.at);return}
     if(e.code==="Space"){e.preventDefault();e.stopPropagation();setPlay(!S.play)}else if(e.key==="ArrowRight"){e.preventDefault();e.stopPropagation();step(1)}else if(e.key==="ArrowLeft"){e.preventDefault();e.stopPropagation();step(-1)}};
   addEventListener("keydown",keyH,true);
   if(o.pick)setTimeout(pickMode,900)}
-function stop(){if(!S)return;setPlay(false);if(S.open)closeTr(null,"salida");lines();const n=S.trades.length;S=null;subs.clear();ui&&ui.remove();ui=null;document.documentElement.classList.remove("rp-on");
+function stop(){if(!S)return;setPlay(false);if(S.pos.length)closeTr(null,null,"salida");S.pend=[];lines();document.querySelector(".rpo")&&document.querySelector(".rpo").remove();const n=S.trades.length;S=null;subs.clear();ui&&ui.remove();ui=null;document.documentElement.classList.remove("rp-on");
   if(keyH)removeEventListener("keydown",keyH,true);keyH=null;applyHide();reloadAll();X.toast(n?`Saliste del replay (${n} operación${n===1?"":"es"} simulada${n===1?"":"s"}). Volviste al vivo.`:"Volviste al vivo.")}
 
 /* entrar al replay desde cualquier lado (gráfico compartido, clase, menú): mismo mercado y temporalidad, y eliges la vela */
@@ -223,5 +260,5 @@ function quick(o){o=o||{};const a=X.access?X.access():{ok:true};if(!a.ok){X.open
   if(S){if(o.at)jump(o.at);else pickMode();return}
   let tf=null;try{tf=actKc().getPeriod().text}catch(e){}start({sym:o.sym||mainT(),tf:o.tf||tf,at:o.at||Date.now()-86400e3,pick:!o.at})}
 window.EAGReplay={init(ctx){X=ctx},on:()=>!!S,quick,history,sub,unsub,start,stop,jump,step,play:on=>setPlay(on!==false),
-  _state:()=>S&&{cur:S.cur,play:S.play,spd:S.spd,trades:S.trades.length,open:!!S.open,subs:subs.size,last:S.trades[S.trades.length-1]||null}};
+  _state:()=>S&&{cur:S.cur,play:S.play,spd:S.spd,trades:S.trades.length,open:S.pos.length,pend:S.pend.length,subs:subs.size,last:S.trades[S.trades.length-1]||null}};
 })();
