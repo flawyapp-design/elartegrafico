@@ -952,7 +952,7 @@ function start(){
         SAVE.panes[active]=Object.assign({},SAVE.panes[active],{s},pp?{p:pp.text}:{});save();setTimeout(()=>{try{if(MTFS[active])buildMTF(active);paintList();paintTabs();afterTF()}catch(e){}},80)}})}
   else{const cb=$("#clb");cb&&(cb.hidden=true)}
   /* clase en vivo tipo Zoom: voz, levantar la mano, reacciones, encuestas, pedir atención */
-  if(window.EAGAula&&window.EAGClase)setTimeout(()=>{try{window.EAGAula.init({SAVE,save,toast,clase:window.EAGClase,isAdmin:()=>API.isAdmin(),isPhone:()=>DEV==="cel"})}catch(e){console.warn(e)}},2500);
+  if(window.EAGAula&&window.EAGClase)setTimeout(()=>{try{window.EAGAula.init({SAVE,save,toast,clase:window.EAGClase,panes:()=>panes.slice(0,visible()),isAdmin:()=>API.isAdmin(),isPhone:()=>DEV==="cel"})}catch(e){console.warn(e)}},2500);
   /* Comunidad: chat privado y grupal, conectados, compartir gráfico y voz */
   if(window.EAGSocial&&API.chatSend){
     if(window.EAGJournal)window.EAGJournal.init({SAVE,save,toast,onChange:()=>{try{TRK.paint()}catch(e){}},lotRepaint:()=>{try{lotRepaint()}catch(e){}}});

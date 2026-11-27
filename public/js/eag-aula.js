@@ -10,8 +10,8 @@
 const ROOM="clase-live";
 let X=null,B=null,ME=null,ADMIN=false,ui=null,hbT=0,tick=0;
 const esc=s=>String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[c]);
-const T={voice:false,mic:null,muted:false,ctx:null,mSrc:null,peers:{},hands:new Map(),floor:new Set(),listen:new Map(),poll:null,votes:new Map(),pop:null};
-const A={hb:0,voice:false,pc:null,tr:null,audio:null,mic:null,listen:false,hand:false,floor:false,poll:null,voted:null,res:null,teacher:null};
+const T={pen:new Set(),penAll:false,voice:false,mic:null,muted:false,ctx:null,mSrc:null,peers:{},hands:new Map(),floor:new Set(),listen:new Map(),poll:null,votes:new Map(),pop:null};
+const A={pen:false,hb:0,voice:false,pc:null,tr:null,audio:null,mic:null,listen:false,hand:false,floor:false,poll:null,voted:null,res:null,teacher:null};
 const REACT=["👍","👏","🔥","❤️","😂","😮","🙏","❓"];
 const isT=()=>ADMIN&&X.clase&&X.clase.isTx&&X.clase.isTx();
 const inC=()=>!ADMIN&&X.clase&&X.clase.inClass&&X.clase.inClass();
@@ -49,7 +49,34 @@ function pollStart(q,opts){T.poll={id:Date.now().toString(36),q,opts,open:true};
 function pollShow(){if(!T.poll)return;cast("c-pres",{id:T.poll.id,counts:counts(),q:T.poll.q,opts:T.poll.opts});toast("📊 Les mostraste los resultados.")}
 function pollEnd(){if(!T.poll)return;cast("c-pend",{id:T.poll.id});T.poll=null;paint()}
 const counts=()=>{const c=T.poll?T.poll.opts.map(()=>0):[];T.votes.forEach(i=>{if(c[i]!=null)c[i]++});return c};
-const hbPl=()=>({voice:T.voice,poll:T.poll&&T.poll.open?T.poll:null});
+const hbPl=()=>({voice:T.voice,poll:T.poll&&T.poll.open?T.poll:null,pen:[...T.pen],penAll:T.penAll});
+
+/* ======================== MARCAR EN CLASE (pizarra compartida) ========================
+   El profe deja marcar a uno, a varios o a todos. Lo que marca cada uno aparece en el gráfico del profe
+   y de toda la clase con su nombre y su color. Al quitar el permiso, sus marcas desaparecen de los demás. */
+const D={};let dLast="",dT=0,dKeep=0;
+const PCOL=["#4cc9f0","#f72585","#7bd88f","#ffb020","#b388ff","#ff7a45","#00d1b2","#ff5c8a","#9ad0ff","#e2b55c"];
+const colOf=id=>{let h=0;String(id).split("").forEach(c=>h=(h*31+c.charCodeAt(0))>>>0);return PCOL[h%PCOL.length]};
+const panes=()=>{try{return X.panes?X.panes():[]}catch(e){return[]}};
+function tagD(arr,name,color){return(arr||[]).filter(d=>d&&!d.hid&&d.name!=="eagBrush"||(d&&!d.hid&&(d.points||[]).length<=400)).map(d=>{const c=JSON.parse(JSON.stringify(d));delete c.tfv;const ex=c.extendData=Object.assign({},c.extendData||{});
+  const lb=Object.assign({},ex.lbl||{});const t=lb.t||"";lb.t=t?`${name}: ${t}`:name;lb.c=color;lb.s=lb.s||11;lb.b=true;ex.lbl=lb;if(ex.color)ex.color=color;if(/Rect|Zone|rect/.test(c.name)&&!/Buy|Sell/.test(c.name))ex.color=color;
+  c.styles=Object.assign({},c.styles||{});["line","rect","polygon","circle","arc"].forEach(k=>{if(c.styles[k])c.styles[k]=Object.assign({},c.styles[k],{color:color,borderColor:color})});
+  if(!c.styles.line)c.styles.line={color};return c})}
+function applyD(){const show=ADMIN||inC();panes().forEach(p=>{let tk;try{tk=p.kc.getSymbol().ticker}catch(e){return}const L={};
+  if(show)Object.keys(D).forEach(id=>{const v=D[id];if(v.boards&&Array.isArray(v.boards[tk])&&v.boards[tk].length)L["p"+id]=tagD(v.boards[tk],v.name||"Alumno",v.color)});
+  const key=tk+":"+JSON.stringify(L);if(p.__ak===key)return;p.__ak=key;try{p.kc.setGuest(L,"aula")}catch(e){}})}
+function myBoards(){const b={};panes().forEach(p=>{try{const t=p.kc.getSymbol().ticker;b[t]=(p.kc.drawings()||[]).filter(d=>!d.hid)}catch(e){}});return b}
+function penSend(force){if(!A.pen)return;const b=myBoards(),j=JSON.stringify(b);if(j.length>90000){if(!penSend.warn){penSend.warn=1;toast("Tienes demasiados dibujos para compartir en clase: borra algunos (el pincel ocupa mucho).")}return}
+  if(!force&&j===dLast)return;dLast=j;cast("c-draw",{boards:b,color:colOf(ME.id)})}
+function penSet(on,quiet){on=!!on;if(on===A.pen)return;A.pen=on;clearInterval(dT);dLast="";
+  if(on){dT=setInterval(()=>penSend(false),1200);dKeep=Date.now();penSend(true);if(!quiet){toast("✏️ El profe te dejó marcar: lo que dibujes lo ve toda la clase con tu nombre.");try{window.EAGN&&window.EAGN.notify({cat:"sistema",icon:"✏️",title:"Puedes marcar en el gráfico",body:"Lo que dibujes lo ve el profe y toda la clase, con tu nombre.",important:true,sound:"exito"})}catch(e){}}}
+  else{cast("c-draw",{boards:{},off:true});if(!quiet)toast("El profe terminó tu turno de marcar. Tus dibujos siguen en tu gráfico.")}
+  paint()}
+function tPen(id,on){if(on)T.pen.add(id);else T.pen.delete(id);if(!on)delete D[id];cast("c-pen",{to:id,on:!!on});applyD();paint()}
+function tPenAll(on){T.penAll=!!on;if(!on){[...T.pen].forEach(id=>cast("c-pen",{to:id,on:false}));T.pen.clear();Object.keys(D).forEach(k=>delete D[k])}cast("c-pen",{to:"all",on:!!on});applyD();paint();toast(on?"✏️ Todos pueden marcar. Cada dibujo sale con su nombre.":"Nadie más puede marcar.")}
+function tPenClear(){Object.keys(D).forEach(k=>delete D[k]);cast("c-pclear",{});applyD();toast("🧽 Quitaste las marcas de los alumnos de la clase.")}
+const penOn=p=>!!(p&&(p.penAll||(Array.isArray(p.pen)&&p.pen.includes(ME.id))));
+const penPeople=()=>{const m=new Map();T.listen.forEach((v,k)=>{if(Date.now()-v.at<30000)m.set(k,v.name)});T.hands.forEach((v,k)=>m.set(k,v.name));Object.keys(D).forEach(k=>m.set(k,D[k].name));T.pen.forEach(k=>{if(!m.has(k))m.set(k,"Alumno")});return[...m.entries()].sort((a,b)=>String(a[1]).localeCompare(String(b[1])))};
 
 /* ======================== ALUMNO ======================== */
 async function aListen(on){if(on===A.listen)return;
@@ -76,6 +103,10 @@ function attnShow(name){const el=document.createElement("div");el.className="au-
 
 /* ======================== mensajes ======================== */
 function onEv(ev,p){if(!p||!p.from||p.from===ME.id)return;tick++;
+  if(ev==="c-draw"){if(p.off||!p.boards||!Object.keys(p.boards).length)delete D[p.from];else D[p.from]={name:p.fname,color:p.color||colOf(p.from),boards:p.boards,at:Date.now()};applyD();if(ADMIN)paint();return}
+  if(ev==="c-pclear"){Object.keys(D).forEach(k=>delete D[k]);applyD();return}
+  if(ev==="c-pen"&&!ADMIN){if(p.to!=="all"&&p.to!==ME.id){if(!p.on){delete D[p.to];applyD()}return}
+    if(p.to==="all"&&!p.on){Object.keys(D).forEach(k=>delete D[k]);applyD()}if(inC())penSet(!!p.on);return}
   if(ADMIN){/* lo que mandan los alumnos */
     if(ev==="c-join"){if(isT())tJoin(p.from,p.fname)}
     else if(ev==="c-leave"){dropT(p.from);T.listen.delete(p.from);paint()}
@@ -89,6 +120,7 @@ function onEv(ev,p){if(!p||!p.from||p.from===ME.id)return;tick++;
     return}
   /* lo que manda el profe */
   if(ev==="c-hb"){A.hb=Date.now();A.teacher=p.fname;const was=A.voice;A.voice=!!p.voice;if(p.poll&&(!A.poll||A.poll.id!==p.poll.id)){A.poll=p.poll;A.voted=null;A.res=null}if(!p.poll&&A.poll&&!A.res)A.poll=null;
+    {const want=penOn(p);if(want!==A.pen&&inC())penSet(want)}
     if(A.voice&&!was&&inC()&&!A.listen)toast("🎙 El profe abrió la voz de la clase: toca «Escuchar».");if(!A.voice&&A.listen){aDrop();A.listen=false}paint()}
   else if(ev==="c-voff"){A.voice=false;if(A.listen){aDrop();A.listen=false;toast("El profe cerró la voz de la clase.")}paint()}
   else if(ev==="c-offer"){if(p.to===ME.id)aOffer(p)}
@@ -122,6 +154,7 @@ function paint(){const show=isT()||(inC());if(!show){if(ui){ui.remove();ui=null}
       ${T.voice?`<button data-a="mute" class="${T.muted?"warn":""}" title="${T.muted?"Activar mi micrófono":"Silenciar mi micrófono"}">${T.muted?"🔇":"🎤"}</button>`:""}
       <span class="au-n" title="Escuchando la voz / en la clase">🎧 ${nP}<small>/${nL}</small></span>
       <button data-a="hands" class="${nH?"hot":""}" title="Manos levantadas y quién tiene la palabra">✋<span>Manos</span>${nH?`<em>${nH}</em>`:""}</button>
+      <button data-a="pen" class="${T.penAll||T.pen.size?"on":""}" title="Dejar marcar a los alumnos en el gráfico">✏️<span>Marcar</span>${Object.keys(D).length?`<em>${Object.keys(D).length}</em>`:""}</button>
       <button data-a="poll" class="${T.poll?"on":""}" title="Encuesta rápida">📊<span>Encuesta</span></button>
       <button data-a="attn" title="Pedir atención a todos (suena y vibra)">🔔</button>
       ${T.floor.size?`<button data-a="quiet" title="Quitarles la palabra a todos">🔇<span>Silenciar todos</span></button>`:""}
@@ -131,23 +164,33 @@ function paint(){const show=isT()||(inC());if(!show){if(ui){ui.remove();ui=null}
       ${min?`<button data-a="max" title="Abrir">▴</button>`:`
       ${A.voice?`<button data-a="listen" class="${A.listen?"on":"gold"}" title="${A.listen?"Dejar de escuchar":"Escuchar al profe"}">🎧<span>${voiceTxt}</span></button>`:`<span class="au-n" title="El profe todavía no abrió la voz">🔈 Sin voz</span>`}
       ${A.floor?`<button data-a="amic" class="${A.micOn?"on":"warn"}" title="Tu micrófono">${A.micOn?"🎤 Tienes la palabra":"🔇 Micrófono apagado"}</button>`:`<button data-a="hand" class="${A.hand?"hot":""}" title="${A.hand?"Bajar la mano":"Levantar la mano para hablar o preguntar"}">✋<span>${A.hand?"Bajar mano":"Levantar mano"}</span></button>`}
+      ${A.pen?`<span class="au-n au-penon" title="Lo que dibujes lo ve toda la clase con tu nombre"><i class="au-pc" style="background:${colOf(ME.id)}"></i>✏️ Puedes marcar</span>`:""}
       <span class="au-rx">${REACT.map(e=>`<button data-r="${e}" title="Reaccionar">${e}</button>`).join("")}</span>
       <button data-a="min" title="Minimizar">–</button>`}`}
   pos();paintPoll()}
 function onClick(e){const r=e.target.closest("[data-r]");if(r){react(r.dataset.r);return}const b=e.target.closest("[data-a]");if(!b)return;const a=b.dataset.a;
   if(a==="min"){X.SAVE.aulaMin=true;X.save();paint()}else if(a==="max"){X.SAVE.aulaMin=false;X.save();paint()}
   else if(a==="voice")tVoice(!T.voice);else if(a==="mute")tMute();else if(a==="attn")attention();else if(a==="quiet")allQuiet();
-  else if(a==="hands")handsPop(b);else if(a==="poll")pollPop(b);
+  else if(a==="hands")handsPop(b);else if(a==="pen")penPop(b);else if(a==="poll")pollPop(b);
   else if(a==="listen")aListen(!A.listen);else if(a==="hand")aHand();else if(a==="amic")aMic()}
 function popAt(anchor,html){let p=document.querySelector(".au-pop");if(p&&p.dataset.k===anchor.dataset.a){p.remove();return null}if(p)p.remove();p=document.createElement("div");p.className="au-pop";p.dataset.k=anchor.dataset.a;p.innerHTML=html;document.body.appendChild(p);
   const r=anchor.getBoundingClientRect();p.style.left=Math.max(6,Math.min(innerWidth-p.offsetWidth-6,r.left))+"px";p.style.top=(r.top-p.offsetHeight-8>6?r.top-p.offsetHeight-8:r.bottom+8)+"px";
   setTimeout(()=>addEventListener("pointerdown",function f(ev){if(!p.contains(ev.target)&&!anchor.contains(ev.target)){p.remove();removeEventListener("pointerdown",f,true)}},true),0);return p}
 function handsPop(anchor){const H=[...T.hands.entries()],F=[...T.floor];const nm=id=>(T.hands.get(id)||T.listen.get(id)||(T.peers[id]||{})||{}).name||"Alumno";
-  const p=popAt(anchor,`<b>✋ Manos levantadas (${H.length})</b>${H.map(([id,v])=>`<div class="au-li"><span>${esc(v.name||"Alumno")}</span>${T.peers[id]?`<button data-fl="${esc(id)}" class="gold">Dar la palabra</button>`:`<small>no está escuchando</small>`}<button data-hd="${esc(id)}" title="Bajarle la mano">✕</button></div>`).join("")||"<small>Nadie tiene la mano levantada.</small>"}
+  const p=popAt(anchor,`<b>✋ Manos levantadas (${H.length})</b>${H.map(([id,v])=>`<div class="au-li"><span>${esc(v.name||"Alumno")}</span>${T.peers[id]?`<button data-fl="${esc(id)}" class="gold">Dar la palabra</button>`:`<small>no está escuchando</small>`}<button data-pn="${esc(id)}" class="${T.pen.has(id)?"on":""}" title="Dejarle marcar en el gráfico">✏️</button><button data-hd="${esc(id)}" title="Bajarle la mano">✕</button></div>`).join("")||"<small>Nadie tiene la mano levantada.</small>"}
     <b>🎤 Con la palabra (${F.length})</b>${F.map(id=>`<div class="au-li"><span>${esc(nm(id))}</span><button data-nf="${esc(id)}">Quitar la palabra</button></div>`).join("")||"<small>Solo tú hablas.</small>"}
     ${H.length?`<button class="au-wide" data-hall>Bajar todas las manos</button>`:""}${T.voice?"":`<small class="au-note">Abre la voz (🎙) para poder darles la palabra.</small>`}`);if(!p)return;
   p.querySelectorAll("[data-fl]").forEach(b=>b.onclick=()=>{giveFloor(b.dataset.fl,true);p.remove()});p.querySelectorAll("[data-nf]").forEach(b=>b.onclick=()=>{giveFloor(b.dataset.nf,false);p.remove()});
+  p.querySelectorAll("[data-pn]").forEach(b=>b.onclick=()=>{const id=b.dataset.pn;tPen(id,!T.pen.has(id));p.remove()});
   p.querySelectorAll("[data-hd]").forEach(b=>b.onclick=()=>{T.hands.delete(b.dataset.hd);cast("c-hdown",{to:b.dataset.hd});p.remove();paint()});const ha=p.querySelector("[data-hall]");ha&&(ha.onclick=()=>{handsDown();p.remove()})}
+function penPop(anchor){const P=penPeople(),nD=Object.keys(D).length;
+  const p=popAt(anchor,`<b>✏️ Quién puede marcar</b><small class="au-note">Sus dibujos aparecen en tu gráfico y en el de toda la clase, cada uno con su nombre y color.</small>
+    <button class="au-wide ${T.penAll?"on":"gold"}" data-pall>${T.penAll?"✓ Todos pueden marcar (quitar)":"Dejar marcar a todos"}</button>
+    ${P.map(([id,n])=>{const on=T.penAll||T.pen.has(id),d=D[id];return`<div class="au-li"><i class="au-pc" style="background:${colOf(id)}"></i><span>${esc(n)}${d?` <small>· marcando</small>`:""}</span>${T.penAll?"":`<button data-pn="${esc(id)}" class="${on?"on":"gold"}">${on?"Quitar":"Dejar marcar"}</button>`}</div>`}).join("")||"<small>Todavía no hay alumnos en la clase. Cuando activen el Modo Clase, aparecen aquí.</small>"}
+    ${nD?`<button class="au-wide" data-pclr>🧽 Quitar las marcas de los alumnos</button>`:""}`);if(!p)return;
+  p.querySelector("[data-pall]").onclick=()=>{tPenAll(!T.penAll);p.remove()};
+  p.querySelectorAll("[data-pn]").forEach(b=>b.onclick=()=>{const id=b.dataset.pn;tPen(id,!T.pen.has(id));p.remove();penPop(anchor)});
+  const c=p.querySelector("[data-pclr]");c&&(c.onclick=()=>{tPenClear();p.remove()})}
 function pollPop(anchor){if(T.poll){const c=counts(),n=c.reduce((a,b)=>a+b,0);const p=popAt(anchor,`<b>📊 ${esc(T.poll.q)}</b>${T.poll.opts.map((o,i)=>`<div class="au-bar2"><span>${esc(o)}</span><i style="width:${n?Math.round(c[i]/n*100):0}%"></i><em>${c[i]} · ${n?Math.round(c[i]/n*100):0}%</em></div>`).join("")}<small>${n} voto${n===1?"":"s"}</small>
       <div class="au-row"><button data-ps class="gold">Mostrar resultados a todos</button><button data-pe>Terminar</button></div>`);if(!p)return;p.querySelector("[data-ps]").onclick=()=>pollShow();p.querySelector("[data-pe]").onclick=()=>{pollEnd();p.remove()};return}
   const p=popAt(anchor,`<b>📊 Encuesta rápida</b><input data-q maxlength="100" placeholder="Pregunta: ¿Compra o venta en esta zona?"><div class="au-row">${[["Sí / No","Sí|No"],["Compra / Venta / Espero","Compra|Venta|Espero"],["A / B / C","A|B|C"]].map(([t,v])=>`<button data-tpl="${v}">${t}</button>`).join("")}</div>
@@ -164,6 +207,9 @@ function paintPoll(){let c=document.querySelector(".au-poll");if(ADMIN||!A.poll|
 
 /* ======================== latidos ======================== */
 function beat(){if(!B)return;
+  {const now=Date.now();let ch=false;Object.keys(D).forEach(k=>{if(now-D[k].at>45000){delete D[k];ch=true}});if(ch)applyD()}
+  if(A.pen){if(!inC()||Date.now()-A.hb>30000)penSet(false,true);else if(Date.now()-dKeep>12000){dKeep=Date.now();penSend(true)}}
+  if(ADMIN&&!isT()&&(T.pen.size||T.penAll)){T.pen.clear();T.penAll=false}
   if(isT()){cast("c-hb",hbPl());const now=Date.now();T.listen.forEach((v,k)=>{if(now-v.at>40000&&!T.peers[k])T.listen.delete(k)})}
   else if(ADMIN&&T.voice&&!isT()){tVoice(false)} /* terminó la clase: se cierra la voz */
   else if(inC()){cast("c-shb",{l:A.listen,hand:A.hand});if(A.voice&&Date.now()-A.hb>20000){A.voice=false;if(A.listen){aDrop();A.listen=false}}}
@@ -173,7 +219,7 @@ function beat(){if(!B)return;
 window.EAGAula={init(o){X=o;const S=window.EAGSocial;B=o.bus||(S&&S.bus);if(!B){return}ME=B.me&&B.me();if(!ME)return;ADMIN=!!(o.isAdmin&&o.isAdmin());
     B.sub(ROOM,onEv);clearInterval(hbT);hbT=setInterval(beat,3000);setTimeout(beat,1500);
     addEventListener("beforeunload",()=>{if(A.listen)cast("c-leave",{});if(T.voice)cast("c-voff",{})})},
-  refresh:()=>paint(),voice:on=>tVoice(on!==false),
+  refresh:()=>{paint();applyD()},onSym:()=>{applyD();if(A.pen)penSend(true)},voice:on=>tVoice(on!==false),
   _test(o){Object.assign(X,o.x||{});if(o.bus){B=o.bus;B.sub(ROOM,onEv)}if(o.me)ME=o.me;if(o.admin!=null)ADMIN=o.admin;paint()},
-  _state:()=>({T:{voice:T.voice,peers:Object.keys(T.peers).length,hands:T.hands.size,floor:T.floor.size,poll:!!T.poll,votes:T.votes.size},A:{voice:A.voice,listen:A.listen,pc:A.pc&&A.pc.connectionState,hand:A.hand,floor:A.floor,poll:!!A.poll,voted:A.voted,res:!!A.res,audio:!!(A.audio&&A.audio.srcObject)}})};
+  _state:()=>({D:Object.keys(D).map(k=>D[k].name+":"+Object.values(D[k].boards).reduce((a,b)=>a+b.length,0)),T:{pen:[...T.pen],penAll:T.penAll,voice:T.voice,peers:Object.keys(T.peers).length,hands:T.hands.size,floor:T.floor.size,poll:!!T.poll,votes:T.votes.size},A:{pen:A.pen,voice:A.voice,listen:A.listen,pc:A.pc&&A.pc.connectionState,hand:A.hand,floor:A.floor,poll:!!A.poll,voted:A.voted,res:!!A.res,audio:!!(A.audio&&A.audio.srcObject)}})};
 })();
