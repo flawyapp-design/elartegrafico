@@ -107,6 +107,7 @@ async function missedMentions(){if(!X.API.chatMyMentions)return;let L=[];try{L=a
   L=L.filter(x=>x.sender!==ME.id);if(!L.length)return;const N=window.EAGN;
   const all=L.filter(x=>x.everyone);if(all.length){const x=all[0];loudAll({room:x.room||GEN,username:x.username,body:x.body,id:x.msg_id},true);L=L.filter(y=>!y.everyone);if(!L.length){try{await X.API.chatMentionsSeen()}catch(e){}return}}
   const go={label:"Ver en el grupo",fn:()=>{try{open(L[0].room||GEN)}catch(e){}}};
+  {const x=L[0];mentionCard({room:x.room||GEN,sender:x.sender,username:x.username,body:x.body,id:x.msg_id},L.length)}
   if(N){if(L.length===1){const x=L[0];N.notify({cat:"msg",icon:"@",title:`${x.username||"Alguien"} te mencionó en el grupo`,body:String(x.body||"").slice(0,140),important:true,sound:"pop",act:go,key:"mm-"+x.msg_id})}
     else N.notify({cat:"msg",icon:"@",title:`Te mencionaron ${L.length} veces en el grupo`,body:[...new Set(L.map(x=>x.username||"Alguien"))].slice(0,4).join(", ")+" · mientras no estabas",important:true,sound:"pop",act:go,key:"mm-n"})}
   else X.toast(`@ Te mencionaron ${L.length} ${L.length===1?"vez":"veces"} en el grupo`);
@@ -116,7 +117,15 @@ function loudAll(m,missed){const who=m.username||nameOf(m.sender),g=gInfo(m.room
   const txt=String(m.body||"").replace(ALLRX,"$1").trim().slice(0,160)||"Llamado a todos";
   if(N)N.notify({cat:"msg",icon:"📣",title:`${who} llamó a todos${m.room===GEN?"":" en "+g.name}${missed?" (mientras no estabas)":""}`,body:txt,important:true,sticky:true,sound:"llamado",vibrate:[600,180,600,180,1100],
     act:{label:"Responder",fn:()=>{try{open(m.room)}catch(e){}}},key:"all-"+(m.id||txt),dedupe:600000,sys:true});
-  else{X.toast("📣 "+who+": "+txt)}}
+  /* además, la tarjeta grande en el centro (como la de la llamada) para que nadie se lo pierda */
+  const k="all-"+(m.id||txt);if(loudAll.last===k)return;loudAll.last=k;
+  try{invite({kind:"todos",av:{id:m.sender,username:who,avatar_url:m.avatar_url},kicker:`📣 ${who} llamó a todos${missed?" mientras no estabas":""}`,title:txt,sub:m.room===GEN?"Grupo general":g.name,key:k,times:5,sound:false,
+    yes:"Abrir y responder",no:"Luego",onYes:()=>{try{open(m.room)}catch(e){}}})}catch(e){if(!N)X.toast("📣 "+who+": "+txt)}}
+/* cuando te nombran con @: tarjeta grande en el centro, como la de la llamada */
+function mentionCard(m,missed){const who=m.username||nameOf(m.sender),g=gInfo(m.room),k="men-"+(m.id||m.body);if(mentionCard.last===k)return;mentionCard.last=k;
+  const txt=String(m.body||"").trim().slice(0,160)||"Te mencionó";
+  try{invite({kind:"mencion",av:{id:m.sender,username:who,avatar_url:m.avatar_url},kicker:missed?(missed>1?`@ Te mencionaron ${missed} veces mientras no estabas`:`@ ${who} te mencionó mientras no estabas`):`@ ${who} te mencionó`,title:txt,sub:m.room===GEN?"Grupo general":g.name,key:k,times:2,sound:false,
+    yes:"Abrir y responder",no:"Luego",onYes:()=>{try{open(m.room)}catch(e){}}})}catch(e){}}
 async function loadPeople(){try{people=(await X.API.chatPeople())||[]}catch(e){}loadFeat();paintBtn();if(panel&&!view.room)paintPanel()}
 async function loadRoom(room,more){const L=msgs[room]||(msgs[room]=[]);const before=more&&L.length?L[0].id:null;
   try{const r=((await X.API.chatHistory(room,before))||[]).slice().reverse();
@@ -156,6 +165,7 @@ function onMsg(m){if(!m||!m.room)return;if(isGrp(m.room)&&!myGrp(m.room)){if(!on
   threads.sort((a,b)=>(b.last_id||0)-(a.last_id||0));
   const mine=m.sender===ME.id,open=panel&&view.room===m.room&&!document.hidden;
   const inOther=panel&&view.room&&view.room!==m.room&&!document.hidden;
+  if(!mine&&!open&&isGrp(m.room)&&mentioned(m)&&!isAll(m))mentionCard(m);
   if(!mine&&isAll(m)){loudAll(m);if(window.EAGN&&X.API.chatMentionsSeen&&open)X.API.chatMentionsSeen().catch(()=>{})}
   if(!mine&&!open){t.unread=(+t.unread||0)+1;if(!isGrp(m.room)||mentioned(m)||m.is_admin){if(inOther)peek(m);else headNotify(m);if(!isAll(m))SND.play(!isGrp(m.room)?"in":mentioned(m)?"mention":"in");
     /* queda en el centro de avisos y, con la pestaña de fondo, llega como notificación del sistema (sin repetir sonido ni tarjeta) */
@@ -786,7 +796,7 @@ function accNotice(m){const a=m.payload&&m.payload.acc;if(!a||m.sender===ME.id||
 
 /* ---------- invitación grande (llamada, llamada grupal, compartir gráfico, clase): fácil de ver y de tocar ---------- */
 let inv=null;
-const INVK={call:["📞","Llamada de voz","#089981"],group:["🎙","Llamada grupal","#e6b74a"],share:["📡","Compartir gráfico","#4c8dff"],floor:["🎤","Te dieron la palabra","#089981"],pen:["✏️","Puedes marcar","#7bd88f"],clase:["🔴","Clase en vivo","#f23645"],replay:["⏪","Replay de la clase","#b388ff"]};
+const INVK={call:["📞","Llamada de voz","#089981"],group:["🎙","Llamada grupal","#e6b74a"],share:["📡","Compartir gráfico","#4c8dff"],floor:["🎤","Te dieron la palabra","#089981"],pen:["✏️","Puedes marcar","#7bd88f"],clase:["🔴","Clase en vivo","#f23645"],replay:["⏪","Replay de la clase","#b388ff"],todos:["📣","Llamado a todos","#f23645"],mencion:["@","Te mencionaron","#4c8dff"]};
 function invite(o){invClose(true);const K=INVK[o.kind]||INVK.call;
   const el=document.createElement("div");el.className="inv";el.setAttribute("role","alertdialog");el.setAttribute("aria-modal","true");el.setAttribute("aria-label",o.title||K[1]);el.style.setProperty("--ic",K[2]);
   el.innerHTML=`<div class="inv-c"><div class="inv-top"><span class="inv-ic">${o.av?av(o.av):`<i>${K[0]}</i>`}<em>${K[0]}</em></span><div class="inv-t"><small>${esc(o.kicker||K[1])}</small><b>${esc(o.title||"")}</b>${o.sub?`<span>${esc(o.sub)}</span>`:""}</div></div>
@@ -826,7 +836,7 @@ function stopRingOut(){clearTimeout(ringOutT)}
 
 /* ===================== API pública ===================== */
 window.EAGSocial={
-  invite,invClose,_acc:accessPop,_accNotice:accNotice,
+  invite,invClose,_acc:accessPop,_accNotice:accNotice,_loud:loudAll,_men:mentionCard,
   unread:()=>unread||0,isOpen:()=>!!panel,close:()=>close(),
   init(o){X=o;const pr=(X.API.profile&&X.API.profile())||{};const u=X.API.user&&X.API.user();if(!u)return;ME={id:u.id,name:pr.username||"Yo",admin:!!(X.API.isAdmin&&X.API.isAdmin())};
     imgClean();paintBtn();headPaint();if(X.btn)X.btn.onclick=e=>{e.stopPropagation();panel?close():open()};
