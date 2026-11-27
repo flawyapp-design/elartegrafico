@@ -174,6 +174,7 @@ function applyHide(){const h=!!(S&&S.hide);(window.__eagCharts||[]).forEach(c=>{
 const prec=()=>{try{return actKc().getSymbol().pricePrecision||3}catch(e){return 3}};
 const fp=v=>v==null?"—":(+v).toLocaleString("en-US",{minimumFractionDigits:prec(),maximumFractionDigits:prec()});
 const SPD=[[0.25,"¼×"],[0.5,"½×"],[1,"1×"],[2,"2×"],[3,"3×"],[5,"5×"],[10,"10×"]];
+function rpbH(){const h=document.documentElement;if(ui&&ui.isConnected&&!ui.classList.contains("min2"))h.style.setProperty("--rpbh",(ui.offsetHeight+8)+"px");else h.style.removeProperty("--rpbh")}
 function build(){ui=document.createElement("div");ui.className="rpb"+(X.isPhone&&X.isPhone()?" mob":"");ui.setAttribute("role","toolbar");ui.setAttribute("aria-label","Replay");
   ui.innerHTML=`<span class="rph" title="Mover">⋮⋮</span>
     <div class="rpm"><b class="rpt"><i class="rpdot"></i>Replay</b><span class="rpd" data-when></span></div>
@@ -209,7 +210,7 @@ function onClick(e){const b=e.target.closest("[data-rp]");if(!b)return;const a=b
   else if(a==="date"){const d=ui.querySelector(".rpdate");d.hidden=!d.hidden;if(!d.hidden){const p=tparts(S.cur);ui.querySelector("[data-dt]").value=`${p.year}-${p.month}-${p.day}T${p.hour}:${p.minute}`}}
   else if(a==="go"){const v=ui.querySelector("[data-dt]").value;const ts=Date.parse(v+":00-05:00");if(!isFinite(ts))return;if(ts>Date.now()-3600e3){X.toast("Elige una fecha de al menos 1 hora atrás");return}ui.querySelector(".rpdate").hidden=true;jump(ts)}
   else if(a==="rnd"){ui.querySelector(".rpdate").hidden=true;randomTs().then(jump)}}
-function paint(){if(!ui||!S)return;const w=S.hide?"Fecha oculta":fdate(S.cur);ui.querySelector("[data-when]").textContent=w+(S.wait&&S.play?" · cargando…":"");ui.querySelector("[data-when2]").textContent=S.hide?"Replay":fdate(S.cur).slice(-5);
+function paint(){setTimeout(rpbH,0);if(!ui||!S)return;const w=S.hide?"Fecha oculta":fdate(S.cur);ui.querySelector("[data-when]").textContent=w+(S.wait&&S.play?" · cargando…":"");ui.querySelector("[data-when2]").textContent=S.hide?"Replay":fdate(S.cur).slice(-5);
   ui.querySelectorAll("[data-rp=play],[data-rp=play2]").forEach(b=>{b.textContent=S.play?"⏸":"▶";b.classList.toggle("on",S.play)});
   ui.querySelector("[data-rp=hide]").classList.toggle("on",!!S.hide);
   const P=S.pos,cb=ui.querySelector("[data-rp=close]");cb.hidden=!P.length;
@@ -251,17 +252,30 @@ async function start(o){o=o||{};if(S){if(o.at)jump(o.at);return}
   if(o.tf)try{const k=actKc(),p=X.perFind(o.tf);p&&k&&k.setPeriod(p)}catch(e){}
   const t=o.sym||mainT();if(t){X.toast("Preparando el replay…");const e=await earliest(t);if(e&&S.cur<e+120*MIN)S.cur=e+120*MIN;const c=await ensureBase(t,S.cur-120*MIN,S.cur+600*MIN);if(!c||!c.L.length)X.toast("No llegaron velas de esa fecha. Usa 📅 para elegir otra.")}
   reloadAll();
-  keyH=e=>{if(!S)return;const t=e.target;if(t&&/INPUT|TEXTAREA|SELECT/.test(t.tagName))return;if(!e.shiftKey)return;
+  keyH=e=>{if(!S||S.lock)return;const t=e.target;if(t&&/INPUT|TEXTAREA|SELECT/.test(t.tagName))return;if(!e.shiftKey)return;
     if(e.code==="Space"){e.preventDefault();e.stopPropagation();setPlay(!S.play)}else if(e.key==="ArrowRight"){e.preventDefault();e.stopPropagation();step(1)}else if(e.key==="ArrowLeft"){e.preventDefault();e.stopPropagation();step(-1)}};
   addEventListener("keydown",keyH,true);
   if(o.pick)setTimeout(pickMode,900)}
-function stop(){if(!S)return;setPlay(false);document.querySelectorAll(".rppick").forEach(e=>e.remove());if(S.pos.length)closeTr(null,null,"salida");S.pend=[];lines();document.querySelector(".rpo")&&document.querySelector(".rpo").remove();const n=S.trades.length;S=null;subs.clear();ui&&ui.remove();ui=null;document.documentElement.classList.remove("rp-on");
+function stop(){if(!S)return;setPlay(false);document.querySelectorAll(".rppick").forEach(e=>e.remove());if(S.pos.length)closeTr(null,null,"salida");S.pend=[];lines();document.querySelector(".rpo")&&document.querySelector(".rpo").remove();const n=S.trades.length;S=null;subs.clear();ui&&ui.remove();ui=null;document.documentElement.classList.remove("rp-on");document.documentElement.style.removeProperty("--rpbh");
   if(keyH)removeEventListener("keydown",keyH,true);keyH=null;applyHide();reloadAll();setTimeout(()=>{try{X.onExit&&X.onExit()}catch(e){}dispatchEvent(new Event("resize"))},80);X.toast(n?`Saliste del replay (${n} operación${n===1?"":"es"} simulada${n===1?"":"s"}). Volviste al vivo.`:"Volviste al vivo.")}
 
 /* entrar al replay desde cualquier lado (gráfico compartido, clase, menú): mismo mercado y temporalidad, y eliges la vela */
 function quick(o){o=o||{};const a=X.access?X.access():{ok:true};if(!a.ok){X.openPro&&X.openPro();return}
   if(S){if(o.at)jump(o.at);else pickMode();return}
   let tf=null;try{tf=actKc().getPeriod().text}catch(e){}start({sym:o.sym||mainT(),tf:o.tf||tf,at:o.at||Date.now()-86400e3,pick:!o.at})}
-window.EAGReplay={init(ctx){X=ctx},on:()=>!!S,quick,history,sub,unsub,start,stop,jump,step,play:on=>setPlay(on!==false),
+/* ---------- clase en vivo: el alumno sigue el replay del profe (misma fecha, mercado, temporalidad, play y velocidad) ---------- */
+let fBusy=false;
+async function follow(o){if(!o||fBusy)return;fBusy=true;try{
+  if(!S){await start({at:o.cur,sym:o.sym,tf:o.tf});if(!S)return;S.lock=true;lockUI();setPlay(!!o.play);return}
+  S.lock=true;lockUI();
+  if(o.sym&&o.sym!==mainT()){try{X.setSym(o.sym)}catch(e){}await new Promise(r=>setTimeout(r,700));await jump(o.cur);setPlay(!!o.play);return}
+  if(o.tf){try{const k=actKc();if(k&&k.getPeriod().text!==o.tf){const p=X.perFind(o.tf);if(p){k.setPeriod(p);await new Promise(r=>setTimeout(r,500))}}}catch(e){}}
+  if(o.spd&&S.spd!==o.spd){S.spd=o.spd;const sel=ui&&ui.querySelector("[data-rp=spd]");if(sel)sel.value=String(o.spd)}
+  const G=mainG()*1000,lag=o.play?Math.min(4000,Math.max(0,Date.now()-(o.t||Date.now())))/1000*S.spd*G:0,target=o.cur+lag,dr=Math.abs(S.cur-target);
+  if(dr>G*40)await jump(target);else if(dr>G*.6){S.cur=target;push();paint()}
+  if(!!o.play!==S.play)setPlay(!!o.play)}finally{fBusy=false}}
+function lockUI(){if(!ui)return;ui.classList.toggle("lock",!!(S&&S.lock));const t=ui.querySelector(".rpt");if(t&&S&&S.lock&&!t.dataset.l){t.dataset.l=1;t.innerHTML='<i class="rpdot"></i>Replay del profe'}}
+window.EAGReplay={follow,locked:()=>!!(S&&S.lock),info:()=>{if(!S)return null;let tf="";try{tf=actKc().getPeriod().text}catch(e){}return{cur:S.cur,play:S.play,spd:S.spd,sym:mainT(),tf,t:Date.now()}},
+  init(ctx){X=ctx},on:()=>!!S,quick,history,sub,unsub,start,stop,jump,step,play:on=>setPlay(on!==false),
   _state:()=>S&&{cur:S.cur,play:S.play,spd:S.spd,trades:S.trades.length,open:S.pos.length,pend:S.pend.length,subs:subs.size,last:S.trades[S.trades.length-1]||null}};
 })();

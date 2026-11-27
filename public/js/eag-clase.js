@@ -52,6 +52,8 @@ function poll(){clearTimeout(polT);polT=setTimeout(async()=>{tick++;if(!joined&&
 
 /* ============ alumno: mostrar lo del profe ============ */
 function liveChanged(was,quiet){const now=onAir();paintBtn();if(now!==was)setTimeout(viewerBeat,1500);
+  if(!X.isAdmin()&&now&&!was&&!quiet&&!cfg().on&&window.EAGSocial&&window.EAGSocial.invite){window.EAGSocial.invite({kind:"clase",title:live&&live.title||"El profe empezó la clase",sub:(live&&live.sym_name?live.sym_name+" · ":"")+"en vivo ahora",key:"clase",times:4,
+      hint:"Al entrar ves sus dibujos y zonas en tu gráfico, en el mismo mercado que él. Puedes salir cuando quieras.",yes:"Entrar a la clase",onYes:()=>setOn(true)});quiet=true}
   if(!X.isAdmin()){if(now&&!was&&!quiet)X.toast(cfg().on?"🔴 <b>El profe empezó la clase en vivo.</b> Sus dibujos aparecen en tu gráfico.":"🔴 <b>El profe está en vivo.</b> Activa el <b>Modo Clase</b> para ver sus dibujos en tu gráfico.");
     if(now&&cfg().on&&cfg().follow)followProfe()}
   apply();paintBanner();paintPanel()}

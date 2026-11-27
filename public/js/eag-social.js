@@ -158,6 +158,9 @@ function onMsg(m){if(!m||!m.room)return;if(isGrp(m.room)&&!myGrp(m.room)){if(!on
   else if(!mine&&open)SND.play("inSoft");
   if(!mine&&typers[m.room]){delete typers[m.room][m.sender];paintTyping()}
   if(!mine&&m.kind==="call"&&m.payload&&m.payload.act==="start")m.room===GEN?incomingGroup(m):incoming(m);
+  if(!mine&&m.kind==="share"&&m.payload&&m.payload.room&&!(share&&share.room===m.payload.room)&&Date.now()-new Date(m.created_at)<60000&&(!isGrp(m.room)||m.is_admin)){const p=m.payload,who=m.username||nameOf(m.sender);
+    invite({kind:"share",av:{id:m.sender,username:who,avatar_url:m.avatar_url},title:who,sub:`Quiere ver el gráfico contigo${p.symName?" · "+p.symName:""}${p.tf?" "+p.tf:""}`,key:"share-"+p.room,times:5,
+      hint:"Sus dibujos aparecen en tu gráfico con su nombre, y los tuyos en el de él. No necesitas permisos.",yes:"Ver en mi gráfico",onYes:()=>joinShare(p.room,m.room)})}
   if(!mine&&m.kind==="call"&&m.payload&&m.payload.act==="end"){if(ringing&&ringing.room===m.payload.room)stopRing("La llamada terminó.");if(call&&call.room===m.payload.room){X.toast("La otra persona colgó.");hangup(true)}}
   unread=threads.reduce((a,x)=>a+(isGrp(x.room)?0:(+x.unread||0)),0);paintBtn();
   if(open){paintRoom(true);markRead(m.room)}else if(panel&&!view.room)paintPanel();else if(inOther)backBadge()}
@@ -702,29 +705,49 @@ function speakTick(){if(!call||!shBar)return;Object.keys(call.peers).forEach(id=
 /* timbre: suave, se repite unos segundos */
 let ringT=0,ringOutT=0;
 function tone(f,dur,vol){try{actx=actx||new(window.AudioContext||window.webkitAudioContext)();const o=actx.createOscillator(),g=actx.createGain();o.frequency.value=f;g.gain.setValueAtTime(.0001,actx.currentTime);g.gain.exponentialRampToValueAtTime(vol||.05,actx.currentTime+.03);g.gain.exponentialRampToValueAtTime(.0001,actx.currentTime+dur);o.connect(g);g.connect(actx.destination);o.start();o.stop(actx.currentTime+dur+.02)}catch(e){}}
-function ringBox(m,o){stopRing();ringing={room:o.room,chat:m.room,name:m.username||nameOf(m.sender),from:m.sender,group:!!o.group};
-  const el=document.createElement("div");el.className="sring"+(o.group?" grp":"");el.setAttribute("role","alertdialog");el.setAttribute("aria-label",o.title);
-  el.innerHTML=`<div class="sr-av">${av({id:m.sender,username:ringing.name,avatar_url:m.avatar_url})}</div><div class="sr-t"><small>${esc(o.title)}</small><b>${esc(ringing.name)}</b><span>${esc(o.sub)}</span></div>
-    <div class="sr-b"><button class="sr-no" data-r>${o.group?"Ahora no":"Rechazar"}</button><button class="sr-yes" data-a>${o.group?"Unirme":"Contestar"}</button></div>
-    ${o.group?`<button class="sr-mute" data-gm>🔕 Silenciar avisos de llamadas grupales</button>`:""}`;
-  document.body.appendChild(el);ringing.el=el;
-  el.querySelector("[data-a]").onclick=()=>{const r=ringing;r.group?joinVoiceGroup():acceptCall(r.room,r.chat)};
-  el.querySelector("[data-r]").onclick=()=>stopRing();
-  const gm=el.querySelector("[data-gm]");gm&&(gm.onclick=()=>{cfg().grpRing=false;X.save();stopRing("Listo: las llamadas grupales ya no suenan. Lo cambias en Chat → ⚙.");setTimeout(paintGrp,300)});
-  /* el título de la pestaña parpadea y el celular vibra, para que se note aunque esté en otra pestaña */
-  const t0=document.title;let n=0;ringing.t0=t0;
-  const ring=()=>{if(!ringing||n++>o.times){stopRing();return}if(cfg().snd!==false){tone(660,.2,.08);setTimeout(()=>tone(880,.24,.08),230);setTimeout(()=>tone(990,.2,.06),470)}
-    document.title=n%2?(o.group?"🎙 Llamada grupal":"📞 "+ringing.name+" te llama"):t0;try{navigator.vibrate&&navigator.vibrate([250,120,250])}catch(e){}ringT=setTimeout(ring,2000)};ring()}
+/* ---------- invitación grande (llamada, llamada grupal, compartir gráfico, clase): fácil de ver y de tocar ---------- */
+let inv=null;
+const INVK={call:["📞","Llamada de voz","#089981"],group:["🎙","Llamada grupal","#e6b74a"],share:["📡","Compartir gráfico","#4c8dff"],floor:["🎤","Te dieron la palabra","#089981"],pen:["✏️","Puedes marcar","#7bd88f"],clase:["🔴","Clase en vivo","#f23645"],replay:["⏪","Replay de la clase","#b388ff"]};
+function invite(o){invClose(true);const K=INVK[o.kind]||INVK.call;
+  const el=document.createElement("div");el.className="inv";el.setAttribute("role","alertdialog");el.setAttribute("aria-modal","true");el.setAttribute("aria-label",o.title||K[1]);el.style.setProperty("--ic",K[2]);
+  el.innerHTML=`<div class="inv-c"><div class="inv-top"><span class="inv-ic">${o.av?av(o.av):`<i>${K[0]}</i>`}<em>${K[0]}</em></span><div class="inv-t"><small>${esc(o.kicker||K[1])}</small><b>${esc(o.title||"")}</b>${o.sub?`<span>${esc(o.sub)}</span>`:""}</div></div>
+    ${o.hint?`<p class="inv-h">${o.hint}</p>`:""}
+    <div class="inv-b">${o.no!==false?`<button class="inv-no" data-no>${esc(o.no||"Ahora no")}</button>`:""}<button class="inv-yes" data-yes>${esc(o.yes||"Aceptar")}</button></div>
+    ${o.extra?`<button class="inv-x2" data-ex>${esc(o.extra)}</button>`:""}</div>`;
+  document.body.appendChild(el);requestAnimationFrame(()=>el.classList.add("on"));
+  inv={el,o,t0:document.title,n:0};const me=inv;
+  const yes=el.querySelector("[data-yes]");setTimeout(()=>{try{yes.focus()}catch(e){}},60);
+  yes.onclick=()=>{invClose(true);try{o.onYes&&o.onYes()}catch(e){}};
+  const no=el.querySelector("[data-no]");no&&(no.onclick=()=>{invClose(true);try{o.onNo&&o.onNo()}catch(e){}});
+  const ex=el.querySelector("[data-ex]");ex&&(ex.onclick=()=>{invClose(true);try{o.onExtra&&o.onExtra()}catch(e){}});
+  el.addEventListener("keydown",e=>{if(e.key==="Escape"&&no){e.stopPropagation();no.click()}});
+  /* timbre, vibración y título de la pestaña parpadeando, hasta que conteste */
+  const times=o.times!=null?o.times:3;
+  const ring=()=>{if(inv!==me)return;if(me.n++>times){invClose(true);try{o.onTimeout&&o.onTimeout()}catch(e){}return}
+    if(cfg().snd!==false&&o.sound!==false){if(o.kind==="call"||o.kind==="group"){tone(660,.2,.08);setTimeout(()=>tone(880,.24,.08),230);setTimeout(()=>tone(990,.2,.06),470)}else if(me.n===1){tone(784,.16,.07);setTimeout(()=>tone(1047,.22,.07),170)}}
+    document.title=me.n%2?K[0]+" "+(o.title||K[1]):me.t0;try{navigator.vibrate&&navigator.vibrate(o.kind==="call"?[400,150,400]:[250,100,250])}catch(e){}
+    me.T=setTimeout(ring,2000)};ring();
+  /* si está en otra pestaña o con la app minimizada: notificación del sistema */
+  try{if(document.hidden&&window.EAGN)window.EAGN.notify({cat:"sistema",icon:K[0],title:(o.title?o.title+" · ":"")+(o.kicker||K[1]),body:o.sub||"",important:true,card:false,sound:false,key:"inv-"+(o.key||o.kind)})}catch(e){}
+  return me}
+function invClose(q){if(!inv)return;clearTimeout(inv.T);const el=inv.el;document.title=inv.t0;inv=null;el.classList.remove("on");setTimeout(()=>el.remove(),180)}
+function ringBox(m,o){stopRing();ringing={room:o.room,chat:m.room,name:m.username||nameOf(m.sender),from:m.sender,group:!!o.group};const r=ringing;
+  ringing.inv=invite({kind:o.group?"group":"call",av:{id:m.sender,username:r.name,avatar_url:m.avatar_url},title:r.name,sub:o.sub,times:o.times,key:"call-"+o.room,
+    hint:"Al contestar, tu navegador te pide permiso para usar el micrófono: toca <b>Permitir</b>.",yes:o.group?"Unirme":"Contestar",no:o.group?"Ahora no":"Rechazar",
+    extra:o.group?"🔕 Silenciar avisos de llamadas grupales":null,
+    onYes:()=>{ringing=null;r.group?joinVoiceGroup():acceptCall(r.room,r.chat)},onNo:()=>{ringing=null},onTimeout:()=>{ringing=null},
+    onExtra:()=>{ringing=null;cfg().grpRing=false;X.save();X.toast("Listo: las llamadas grupales ya no suenan. Lo cambias en Chat → ⚙.");setTimeout(paintGrp,300)}})}
 function incoming(m){const p=m.payload||{};if(!p.room||call)return;if(Date.now()-new Date(m.created_at)>60000)return;
   ringBox(m,{room:p.room,title:"Llamada de voz",sub:"Te está llamando",times:14})}
 function incomingGroup(m){const p=m.payload||{};if(call&&call.room==="voz-general")return;if(Date.now()-new Date(m.created_at)>60000)return;if(cfg().hidden||cfg().grpRing===false){setTimeout(paintGrp,500);return}
   ringBox(m,{room:"voz-general",group:true,title:"Llamada grupal",sub:"Abrió la sala de voz del grupo",times:4});setTimeout(paintGrp,500)}
-function stopRing(msg){clearTimeout(ringT);if(ringing){if(ringing.el)ringing.el.remove();if(ringing.t0)document.title=ringing.t0}ringing=null;if(msg)X.toast(msg)}
+function stopRing(msg){clearTimeout(ringT);if(ringing&&ringing.inv&&inv===ringing.inv)invClose(true);ringing=null;if(msg)X.toast(msg)}
 function ringOut(){let n=0;const r=()=>{if(!call||Object.keys(call.peers).some(id=>call.peers[id].pc&&call.peers[id].pc.connectionState==="connected")||n++>15){if(call&&!Object.keys(call.peers).length&&n>15){X.toast("No contestó.");hangup()}return}tone(440,.4,.03);ringOutT=setTimeout(r,2500)};ringOutT=setTimeout(r,800)}
 function stopRingOut(){clearTimeout(ringOutT)}
 
 /* ===================== API pública ===================== */
 window.EAGSocial={
+  invite,invClose,
   unread:()=>unread||0,isOpen:()=>!!panel,close:()=>close(),
   init(o){X=o;const pr=(X.API.profile&&X.API.profile())||{};const u=X.API.user&&X.API.user();if(!u)return;ME={id:u.id,name:pr.username||"Yo",admin:!!(X.API.isAdmin&&X.API.isAdmin())};
     imgClean();paintBtn();headPaint();if(X.btn)X.btn.onclick=e=>{e.stopPropagation();panel?close():open()};

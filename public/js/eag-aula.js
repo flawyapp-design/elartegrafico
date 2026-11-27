@@ -17,6 +17,8 @@ const isT=()=>ADMIN&&X.clase&&X.clase.isTx&&X.clase.isTx();
 const inC=()=>!ADMIN&&X.clase&&X.clase.inClass&&X.clase.inClass();
 const cast=(ev,p)=>{try{B.cast(ROOM,ev,Object.assign({},p||{},{from:ME.id,fname:ME.name}))}catch(e){}};
 const toast=t=>X.toast(t);
+const INV=o=>{try{if(window.EAGSocial&&window.EAGSocial.invite){window.EAGSocial.invite(o);return true}}catch(e){}return false};
+
 
 /* ======================== PROFE ======================== */
 async function tVoice(on){if(on===T.voice)return;
@@ -49,7 +51,15 @@ function pollStart(q,opts){T.poll={id:Date.now().toString(36),q,opts,open:true};
 function pollShow(){if(!T.poll)return;cast("c-pres",{id:T.poll.id,counts:counts(),q:T.poll.q,opts:T.poll.opts});toast("📊 Les mostraste los resultados.")}
 function pollEnd(){if(!T.poll)return;cast("c-pend",{id:T.poll.id});T.poll=null;paint()}
 const counts=()=>{const c=T.poll?T.poll.opts.map(()=>0):[];T.votes.forEach(i=>{if(c[i]!=null)c[i]++});return c};
-const hbPl=()=>({voice:T.voice,poll:T.poll&&T.poll.open?T.poll:null,pen:[...T.pen],penAll:T.penAll});
+const RP=()=>window.EAGReplay;
+const rpInfo=()=>{try{return RP()&&RP().on()&&!RP().locked()?RP().info():null}catch(e){return null}};
+let rpLast="",rpT=0;
+function rpWatch(){clearInterval(rpT);rpT=setInterval(()=>{if(!isT())return;const i=rpInfo(),k=i?[i.sym,i.tf,i.play,i.spd,Math.round(i.cur/60000)].join("|"):"off";
+  if(k!==rpLast||(i&&i.play)){const ch=k!==rpLast;rpLast=k;if(ch||Date.now()-(rpWatch.t||0)>2500){rpWatch.t=Date.now();cast("c-rp",{rp:i})}}},700)}
+function aRp(rp){const R=RP();if(!R||!inC())return;
+  if(rp){if(A.rpOut)return;R.follow(rp).catch(()=>{});if(!A.rpOn){A.rpOn=true;toast("⏪ El profe abrió el replay: lo ves con él. Puedes simular operaciones"+(A.pen?" y marcar.":"."));paint()}}
+  else if(A.rpOn){A.rpOn=false;A.rpOut=false;if(R.on()&&R.locked())R.stop();paint()}else A.rpOut=false}
+const hbPl=()=>({rp:rpInfo(),voice:T.voice,poll:T.poll&&T.poll.open?T.poll:null,pen:[...T.pen],penAll:T.penAll});
 
 /* ======================== MARCAR EN CLASE (pizarra compartida) ========================
    El profe deja marcar a uno, a varios o a todos. Lo que marca cada uno aparece en el gráfico del profe
@@ -69,7 +79,7 @@ function myBoards(){const b={};panes().forEach(p=>{try{const t=p.kc.getSymbol().
 function penSend(force){if(!A.pen)return;const b=myBoards(),j=JSON.stringify(b);if(j.length>90000){if(!penSend.warn){penSend.warn=1;toast("Tienes demasiados dibujos para compartir en clase: borra algunos (el pincel ocupa mucho).")}return}
   if(!force&&j===dLast)return;dLast=j;cast("c-draw",{boards:b,color:colOf(ME.id)})}
 function penSet(on,quiet){on=!!on;if(on===A.pen)return;A.pen=on;clearInterval(dT);dLast="";
-  if(on){dT=setInterval(()=>penSend(false),1200);dKeep=Date.now();penSend(true);if(!quiet){toast("✏️ El profe te dejó marcar: lo que dibujes lo ve toda la clase con tu nombre.");try{window.EAGN&&window.EAGN.notify({cat:"sistema",icon:"✏️",title:"Puedes marcar en el gráfico",body:"Lo que dibujes lo ve el profe y toda la clase, con tu nombre.",important:true,sound:"exito"})}catch(e){}}}
+  if(on){dT=setInterval(()=>penSend(false),1200);dKeep=Date.now();penSend(true);if(!quiet){if(!INV({kind:"pen",title:"Ya puedes marcar en el gráfico",sub:"El profe te dio permiso",key:"pen",times:1,no:false,yes:"Entendido",hint:`Dibuja zonas o líneas como siempre: el profe y toda la clase las ven con tu nombre <b style="color:${colOf(ME.id)}">●</b>.`}))toast("✏️ El profe te dejó marcar: lo que dibujes lo ve toda la clase con tu nombre.")}}
   else{cast("c-draw",{boards:{},off:true});if(!quiet)toast("El profe terminó tu turno de marcar. Tus dibujos siguen en tu gráfico.")}
   paint()}
 function tPen(id,on){if(on)T.pen.add(id);else T.pen.delete(id);if(!on)delete D[id];cast("c-pen",{to:id,on:!!on});applyD();paint()}
@@ -103,7 +113,7 @@ function attnShow(name){const el=document.createElement("div");el.className="au-
 
 /* ======================== mensajes ======================== */
 function onEv(ev,p){if(!p||!p.from||p.from===ME.id)return;tick++;
-  if(ev==="c-draw"){if(p.off||!p.boards||!Object.keys(p.boards).length)delete D[p.from];else D[p.from]={name:p.fname,color:p.color||colOf(p.from),boards:p.boards,at:Date.now()};applyD();if(ADMIN)paint();return}
+  if(ev==="c-draw"){if(p.off||!p.boards||!Object.values(p.boards).some(v=>Array.isArray(v)&&v.length))delete D[p.from];else D[p.from]={name:p.fname,color:p.color||colOf(p.from),boards:p.boards,at:Date.now()};applyD();if(ADMIN)paint();return}
   if(ev==="c-pclear"){Object.keys(D).forEach(k=>delete D[k]);applyD();return}
   if(ev==="c-pen"&&!ADMIN){if(p.to!=="all"&&p.to!==ME.id){if(!p.on){delete D[p.to];applyD()}return}
     if(p.to==="all"&&!p.on){Object.keys(D).forEach(k=>delete D[k]);applyD()}if(inC())penSet(!!p.on);return}
@@ -115,17 +125,22 @@ function onEv(ev,p){if(!p||!p.from||p.from===ME.id)return;tick++;
     else if(ev==="c-hand"){if(p.up)T.hands.set(p.from,{name:p.fname,at:Date.now()});else T.hands.delete(p.from);paint();if(p.up&&isT()){try{window.EAGN&&window.EAGN.notify({cat:"sistema",icon:"✋",title:`${p.fname||"Un alumno"} levantó la mano`,body:"Toca ✋ en la barra de la clase para darle la palabra",sound:"pop"})}catch(e){}}}
     else if(ev==="c-vote"){if(T.poll&&p.id===T.poll.id){T.votes.set(p.from,+p.i);paint()}}
     else if(ev==="c-react"){floatR(p.e,p.fname)}
+    else if(ev==="c-rpask"){if(isT())cast("c-rp",{rp:rpInfo()})}
     else if(ev==="c-shb"){T.listen.set(p.from,{name:p.fname,at:Date.now(),on:!!p.l});if(p.hand&&!T.hands.has(p.from))T.hands.set(p.from,{name:p.fname,at:Date.now()})}
     else if(ev==="c-floor-no"){T.floor.delete(p.from);paint();toast(`${esc(p.fname||"El alumno")} no dio permiso al micrófono.`)}
     return}
   /* lo que manda el profe */
   if(ev==="c-hb"){A.hb=Date.now();A.teacher=p.fname;const was=A.voice;A.voice=!!p.voice;if(p.poll&&(!A.poll||A.poll.id!==p.poll.id)){A.poll=p.poll;A.voted=null;A.res=null}if(!p.poll&&A.poll&&!A.res)A.poll=null;
     {const want=penOn(p);if(want!==A.pen&&inC())penSet(want)}
-    if(A.voice&&!was&&inC()&&!A.listen)toast("🎙 El profe abrió la voz de la clase: toca «Escuchar».");if(!A.voice&&A.listen){aDrop();A.listen=false}paint()}
+    if((p.rp&&!A.rpOn)||(!p.rp&&A.rpOn))aRp(p.rp);
+    if(A.voice&&!was&&inC()&&!A.listen){if(!INV({kind:"clase",kicker:"Voz de la clase",title:"El profe abrió la voz",sub:"Toca para escucharlo",key:"voz",times:4,hint:"Solo escuchas: no se te pide el micrófono. Si quieres hablar, levanta la mano ✋.",yes:"🎧 Escuchar",onYes:()=>aListen(true)}))toast("🎙 El profe abrió la voz de la clase: toca «Escuchar».")}if(!A.voice&&A.listen){aDrop();A.listen=false}paint()}
+  else if(ev==="c-rp"){aRp(p.rp)}
   else if(ev==="c-voff"){A.voice=false;if(A.listen){aDrop();A.listen=false;toast("El profe cerró la voz de la clase.")}paint()}
   else if(ev==="c-offer"){if(p.to===ME.id)aOffer(p)}
   else if(ev==="c-ice"){if(p.to===ME.id){if(A.pc&&!A.ice)A.pc.addIceCandidate(p.c).catch(()=>{});else(A.ice=A.ice||[]).push(p.c)}}
-  else if(ev==="c-floor"){if(p.to===ME.id)aFloor(!!p.on)}
+  else if(ev==="c-floor"){if(p.to===ME.id){if(p.on){if(!A.listen){toast("El profe te dio la palabra: toca «Escuchar» primero.");return}
+      if(!INV({kind:"floor",title:"El profe te dio la palabra",sub:"Todos te van a escuchar",key:"floor",times:6,hint:"Al tocar <b>Hablar</b>, tu navegador te pide el micrófono: toca <b>Permitir</b>.",yes:"🎤 Hablar",no:"No, gracias",onYes:()=>aFloor(true),onNo:()=>cast("c-floor-no",{}),onTimeout:()=>cast("c-floor-no",{})}))aFloor(true)}
+    else aFloor(false)}}
   else if(ev==="c-hdown"){if(A.hand){A.hand=false;paint()}}
   else if(ev==="c-attn"){if(inC())attnShow(p.fname)}
   else if(ev==="c-poll"){if(inC()){A.poll=p.poll;A.voted=null;A.res=null;paint();try{window.EAGN&&window.EAGN.notify({cat:"sistema",icon:"📊",title:"Encuesta del profe",body:p.poll.q,sound:"aviso"})}catch(e){}}}
@@ -164,13 +179,16 @@ function paint(){const show=isT()||(inC());if(!show){if(ui){ui.remove();ui=null}
       ${min?`<button data-a="max" title="Abrir">▴</button>`:`
       ${A.voice?`<button data-a="listen" class="${A.listen?"on":"gold"}" title="${A.listen?"Dejar de escuchar":"Escuchar al profe"}">🎧<span>${voiceTxt}</span></button>`:`<span class="au-n" title="El profe todavía no abrió la voz">🔈 Sin voz</span>`}
       ${A.floor?`<button data-a="amic" class="${A.micOn?"on":"warn"}" title="Tu micrófono">${A.micOn?"🎤 Tienes la palabra":"🔇 Micrófono apagado"}</button>`:`<button data-a="hand" class="${A.hand?"hot":""}" title="${A.hand?"Bajar la mano":"Levantar la mano para hablar o preguntar"}">✋<span>${A.hand?"Bajar mano":"Levantar mano"}</span></button>`}
+      ${A.rpOut?`<button data-a="rpback" class="gold" title="Volver a ver el replay con el profe">⏪<span>Replay del profe</span></button>`:A.rpOn?`<span class="au-n" title="Estás viendo el replay del profe">⏪ Replay</span>`:""}
       ${A.pen?`<span class="au-n au-penon" title="Lo que dibujes lo ve toda la clase con tu nombre"><i class="au-pc" style="background:${colOf(ME.id)}"></i>✏️ Puedes marcar</span>`:""}
-      <span class="au-rx">${REACT.map(e=>`<button data-r="${e}" title="Reaccionar">${e}</button>`).join("")}</span>
+      ${X.isPhone&&X.isPhone()?`<button data-a="rxp" title="Reaccionar">😀</button>`:`<span class="au-rx">${REACT.map(e=>`<button data-r="${e}" title="Reaccionar">${e}</button>`).join("")}</span>`}
       <button data-a="min" title="Minimizar">–</button>`}`}
   pos();paintPoll()}
 function onClick(e){const r=e.target.closest("[data-r]");if(r){react(r.dataset.r);return}const b=e.target.closest("[data-a]");if(!b)return;const a=b.dataset.a;
   if(a==="min"){X.SAVE.aulaMin=true;X.save();paint()}else if(a==="max"){X.SAVE.aulaMin=false;X.save();paint()}
   else if(a==="voice")tVoice(!T.voice);else if(a==="mute")tMute();else if(a==="attn")attention();else if(a==="quiet")allQuiet();
+  else if(a==="rpback"){A.rpOut=false;A.rpOn=false;cast("c-rpask",{});}
+  else if(a==="rxp"){const p=popAt(b,`<div class="au-rx au-rxp">${REACT.map(e=>`<button data-r="${e}">${e}</button>`).join("")}</div>`);p&&p.querySelectorAll("[data-r]").forEach(x=>x.onclick=()=>{react(x.dataset.r);p.remove()})}
   else if(a==="hands")handsPop(b);else if(a==="pen")penPop(b);else if(a==="poll")pollPop(b);
   else if(a==="listen")aListen(!A.listen);else if(a==="hand")aHand();else if(a==="amic")aMic()}
 function popAt(anchor,html){let p=document.querySelector(".au-pop");if(p&&p.dataset.k===anchor.dataset.a){p.remove();return null}if(p)p.remove();p=document.createElement("div");p.className="au-pop";p.dataset.k=anchor.dataset.a;p.innerHTML=html;document.body.appendChild(p);
@@ -208,6 +226,8 @@ function paintPoll(){let c=document.querySelector(".au-poll");if(ADMIN||!A.poll|
 /* ======================== latidos ======================== */
 function beat(){if(!B)return;
   {const now=Date.now();let ch=false;Object.keys(D).forEach(k=>{if(now-D[k].at>45000){delete D[k];ch=true}});if(ch)applyD()}
+  if(A.rpOn&&!ADMIN){const R=RP();if(R&&!R.on()){A.rpOn=false;A.rpOut=true;paint()}}
+  if(!inC()&&A.rpOn){A.rpOn=false;const R=RP();if(R&&R.on()&&R.locked())R.stop()}
   if(A.pen){if(!inC()||Date.now()-A.hb>30000)penSet(false,true);else if(Date.now()-dKeep>12000){dKeep=Date.now();penSend(true)}}
   if(ADMIN&&!isT()&&(T.pen.size||T.penAll)){T.pen.clear();T.penAll=false}
   if(isT()){cast("c-hb",hbPl());const now=Date.now();T.listen.forEach((v,k)=>{if(now-v.at>40000&&!T.peers[k])T.listen.delete(k)})}
@@ -217,9 +237,9 @@ function beat(){if(!B)return;
   paint()}
 
 window.EAGAula={init(o){X=o;const S=window.EAGSocial;B=o.bus||(S&&S.bus);if(!B){return}ME=B.me&&B.me();if(!ME)return;ADMIN=!!(o.isAdmin&&o.isAdmin());
-    B.sub(ROOM,onEv);clearInterval(hbT);hbT=setInterval(beat,3000);setTimeout(beat,1500);
+    B.sub(ROOM,onEv);rpWatch();clearInterval(hbT);hbT=setInterval(beat,3000);setTimeout(beat,1500);
     addEventListener("beforeunload",()=>{if(A.listen)cast("c-leave",{});if(T.voice)cast("c-voff",{})})},
   refresh:()=>{paint();applyD()},onSym:()=>{applyD();if(A.pen)penSend(true)},voice:on=>tVoice(on!==false),
-  _test(o){Object.assign(X,o.x||{});if(o.bus){B=o.bus;B.sub(ROOM,onEv)}if(o.me)ME=o.me;if(o.admin!=null)ADMIN=o.admin;paint()},
-  _state:()=>({D:Object.keys(D).map(k=>D[k].name+":"+Object.values(D[k].boards).reduce((a,b)=>a+b.length,0)),T:{pen:[...T.pen],penAll:T.penAll,voice:T.voice,peers:Object.keys(T.peers).length,hands:T.hands.size,floor:T.floor.size,poll:!!T.poll,votes:T.votes.size},A:{pen:A.pen,voice:A.voice,listen:A.listen,pc:A.pc&&A.pc.connectionState,hand:A.hand,floor:A.floor,poll:!!A.poll,voted:A.voted,res:!!A.res,audio:!!(A.audio&&A.audio.srcObject)}})};
+  _test(o){Object.assign(X,o.x||{});rpWatch();if(o.bus){B=o.bus;B.sub(ROOM,onEv)}if(o.me)ME=o.me;if(o.admin!=null)ADMIN=o.admin;paint()},
+  _state:()=>({D:Object.keys(D).map(k=>D[k].name+":"+Object.values(D[k].boards).reduce((a,b)=>a+b.length,0)),T:{pen:[...T.pen],penAll:T.penAll,voice:T.voice,peers:Object.keys(T.peers).length,hands:T.hands.size,floor:T.floor.size,poll:!!T.poll,votes:T.votes.size},A:{rpOn:!!A.rpOn,rpOut:!!A.rpOut,pen:A.pen,voice:A.voice,listen:A.listen,pc:A.pc&&A.pc.connectionState,hand:A.hand,floor:A.floor,poll:!!A.poll,voted:A.voted,res:!!A.res,audio:!!(A.audio&&A.audio.srcObject)}})};
 })();
