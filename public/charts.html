@@ -1328,6 +1328,20 @@ html.rp-on .au-bar{bottom:76px}
 .rpo-l{display:grid;gap:4px}.rpo-l>div{display:flex;align-items:center;gap:6px;padding:4px 8px;border-radius:8px;background:var(--bg2);font-variant-numeric:tabular-nums}.rpo-l button{margin-left:auto;height:24px;width:24px;padding:0}
 .rpo .up{color:#22c493;font-weight:700}.rpo .dn{color:#ff5a66;font-weight:700}
 .rppick i.h{left:0;right:0;top:50%;bottom:auto;width:auto;height:0;border-left:0;border-top:1.5px dashed var(--gold)}
+
+/* MT5: terminal fija abajo, desconectar, operar con clic derecho */
+html.mt5-dock .app{padding-bottom:var(--mt5h,0px)!important}
+html.mt5-dock.m5 .app{padding-bottom:0!important}html.mt5-dock.m5 .main{margin-bottom:var(--mt5h,0px)}
+.mt5-tb.dock{top:auto!important;bottom:0;border-radius:0!important;border-left:0!important;border-right:0!important;border-bottom:0!important;box-shadow:0 -10px 30px rgba(0,0,0,.35)!important;resize:none!important;max-height:70vh}
+html.m5 .mt5-tb.dock{bottom:var(--m5h)!important;left:0!important;width:100vw!important}
+.mt5-tb.dock .mt5-th{cursor:default}
+.mt5-rz{display:none}.mt5-tb.dock .mt5-rz{display:block;position:absolute;left:0;right:0;top:-4px;height:8px;cursor:ns-resize;z-index:2}.mt5-tb.dock.min .mt5-rz{display:none}
+.mt5-tb [data-tdock].on{color:var(--gold)}
+.mt5-off{position:fixed;z-index:10070;width:min(320px,calc(100vw - 12px));display:grid;gap:6px;padding:10px;background:var(--card);border:1px solid var(--line2);border-radius:12px;box-shadow:0 14px 40px rgba(0,0,0,.45);color:var(--fg);font-size:12.5px}
+.mt5-off button{display:grid;gap:2px;text-align:left;padding:8px 10px;border-radius:9px;border:1px solid var(--line2);background:var(--bg2);color:var(--fg);font:600 13px inherit;font-family:inherit;cursor:pointer}
+.mt5-off button small{font-weight:400;color:var(--mut);font-size:11.5px}.mt5-off button.danger{border-color:rgba(242,54,69,.5);color:#ff5a66}
+.wmenu .mhd{padding:6px 12px 2px;font-size:11px;color:var(--mut);font-weight:600}
+.wmenu .mi.t-up span{color:#22c493}.wmenu .mi.t-dn span{color:#ff5a66}
 </style>
 </head>
 <body>

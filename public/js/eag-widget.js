@@ -1428,7 +1428,9 @@ ${o.onTracker?`<button class="wtrk" title="Marcador de operaciones (ganadas, per
     const nOv=[...ovs.values()].filter(v2=>v2.done).length;
     closeMenu();menu=document.createElement("div");menu.className="wmenu ctx cmenu";
     if(!inMain)menu.innerHTML=item("reset","reset","Restablecer visualización del gráfico")+`<div class="msep"></div>`+item("inds","fx",`Lista de indicadores (${nInd})…`)+`<div class="msep"></div>`+item("cfg","gear","Opciones de configuración…");
-    else menu.innerHTML=item("reset","reset","Restablecer visualización del gráfico")+`<div class="msep"></div>`+
+    else menu.innerHTML=
+      ((()=>{let T=[];try{T=o.tradeMenu?o.tradeMenu(+v)||[]:[]}catch(e){}return T.length?`<div class="mhd">Operar aquí</div>`+T.map(t=>`<button class="mi cmi${t.c?" t-"+t.c:""}" data-tm="${esc(t.k)}"><i></i><span>${esc(t.t)}</span></button>`).join("")+`<div class="msep"></div>`:""})())+
+      item("reset","reset","Restablecer visualización del gráfico")+`<div class="msep"></div>`+
       item("copy","copy","Copiar precio "+pv)+`<div class="msep"></div>`+
       item("alert","bell",`Añadir alerta en ${esc(nm)} a ${pv}`)+
       item("hline","horizontalStraightLine",`Dibujar línea horizontal en ${pv}`)+
@@ -1441,6 +1443,7 @@ ${o.onTracker?`<button class="wtrk" title="Marcador de operaciones (ganadas, per
       item("shot","cam","Captura del gráfico")+item("cfg","gear","Opciones de configuración…");
     document.body.appendChild(menu);
     menu.style.left=Math.max(8,Math.min(ev.clientX,innerWidth-menu.offsetWidth-8))+"px";menu.style.top=Math.max(safeTop()+8,Math.min(ev.clientY,innerHeight-menu.offsetHeight-8))+"px";
+    menu.querySelectorAll("[data-tm]").forEach(b=>b.onclick=()=>{closeMenu();try{o.onTradeMenu&&o.onTradeMenu(b.dataset.tm,+v)}catch(e){}});
     menu.querySelectorAll("[data-m]").forEach(b=>b.onclick=async()=>{const k=b.dataset.m;
       if(k==="clear"&&!b.classList.contains("sure")){b.classList.add("sure");b.querySelector("span").textContent="¿Seguro? Toca otra vez para borrarlos";return}
       closeMenu();

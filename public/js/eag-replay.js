@@ -18,11 +18,11 @@ const bucket=(ts,g)=>Math.floor(ts/(g*1000))*g*1000;
 const gOf=per=>{try{return X.gran(per)}catch(e){return 60}};
 
 /* ---------- velas de 1 minuto (la "base" con la que se arma todo) ---------- */
-async function fetchRange(t,a,b){/* a,b en ms; Deriv da hasta 5000 velas por pedido */
-  const out=[];let s=Math.floor(a/1000);const e=Math.floor(Math.min(b,Date.now())/1000);let guard=0;
-  while(s<e&&guard++<60){const end=Math.min(e,s+990*60);let m;try{m=await X.feed.ask({ticks_history:t,style:"candles",granularity:60,start:s,end,count:1000})}catch(x){break}
-    const L=(m.candles||[]).map(c=>({timestamp:c.epoch*1000,open:+c.open,high:+c.high,low:+c.low,close:+c.close,volume:0})).filter(k=>k.timestamp>=s*1000&&k.timestamp<=end*1000);
-    L.forEach(k=>out.push(k));s=end+1}
+async function fetchRange(t,a,b){/* a,b en ms; se pide hacia atrás desde "b" con end+count (lo que mejor responde Deriv para fechas viejas) */
+  const out=[];let e=Math.floor(Math.min(b,Date.now())/1000);const s0=Math.floor(a/1000);let guard=0;
+  while(e>s0&&guard++<60){const cnt=Math.max(2,Math.min(1000,Math.ceil((e-s0)/60)+1));let m;try{m=await X.feed.ask({ticks_history:t,style:"candles",granularity:60,end:e,count:cnt})}catch(x){break}
+    const L=(m.candles||[]).map(c=>({timestamp:c.epoch*1000,open:+c.open,high:+c.high,low:+c.low,close:+c.close,volume:0})).filter(k=>k.timestamp<=e*1000);
+    if(!L.length)break;L.forEach(k=>{if(k.timestamp>=s0*1000)out.push(k)});const first=L[0].timestamp/1000;if(first>=e)break;e=first-1;if(L.length<cnt&&first>s0+120)break}
   const seen=new Set();return out.filter(k=>!seen.has(k.timestamp)&&seen.add(k.timestamp)).sort((x,y)=>x.timestamp-y.timestamp)}
 async function ensureBase(t,from,to){/* deja cargado [from,to] (ms) */
   let c=base.get(t);to=Math.min(to,Date.now());
@@ -60,7 +60,10 @@ async function history(sym,period,from,to,real){
   const [L]=await Promise.all([real(sym,period,F,T),ensureBase(sym.ticker,Math.min(bs,cur-120*MIN),cur+600*MIN)]);
   const out=(L||[]).filter(k=>k.timestamp+g*1000<=bs);
   const pc=aggregate(sym.ticker,bs,cur);if(pc)out.push(pc);
-  if(!out.length&&Date.now()-tickNote>5000){tickNote=Date.now();X.toast("No hay velas de esa fecha en esta temporalidad. Prueba otra fecha o temporalidad.")}
+  if(!out.length&&!S.fixing){S.fixN=(S.fixN||0)+1;if(S.fixN<=3){S.fixing=1;const back=(S.fixN===1?20:S.fixN===2?6:2)*86400e3*Math.random()+86400e3;
+      X.toast("De esa fecha no llegaron velas: te llevo a una fecha más reciente…");setTimeout(()=>{if(S){S.fixing=0;jump(Date.now()-back)}},300)}
+    else if(Date.now()-tickNote>5000){tickNote=Date.now();X.toast("No llegaron velas de Deriv para el replay. Revisa tu conexión y vuelve a intentar.")}}
+  else if(out.length)S.fixN=0;
   return out}
 function sub(me,sym,period,cb){if(period&&period.timespan==="tick")return;const g=gOf(period);subs.set(me,{t:sym.ticker,g,cb,lastB:bucket(S.cur,g)});ensureBase(sym.ticker,bucket(S.cur,g),S.cur+600*MIN).catch(()=>{})}
 function unsub(me){subs.delete(me)}

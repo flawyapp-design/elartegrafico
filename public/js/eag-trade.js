@@ -374,6 +374,9 @@ window.EAGTrade={
     if(ws&&ws.readyState===1){any=true;try{await dvHistory(tk,out)}catch(e){}}
     if(!any)throw new Error("Conecta tu cuenta en el panel Operar para ver tu historial en el gráfico.");
     return out.sort((a,b)=>a.openT-b.openT)},
-  open,close,isOpen:()=>!!panel&&!panel.hidden,onChange:()=>{onChange();window.EAGCT&&window.EAGCT.onChange();window.EAGMT5B&&window.EAGMT5B.onChange()},
+  open,close,isOpen:()=>!!panel&&!panel.hidden,
+  /* clic derecho en el gráfico: operar ahí mismo */
+  ctxItems(price){const L=[];try{if(window.EAGMT5B&&window.EAGMT5B.ctxItems)L.push(...window.EAGMT5B.ctxItems(price))}catch(e){}L.push({k:"trd",t:panel&&!panel.hidden?"Cerrar panel Operar":"💹 Abrir panel Operar"});return L},
+  ctxDo(k,price){if(k==="trd"){panel&&!panel.hidden?close():open();return}if(/^mt5/.test(k)&&window.EAGMT5B)window.EAGMT5B.ctxDo(k,price)},onChange:()=>{onChange();window.EAGCT&&window.EAGCT.onChange();window.EAGMT5B&&window.EAGMT5B.onChange()},
   _test:{parseAccounts,onPoc,contracts:()=>contracts,lines:()=>lineMap,dragS:()=>drag}};
 })();
