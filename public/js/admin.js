@@ -4,14 +4,14 @@
 "use strict";
 const A=window.AGAPP;const {$,$$,esc,API,S,toast,busy,fmtT,fmtDate,fmtDT,TZ,MARKETS,MNAME,h1Bars,m5Bars,idxAt,avgRange,toC,Chart,app}=A;
 let tab="resumen";
-const GROUPS=[["General",["resumen","embudo","chartslive","chat"]],["Academia",["cursos","biblioteca","contenido","ejercicios","banners","noticias","archivos"]],["Retos y puntos",["top","retos","afiliados","canjes","rpuntos"]],["Alumnos",["alumnos","pagos","resenas","opiniones","chartsop","notif"]],["Sitio",["sitio","legal"]]];
-const TICO={embudo:"users",chartslive:"chart",top:"star",chat:"chat",cursos:"acad",biblioteca:"book",retos:"bolt",afiliados:"users",canjes:"card",rpuntos:"gear",resumen:"chart",sitio:"site",banners:"image",contenido:"layers",ejercicios:"acad",noticias:"news",opiniones:"star",chartsop:"chart",resenas:"msg",pagos:"card",alumnos:"users",archivos:"folder",notif:"bell",legal:"scale"};
+const GROUPS=[["General",["resumen","embudo","chartslive","chat"]],["Academia",["cursos","intensivo","biblioteca","contenido","ejercicios","banners","noticias","archivos"]],["Retos y puntos",["top","retos","afiliados","canjes","rpuntos"]],["Alumnos",["alumnos","pagos","resenas","opiniones","chartsop","notif"]],["Sitio",["sitio","legal"]]];
+const TICO={embudo:"users",chartslive:"chart",top:"star",chat:"chat",cursos:"acad",biblioteca:"book",intensivo:"bolt",retos:"bolt",afiliados:"users",canjes:"card",rpuntos:"gear",resumen:"chart",sitio:"site",banners:"image",contenido:"layers",ejercicios:"acad",noticias:"news",opiniones:"star",chartsop:"chart",resenas:"msg",pagos:"card",alumnos:"users",archivos:"folder",notif:"bell",legal:"scale"};
 const TDESC={embudo:"Dónde se quedan tus alumnos: registrados → abren los charts → se verifican → pagan plan. Con la lista de quién falta y el recordatorio automático para hacerse Miembro verificado.",chartslive:"Quién está usando EAG Charts ahora mismo: mercado, temporalidad, dispositivo y hace cuánto entró. Se actualiza solo.",chat:"Conversaciones privadas con cada alumno. Se borran solas a los días que definas, o al instante con Finalizar.",cursos:"Cursos que se venden sueltos (de por vida) y cómo se ven los planes Cobre, Plata y Oro.",retos:"Crea el reto del día: cuestionario, ¿sube o baja? o marcar la zona. Los primeros en acertar ganan puntos.",afiliados:"Verifica quién abrió su cuenta de Deriv con tu enlace de socio: ganan los puntos completos.",
   top:"Los 10 primeros del ranking. Suma o quita puntos o saldo en dólares a cualquier alumno.",canjes:"Retiros de saldo de los retos express y canjes de puntos: paga y márcalos.",rpuntos:"Activa los retos, define cuánto vale cada punto y el mínimo para canjear.",resumen:"Cómo va la academia: alumnos, visitas y actividad.",sitio:"Textos, portada, precios, enlaces y datos de contacto de la web.",banners:"Imágenes y mensajes del carrusel de la portada y del ingreso.",
-  contenido:"Módulos, lecciones, videos y el orden del temario.",biblioteca:"Clases grabadas que se venden aparte: videos, precio, quién las ve y cuánto, calificaciones, preguntas y las clases personales de 2 horas.",ejercicios:"Gráficas, cálculos y preguntas de cada lección y de la práctica.",noticias:"Publicaciones de la comunidad y avisos.",
+  contenido:"Módulos, lecciones, videos y el orden del temario.",intensivo:"GII · Grupal Intensivo e Inmersivo: precio, cupo mínimo para abrirlo, fechas y cuántos días quedan activos el Replay y la Práctica después.",biblioteca:"Clases grabadas que se venden aparte: videos, precio, quién las ve y cuánto, calificaciones, preguntas y las clases personales de 2 horas.",ejercicios:"Gráficas, cálculos y preguntas de cada lección y de la práctica.",noticias:"Publicaciones de la comunidad y avisos.",
   opiniones:"Opiniones públicas de los alumnos: aprueba u oculta.",chartsop:"Quién ha usado EAG Charts y qué recomiendan mejorar.",resenas:"Lo que dicen los alumnos al terminar cada módulo (privado).",pagos:"Pagos de Binance por confirmar y el historial.",
   alumnos:"Cuentas, premium, puntos y avance de cada alumno.",archivos:"Imágenes y archivos subidos.",notif:"Envía avisos al celular de los alumnos.",legal:"Términos, privacidad y avisos legales."};
-const TABS=[["biblioteca","Biblioteca de clases"],["embudo","Embudo de alumnos"],["chartslive","Charts en vivo"],["chat","Mensajes"],["cursos","Cursos y planes"],["top","Top, puntos y saldo"],["retos","Retos diarios"],["afiliados","Miembros verificados"],["canjes","Canjes"],["rpuntos","Ajustes de puntos"],["resumen","Estadísticas"],["sitio","Sitio y textos"],["banners","Banners"],["contenido","Módulos y lecciones"],["ejercicios","Ejercicios"],["noticias","Noticias"],["opiniones","Opiniones"],["chartsop","EAG Charts: ajustes y opiniones"],["resenas","Reseñas de módulos"],["pagos","Pagos"],["alumnos","Alumnos"],["archivos","Archivos"],["notif","Notificaciones"],["legal","Legal"]];
+const TABS=[["intensivo","Intensivo GII"],["biblioteca","Biblioteca de clases"],["embudo","Embudo de alumnos"],["chartslive","Charts en vivo"],["chat","Mensajes"],["cursos","Cursos y planes"],["top","Top, puntos y saldo"],["retos","Retos diarios"],["afiliados","Miembros verificados"],["canjes","Canjes"],["rpuntos","Ajustes de puntos"],["resumen","Estadísticas"],["sitio","Sitio y textos"],["banners","Banners"],["contenido","Módulos y lecciones"],["ejercicios","Ejercicios"],["noticias","Noticias"],["opiniones","Opiniones"],["chartsop","EAG Charts: ajustes y opiniones"],["resenas","Reseñas de módulos"],["pagos","Pagos"],["alumnos","Alumnos"],["archivos","Archivos"],["notif","Notificaciones"],["legal","Legal"]];
 A.ROUTES.admin=sub=>{
   if(!A.admin()){app.innerHTML=`<div class="empty">Esta sección es solo para administradores.<a class="btn sm" href="#inicio">Volver</a></div>`;return}
   let chatU=null;if(sub&&/^chat-/.test(sub)){tab="chat";chatU=sub.slice(5)}else if(sub&&TABS.some(t=>t[0]===sub))tab=sub;
@@ -50,7 +50,7 @@ A.ROUTES.admin=sub=>{
     acL.onsubmit=e=>{e.preventDefault();const v=fromLoc($("#acAt").value);if(!v){toast("Elige la fecha y la hora");return}if(new Date(v)<=new Date()){toast("Elige una fecha futura");return}sv(v)};
     const x=$("#acX");if(x)x.onclick=()=>sv(null)}
   if(tab==="chat")return chat(chatU);
-  ({biblioteca,embudo,chartslive,cursos,resumen,sitio,banners,contenido,ejercicios,noticias,opiniones,chartsop,resenas,pagos,alumnos,archivos,notif,legal,retos,afiliados,canjes,rpuntos,top})[tab]();
+  ({intensivo,biblioteca,embudo,chartslive,cursos,resumen,sitio,banners,contenido,ejercicios,noticias,opiniones,chartsop,resenas,pagos,alumnos,archivos,notif,legal,retos,afiliados,canjes,rpuntos,top})[tab]();
   const badge=(k,n)=>{const b=document.querySelector(`[data-badge="${k}"]`);if(b&&n){b.textContent=n;b.classList.add("on")}};
   if(API.dmBadge)API.dmBadge().then(b=>badge("chat",b&&b.unread)).catch(()=>{});
   if(API.adminAffiliates)API.adminAffiliates().then(l=>badge("afiliados",(l||[]).filter(x=>x.status==="pendiente").length)).catch(()=>{});
@@ -1079,6 +1079,25 @@ async function alumnos(){
 }
 
 /* ---------- cursos y planes ---------- */
+/* ---------- GII · Grupal Intensivo e Inmersivo ---------- */
+async function intensivo(){const G=S.gii;
+  if(!G){H().innerHTML=`<div class="empty">Falta crear el intensivo. Corre <b>supabase/intensivo.sql</b> en Supabase → SQL Editor y vuelve a abrir esta sección.</div>`;return}
+  const c=Object.assign({min:30,max:50,days:60,when:"Fechas y horario: se confirman al completar el cupo",noCupo:"Si no se completa el cupo, te devolvemos tu pago completo.",off:false},(S.site||{}).gii||{});
+  let n=null;try{n=await API.giiCupo()}catch(e){}
+  H().innerHTML=`<div class="note">El GII se vende aparte (pago único) con el mismo flujo de pagos. Al aprobar el pago, el alumno queda inscrito y en EAG Charts se le abren los gráficos, el Replay y la Práctica. Para inscribir a alguien a mano: <a href="#admin-alumnos">Alumnos</a> → Dar curso. Página pública: <a href="${A.toMain?A.toMain("intensivo"):"#intensivo"}" target="_blank" rel="noopener">ver el GII</a>.</div>
+    <div class="panel" style="max-width:640px;margin-bottom:14px"><b style="font-size:28px">${n==null?"—":n}</b> <span class="muted">inscritos de ${+c.min} para abrir el grupo${n!=null&&n>=+c.min?" · ✓ cupo completo":""}</span></div>
+    <form class="form panel" id="gif" style="max-width:640px"><h3>Precio y ajustes</h3>
+      <div class="two"><label for="giT">Nombre<input id="giT" maxlength="80" value="${esc(G.title)}"></label><label for="giP">Precio<input id="giP" maxlength="30" value="${esc(G.price||"50 USD")}"></label></div>
+      <div class="three"><label for="giMn">Cupo mínimo para abrir<input id="giMn" type="number" min="1" max="500" value="${+c.min}"></label><label for="giMx">Cupo máximo<input id="giMx" type="number" min="1" max="500" value="${+c.max}"></label><label for="giD">Días de Replay y Práctica después (0 = sin límite)<input id="giD" type="number" min="0" max="3650" value="${+c.days}"></label></div>
+      <label for="giE">Día en que termina el intensivo (desde aquí cuentan los días de Replay y Práctica; vacío = siguen activos)<input id="giE" type="date" value="${esc(c.end||"")}"></label>
+      <label for="giW">Fechas y horario (texto que se muestra)<input id="giW" maxlength="160" value="${esc(c.when)}"></label>
+      <label for="giN">Qué pasa si no se completa el cupo<input id="giN" maxlength="200" value="${esc(c.noCupo)}"></label>
+      <label class="chk"><input type="checkbox" id="giO" ${G.status!=="borrador"&&!c.off?"checked":""}> <b>Inscripciones abiertas</b>: se ve en la web y se puede pagar</label>
+      <div class="row"><button class="btn gold" id="giS">Guardar</button></div></form>`;
+  $("#gif").onsubmit=async e=>{e.preventDefault();const open=$("#giO").checked;const mn=Math.max(1,+$("#giMn").value||30);
+    const ns=Object.assign({},S.site,{gii:Object.assign({},c,{min:mn,max:Math.max(mn,+$("#giMx").value||mn),days:Math.max(0,+$("#giD").value||0),when:$("#giW").value.trim()||c.when,noCupo:$("#giN").value.trim()||c.noCupo,end:$("#giE").value||"",off:!open})});
+    try{busy($("#giS"),true);await API.saveCourse({id:G.id,title:$("#giT").value.trim()||G.title,price:$("#giP").value.trim()||"50 USD",status:open?"publicado":"borrador"});await API.saveSite(ns);S.site=ns;await A.loadContent();toast("Intensivo guardado");intensivo()}catch(x){toast(x.message);const b=$("#giS");if(b)busy(b,false)}};
+}
 /* ---------- biblioteca de clases ---------- */
 let libTab="videos";
 async function biblioteca(){const L=S.lib;
@@ -1175,7 +1194,7 @@ async function biblioteca(){const L=S.lib;
   $("#lsf").onsubmit=async e=>{e.preventDefault();const open=$("#lsO").checked;const ns=Object.assign({},S.site,{lib:Object.assign({},c,{hours:$("#lsH").value.trim()||"Más de 10 horas",minPct:Math.max(0,Math.min(100,+$("#lsM").value||0)),classHours:Math.max(1,+$("#lsC").value||2),off:!open})});
     try{busy($("#lsS"),true);await API.saveCourse({id:L.id,title:$("#lsT").value.trim()||"Biblioteca de clases",price:$("#lsP").value.trim()||"50 USD",status:open?"publicado":"borrador"});await API.saveSite(ns);S.site=ns;await A.loadContent();toast("Biblioteca guardada");biblioteca()}catch(x){toast(x.message);const b=$("#lsS");if(b)busy(b,false)}};
 }
-async function cursos(){let L=[];try{L=(await API.courses()).filter(c=>c.kind!=="biblioteca")}catch(e){H().innerHTML=`<div class="empty">No se pudieron cargar los cursos. ¿Ya corriste <b>supabase/planes_cursos.sql</b>?<span class="dim">${esc(e.message)}</span></div>`;return}
+async function cursos(){let L=[];try{L=(await API.courses()).filter(c=>c.kind!=="biblioteca"&&c.kind!=="intensivo")}catch(e){H().innerHTML=`<div class="empty">No se pudieron cargar los cursos. ¿Ya corriste <b>supabase/planes_cursos.sql</b>?<span class="dim">${esc(e.message)}</span></div>`;return}
   const mods=S.modules||[];
   H().innerHTML=`<div class="note">Los suscriptores <b>Cobre, Plata y Oro</b> ven <b>todos</b> los cursos. El curso suelto se compra una vez y es del alumno <b>de por vida</b>. Los precios y los días de Cobre (1 mes), Plata (6 meses) y Oro (12 meses) se editan en <a href="#admin-sitio">Sitio → Planes</a>: el nombre del plan sale de los días (hasta 149 = Cobre, 150-299 = Plata, 300 o más = Oro).</div>
     <div class="split"><div class="panel"><div class="sec-h"><h3>Cursos</h3><button class="btn sm gold" id="ncu">Nuevo curso</button></div>

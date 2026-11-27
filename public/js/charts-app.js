@@ -162,7 +162,7 @@ function loginGate(mode){mode=mode||"in";const ts=!!CFG.TURNSTILE_SITE_KEY;
 window.__chartsLogout=async()=>{try{await API.signOut()}catch(e){}try{sessionStorage.clear()}catch(e){}location.reload()};
 (async function(){
   try{await API.init()}catch(e){}
-  window.chartsPlan=()=>{try{if(API.isAdmin())return true;if(!API.isPremium())return false;const p=(API.profile&&API.profile())||{};return["plata","oro","diamond"].includes(String(p.plan||"").toLowerCase())}catch(e){return false}};
+  window.chartsPlan=()=>{try{if(API.isAdmin()||window.__gii)return true;if(!API.isPremium())return false;const p=(API.profile&&API.profile())||{};return["plata","oro","diamond"].includes(String(p.plan||"").toLowerCase())}catch(e){return false}};
   try{if(API.user()&&localStorage.getItem("ag_oauth_back")==="charts")localStorage.removeItem("ag_oauth_back")}catch(e){}
   if(!API.user())return loginGate();
   /* la conexión con Deriv arranca ya, mientras se revisa la cuenta (antes esperaba a que todo lo demás terminara) */
@@ -178,6 +178,10 @@ window.__chartsLogout=async()=>{try{await API.signOut()}catch(e){}try{sessionSto
     pState=(!fastBoot&&API.chartState)?API.chartState().catch(()=>null):Promise.resolve(null);
   let SITE0={};try{SITE0=(await pSite)||{}}catch(e){SITE0={}}
   window.__site0=SITE0;const freeOn=SITE0.chartFree!==false;
+  /* GII (intensivo en vivo): quien lo compró tiene los charts, el Replay y la Práctica durante el intensivo y los días que diga el admin después de que termine */
+  try{const [cs,mc]=await Promise.all([API.courses?API.courses().catch(()=>[]):[],API.myCourses?API.myCourses().catch(()=>[]):[]]);const g=(cs||[]).find(c=>c.kind==="intensivo");
+    const m=g&&(mc||[]).find(x=>(x.course_id||x)===g.id);window.__gii=false;
+    if(m){const c=SITE0.gii||{},d=+(c.days!=null?c.days:60),end=c.end?new Date(c.end+"T23:59:59-05:00").getTime():0;window.__gii=!end||!d||Date.now()<end+d*864e5;window.__giiUntil=end&&d?end+d*864e5:0}}catch(e){window.__gii=false}
   /* afiliados de Deriv verificados: desbloquean gratis las funciones que elija el admin (Admin → EAG Charts) */
   try{const me=(API.profile&&API.profile())||{};const on=SITE0.chartAffOn!==false;window.__affKeys=new Set(me.affiliate&&on?(Array.isArray(SITE0.chartAff)?SITE0.chartAff:["tools","ind","alerts","az"]):[]);window.__aff=!!me.affiliate}catch(e){window.__affKeys=new Set();window.__aff=false}
   if(!chartsPlan()){
@@ -929,7 +933,7 @@ function start(){
   let SITE={};try{API.site&&API.site().then(d=>{SITE=d||{}}).catch(()=>{})}catch(e){}
   /* Replay: desde Oro. Práctica guiada: solo Diamond. El admin puede abrir ambos en la prueba. */
   const planRank=()=>{try{if(API.isAdmin())return 9;if(!API.isPremium())return 0;return({cobre:1,plata:2,oro:3,diamond:4})[String(((API.profile&&API.profile())||{}).plan||"").toLowerCase()]||0}catch(e){return 0}};
-  const proAccess=mode=>{const need=mode==="replay"?3:4,r=planRank();if(r>=need)return{ok:true};
+  const proAccess=mode=>{const need=mode==="replay"?3:4,r=planRank();if(r>=need||window.__gii)return{ok:true};
     if(AFFK.has(mode==="replay"?"replay":"prac"))return{ok:true};
     if(window.__trial&&SITE.chartProTrial)return{ok:true};
     return{ok:false,need,why:mode==="replay"?"El Replay del mercado es exclusivo del plan Oro: mira el mercado vela por vela, en varias temporalidades a la vez y con operaciones simuladas.":"La Práctica guiada es exclusiva del plan Diamond: estudia con mercado real proyección, zonas, rompimientos e impulsos, con corrección al instante."}};

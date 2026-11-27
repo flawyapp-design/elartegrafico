@@ -252,14 +252,14 @@ function renderNav(){sideState();viewBar();document.body.classList.toggle("is-ac
   const it=(href,t,ic,on,x={})=>({href,t,ic,on,...x});
   const G=[];
   if(sec==="main"){
-    G.push(["Comunidad",[it(toMain("inicio"),"Inicio","home",r==="inicio"),it(toMain("comunidad"),"Noticias","news",r==="comunidad"),it(toMain("opiniones"),"Opiniones","star",r==="opiniones"),it(toMain("mercados"),"Mercados","chart",r==="mercados"),it(toMain("miembro"),(API.profile()||{}).affiliate?"Miembro verificado":"Hazte miembro","medal",r==="miembro",(API.profile()||{}).affiliate?{}:{gold:1,badge:"Gratis"})]]);
+    G.push(["Comunidad",[it(toMain("inicio"),"Inicio","home",r==="inicio"),it(toMain("comunidad"),"Noticias","news",r==="comunidad"),it(toMain("opiniones"),"Opiniones","star",r==="opiniones"),it(toMain("mercados"),"Mercados","chart",r==="mercados"),...(giiOn()?[it(toMain("intensivo"),"Intensivo GII","bolt",r==="intensivo",{gold:1,badge:"Nuevo"})]:[]),it(toMain("miembro"),(API.profile()||{}).affiliate?"Miembro verificado":"Hazte miembro","medal",r==="miembro",(API.profile()||{}).affiliate?{}:{gold:1,badge:"Gratis"})]]);
     if(rw)G.push(["Juega y gana",[it(toMain("retos"),"Retos diarios","bolt",r==="retos"),it(toMain("ranking"),"Ranking","trophy",r==="ranking")].concat(u&&p?[it(toMain("puntos"),"Saldo y puntos","card",r==="puntos")]:[])]);
     if(u&&p)G.push(["Tu cuenta",[it(toMain("oro"),"Sala Oro","crown",r==="oro"),it(toMain("mensajes"),"Mensajes","msg",r==="mensajes",{badge:S.dm&&S.dm.unread})]]);
   }else if(sec==="acad"){
     if(ACAD&&u&&p&&!(closedAcad()&&!admin())){
       G.push(["Aprender",[it("#inicio","Mi panel","home",r==="inicio"),it("#academia","Temario","acad",["academia","modulo","leccion"].includes(r)),it("#practica","Práctica","chart",r==="practica")].concat(libOn()?[it("#biblioteca","Biblioteca de clases","book",["biblioteca","clase"].includes(r))]:[])]);
       G.push(["Tu avance",[it("#logros","Logros","medal",r==="logros"),it("#progreso","Progreso","layers",r==="progreso")].concat(premium()?[]:[it("#prueba","Prueba gratis","play",r==="prueba")])]);
-      G.push(["Más",[it("#presentacion-precios","Planes y precios","crown",r==="presentacion"&&ra==="precios"),it("#presentacion","Presentación","news",r==="presentacion"&&ra!=="precios")]]);
+      G.push(["Más",[...(giiOn()?[it(toMain("intensivo"),"Intensivo GII","bolt",false,{gold:1})]:[]),it("#presentacion-precios","Planes y precios","crown",r==="presentacion"&&ra==="precios"),it("#presentacion","Presentación","news",r==="presentacion"&&ra!=="precios")]]);
     }else{
       const pa=k=>toAcad("presentacion"+(k?"-"+k:"")),on=k=>r==="presentacion"&&(ra||"")===k;
       G.push(["Academia",[it(pa(""),"Presentación","acad",on("")),it(pa("aprende"),"Qué vas a aprender","bolt",on("aprende")),it(pa("profe"),"Quién te enseña","users",on("profe")),it(pa("temario"),"Temario","layers",on("temario")),it(pa("precios"),"Planes y precios","crown",on("precios")||r==="premium"),...(libOn()?[it(toAcad("biblioteca"),"Biblioteca de clases","book",["biblioteca","clase"].includes(r))]:[]),it(pa("faq"),"Preguntas frecuentes","news",on("faq"))]]);
@@ -734,6 +734,7 @@ function pricingBlock(host,o={}){if(!host)return;const s=S.site;const pl=(s.plan
     <div class="dur-row"><span>Elige por cuánto tiempo: <b>entre más tiempo, más ahorras</b>.</span>${durBar}</div>
     <div class="prices tiers4">${plans}</div>
     ${courses?`<div class="crs-wrap">${courses}</div>`:""}
+    ${giiOn()?giiCard(o,btn,cur):""}
     ${libOn()?libCard(o,btn,cur):""}
     <p class="dim price-foot">${off?"Los pagos están pausados por ahora: te avisaremos cuando abran.":"Pagas con Binance Pay en USDT y activamos tu plan o tu curso al confirmar el pago. Sin cobros automáticos: cuando se acaba tu tiempo, renuevas si quieres."} Los planes incluyen <b>todos</b> los cursos; el curso suelto es solo ese curso, para siempre.${libOn()?" La biblioteca de clases se compra aparte y también es para siempre.":""}${bases.length?` El curso <b>${esc(bases.map(b=>b.title).join(" y "))}</b> es gratis con tu cuenta.`:""}</p>`;
   $$("[data-adur]",host).forEach(b=>b.onclick=()=>{const m=+b.dataset.adur;PRICE_SEL.__all=m;tiers.forEach(t=>{PRICE_SEL[t]=m});pricingBlock(host,o)});
@@ -800,7 +801,7 @@ async function memberHome(){
     ["chat","Comunidad",s.discordUrl?"Entrar al Discord":"Opiniones de alumnos",s.discordUrl||"#opiniones",!!s.discordUrl],
     ["gear","Configuración","Perfil, app y avisos","#perfil"]];
   const acadCta=cerr?`<span class="pill">Abre muy pronto</span>`:prem?(nx?`<a class="btn gold btn-ic" href="${toAcad("leccion-"+nx.id)}">${ico("play",18)}<span>Continuar lección</span></a>`:`<a class="btn gold" href="${toAcad("practica")}">Ir a práctica</a>`):`<a class="btn gold" href="${toAcad("inicio")}">Entrar a la academia</a><a class="btn" href="${toAcad("presentacion-precios")}">Ver planes</a>`;
-  app.innerHTML=`<div id="appCard"></div>${launchBox(true)}
+  app.innerHTML=`<div id="appCard"></div>${giiStrip()}${launchBox(true)}
   <section class="mh">
     <div class="mh-bg" aria-hidden="true"></div>
     <div class="mh-id"><a class="mh-av" href="#perfil" title="Configuración">${avatar(p,84)}<span class="lvchip" title="${esc(lv.name)}">${lv.i+1}</span></a>
@@ -1178,7 +1179,7 @@ async function mainHome(){
   const s=S.site;const nm=esc(s.name||"El Arte Gráfico");
   const dItems=(s.discordItems&&s.discordItems.length?s.discordItems:DISC.items);
   const base=(S.courses||[]).filter(c=>c.base&&c.status!=="borrador");
-  app.innerHTML=`<div id="appCard"></div>${launchBox()}
+  app.innerHTML=`<div id="appCard"></div>${giiStrip()}${launchBox()}
   <section class="hx hx-main">
     <div class="hx-t"><span class="hx-k"><i class="live"></i>Comunidad gratis · Trading</span>
       <h1>Trading con método, <em>en comunidad.</em></h1>
@@ -1568,13 +1569,14 @@ ROUTES.premium=()=>{const s=S.site;const plans=(s.plans||[]).filter(x=>x&&x.name
   const estado={pendiente:'<span class="pill gold">Por confirmar</span>',aprobado:'<span class="pill ok">Aprobado</span>',rechazado:'<span class="pill">Rechazado</span>'};
   draw=async()=>{let mine=[];try{mine=await API.myPayments()}catch(e){}const M=PM.find(x=>x.k===pmK)||PM[0],co=M.k==="breb";
     host.innerHTML=`<form class="form" id="pf" novalidate><h3 style="margin-top:6px">Registrar mi pago</h3>
-      <div class="two"><label for="pP">Qué pagaste<select id="pP">${(sellOn("plans")?plans:[]).map((x,i)=>`<option value="p:${i}">${(TIERS[tierOfPlan(x)]||{}).n||""} · ${esc(x.name)} · ${esc(x.price)}${co&&cop(x.price)?` ≈ ${cop(x.price)}`:""}</option>`).join("")}${(S.courses||[]).filter(c=>c.status!=="borrador"&&!c.base&&!ownsCourse(c.id)&&sellOn("c:"+c.id)).map(c=>`<option value="c:${esc(c.id)}">Curso ${esc(c.title)} · ${esc(c.price||"40 USD")}${co&&cop(c.price||"40 USD")?` ≈ ${cop(c.price||"40 USD")}`:""} · de por vida</option>`).join("")}${S.lib&&libOn()&&!ownsLib()&&sellOn("lib")?`<option value="c:${esc(S.lib.id)}">${esc(S.lib.title)} · ${esc(S.lib.price||"50 USD")}${co&&cop(S.lib.price||"50 USD")?` ≈ ${cop(S.lib.price||"50 USD")}`:""} · de por vida</option>`:""}</select></label>
+      <div class="two"><label for="pP">Qué pagaste<select id="pP">${(sellOn("plans")?plans:[]).map((x,i)=>`<option value="p:${i}">${(TIERS[tierOfPlan(x)]||{}).n||""} · ${esc(x.name)} · ${esc(x.price)}${co&&cop(x.price)?` ≈ ${cop(x.price)}`:""}</option>`).join("")}${(S.courses||[]).filter(c=>c.status!=="borrador"&&!c.base&&!ownsCourse(c.id)&&sellOn("c:"+c.id)).map(c=>`<option value="c:${esc(c.id)}">Curso ${esc(c.title)} · ${esc(c.price||"40 USD")}${co&&cop(c.price||"40 USD")?` ≈ ${cop(c.price||"40 USD")}`:""} · de por vida</option>`).join("")}${S.gii&&giiOn()&&!ownsGii()&&sellOn("gii")?`<option value="c:${esc(S.gii.id)}">${esc(S.gii.title)} · ${esc(S.gii.price||"50 USD")}${co&&cop(S.gii.price||"50 USD")?` ≈ ${cop(S.gii.price||"50 USD")}`:""} · en vivo</option>`:""}${S.lib&&libOn()&&!ownsLib()&&sellOn("lib")?`<option value="c:${esc(S.lib.id)}">${esc(S.lib.title)} · ${esc(S.lib.price||"50 USD")}${co&&cop(S.lib.price||"50 USD")?` ≈ ${cop(S.lib.price||"50 USD")}`:""} · de por vida</option>`:""}</select></label>
       <label for="pO">${esc(M.ref)}<input id="pO" ${M.k==="binance"?'inputmode="numeric" ':""}autocomplete="off" placeholder="${esc(M.ph)}" maxlength="80"></label></div>
       <label for="pN">Nota (opcional)<input id="pN" maxlength="300" placeholder="Ej.: pagué desde la cuenta de mi hermano"></label>
       <div class="err" id="pE" role="alert"></div><div class="row"><button class="btn gold" id="pB">Registrar pago</button></div></form>
       ${mine.length?`<h3>Mis pagos</h3><div class="list">${mine.map(r=>`<div class="item"><span class="txt"><b>${esc(r.plan)} · ${esc(r.amount)}</b><span>${({breb:"Bre-B",airtm:"Airtm"})[r.method]||"Binance"} · ${esc(r.order_id)} · ${fmtDT(r.created_at)}${r.status==="rechazado"&&r.admin_note?` · ${esc(r.admin_note)}`:""}</span></span>${estado[r.status]||""}</div>`).join("")}</div>`:""}`;
     if(/-biblioteca$/.test(location.hash)&&S.lib&&$(`#pP option[value="c:${S.lib.id}"]`))$("#pP").value="c:"+S.lib.id;
-    $("#pf").onsubmit=async e=>{e.preventDefault();const pv=$("#pP").value||"p:0";const crs=pv.startsWith("c:")?(S.courses||[]).concat(S.lib?[S.lib]:[]).find(c=>c.id===pv.slice(2)):null;const pl=crs?{name:crs.kind==="biblioteca"?crs.title:"Curso "+crs.title,days:30,price:crs.price||"40 USD"}:(plans[+pv.slice(2)]||plans[0]);const oid=$("#pO").value.replace(/\s+/g,"");
+    if(/-intensivo$/.test(location.hash)&&S.gii&&$(`#pP option[value="c:${S.gii.id}"]`))$("#pP").value="c:"+S.gii.id;
+    $("#pf").onsubmit=async e=>{e.preventDefault();const pv=$("#pP").value||"p:0";const crs=pv.startsWith("c:")?(S.courses||[]).concat(S.lib?[S.lib]:[],S.gii?[S.gii]:[]).find(c=>c.id===pv.slice(2)):null;const pl=crs?{name:crs.kind==="biblioteca"||crs.kind==="intensivo"?crs.title:"Curso "+crs.title,days:30,price:crs.price||"40 USD"}:(plans[+pv.slice(2)]||plans[0]);const oid=$("#pO").value.replace(/\s+/g,"");
       if(!(M.k==="binance"?/^[A-Za-z0-9-]{4,80}$/:/^[A-Za-z0-9._#:\/-]{4,80}$/).test(oid)){$("#pE").textContent=M.k==="binance"?"Escribe el ID de orden tal como sale en Binance (solo números y letras).":"Escribe la referencia tal como sale en tu comprobante (números y letras).";return}
       try{busy($("#pB"),true);await API.payRequest({method:M.k,plan:pl.name,days:pl.days,amount:co&&cop(pl.price)?`${pl.price} (${cop(pl.price)})`:pl.price,order_id:oid,note:$("#pN").value.trim(),course_id:crs?crs.id:null});pop({icon:"coin",kicker:"Pago registrado",title:"Estamos confirmando tu pago",text:"Te avisamos apenas lo activemos. Tu pago quedó en Mensajes: si se demora, escríbenos por ahí."});draw()}
       catch(x){$("#pE").textContent=/duplicate|unique|ya fue registrado/i.test(x.message)?"Ese ID de orden ya fue registrado.":x.message}finally{const b=$("#pB");if(b)busy(b,false)}}};
@@ -1676,6 +1678,95 @@ function videoBlock(host,l){
   host.innerHTML=`<div class="video" style="aspect-ratio:auto;min-height:160px"><div class="ph"><b>Video de la lección</b><a class="btn gold" href="${esc(u)}" target="_blank" rel="noopener">Ver el video</a></div></div>`;
 }
 
+/* ---------- GII · Grupal Intensivo e Inmersivo (en vivo, dentro de EAG Charts) ---------- */
+const giiCfg=()=>Object.assign({min:30,max:50,days:60,when:"Fechas y horario: se confirman al completar el cupo",noCupo:"Si no se completa el cupo, te devolvemos tu pago completo.",hours:"",off:false},(S.site||{}).gii||{});
+const giiOn=()=>!!S.gii&&((S.gii.status!=="borrador"&&!giiCfg().off)||API.isAdmin());
+const ownsGii=()=>!!S.gii&&!!S.myCourses&&S.myCourses.has(S.gii.id);
+function giiStrip(){if(!giiOn())return"";return`<a class="gii-strip" href="${toMain("intensivo")}"><span class="gs-dot"></span><span class="gs-m">GII</span><span class="gs-t"><b>Grupal Intensivo e Inmersivo</b><small>Clases en vivo conmigo, dentro de nuestra plataforma de gráficos. ${ownsGii()?"Ya tienes tu cupo.":"Reserva tu cupo."}</small></span><span class="gs-go">${ownsGii()?"Ver":"Ver el GII"} →</span></a>`}
+/* gráfico de la clase dibujado: velas, zonas con nombre, puntero del profe y barra de replay */
+function giiChart(){const W=560,H=330,N=46;let seed=7;const r=()=>{seed=(seed*16807)%2147483647;return seed/2147483647};
+  /* recorrido: cae a la demanda (Sofi), rebota fuerte a la oferta (Juan) y vuelve al nivel del profe */
+  const path=[[0,120],[12,238],[16,226],[19,244],[31,104],[35,118],[38,98],[45,166]];const at=i=>{for(let k=1;k<path.length;k++)if(i<=path[k][0]){const [a,ya]=path[k-1],[b,yb]=path[k];return ya+(yb-ya)*(i-a)/(b-a)}return path[path.length-1][1]};
+  const C=[];let p=at(0);for(let i=0;i<N;i++){const o=p,t=at(i+1);p=t+(r()-.5)*10;const h=Math.min(o,p)-2-r()*8,l=Math.max(o,p)+2+r()*8;C.push({o,c:p,h,l})}
+  const lo=Math.max(...C.slice(8,22).map(k=>k.l)),hi=Math.min(...C.slice(26,40).map(k=>k.h));
+  const x=i=>24+i*11.4;
+  const candles=C.map((k,i)=>{const up=k.c<k.o;return`<g class="${up?"u":"d"}" style="--i:${i}"><line x1="${x(i)}" x2="${x(i)}" y1="${k.h.toFixed(1)}" y2="${k.l.toFixed(1)}"/><rect x="${(x(i)-3.6).toFixed(1)}" y="${Math.min(k.o,k.c).toFixed(1)}" width="7.2" height="${Math.max(1.5,Math.abs(k.c-k.o)).toFixed(1)}" rx="1"/></g>`}).join("");
+  const zy1=lo-26,zy2=hi-2;
+  return`<svg class="gii-svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="Así se ve una clase: cada alumno marca zonas con su nombre sobre el mismo gráfico">
+    <defs><pattern id="giig" width="56" height="41" patternUnits="userSpaceOnUse"><path d="M56 0H0V41" fill="none" stroke="currentColor" stroke-opacity=".07"/></pattern></defs>
+    <rect width="${W}" height="${H}" fill="url(#giig)"/>
+    <g class="gz z1"><rect x="${x(10)}" y="${zy1.toFixed(1)}" width="${W-x(10)-14}" height="28" rx="3"/><text x="${x(10)+7}" y="${(zy1+44).toFixed(1)}">Sofi · demanda H1</text></g>
+    <g class="gz z2"><rect x="${x(27)}" y="${(zy2-6).toFixed(1)}" width="${W-x(27)-14}" height="24" rx="3"/><text x="${x(27)+7}" y="${(zy2-12).toFixed(1)}">Juan · oferta</text></g>
+    <g class="gz z3"><line x1="22" x2="${W-14}" y1="166" y2="166"/><text x="26" y="160">Profe · nivel clave</text></g>
+    <g class="gc">${candles}</g>
+    <g class="glz"><circle cx="${x(41)}" cy="166" r="11"/><circle cx="${x(41)}" cy="166" r="4.5"/></g>
+  </svg>`}
+ROUTES.intensivo=async()=>{
+  if(!S.gii||!giiOn()){app.innerHTML=`<div class="empty">El GII todavía no está disponible.<a class="btn sm" href="${toMain("inicio")}">Volver</a></div>`;return}
+  const c=giiCfg(),G=S.gii,mine=ownsGii(),pr=String(G.price||"50 USD"),num=pr.replace(/\s*[A-Za-z]+$/,""),curr=(pr.match(/[A-Za-z]+$/)||["USD"])[0];
+  const libP=S.lib&&libOn()?String(S.lib.price||"30 USD"):null;
+  const sell=sellOn("c:"+G.id)&&sellOn("gii");
+  const cta=mine?`<span class="gii-own">✓ Ya tienes tu cupo</span>`:!sell?`<span class="btn disabled" aria-disabled="true">Inscripciones pronto</span>`:`<a class="gii-btn" href="${logged()?toAcad("premium-intensivo"):"#registro"}">Quiero mi cupo</a>`;
+  const days=+c.days||0;
+  app.innerHTML=`<article class="gii">
+  <section class="gii-hero">
+    <div class="gii-ht">
+      <p class="gii-k"><i class="gii-live"></i>En vivo conmigo · dentro de EAG Charts</p>
+      <h1 class="gii-h"><span><b>G</b>rupal</span><span><b>I</b>ntensivo</span><span><em>e</em> <b>I</b>nmersivo</span></h1>
+      <p class="gii-lead">No es mirar una pantalla compartida. Cada uno está en su propio gráfico, en nuestra propia plataforma: estudiamos juntos en replay, marcas tus zonas y yo veo cómo lo haces, en vivo.</p>
+      <div class="gii-buy"><div class="gii-price"><b>${esc(num)}</b><span>${esc(curr)}</span></div><div class="gii-buyt">${cta}<small>Pago único · ${days?`Replay y Práctica activos ${days} días después del intensivo`:"Replay y Práctica activos después del intensivo"}</small></div></div>
+      <div class="gii-cupo" id="giiCupo"><div class="gc-h"><b>Cupo</b><span data-n>…</span></div><div class="gc-bar"><i data-b style="width:0"></i><em style="left:${Math.min(100,100*c.min/Math.max(c.min,c.max||c.min))}%"></em></div><p>Se realiza <b>si se completa el cupo</b> de ${+c.min} personas. ${esc(c.noCupo)}</p></div>
+    </div>
+    <div class="gii-hv"><div class="gii-win">
+      <div class="gw-top"><span class="gw-dots"><i></i><i></i><i></i></span><b>Boom 1000 · 15m</b><span class="gw-rp">⏪ Replay de la clase</span></div>
+      ${giiChart()}
+      <div class="gw-chips"><span class="ch c1"><i></i>Sofi está marcando</span><span class="ch c2">✋ Juan levantó la mano</span><span class="ch c3">👁 El profe ve tu gráfico</span></div>
+      <div class="gw-bar"><span class="gw-play">▶</span><span class="gw-track"><i></i></span><span class="gw-t">12 mar · 09:30</span></div>
+    </div></div>
+  </section>
+
+  <section class="gii-sec gii-vs"><h2>Por qué es diferente</h2>
+    <div class="gii-cmp">
+      <div class="gc-a"><h3>Una clase normal en línea</h3><ul><li>Miras la pantalla del profe, como un video</li><li>No tocas el gráfico durante la clase</li><li>Preguntas por el chat y esperas</li><li>Nadie sabe si de verdad entendiste</li></ul></div>
+      <div class="gc-b"><h3>El GII</h3><ul><li>Cada uno en su propio gráfico, en vivo</li><li>Marcas zonas y salen con tu nombre para todos</li><li>Levantas la mano y hablas conmigo</li><li>Veo tu gráfico y te corrijo en el momento</li></ul></div>
+    </div></section>
+
+  <section class="gii-sec"><h2>Lo que vas a vivir</h2>
+    <div class="gii-f">
+      <div class="gf gf-big"><span class="gf-i">⏪</span><h3>Replay juntos</h3><p>Volvemos a un día del mercado y lo vemos vela por vela, todos al mismo tiempo. Yo doy play y pausa; tú simulas tus entradas y ves si ganabas o perdías.</p></div>
+      <div class="gf"><span class="gf-i">🎯</span><h3>Práctica en vivo</h3><p>Te doy el turno, marcas tu zona y la clase la ve. Así se aprende: haciendo, no solo escuchando.</p></div>
+      <div class="gf"><span class="gf-i">👁</span><h3>Evaluación en tu gráfico</h3><p>Veo tu temporalidad, hacia dónde te mueves y tu cursor. Si sirve para todos, lo muestro a la clase.</p></div>
+      <div class="gf"><span class="gf-i">🔴</span><h3>Mercado real en vivo</h3><p>También revisamos el mercado de ese momento y vemos cómo marca cada uno.</p></div>
+      <div class="gf"><span class="gf-i">🎙</span><h3>Voz, mano y encuestas</h3><p>Me escuchas, levantas la mano para hablar y respondes encuestas rápidas: ¿compra, venta o esperas?</p></div>
+    </div></section>
+
+  <section class="gii-sec gii-met"><div class="gm-t"><h2>El método El Arte Gráfico, actualizado</h2><p>Una forma nueva y más clara de leer el gráfico, con más reglas para saber cuándo entrar, cuándo salir y cuándo no hacer nada. En el intensivo lo aplicas en el gráfico mientras lo explico.</p></div>
+    <div class="gm-r"><div><b>Más reglas</b><span>Menos dudas al decidir</span></div><div><b>Nueva forma</b><span>De marcar y leer las zonas</span></div><div><b>En práctica</b><span>Lo haces en clase, no solo lo ves</span></div></div></section>
+
+  <section class="gii-sec"><h2>Cómo funciona</h2>
+    <ol class="gii-steps"><li><b>Reservas tu cupo</b><span>Pagas ${esc(pr)} con el mismo método de siempre.</span></li><li><b>Se completa el cupo</b><span>Al llegar a ${+c.min} personas te confirmamos fechas y horario. ${esc(c.when&&!/confirman/i.test(c.when)?c.when:"")}</span></li><li><b>Clases en vivo</b><span>Entras a EAG Charts con tu cuenta. Desde PC o celular.</span></li><li><b>Sigues practicando</b><span>${days?`Durante ${days} días tienes el Replay y la Práctica activos para seguir estudiando.`:"Mantienes el Replay y la Práctica activos para seguir estudiando."}</span></li></ol></section>
+
+  <section class="gii-sec gii-pr"><h2>Elige cómo aprender</h2>
+    <div class="gii-plans">
+      <div class="gp gp-main"><span class="gp-tag">En vivo conmigo</span><h3>GII · Intensivo</h3><div class="gp-p"><b>${esc(num)}</b> ${esc(curr)}</div><ul><li>Clases en vivo dentro de EAG Charts</li><li>Replay, práctica y evaluación en tu gráfico</li><li>El método actualizado, con más reglas</li><li>${days?`Replay y Práctica ${days} días después`:"Replay y Práctica después del intensivo"}</li></ul>${cta}</div>
+      ${libP?`<div class="gp"><span class="gp-tag mute">Grabaciones</span><h3>Biblioteca de clases</h3><div class="gp-p"><b>${esc(libP.replace(/\s*[A-Za-z]+$/,""))}</b> ${esc((libP.match(/[A-Za-z]+$/)||["USD"])[0])}</div><ul><li>Clases grabadas de cómo opero</li><li>A tu ritmo, de por vida</li><li>Para quien ya sabe operar</li></ul><a class="btn ghost" href="${toAcad("biblioteca")}">Ver la biblioteca</a></div>`:""}
+    </div></section>
+
+  <section class="gii-sec gii-faq"><h2>Preguntas</h2>
+    <details><summary>¿Qué pasa si no se completa el cupo?</summary><p>El intensivo se realiza solo si se completa el cupo de ${+c.min} personas. ${esc(c.noCupo)}</p></details>
+    <details><summary>¿Cuándo empieza?</summary><p>${esc(c.when)}</p></details>
+    <details><summary>¿Qué necesito?</summary><p>Tu cuenta de El Arte Gráfico, un PC o celular con internet y audífonos. Todo pasa dentro de EAG Charts: no instalas nada más.</p></details>
+    <details><summary>¿Necesito saber operar?</summary><p>No hace falta ser experto. Si ya operas, el método actualizado te ordena; si estás empezando, lo practicas paso a paso conmigo.</p></details>
+    <details><summary>¿En qué se diferencia de la Biblioteca?</summary><p>La Biblioteca son grabaciones que ves a tu ritmo. El GII es en vivo conmigo: practicas, marcas y te corrijo en el momento.</p></details>
+  </section>
+
+  <section class="gii-end"><h2>Aprende viendo cómo lo haces tú, no solo cómo lo hago yo.</h2>${cta}</section>
+  </article>`;
+  /* contador del cupo */
+  try{const n=API.giiCupo?await API.giiCupo():null;const box=$("#giiCupo");if(!box)return;const mx=Math.max(+c.min,+c.max||+c.min);
+    if(n==null){box.querySelector("[data-n]").textContent=`Mínimo ${+c.min} personas`;box.querySelector(".gc-bar").hidden=true;return}
+    box.querySelector("[data-n]").innerHTML=`<b>${n}</b> de ${+c.min} inscritos${n>=+c.min?" · ¡cupo completo, se realiza!":""}`;requestAnimationFrame(()=>{box.querySelector("[data-b]").style.width=Math.min(100,100*n/mx)+"%"});box.classList.toggle("full",n>=+c.min)}catch(e){}
+};
 /* ---------- biblioteca de clases ---------- */
 const libBuy=()=>sellOn("lib")?'<a class="btn gold" href="#premium-biblioteca">Comprar la biblioteca</a>':'<span class="btn disabled" aria-disabled="true">Disponible pronto</span>';
 const LIB_SEC=["Clases grupales","Clases personalizadas","Ejemplos y repasos"];
@@ -1688,6 +1779,12 @@ const libClosed=()=>{try{return JSON.parse(localStorage.getItem("ag_lib_closed")
 const libSecWire=root=>$$("details.lib-sec",root).forEach(d=>d.addEventListener("toggle",()=>{const c=new Set(libClosed());if(d.open)c.delete(d.dataset.sk);else c.add(d.dataset.sk);try{localStorage.setItem("ag_lib_closed",JSON.stringify([...c].slice(-80)))}catch(e){}}));
 const starsTxt=v=>v?`<span class="lib-st" aria-label="${v} de 5 estrellas">★ ${String(v).replace(".",",")}</span>`:"";
 const libTotalMin=items=>items.reduce((a,i)=>a+(+i.minutes||0),0);
+function giiCard(o,btn,cur){const G=S.gii,c=giiCfg(),pr=G.price||"50 USD",mine=ownsGii();
+  const buy=mine?'<span class="pill ok">Ya tienes tu cupo</span>':!sellOn("gii")?'<span class="btn disabled" aria-disabled="true">Inscripciones pronto</span>':o.page?btn("Reservar mi cupo",`data-pickc="${esc(G.id)}"`,true,false):`<a class="btn gold" href="${toAcad("premium-intensivo")}">Reservar mi cupo</a>`;
+  return `<div class="crs-band gii-band" id="giiCard" style="--cc:#2962ff"><div class="crs-l"><div class="crs-top"><span class="crs-k">En vivo conmigo</span><span class="crs-date">Se realiza si se completa el cupo (${+c.min})</span></div><h3>${esc(G.title)}</h3>
+    <p class="muted">Clases en vivo dentro de EAG Charts: cada uno en su propio gráfico, replay juntos, práctica y evaluación en el momento. El método El Arte Gráfico actualizado.</p>
+    <ul class="checks crs-list"><li>Replay y práctica en vivo</li><li>Veo tu gráfico y te corrijo</li><li>Mercado real en vivo</li><li>${+c.days?`Replay y Práctica ${+c.days} días después`:"Replay y Práctica después"}</li></ul></div>
+    <div class="crs-r"><div class="price-v"><b>${esc(String(pr).replace(/\s*[A-Za-z]+$/,""))}</b><span>${esc(cur(pr))}</span></div><span class="dim">un solo pago</span>${buy}<a class="btn ghost sm" href="${toMain("intensivo")}">Ver el GII</a></div></div>`}
 function libCard(o,btn,cur){const L=S.lib,c=libCfg(),pr=L.price||"50 USD",mine=ownsLib();
   const buy=mine?'<span class="pill ok">Ya es tuya</span>':!sellOn("lib")?'<span class="btn disabled" aria-disabled="true">Disponible pronto</span>':o.page?btn("Comprar la biblioteca",`data-pickc="${esc(L.id)}"`,true,false):`<a class="btn gold" href="${toAcad("premium-biblioteca")}">Comprar la biblioteca</a>`;
   return `<div class="crs-band lib-band" id="libCard" style="--cc:var(--blue)"><div class="crs-l"><div class="crs-top"><span class="crs-k">Va aparte</span><span class="lib-hrs">${esc(c.hours)} de clases</span></div><h3>${esc(L.title)}</h3>
@@ -1894,7 +1991,7 @@ ROUTES.admin.__lazy=true;
 window.AGAPP={uL,showProfile,TIERS,chatBox,chatPreview,dmPoll,pop,mediaVideo,hlsInit,ico,avatar,affTag,absUrl,enablePush,flag,premTag,legalText,modOpen,modState,SITE,ACAD,link,toAcad,toMain,S,API,$,$$,esc,md,toast,busy,fmtT,fmtDate,fmtDT,TZ,MARKETS,MNAME,h1Bars,m5Bars,idxAt,avgRange,toC,Chart,cleanupPush:f=>cleanup.push(f),route,ROUTES,app,premium,admin,logged,confirmInline,loadContent:()=>loadContent(),renderFoot:()=>renderFoot(),applySite:()=>applySite()};
 
 /* ---------- arranque ---------- */
-async function loadContent(){const [m,l,c,mc]=await Promise.all([API.modules().catch(()=>[]),API.lessonIndex().catch(()=>[]),(API.courses?API.courses():Promise.resolve([])).catch(()=>[]),(API.myCourses&&logged()?API.myCourses():Promise.resolve([])).catch(()=>[])]);S.modules=m||[];S.lindex=l||[];const all=c||[];S.lib=all.find(x=>x.kind==="biblioteca")||null;S.courses=all.filter(x=>x.kind!=="biblioteca");S.myCourses=new Set((mc||[]).map(x=>x.course_id||x))}
+async function loadContent(){const [m,l,c,mc]=await Promise.all([API.modules().catch(()=>[]),API.lessonIndex().catch(()=>[]),(API.courses?API.courses():Promise.resolve([])).catch(()=>[]),(API.myCourses&&logged()?API.myCourses():Promise.resolve([])).catch(()=>[])]);S.modules=m||[];S.lindex=l||[];const all=c||[];S.lib=all.find(x=>x.kind==="biblioteca")||null;S.gii=all.find(x=>x.kind==="intensivo")||null;S.courses=all.filter(x=>x.kind!=="biblioteca"&&x.kind!=="intensivo");S.myCourses=new Set((mc||[]).map(x=>x.course_id||x))}
 function applySite(){const s=S.site,n=s.name||"El Arte Gráfico";{const tpl=s.template==="clasico"?"clasico":"panel";document.documentElement.classList.toggle("tpl-panel",tpl==="panel");try{localStorage.setItem("ag_tpl",tpl)}catch(e){}}{const w=n.trim().split(/\s+/),l=w.pop();$("#brandName").innerHTML=(w.length?esc(w.join(" "))+" ":"")+`<em>${esc(l)}</em>`}if(s.logoUrl)$("#logoMark").src=s.logoUrl;
   $("#brandSub").textContent=ACAD?"Academia":"Trading · Comunidad";document.body.dataset.site=SITE;
   document.title=ACAD?n+" Academy":n+" · Trading, educación y comunidad";renderFoot();analytics()}
