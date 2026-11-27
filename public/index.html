@@ -10,6 +10,7 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap">
 <link rel="stylesheet" href="styles.css">
 <link rel="stylesheet" href="theme5.css">
+<link rel="stylesheet" href="theme-panel.css">
 <link rel="manifest" href="/manifest.webmanifest">
 <meta name="theme-color" content="#000000">
 <script>/* preferencias compartidas entre elartegrafico.com y academia.elartegrafico.com (cada subdominio tiene su propio
@@ -29,7 +30,7 @@ S.removeItem=function(k){ri.call(this,k);if(this===L&&K[k]){var o=rd();o[k]=null
 function sync(){if(document.visibilityState!=="visible"||!pull())return;var t=L.getItem("ag_theme5"),r=document.documentElement;if(t==="dark")r.removeAttribute("data-theme");else r.setAttribute("data-theme","light");
   var m=document.querySelector('meta[name=theme-color]');if(m)m.setAttribute("content",t==="dark"?"#000000":"#ffffff");window.dispatchEvent(new Event("ag-theme"));window.dispatchEvent(new Event("ag-prefs"))}
 document.addEventListener("visibilitychange",sync);window.addEventListener("focus",sync);window.addEventListener("pageshow",sync)})();</script>
-<script>/* diseño v5: blanco + azul por defecto; oscuro tipo iPhone como opción. Menú lateral plegable. */try{var t=localStorage.getItem("ag_theme5");if(t!=="dark"){document.documentElement.setAttribute("data-theme","light");document.querySelector('meta[name=theme-color]').setAttribute("content","#ffffff")}var m=localStorage.getItem("ag_side_mini");if(m==="1"||(m===null&&innerWidth<1280))document.documentElement.classList.add("side-mini")}catch(e){}document.documentElement.classList.add("v4","v5")</script>
+<script>/* diseño v5: blanco + azul por defecto; oscuro tipo iPhone como opción. Menú lateral plegable. */try{var t=localStorage.getItem("ag_theme5");if(t!=="dark"){document.documentElement.setAttribute("data-theme","light");document.querySelector('meta[name=theme-color]').setAttribute("content","#ffffff")}var m=localStorage.getItem("ag_side_mini");if(m==="1"||(m===null&&innerWidth<1280))document.documentElement.classList.add("side-mini")}catch(e){}document.documentElement.classList.add("v4","v5");try{if(localStorage.getItem("ag_tpl")!=="clasico")document.documentElement.classList.add("tpl-panel")}catch(e){}</script>
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">

@@ -293,7 +293,12 @@ function renderNav(){sideState();viewBar();document.body.classList.toggle("is-ac
   if(!window.__sheetClose){window.__sheetClose=1;document.addEventListener("click",e=>{const n=$("#nav");if(!n||!n.classList.contains("open")||!document.body.classList.contains("sheet-open"))return;
     if(e.target.closest&&e.target.closest("#sideHide,#tbMore"))return;
     if(!n.contains(e.target)||e.target.closest("a")){n.classList.remove("open");document.body.classList.remove("sheet-open")}})}
-  $("#nav").innerHTML=navHTML+mus;
+  $("#nav").innerHTML=`<label class="nsearch">${ico("search",17)}<input type="search" id="navQ" placeholder="Buscar en el menú" autocomplete="off" aria-label="Buscar en el menú"></label>`+navHTML+mus;
+  {const q=$("#navQ");q.oninput=()=>{const v=q.value.trim().toLowerCase();document.querySelectorAll("#nav a.nit").forEach(a=>{a.hidden=!!v&&!a.textContent.toLowerCase().includes(v)});document.querySelectorAll("#nav .ngrp").forEach(g=>{let n=g.nextElementSibling,any=false;while(n&&!n.classList.contains("ngrp")){if(n.matches("a.nit")&&!n.hidden)any=true;n=n.nextElementSibling}g.hidden=!!v&&!any})};
+    q.onkeydown=e=>{if(e.key==="Enter"){const a=[...document.querySelectorAll("#nav a.nit")].find(x=>!x.hidden);if(a){a.click();q.value="";q.oninput()}}if(e.key==="Escape"){q.value="";q.oninput();q.blur()}}}
+  /* dónde estás: sección + página (arriba, como migas) */
+  {let cr=$("#crumb");if(!cr){cr=document.createElement("div");cr.id="crumb";cr.className="crumb";const ts2=$("#topSw");ts2.parentNode.insertBefore(cr,ts2.nextSibling)}
+    const cur=G.flatMap(g=>g[1]).find(x=>x.on);cr.innerHTML=cur?`<span class="cr-sep" aria-hidden="true">/</span><b>${esc(cur.t)}</b>`:""}
   $("#topUser").innerHTML=
     (u&&p?`<div class="bell" id="bell"><button type="button" id="bellB" aria-label="Notificaciones" aria-haspopup="true" aria-expanded="false" title="Notificaciones">${ico("bell",19)}<em class="bell-n" hidden></em></button><div class="bell-p" id="bellP" hidden></div></div>`:"")+
     (u&&p&&!p.affiliate&&!admin()&&r!=="miembro"?`<a class="btn top-mem" href="${toMain("miembro-solicitud")}">${ico("medal",16)}<span>Hazte miembro</span></a>`:"")+
@@ -748,6 +753,7 @@ function faqBlock(host){if(!host)return;const f=(S.site.faq||[]).length?S.site.f
 
 /* ---------- inicio para quien ya ingresó (panel personal) ---------- */
 const IC={
+  search:'<circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/>',
   plus:'<path d="M12 5v14M5 12h14"/>',
   refresh:'<path d="M20 12a8 8 0 1 1-2.3-5.6"/><path d="M20 4v4.5h-4.5"/>',
   copy:'<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/>',
@@ -777,6 +783,7 @@ const IC={
   medal:'<circle cx="12" cy="14" r="5.5"/><path d="M8.5 9.5L6 3h4l2 4 2-4h4l-2.5 6.5"/>',
   site:'<rect x="3" y="4.5" width="18" height="15" rx="2"/><path d="M3 9h18M7 6.8h.01M10 6.8h.01"/>'};
 const ico=(k,s=22)=>`<svg viewBox="0 0 24 24" width="${s}" height="${s}" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${IC[k]}</svg>`;
+function hoyLargo(){try{return new Date().toLocaleDateString("es-CO",{weekday:"long",day:"numeric",month:"long",year:"numeric",timeZone:"America/Bogota"})}catch(e){return""}}
 function saludo(){const h=new Date(Date.now()+TZ*1000).getUTCHours();return h<5?"Buenas noches":h<12?"Buenos días":h<19?"Buenas tardes":"Buenas noches"}
 async function memberHome(){
   const s=S.site,p=API.profile()||{},g=S.prog||blankProg(),lv=levelOf(g.xp||0),cerr=closedAcad()&&!admin(),prem=premium();
@@ -798,12 +805,14 @@ async function memberHome(){
     <div class="mh-bg" aria-hidden="true"></div>
     <div class="mh-id"><a class="mh-av" href="#perfil" title="Configuración">${avatar(p,84)}<span class="lvchip" title="${esc(lv.name)}">${lv.i+1}</span></a>
       <div class="mh-t"><span class="eyebrow">${saludo()}</span><h1>${esc(p.username||"trader")} ${flag(p.country||"")}</h1>
+        <p class="mh-date">${esc(hoyLargo())}${(()=>{const u=API.user()||{},t=u.last_sign_in_at;return t?` · Último ingreso: ${new Date(t).toLocaleTimeString("es-CO",{hour:"2-digit",minute:"2-digit"})}`:""})()}</p>
         <div class="mh-chips">${prem?premTag(myPlan()):myCourseTags()||'<span class="tag">Cuenta gratis</span>'}${p.affiliate?affTag():""}<span class="tag">${esc(lv.name)}</span>${admin()?'<span class="tag pub">Admin</span>':""}</div></div></div>
     <div class="mh-cta">${cta}</div>
     <div class="mh-bars one">
       <div><div class="mh-bl"><span>${lv.to?`Nivel ${lv.i+2} en ${lv.to-(g.xp||0)} pts`:"Nivel máximo"}</span><b class="mono">${g.xp||0} pts</b></div><div class="bar"><i style="width:${lpct}%"></i></div></div>
     </div>
   </section>
+  <nav class="qk" aria-label="Accesos rápidos">${tiles.map(([ic,t,d,h,ext])=>`<a class="qk-i" href="${esc(h)}"${ext?' target="_blank" rel="noopener"':""}><span class="qk-ic">${ico(ic,20)}</span><b>${t}</b><small>${d}</small></a>`).join("")}</nav>
   ${memberBanner()}
   ${admin()?"":`<a class="mh-dm${S.dm&&S.dm.unread?" new":""}" href="${toMain("mensajes")}"><span class="mh-dm-i">${ico("chat",24)}${S.dm&&S.dm.unread?`<em class="nbadge">${S.dm.unread}</em>`:""}</span>
     <span><b>${S.dm&&S.dm.unread?`Tienes ${S.dm.unread>1?S.dm.unread+" mensajes nuevos":"un mensaje nuevo"}`:"Tus mensajes"}</b><small>${S.dm&&S.dm.unread?"El Arte Gráfico te escribió. Toca para leer y responder.":"Aquí te escribimos si necesitamos algo de ti (tu ID de Deriv, un pago, una duda). Te llega notificación."}</small></span><i>${S.dm&&S.dm.unread?"Leer":"Abrir"} →</i></a>`}
@@ -1886,7 +1895,7 @@ window.AGAPP={uL,showProfile,TIERS,chatBox,chatPreview,dmPoll,pop,mediaVideo,hls
 
 /* ---------- arranque ---------- */
 async function loadContent(){const [m,l,c,mc]=await Promise.all([API.modules().catch(()=>[]),API.lessonIndex().catch(()=>[]),(API.courses?API.courses():Promise.resolve([])).catch(()=>[]),(API.myCourses&&logged()?API.myCourses():Promise.resolve([])).catch(()=>[])]);S.modules=m||[];S.lindex=l||[];const all=c||[];S.lib=all.find(x=>x.kind==="biblioteca")||null;S.courses=all.filter(x=>x.kind!=="biblioteca");S.myCourses=new Set((mc||[]).map(x=>x.course_id||x))}
-function applySite(){const s=S.site,n=s.name||"El Arte Gráfico";{const w=n.trim().split(/\s+/),l=w.pop();$("#brandName").innerHTML=(w.length?esc(w.join(" "))+" ":"")+`<em>${esc(l)}</em>`}if(s.logoUrl)$("#logoMark").src=s.logoUrl;
+function applySite(){const s=S.site,n=s.name||"El Arte Gráfico";{const tpl=s.template==="clasico"?"clasico":"panel";document.documentElement.classList.toggle("tpl-panel",tpl==="panel");try{localStorage.setItem("ag_tpl",tpl)}catch(e){}}{const w=n.trim().split(/\s+/),l=w.pop();$("#brandName").innerHTML=(w.length?esc(w.join(" "))+" ":"")+`<em>${esc(l)}</em>`}if(s.logoUrl)$("#logoMark").src=s.logoUrl;
   $("#brandSub").textContent=ACAD?"Academia":"Trading · Comunidad";document.body.dataset.site=SITE;
   document.title=ACAD?n+" Academy":n+" · Trading, educación y comunidad";renderFoot();analytics()}
 /* Google Analytics: solo si hay ID y la persona acepta las cookies de estadística */
