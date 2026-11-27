@@ -317,7 +317,8 @@ function paintRoom(toBottom){if(!panel||!view.room)return;const room=view.room,i
   box.querySelectorAll("[data-rxp]").forEach(b=>b.onclick=e=>{e.stopPropagation();const id=+b.dataset.rxp;const old=box.querySelector(".sp-rxp");if(old){const same=old.dataset.id===String(id);old.remove();if(same)return}
     const pk=document.createElement("div");pk.className="sp-rxp";pk.dataset.id=id;pk.innerHTML=RX.map(x=>`<button data-rx="${id}|${x}">${x}</button>`).join("");b.closest(".sp-msg").appendChild(pk);
     pk.querySelectorAll("[data-rx]").forEach(q=>q.onclick=ev=>{ev.stopPropagation();const[i2,em]=q.dataset.rx.split("|");pk.remove();react(+i2,em,room)})});
-  box.querySelectorAll("[data-go]").forEach(b=>b.onclick=()=>{const[sy,tf]=b.dataset.go.split("|");X.follow(sy,tf||null);if(matchMedia("(max-width:640px)").matches)close()});
+  box.querySelectorAll("[data-go]").forEach(b=>b.onclick=()=>{const[sy,tf]=b.dataset.go.split("|");const mm=b.dataset.ideaid&&(msgs[room]||[]).find(x=>String(x.id)===b.dataset.ideaid);
+    if(mm&&mm.payload&&mm.payload.dr)ideaShow(mm);else X.follow(sy,tf||null);if(matchMedia("(max-width:640px)").matches)close()});
   box.ondblclick=e=>{const mm=e.target.closest("[data-mid]");if(mm)react(+mm.dataset.mid,"👍",room)};
   box.querySelectorAll("[data-acc]").forEach(b=>b.onclick=()=>acceptCall(b.dataset.acc,room));
   box.querySelectorAll("[data-jg]").forEach(b=>b.onclick=()=>joinVoiceGroup());
@@ -346,7 +347,7 @@ function msgRow(m,prev,isG){const mine=m.sender===ME.id,adm=X.isAdmin();const gr
   else if(m.kind==="audio"){const p=m.payload||{},wv=Array.isArray(p.wv)&&p.wv.length?p.wv.slice(0,40):Array.from({length:32},(_,i)=>3+((i*7)%5));
     inner=`<div class="vn-aud" data-au="${esc(p.url)}" data-dur="${+p.dur||0}"><button type="button" class="vn-play" title="Escuchar">${PLAY}</button><span class="vn-wv">${wv.map(h=>`<i style="height:${Math.max(3,Math.min(22,(+h||0)*2.4))}px"></i>`).join("")}</span><small class="vn-time">${fmtDur(p.dur)}</small><button type="button" class="vn-spd" title="Velocidad">1×</button></div>`}
   else if(m.kind==="idea"){const p=m.payload||{};
-    inner=`<div class="sp-card idea"><b>📈 Idea · ${esc(p.symName||p.sym||"")}${p.tf?" · "+esc(p.tf):""}</b>${p.img&&p.img.url?`<img class="sp-img" src="${esc(p.img.url)}" alt="Gráfico de la idea" loading="lazy"${p.img.w&&p.img.h?` style="aspect-ratio:${+p.img.w}/${+p.img.h}"`:""} onerror="this.remove()">`:""}${p.price!=null?`<small>Precio cuando la compartió: <b>${esc(p.price)}</b></small>`:""}${m.body?`<div class="sp-txt">${linkify(m.body)}</div>`:""}${p.sym?`<button class="btn sm" data-go="${esc(p.sym)}|${esc(p.tf||"")}">Ver en mi gráfico</button>`:""}</div>`}
+    inner=`<div class="sp-card idea"><b>📈 Idea · ${esc(p.symName||p.sym||"")}${p.tf?" · "+esc(p.tf):""}</b>${p.img&&p.img.url?`<img class="sp-img" src="${esc(p.img.url)}" alt="Gráfico de la idea" loading="lazy"${p.img.w&&p.img.h?` style="aspect-ratio:${+p.img.w}/${+p.img.h}"`:""} onerror="this.remove()">`:""}${p.price!=null?`<small>Precio cuando la compartió: <b>${esc(p.price)}</b></small>`:""}${m.body?`<div class="sp-txt">${linkify(m.body)}</div>`:""}${p.sym?`<button class="btn sm" data-go="${esc(p.sym)}|${esc(p.tf||"")}"${m.id?` data-ideaid="${m.id}"`:""}>${p.dr&&p.dr.length?"Ver en mi gráfico con sus zonas":"Ver en mi gráfico"}</button>`:""}</div>`}
   else inner=`<div class="sp-txt">${linkify(m.body)}</div>`;
   const tools=(mine||adm)&&m.id&&!(m.kind==="call")?`<button class="sp-del" data-del="${m.id}" title="${mine?"Borrar para todos":"Borrar (admin)"}">🗑</button>`:"";
   const mute=adm&&isG&&!mine?`<button class="sp-del" data-mute="${esc(m.sender)}" title="Silenciar a esta persona en el chat">🔇</button>`:"";
@@ -534,7 +535,27 @@ async function chartPic(){const p=X.panes()[X.active()];if(!p||!p.kc.chart)retur
   const sc=Math.min(1,1400/img.width),w=Math.round(img.width*sc),h=Math.round(img.height*sc),c=document.createElement("canvas");c.width=w;c.height=h;c.getContext("2d").drawImage(img,0,0,w,h);
   let q=.85,blob=await new Promise(ok=>c.toBlob(ok,"image/webp",q));while(blob&&blob.size>900e3&&q>.4){q-=.15;blob=await new Promise(ok=>c.toBlob(ok,"image/webp",q))}return blob?{blob,w,h}:null}
 function ideaNow(){try{const p=X.panes()[X.active()];const s=p.kc.getSymbol(),L=p.kc.chart.getDataList(),c=L[L.length-1];const pr=c?+c.close:null;
-  return{sym:s.ticker,symName:s.name||s.shortName||s.ticker,tf:p.kc.getPeriod().text,price:pr!=null?pr.toLocaleString("en-US",{maximumFractionDigits:s.pricePrecision!=null?s.pricePrecision:3}):null}}catch(e){return null}}
+  return{sym:s.ticker,symName:s.name||s.shortName||s.ticker,tf:p.kc.getPeriod().text,price:pr!=null?pr.toLocaleString("en-US",{maximumFractionDigits:s.pricePrecision!=null?s.pricePrecision:3}):null,dr:ideaDraw(p.kc)}}catch(e){return null}}
+/* los dibujos de la idea viajan con ella (el chat acepta ~4.000 caracteres: primero zonas y líneas, el pincel solo si cabe) */
+function ideaDraw(kc){try{const L=(kc.drawings()||[]).filter(d=>!d.hid&&d.points&&d.points.length).map(d=>{const c={n:d.name,p:d.points.map(q=>[q.timestamp,+(+q.value).toPrecision(9)])};if(d.styles)c.s=d.styles;if(d.extendData)c.e=d.extendData;return c});
+  L.sort((a,b)=>(a.n==="eagBrush")-(b.n==="eagBrush")||a.p.length-b.p.length);const out=[];let n=0;for(const d of L){const j=JSON.stringify(d).length;if(n+j>3200)continue;out.push(d);n+=j}return out.length?out:null}catch(e){return null}}
+const ideaDefs=dr=>(dr||[]).map(d=>({name:d.n,points:d.p.map(q=>({timestamp:q[0],value:q[1]})),styles:d.s||undefined,extendData:d.e||undefined}));
+/* "Ver en mi gráfico": abre el mercado y marca solas las zonas de la idea (capa aparte; con un botón para guardarlas en tus dibujos) */
+let ideaBar=null;
+function ideaShow(m){const p=m.payload||{};X.follow(p.sym,p.tf||null);const defs=ideaDefs(p.dr),who=m.username||nameOf(m.sender)||"la idea";
+  if(!defs.length){return}
+  let n=0;const tryPut=()=>{const P=X.panes()[X.active()];let ok=false;try{ok=P&&P.kc.getSymbol().ticker===p.sym&&P.kc.chart.getDataList().length>0}catch(e){}
+    if(!ok){if(n++<30)setTimeout(tryPut,200);return}
+    X.panes().forEach(q=>{try{q.kc.setGuest({},"idea")}catch(e){}});
+    try{P.kc.setGuest({["i"+(m.id||"x")]:defs},"idea")}catch(e){}
+    if(ideaBar)ideaBar.remove();ideaBar=document.createElement("div");ideaBar.className="sp-ideabar";
+    ideaBar.innerHTML=`<span>📈 Zonas de la idea de <b>${esc(who)}</b></span><button class="btn sm gold" data-isv>Guardar en mis dibujos</button><button class="sx" data-ix title="Quitar las zonas de la idea" aria-label="Quitar las zonas de la idea">✕</button>`;
+    document.body.appendChild(ideaBar);
+    const clear=()=>{X.panes().forEach(q=>{try{q.kc.setGuest({},"idea")}catch(e){}});if(ideaBar){ideaBar.remove();ideaBar=null}};
+    ideaBar.querySelector("[data-ix]").onclick=clear;
+    ideaBar.querySelector("[data-isv]").onclick=()=>{let k=0;try{k=P.kc.importDrawings(defs)}catch(e){}clear();X.toast(k?`✓ Guardaste ${k} dibujo${k===1?"":"s"} de la idea en tu gráfico (Ctrl+Z para deshacer).`:"No se pudieron guardar.")}};
+  setTimeout(tryPut,250)}
+
 
 /* ===================== compartir gráfico ===================== */
 function myBoards(){const boards={};let a=null;X.panes().forEach((p,i)=>{try{const s=p.kc.getSymbol();boards[s.ticker]=p.kc.drawings();if(i===X.active())a={sym:s.ticker,symName:s.name||s.shortName||s.ticker,tf:p.kc.getPeriod().text}}catch(e){}});
