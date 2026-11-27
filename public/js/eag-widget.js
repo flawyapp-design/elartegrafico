@@ -926,9 +926,10 @@ ${o.onTracker?`<button class="wtrk" title="Marcador de operaciones (ganadas, per
   function lzKick(){if(!lzRaf)lzRaf=requestAnimationFrame(lzDraw)}
   function lzRemPx(q){try{const a=chart.convertToPixel({timestamp:q.ts,value:q.v},{paneId:"candle_pane"});if(!a||!isFinite(a.x)||!isFinite(a.y))return null;return{x:a.x+(q.f||0)*(chart.getBarSpace()||0),y:a.y,t:q.t}}catch(e){return null}}
   /* solo la bolita roja (sin estela) */
-  function lzDot(h,k){const c=lzCx;if(!h||k<=0)return;
-    c.save();c.shadowColor="rgba(255,30,30,.95)";c.shadowBlur=16;c.fillStyle=`rgba(255,45,45,${(0.95*k).toFixed(3)})`;c.beginPath();c.arc(h.x,h.y,6.5,0,Math.PI*2);c.fill();c.restore();
-    c.fillStyle=`rgba(255,235,235,${k.toFixed(3)})`;c.beginPath();c.arc(h.x,h.y,2.4,0,Math.PI*2);c.fill()}
+  /* el tuyo es rojo; el de la otra persona (profe, alumno o quien comparte contigo) es azul, para no confundirlos */
+  function lzDot(h,k,rem){const c=lzCx;if(!h||k<=0)return;const C=rem?[41,121,255]:[255,45,45],G=rem?"rgba(41,121,255,.95)":"rgba(255,30,30,.95)",I=rem?"235,243,255":"255,235,235";
+    c.save();c.shadowColor=G;c.shadowBlur=16;c.fillStyle=`rgba(${C[0]},${C[1]},${C[2]},${(0.95*k).toFixed(3)})`;c.beginPath();c.arc(h.x,h.y,6.5,0,Math.PI*2);c.fill();c.restore();
+    c.fillStyle=`rgba(${I},${k.toFixed(3)})`;c.beginPath();c.arc(h.x,h.y,2.4,0,Math.PI*2);c.fill()}
   function lzDraw(){lzRaf=0;if(!lzEl)return;const now=performance.now(),d=devicePixelRatio||1,W=chartEl.clientWidth,H=chartEl.clientHeight;
     if(lzEl.width!==Math.round(W*d)||lzEl.height!==Math.round(H*d)){lzEl.width=Math.round(W*d);lzEl.height=Math.round(H*d);lzEl.style.width=W+"px";lzEl.style.height=H+"px"}
     lzCx.setTransform(d,0,0,d,0,0);lzCx.clearRect(0,0,W,H);
@@ -938,7 +939,7 @@ ${o.onTracker?`<button class="wtrk" title="Marcador de operaciones (ganadas, per
     lzRem=lzRem.slice(-2);let busy=false;
     if(lzRem.length){const P=lzRem.map(lzRemPx).filter(Boolean);const b=P[P.length-1];
       if(b){const a=P.length>1?P[0]:b,k=Math.min(1,(now-b.t)/140),idle=now-b.t,al=idle<2500?1:Math.max(0,1-(idle-2500)/400);
-        lzDot({x:a.x+(b.x-a.x)*k,y:a.y+(b.y-a.y)*k},al);busy=al>0}
+        lzDot({x:a.x+(b.x-a.x)*k,y:a.y+(b.y-a.y)*k},al,true);busy=al>0}
       if(!busy)lzRem=[]}
     if(busy||(lzRem.length&&performance.now()-lzRem[lzRem.length-1].t<3000))lzKick();else lzDrop()}
   chartEl.addEventListener("pointermove",e=>{if(zoomOn)return;if(!laserOn)return;const r=chartEl.getBoundingClientRect(),x=e.clientX-r.left,y=e.clientY-r.top,now=performance.now();

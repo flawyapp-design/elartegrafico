@@ -476,7 +476,7 @@ function start(){
   /* láser también en los gráficos pequeños (multi-temporalidad): punto rojo propio y el del profe para los alumnos */
   const miniAll=()=>{const A=[];Object.values(MTFS).forEach(M=>M&&(M.minis||[]).forEach(m=>A.push([M,m])));return A};
   const mlzDot=m=>{if(!m.lz||!m.lz.isConnected){m.lz=document.createElement("i");m.lz.className="mlz";m.lz.hidden=true;m.mc.appendChild(m.lz)}return m.lz};
-  const mlzAt=(m,x,y)=>{const d=mlzDot(m);d.style.left=x+"px";d.style.top=y+"px";d.hidden=false};
+  const mlzAt=(m,x,y,rem)=>{const d=mlzDot(m);d.classList.toggle("rem",!!rem);d.style.left=x+"px";d.style.top=y+"px";d.hidden=false};
   const mlzOff=m=>{if(m.lz)m.lz.hidden=true};
   function miniLaserWire(M,m,sym){let em=0;
     m.mc.addEventListener("pointermove",e=>{if(!laserOn)return;const r=m.mc.getBoundingClientRect(),x=e.clientX-r.left,y=e.clientY-r.top;mlzAt(m,x,y);
@@ -485,7 +485,7 @@ function start(){
         const i=Math.max(0,Math.min(L.length-1,c.dataIndex)),ts=L[i].timestamp;window.EAGClase&&window.EAGClase.laser&&window.EAGClase.laser({ts,v:+c.value,f:0,sym});window.EAGSocial&&window.EAGSocial.laser({ts,v:+c.value,f:0,sym})}catch(x){}},{passive:true});
     m.mc.addEventListener("pointerleave",()=>{if(!laserOn)return;mlzOff(m);try{window.EAGClase&&window.EAGClase.laser&&window.EAGClase.laser({off:1,sym});window.EAGSocial&&window.EAGSocial.laser({off:1,sym})}catch(x){}})}
   window.__eagMiniLaser=q=>{if(!q||!q.sym)return;miniAll().forEach(([M,m])=>{if(M.sym!==q.sym)return;clearTimeout(m.lzT);
-    if(q.off){mlzOff(m);return}try{const a=m.c.convertToPixel({timestamp:q.ts,value:q.v},{paneId:"candle_pane"});if(a&&isFinite(a.x)&&isFinite(a.y)){mlzAt(m,a.x,a.y);m.lzT=setTimeout(()=>mlzOff(m),2800)}}catch(x){}})};
+    if(q.off){mlzOff(m);return}try{const a=m.c.convertToPixel({timestamp:q.ts,value:q.v},{paneId:"candle_pane"});if(a&&isFinite(a.x)&&isFinite(a.y)){mlzAt(m,a.x,a.y,true);m.lzT=setTimeout(()=>mlzOff(m),2800)}}catch(x){}})};
   function setLaserAll(on){laserOn=!!on;panes.forEach(p=>{try{p.kc.laser(laserOn)}catch(x){}});document.body.classList.toggle("lzall",laserOn);
     miniAll().forEach(([M,m])=>{try{m.c.setStyles({crosshair:{show:!laserOn}})}catch(x){}if(!laserOn)mlzOff(m)});const b=$("#lzb");if(b){b.classList.toggle("on",laserOn);b.setAttribute("aria-pressed",String(laserOn))}}
   addEventListener("keydown",e=>{if(e.key!=="Escape")return;panes.forEach(p=>{try{p.kc.stopBrush()}catch(x){}});if(laserOn){setLaserAll(false)}if(!pop.hidden){closePop();return}
