@@ -52,12 +52,13 @@ function pollShow(){if(!T.poll)return;cast("c-pres",{id:T.poll.id,counts:counts(
 function pollEnd(){if(!T.poll)return;cast("c-pend",{id:T.poll.id});T.poll=null;paint()}
 const counts=()=>{const c=T.poll?T.poll.opts.map(()=>0):[];T.votes.forEach(i=>{if(c[i]!=null)c[i]++});return c};
 const RP=()=>window.EAGReplay;
-const rpInfo=()=>{try{return RP()&&RP().on()&&!RP().locked()?RP().info():null}catch(e){return null}};
+const rpInfo=()=>{try{const i=RP()&&RP().on()&&!RP().locked()?RP().info():null;const h=i&&X.clase&&X.clase.held&&X.clase.held();if(i&&h&&h.sym){const g2=tfSec(h.tf)||i.g;i.spd=i.spd*i.g/g2;i.g=g2;i.sym=h.sym;i.tf=h.tf}return i}catch(e){return null}};
+const tfSec=t=>{const m=String(t||"").match(/^(\d+)\s*(m|h|H|D|d|W|w|M)?$/);if(!m)return 0;const n=+m[1],u=m[2]||"m";return n*({m:60,h:3600,H:3600,D:86400,d:86400,W:604800,w:604800,M:2592000}[u]||60)};
 let rpLast="",rpT=0;
 function rpWatch(){clearInterval(rpT);rpT=setInterval(()=>{if(!isT())return;const i=rpInfo(),k=i?[i.sym,i.tf,i.play,i.spd,Math.round(i.cur/60000)].join("|"):"off";
   if(k!==rpLast||(i&&i.play)){const ch=k!==rpLast;rpLast=k;if(ch||Date.now()-(rpWatch.t||0)>2500){rpWatch.t=Date.now();cast("c-rp",{rp:i})}}},700)}
 function aRp(rp){const R=RP();if(!R||!inC())return;
-  if(rp){if(A.rpOut)return;R.follow(rp).catch(()=>{});if(!A.rpOn){A.rpOn=true;toast("⏪ El profe abrió el replay: lo ves con él. Puedes simular operaciones"+(A.pen?" y marcar.":"."));paint()}}
+  if(rp){if(A.rpOut)return;R.follow(A.pen?Object.assign({},rp,{free:true}):rp).catch(()=>{});if(!A.rpOn){A.rpOn=true;toast("⏪ El profe abrió el replay: lo ves con él. Puedes simular operaciones"+(A.pen?" y marcar.":"."));paint()}}
   else if(A.rpOn){A.rpOn=false;A.rpOut=false;if(R.on()&&R.locked())R.stop();paint()}else A.rpOut=false}
 const hbPl=()=>({rp:rpInfo(),voice:T.voice,poll:T.poll&&T.poll.open?T.poll:null,pen:[...T.pen],penAll:T.penAll});
 
@@ -78,15 +79,45 @@ function applyD(){const show=ADMIN||inC();panes().forEach(p=>{let tk;try{tk=p.kc
 function myBoards(){const b={};panes().forEach(p=>{try{const t=p.kc.getSymbol().ticker;b[t]=(p.kc.drawings()||[]).filter(d=>!d.hid)}catch(e){}});return b}
 function penSend(force){if(!A.pen)return;const b=myBoards(),j=JSON.stringify(b);if(j.length>90000){if(!penSend.warn){penSend.warn=1;toast("Tienes demasiados dibujos para compartir en clase: borra algunos (el pincel ocupa mucho).")}return}
   if(!force&&j===dLast)return;dLast=j;cast("c-draw",{boards:b,color:colOf(ME.id)})}
-function penSet(on,quiet){on=!!on;if(on===A.pen)return;A.pen=on;clearInterval(dT);dLast="";
+function penSet(on,quiet){on=!!on;if(on===A.pen)return;A.pen=on;if(!on)svSet(false);clearInterval(dT);dLast="";
   if(on){dT=setInterval(()=>penSend(false),1200);dKeep=Date.now();penSend(true);if(!quiet){if(!INV({kind:"pen",title:"Ya puedes marcar en el gráfico",sub:"El profe te dio permiso",key:"pen",times:1,no:false,yes:"Entendido",hint:`Dibuja zonas o líneas como siempre: el profe y toda la clase las ven con tu nombre <b style="color:${colOf(ME.id)}">●</b>.`}))toast("✏️ El profe te dejó marcar: lo que dibujes lo ve toda la clase con tu nombre.")}}
   else{cast("c-draw",{boards:{},off:true});if(!quiet)toast("El profe terminó tu turno de marcar. Tus dibujos siguen en tu gráfico.")}
   paint()}
-function tPen(id,on){if(on)T.pen.add(id);else T.pen.delete(id);if(!on)delete D[id];cast("c-pen",{to:id,on:!!on});applyD();paint()}
-function tPenAll(on){T.penAll=!!on;if(!on){[...T.pen].forEach(id=>cast("c-pen",{to:id,on:false}));T.pen.clear();Object.keys(D).forEach(k=>delete D[k])}cast("c-pen",{to:"all",on:!!on});applyD();paint();toast(on?"✏️ Todos pueden marcar. Cada dibujo sale con su nombre.":"Nadie más puede marcar.")}
+function tPen(id,on){if(!on&&W.id===id)wStop(true);if(on)T.pen.add(id);else T.pen.delete(id);if(!on)delete D[id];cast("c-pen",{to:id,on:!!on});applyD();paint()}
+function tPenAll(on){T.penAll=!!on;if(!on){if(W.id)wStop(true);[...T.pen].forEach(id=>cast("c-pen",{to:id,on:false}));T.pen.clear();Object.keys(D).forEach(k=>delete D[k])}cast("c-pen",{to:"all",on:!!on});applyD();paint();toast(on?"✏️ Todos pueden marcar. Cada dibujo sale con su nombre.":"Nadie más puede marcar.")}
 function tPenClear(){Object.keys(D).forEach(k=>delete D[k]);cast("c-pclear",{});applyD();toast("🧽 Quitaste las marcas de los alumnos de la clase.")}
 const penOn=p=>!!(p&&(p.penAll||(Array.isArray(p.pen)&&p.pen.includes(ME.id))));
 const penPeople=()=>{const m=new Map();T.listen.forEach((v,k)=>{if(Date.now()-v.at<30000)m.set(k,v.name)});T.hands.forEach((v,k)=>m.set(k,v.name));Object.keys(D).forEach(k=>m.set(k,D[k].name));T.pen.forEach(k=>{if(!m.has(k))m.set(k,"Alumno")});return[...m.entries()].sort((a,b)=>String(a[1]).localeCompare(String(b[1])))};
+
+/* ======================== VER EL GRÁFICO DE UN ALUMNO ========================
+   El profe toca 👁 Ver en un alumno con permiso de marcar: su gráfico copia en vivo el del alumno (mercado, temporalidad,
+   zoom y hacia dónde se mueve) y su cursor se ve como puntero. A la clase le sigue llegando lo de antes. */
+const W={id:null,name:"",last:null,ap:"",el:null,mine:null};
+function kc0(){const P=panes();const a=X.active?X.active():0;return(P[a]||P[0]||{}).kc}
+function wStart(id){const n=(penPeople().find(x=>x[0]===id)||[])[1]||(D[id]&&D[id].name)||"Alumno";if(W.id&&W.id!==id)cast("c-watch",{to:W.id,on:false});
+  if(!W.id){W.mine=X.clase&&X.clase.hold?X.clase.hold(true):null;try{const k=kc0();W.own={sym:k.getSymbol().ticker,tf:k.getPeriod().text}}catch(e){W.own=null}}W.id=id;W.name=n;W.ap="";W.last=null;cast("c-watch",{to:id,on:true});wBar();toast(`👁 Viendo el gráfico de ${esc(n)}. La clase sigue viendo lo tuyo.`);document.querySelector(".au-pop")&&document.querySelector(".au-pop").remove()}
+function wStop(quiet){if(!W.id)return;cast("c-watch",{to:W.id,on:false});W.id=null;W.last=null;try{const k=kc0();k&&k.laserRemote({off:true})}catch(e){}
+  let h=X.clase&&X.clase.hold?X.clase.hold(false):W.mine;if(!h||!h.sym)h=W.own;W.mine=null;W.own=null;if(h&&h.sym&&X.follow)X.follow(h.sym,h.tf);if(W.el){W.el.remove();W.el=null}if(!quiet)toast("Volviste a tu gráfico.");paint()}
+function wBar(){if(!W.id){if(W.el){W.el.remove();W.el=null}return}if(!W.el){W.el=document.createElement("div");W.el.className="au-watch";document.body.appendChild(W.el);
+    W.el.addEventListener("click",e=>{if(e.target.closest("[data-wx]"))wStop()})}
+  const v=W.last,d=D[W.id];W.el.style.setProperty("--wc",colOf(W.id));
+  W.el.innerHTML=`<i class="au-pc" style="background:${colOf(W.id)}"></i><b>👁 Gráfico de ${esc(W.name)}</b><span>${v?esc((v.symName||v.sym||"")+" · "+(v.tf||"")):"Esperando su gráfico…"}</span>${v&&v.away?`<em>está en otra pestaña</em>`:""}${d?`<small>${Object.values(d.boards).reduce((a,b)=>a+b.length,0)} dibujo(s)</small>`:""}<button data-wx>Dejar de ver</button>`}
+async function wApply(v){if(!W.id)return;W.last=v;wBar();const k=kc0();if(!k)return;
+  try{const s=k.getSymbol(),t=k.getPeriod().text;if(v.sym&&(s.ticker!==v.sym||(v.tf&&t!==v.tf))){if(X.follow)X.follow(v.sym,v.tf);W.ap="";return}}catch(e){}
+  const key=[v.mid,v.bars,v.live].join("|");if(key!==W.ap){W.ap=key;try{const c=k.chart,w=c.getSize?c.getSize("candle_pane","main").width:k.el.clientWidth;if(v.bars>2)c.setBarSpace(Math.max(1,Math.min(50,(w||800)/v.bars)));
+      if(v.live)c.scrollToRealTime(0);else if(v.mid){const L=c.getDataList();let i=L.findIndex(q=>q.timestamp>=v.mid);if(i<0)i=L.length-1;c.scrollToDataIndex(i,0);for(let n=0;n<3;n++){const r=c.getVisibleRange(),mid=(r.realFrom+r.realTo)/2,dd=(i-mid)*c.getBarSpace();if(Math.abs(dd)<c.getBarSpace())break;c.scrollByDistance(-dd,0)}}}catch(e){}}
+  if(v.cur)try{k.laserRemote({ts:v.cur.ts,v:v.cur.v,f:0})}catch(e){}}
+/* alumno: mientras el profe lo mira, manda su vista y su cursor */
+const SV={on:false,T:0,last:"",cur:null,curT:0,bound:null};
+function svView(){const k=kc0();if(!k)return null;try{const s=k.getSymbol(),c=k.chart,L=c.getDataList(),r=c.getVisibleRange();if(!L.length||!r)return null;
+  const mi=Math.max(0,Math.min(L.length-1,Math.round((r.realFrom+r.realTo)/2)));return{sym:s.ticker,symName:s.name||s.shortName||s.ticker,tf:k.getPeriod().text,mid:L[mi].timestamp,bars:Math.round(r.realTo-r.realFrom),live:r.realTo>=L.length-1,away:document.hidden}}catch(e){return null}}
+function svSend(force){if(!SV.on)return;const v=svView();if(!v)return;if(SV.cur&&Date.now()-SV.curT<1500)v.cur=SV.cur;const j=JSON.stringify(v);if(!force&&j===SV.last)return;SV.last=j;cast("c-view",{to:"t",v})}
+function svMove(e){if(!SV.on)return;const k=kc0();if(!k)return;try{const dom=k.chart.getDom(),r=dom.getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)return;
+  const q=k.chart.convertFromPixel([{x:e.clientX-r.left,y:e.clientY-r.top}],{paneId:"candle_pane"})[0];if(!q||q.timestamp==null)return;SV.cur={ts:q.timestamp,v:q.value};SV.curT=Date.now();
+  if(!svMove.t||Date.now()-svMove.t>120){svMove.t=Date.now();svSend(false)}}catch(x){}}
+function svSet(on){on=!!on&&A.pen&&inC();if(on===SV.on)return;SV.on=on;clearInterval(SV.T);SV.last="";
+  if(on){SV.T=setInterval(()=>svSend(false),400);addEventListener("pointermove",svMove,{passive:true,capture:true});svSend(true);toast("👁 El profe está mirando tu gráfico para ver cómo lo haces.")}
+  else{removeEventListener("pointermove",svMove,{capture:true})}paint()}
 
 /* ======================== ALUMNO ======================== */
 async function aListen(on){if(on===A.listen)return;
@@ -125,6 +156,7 @@ function onEv(ev,p){if(!p||!p.from||p.from===ME.id)return;tick++;
     else if(ev==="c-hand"){if(p.up)T.hands.set(p.from,{name:p.fname,at:Date.now()});else T.hands.delete(p.from);paint();if(p.up&&isT()){try{window.EAGN&&window.EAGN.notify({cat:"sistema",icon:"✋",title:`${p.fname||"Un alumno"} levantó la mano`,body:"Toca ✋ en la barra de la clase para darle la palabra",sound:"pop"})}catch(e){}}}
     else if(ev==="c-vote"){if(T.poll&&p.id===T.poll.id){T.votes.set(p.from,+p.i);paint()}}
     else if(ev==="c-react"){floatR(p.e,p.fname)}
+    else if(ev==="c-view"){if(W.id===p.from&&p.v){W.lastAt=Date.now();wApply(p.v)}}
     else if(ev==="c-rpask"){if(isT())cast("c-rp",{rp:rpInfo()})}
     else if(ev==="c-shb"){T.listen.set(p.from,{name:p.fname,at:Date.now(),on:!!p.l});if(p.hand&&!T.hands.has(p.from))T.hands.set(p.from,{name:p.fname,at:Date.now()})}
     else if(ev==="c-floor-no"){T.floor.delete(p.from);paint();toast(`${esc(p.fname||"El alumno")} no dio permiso al micrófono.`)}
@@ -135,6 +167,7 @@ function onEv(ev,p){if(!p||!p.from||p.from===ME.id)return;tick++;
     if((p.rp&&!A.rpOn)||(!p.rp&&A.rpOn))aRp(p.rp);
     if(A.voice&&!was&&inC()&&!A.listen){if(!INV({kind:"clase",kicker:"Voz de la clase",title:"El profe abrió la voz",sub:"Toca para escucharlo",key:"voz",times:4,hint:"Solo escuchas: no se te pide el micrófono. Si quieres hablar, levanta la mano ✋.",yes:"🎧 Escuchar",onYes:()=>aListen(true)}))toast("🎙 El profe abrió la voz de la clase: toca «Escuchar».")}if(!A.voice&&A.listen){aDrop();A.listen=false}paint()}
   else if(ev==="c-rp"){aRp(p.rp)}
+  else if(ev==="c-watch"){if(p.to===ME.id)svSet(!!p.on)}
   else if(ev==="c-voff"){A.voice=false;if(A.listen){aDrop();A.listen=false;toast("El profe cerró la voz de la clase.")}paint()}
   else if(ev==="c-offer"){if(p.to===ME.id)aOffer(p)}
   else if(ev==="c-ice"){if(p.to===ME.id){if(A.pc&&!A.ice)A.pc.addIceCandidate(p.c).catch(()=>{});else(A.ice=A.ice||[]).push(p.c)}}
@@ -180,6 +213,7 @@ function paint(){const show=isT()||(inC());if(!show){if(ui){ui.remove();ui=null}
       ${A.voice?`<button data-a="listen" class="${A.listen?"on":"gold"}" title="${A.listen?"Dejar de escuchar":"Escuchar al profe"}">🎧<span>${voiceTxt}</span></button>`:`<span class="au-n" title="El profe todavía no abrió la voz">🔈 Sin voz</span>`}
       ${A.floor?`<button data-a="amic" class="${A.micOn?"on":"warn"}" title="Tu micrófono">${A.micOn?"🎤 Tienes la palabra":"🔇 Micrófono apagado"}</button>`:`<button data-a="hand" class="${A.hand?"hot":""}" title="${A.hand?"Bajar la mano":"Levantar la mano para hablar o preguntar"}">✋<span>${A.hand?"Bajar mano":"Levantar mano"}</span></button>`}
       ${A.rpOut?`<button data-a="rpback" class="gold" title="Volver a ver el replay con el profe">⏪<span>Replay del profe</span></button>`:A.rpOn?`<span class="au-n" title="Estás viendo el replay del profe">⏪ Replay</span>`:""}
+      ${SV.on?`<span class="au-n au-penon" title="El profe ve tu gráfico">👁 El profe te ve</span>`:""}
       ${A.pen?`<span class="au-n au-penon" title="Lo que dibujes lo ve toda la clase con tu nombre"><i class="au-pc" style="background:${colOf(ME.id)}"></i>✏️ Puedes marcar</span>`:""}
       ${X.isPhone&&X.isPhone()?`<button data-a="rxp" title="Reaccionar">😀</button>`:`<span class="au-rx">${REACT.map(e=>`<button data-r="${e}" title="Reaccionar">${e}</button>`).join("")}</span>`}
       <button data-a="min" title="Minimizar">–</button>`}`}
@@ -204,8 +238,9 @@ function handsPop(anchor){const H=[...T.hands.entries()],F=[...T.floor];const nm
 function penPop(anchor){const P=penPeople(),nD=Object.keys(D).length;
   const p=popAt(anchor,`<b>✏️ Quién puede marcar</b><small class="au-note">Sus dibujos aparecen en tu gráfico y en el de toda la clase, cada uno con su nombre y color.</small>
     <button class="au-wide ${T.penAll?"on":"gold"}" data-pall>${T.penAll?"✓ Todos pueden marcar (quitar)":"Dejar marcar a todos"}</button>
-    ${P.map(([id,n])=>{const on=T.penAll||T.pen.has(id),d=D[id];return`<div class="au-li"><i class="au-pc" style="background:${colOf(id)}"></i><span>${esc(n)}${d?` <small>· marcando</small>`:""}</span>${T.penAll?"":`<button data-pn="${esc(id)}" class="${on?"on":"gold"}">${on?"Quitar":"Dejar marcar"}</button>`}</div>`}).join("")||"<small>Todavía no hay alumnos en la clase. Cuando activen el Modo Clase, aparecen aquí.</small>"}
+    ${P.map(([id,n])=>{const on=T.penAll||T.pen.has(id),d=D[id];return`<div class="au-li"><i class="au-pc" style="background:${colOf(id)}"></i><span>${esc(n)}${d?` <small>· marcando</small>`:""}</span>${on?`<button data-wv="${esc(id)}" class="${W.id===id?"on":""}" title="Ver su gráfico en vivo: temporalidad, zoom y cursor">${W.id===id?"👁 Viendo":"👁 Ver"}</button>`:""}${T.penAll?"":`<button data-pn="${esc(id)}" class="${on?"on":"gold"}">${on?"Quitar":"Dejar marcar"}</button>`}</div>`}).join("")||"<small>Todavía no hay alumnos en la clase. Cuando activen el Modo Clase, aparecen aquí.</small>"}
     ${nD?`<button class="au-wide" data-pclr>🧽 Quitar las marcas de los alumnos</button>`:""}`);if(!p)return;
+  p.querySelectorAll("[data-wv]").forEach(b=>b.onclick=()=>{const id=b.dataset.wv;W.id===id?wStop():wStart(id);p.remove()});
   p.querySelector("[data-pall]").onclick=()=>{tPenAll(!T.penAll);p.remove()};
   p.querySelectorAll("[data-pn]").forEach(b=>b.onclick=()=>{const id=b.dataset.pn;tPen(id,!T.pen.has(id));p.remove();penPop(anchor)});
   const c=p.querySelector("[data-pclr]");c&&(c.onclick=()=>{tPenClear();p.remove()})}
@@ -229,6 +264,8 @@ function beat(){if(!B)return;
   if(A.rpOn&&!ADMIN){const R=RP();if(R&&!R.on()){A.rpOn=false;A.rpOut=true;paint()}}
   if(!inC()&&A.rpOn){A.rpOn=false;const R=RP();if(R&&R.on()&&R.locked())R.stop()}
   if(A.pen){if(!inC()||Date.now()-A.hb>30000)penSet(false,true);else if(Date.now()-dKeep>12000){dKeep=Date.now();penSend(true)}}
+  if(W.id&&(!isT()||(W.last&&Date.now()-(W.lastAt||0)>60000)))wStop(true);
+  if(SV.on&&(!A.pen||!inC()))svSet(false);
   if(ADMIN&&!isT()&&(T.pen.size||T.penAll)){T.pen.clear();T.penAll=false}
   if(isT()){cast("c-hb",hbPl());const now=Date.now();T.listen.forEach((v,k)=>{if(now-v.at>40000&&!T.peers[k])T.listen.delete(k)})}
   else if(ADMIN&&T.voice&&!isT()){tVoice(false)} /* terminó la clase: se cierra la voz */
@@ -241,5 +278,5 @@ window.EAGAula={init(o){X=o;const S=window.EAGSocial;B=o.bus||(S&&S.bus);if(!B){
     addEventListener("beforeunload",()=>{if(A.listen)cast("c-leave",{});if(T.voice)cast("c-voff",{})})},
   refresh:()=>{paint();applyD()},onSym:()=>{applyD();if(A.pen)penSend(true)},voice:on=>tVoice(on!==false),
   _test(o){Object.assign(X,o.x||{});rpWatch();if(o.bus){B=o.bus;B.sub(ROOM,onEv)}if(o.me)ME=o.me;if(o.admin!=null)ADMIN=o.admin;paint()},
-  _state:()=>({D:Object.keys(D).map(k=>D[k].name+":"+Object.values(D[k].boards).reduce((a,b)=>a+b.length,0)),T:{pen:[...T.pen],penAll:T.penAll,voice:T.voice,peers:Object.keys(T.peers).length,hands:T.hands.size,floor:T.floor.size,poll:!!T.poll,votes:T.votes.size},A:{rpOn:!!A.rpOn,rpOut:!!A.rpOut,pen:A.pen,voice:A.voice,listen:A.listen,pc:A.pc&&A.pc.connectionState,hand:A.hand,floor:A.floor,poll:!!A.poll,voted:A.voted,res:!!A.res,audio:!!(A.audio&&A.audio.srcObject)}})};
+  _state:()=>({W:W.id?{id:W.id,v:W.last&&[W.last.sym,W.last.tf,W.last.bars,W.last.live].join("|")}:null,SV:SV.on,D:Object.keys(D).map(k=>D[k].name+":"+Object.values(D[k].boards).reduce((a,b)=>a+b.length,0)),T:{pen:[...T.pen],penAll:T.penAll,voice:T.voice,peers:Object.keys(T.peers).length,hands:T.hands.size,floor:T.floor.size,poll:!!T.poll,votes:T.votes.size},A:{rpOn:!!A.rpOn,rpOut:!!A.rpOut,pen:A.pen,voice:A.voice,listen:A.listen,pc:A.pc&&A.pc.connectionState,hand:A.hand,floor:A.floor,poll:!!A.poll,voted:A.voted,res:!!A.res,audio:!!(A.audio&&A.audio.srcObject)}})};
 })();

@@ -110,8 +110,9 @@ function paintViewers(){const n=vList().length;const b=X.btn;if(b){let e=b.query
   box.querySelectorAll("[data-vdm]").forEach(b2=>b2.onclick=()=>{if(window.EAGSocial)window.EAGSocial.dm(b2.dataset.vdm,b2.dataset.vn);else X.toast("El chat no está disponible.")})}
 
 /* ============ profe: transmitir ============ */
+let HOLD=null;
 function txPayload(){const boards={};let a=null;X.panes().forEach((p,i)=>{try{const s=p.kc.getSymbol();boards[s.ticker]=p.kc.drawings();if(i===X.active())a={sym:s.ticker,name:s.name||s.shortName||s.ticker,tf:p.kc.getPeriod().text}}catch(e){}});
-  a=a||{};return{on_air:true,sym:a.sym||null,sym_name:a.name||null,tf:a.tf||null,boards}}
+  if(HOLD)a=HOLD;a=a||{};return{on_air:true,sym:a.sym||null,sym_name:a.name||null,tf:a.tf||null,boards}}
 function txKick(now){if(!txOn)return;clearTimeout(txT);txT=setTimeout(txSend,now?0:300)}
 async function txSend(force){if(!txOn)return;const pl=txPayload(),j=JSON.stringify(pl);if(!force&&j===lastTx)return;
   if(j.length>400000){X.toast("Tienes demasiados dibujos para transmitir: borra algunos (el pincel ocupa mucho).");return}
@@ -188,6 +189,9 @@ function paintPanel(){if(!panel)return;const c=cfg(),air=onAir(),adm=X.isAdmin()
 
 /* ============ API ============ */
 window.EAGClase={
+  /* el profe mira el gráfico de un alumno: a la clase le sigue llegando el mercado y la temporalidad de antes */
+  hold(on){if(on){if(HOLD)return HOLD;const p=X.panes()[X.active()];try{const s=p.kc.getSymbol();HOLD={sym:s.ticker,name:s.name||s.shortName||s.ticker,tf:p.kc.getPeriod().text}}catch(e){HOLD={}}return HOLD}const h=HOLD;HOLD=null;txKick(true);return h},
+  held:()=>HOLD,
   init(ctx){X=ctx;const c=cfg();
     const u=new URLSearchParams(location.search);
     if(u.has("clase")&&!X.isAdmin()){c.on=true;c.follow=true;X.save()}

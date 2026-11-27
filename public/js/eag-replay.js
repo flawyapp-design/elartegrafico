@@ -269,13 +269,14 @@ async function follow(o){if(!o||fBusy)return;fBusy=true;try{
   if(!S){await start({at:o.cur,sym:o.sym,tf:o.tf});if(!S)return;S.lock=true;lockUI();setPlay(!!o.play);return}
   S.lock=true;lockUI();
   if(o.sym&&o.sym!==mainT()){try{X.setSym(o.sym)}catch(e){}await new Promise(r=>setTimeout(r,700));await jump(o.cur);setPlay(!!o.play);return}
-  if(o.tf){try{const k=actKc();if(k&&k.getPeriod().text!==o.tf){const p=X.perFind(o.tf);if(p){k.setPeriod(p);await new Promise(r=>setTimeout(r,500))}}}catch(e){}}
-  if(o.spd&&S.spd!==o.spd){S.spd=o.spd;const sel=ui&&ui.querySelector("[data-rp=spd]");if(sel)sel.value=String(o.spd)}
-  const G=mainG()*1000,lag=o.play?Math.min(4000,Math.max(0,Date.now()-(o.t||Date.now())))/1000*S.spd*G:0,target=o.cur+lag,dr=Math.abs(S.cur-target);
+  if(o.free&&o.g&&o.spd){const ns=Math.max(.05,o.spd*o.g/(mainG()));if(Math.abs(ns-S.spd)>1e-6)S.spd=ns}
+  if(o.tf&&!o.free){try{const k=actKc();if(k&&k.getPeriod().text!==o.tf){const p=X.perFind(o.tf);if(p){k.setPeriod(p);await new Promise(r=>setTimeout(r,500))}}}catch(e){}}
+  if(!o.free&&o.spd&&S.spd!==o.spd){S.spd=o.spd;const sel=ui&&ui.querySelector("[data-rp=spd]");if(sel)sel.value=String(o.spd)}
+  const G=mainG()*1000,lag=o.play?Math.min(4000,Math.max(0,Date.now()-(o.t||Date.now())))/1000*(o.spd||S.spd)*(o.g?o.g*1000:G):0,target=o.cur+lag,dr=Math.abs(S.cur-target);
   if(dr>G*40)await jump(target);else if(dr>G*.6){S.cur=target;push();paint()}
   if(!!o.play!==S.play)setPlay(!!o.play)}finally{fBusy=false}}
 function lockUI(){if(!ui)return;ui.classList.toggle("lock",!!(S&&S.lock));const t=ui.querySelector(".rpt");if(t&&S&&S.lock&&!t.dataset.l){t.dataset.l=1;t.innerHTML='<i class="rpdot"></i>Replay del profe'}}
-window.EAGReplay={follow,locked:()=>!!(S&&S.lock),info:()=>{if(!S)return null;let tf="";try{tf=actKc().getPeriod().text}catch(e){}return{cur:S.cur,play:S.play,spd:S.spd,sym:mainT(),tf,t:Date.now()}},
+window.EAGReplay={follow,locked:()=>!!(S&&S.lock),info:()=>{if(!S)return null;let tf="";try{tf=actKc().getPeriod().text}catch(e){}return{cur:S.cur,play:S.play,spd:S.spd,sym:mainT(),tf,g:mainG(),t:Date.now()}},
   init(ctx){X=ctx},on:()=>!!S,quick,history,sub,unsub,start,stop,jump,step,play:on=>setPlay(on!==false),
   _state:()=>S&&{cur:S.cur,play:S.play,spd:S.spd,trades:S.trades.length,open:S.pos.length,pend:S.pend.length,subs:subs.size,last:S.trades[S.trades.length-1]||null}};
 })();
