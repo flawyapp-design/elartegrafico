@@ -36,8 +36,14 @@ const ini=n=>esc(String(n||"?").trim().charAt(0).toUpperCase()||"?");
 const av=(u,cls)=>u&&u.avatar_url?`<img class="sav ${cls||""}" src="${esc(u.avatar_url)}" alt="" loading="lazy">`:`<span class="sav ${cls||""}" style="background:${colorOf(u&&(u.id||u.other||u.sender)||"")}">${ini(u&&u.username)}</span>`;
 /* solo el admin: si es Miembro verificado y su plan (sutil, para saber a quién invitar) */
 const PLN={cobre:"Cobre",plata:"Plata",oro:"Oro",diamond:"Diamond"};
-function vb(u){if(!u||u.verified==null||u.is_admin||!X||!X.isAdmin())return"";
-  return(u.verified?`<span class="sp-vb ok" title="Miembro verificado">✓</span>`:`<span class="sp-vb no" title="No es Miembro verificado: puedes invitarlo (⋯ → Invitar)">○</span>`)+(u.plan?`<span class="sp-vb pl" title="Plan activo">${esc(PLN[u.plan]||u.plan)}</span>`:"")}
+/* admin: quién tiene funciones de prueba activas (las del 🎁) */
+let FEAT={},featAt=0;
+async function loadFeat(force){if(!X||!X.isAdmin()||!X.API.adminAllFeatures)return;if(!force&&Date.now()-featAt<60000)return;featAt=Date.now();
+  try{const L=await X.API.adminAllFeatures(true)||[];const m={};L.forEach(x=>{(m[x.user_id]=m[x.user_id]||[]).push(x)});FEAT=m;if(panel)paintPanel()}catch(e){}}
+function giftTag(id){const F=id&&FEAT[id];if(!F||!F.length||!X||!X.isAdmin())return"";const t=F.map(x=>fName(x.feature)+" hasta "+fmtD(x.until)).join(" · ");
+  return`<span class="sp-vb gift" title="Prueba activa: ${esc(t)}">🎁 Prueba</span>`}
+function vb(u){if(!u)return"";const g=giftTag(u.id||u.other||u.user_id||u.sender);if(u.verified==null||u.is_admin||!X||!X.isAdmin())return g;
+  return g+(u.verified?`<span class="sp-vb ok" title="Miembro verificado">✓</span>`:`<span class="sp-vb no" title="No es Miembro verificado: puedes invitarlo (⋯ → Invitar)">○</span>`)+(u.plan?`<span class="sp-vb pl" title="Plan activo">${esc(PLN[u.plan]||u.plan)}</span>`:"")}
 const vInfo=id=>{const p=people.find(x=>x.id===id)||threads.find(x=>x.other===id);return p?{verified:p.verified,plan:p.plan,is_admin:p.is_admin}:null};
 function colorOf(id){let h=0;for(const c of String(id))h=(h*31+c.charCodeAt(0))>>>0;return COLORS[h%COLORS.length]}
 const hhmm=t=>{try{const d=new Date(t),n=new Date();const s=d.toLocaleTimeString("es-CO",{hour:"numeric",minute:"2-digit"});return d.toDateString()===n.toDateString()?s:d.toLocaleDateString("es-CO",{day:"numeric",month:"short"})+" "+s}catch(e){return""}};
@@ -111,7 +117,7 @@ function loudAll(m,missed){const who=m.username||nameOf(m.sender),g=gInfo(m.room
   if(N)N.notify({cat:"msg",icon:"📣",title:`${who} llamó a todos${m.room===GEN?"":" en "+g.name}${missed?" (mientras no estabas)":""}`,body:txt,important:true,sticky:true,sound:"llamado",vibrate:[600,180,600,180,1100],
     act:{label:"Responder",fn:()=>{try{open(m.room)}catch(e){}}},key:"all-"+(m.id||txt),dedupe:600000,sys:true});
   else{X.toast("📣 "+who+": "+txt)}}
-async function loadPeople(){try{people=(await X.API.chatPeople())||[]}catch(e){}paintBtn();if(panel&&!view.room)paintPanel()}
+async function loadPeople(){try{people=(await X.API.chatPeople())||[]}catch(e){}loadFeat();paintBtn();if(panel&&!view.room)paintPanel()}
 async function loadRoom(room,more){const L=msgs[room]||(msgs[room]=[]);const before=more&&L.length?L[0].id:null;
   try{const r=((await X.API.chatHistory(room,before))||[]).slice().reverse();
     const end=r.length<50,was=!!L.__end;msgs[room]=more?r.concat(L):mergeMsgs(L,r);msgs[room].__end=more?end:(was||end)}catch(e){X.toast("No se pudo cargar el chat.")}
@@ -744,11 +750,11 @@ async function accessPop(anchor,uid,name){if(!ME.admin)return;document.querySele
     const cus=()=>{const v=Math.round(+cn.value);if(v>0&&v<1000){st.span=cu.value+v;const a=cn.value;draw();const c2=el.querySelector("[data-cn]");c2.value=a;c2.focus()}};cn.oninput=cus;cu.onchange=cus;
     el.querySelector("[data-add]").onchange=e=>{st.add=e.target.checked};
     el.querySelectorAll("[data-rmf]").forEach(b=>b.onclick=async e=>{e.preventDefault();e.stopPropagation();const k=b.dataset.rmf;if(!b.dataset.ok){b.dataset.ok=1;b.textContent="¿Seguro?";return}
-      try{await X.API.adminSetFeature(uid,k,null);delete cur[k];X.toast(`Le quitaste ${fName(k)} a ${esc(name)}`);draw()}catch(x){X.toast(x.message)}});
+      try{await X.API.adminSetFeature(uid,k,null);delete cur[k];X.toast(`Le quitaste ${fName(k)} a ${esc(name)}`);draw();loadFeat(true)}catch(x){X.toast(x.message)}});
     el.querySelector("[data-go]").onclick=async e=>{const b=e.currentTarget;if(!st.sel.size)return;b.disabled=true;const done=[];
       try{for(const k of st.sel){const base=st.add&&live(k)?new Date(cur[k]):new Date(),until=addSpan(base,st.span);await X.API.adminSetFeature(uid,k,until.toISOString());cur[k]=until.toISOString();done.push({f:k,until:until.toISOString()})}
         if(el.querySelector("[data-tell]").checked){try{await send(dmRoom(uid),`🎁 Te activé: ${done.map(d=>fName(d.f)+" hasta el "+fmtD(d.until)).join(" · ")}. Recarga EAG Charts para empezar a usarlo.`,"text",{acc:{feats:done}})}catch(x){}}
-        X.toast(`🎁 ${esc(name)}: ${done.map(d=>fName(d.f)).join(", ")}`);close()}
+        X.toast(`🎁 ${esc(name)}: ${done.map(d=>fName(d.f)).join(", ")}`);close();loadFeat(true)}
       catch(x){X.toast(/user_features|42P01|404/.test(x.message||"")?"Falta correr supabase/funciones_usuario.sql en Supabase.":(x.message||"No se pudo"));b.disabled=false}};
     place()};
   draw()}

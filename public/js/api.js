@@ -153,6 +153,10 @@ function SupabaseAPI(url,key){
     /* funciones sueltas con vencimiento (supabase/funciones_usuario.sql) */
     async myFeatures(){if(!sess||!sess.user)return[];try{return await req(`/rest/v1/user_features?select=feature,until&user_id=eq.${sess.user.id}&until=gt.${encodeURIComponent(new Date().toISOString())}`)}catch(e){return[]}},
     adminFeatures(uid){return req(`/rest/v1/user_features?select=feature,until&user_id=eq.${uid}`)},
+    /* todas las pruebas dadas, con el nombre del alumno y de quién la dio */
+    async adminAllFeatures(onlyActive){const q=onlyActive?`&until=gt.${encodeURIComponent(new Date().toISOString())}`:"";const L=await req(`/rest/v1/user_features?select=user_id,feature,until,granted_by,updated_at${q}&order=until.desc&limit=2000`)||[];
+      const ids=[...new Set(L.flatMap(x=>[x.user_id,x.granted_by]).filter(Boolean))];let P=[];if(ids.length)P=await req(`/rest/v1/profiles?select=id,username,avatar_url,plan,premium_until&id=in.(${ids.join(",")})`)||[];
+      const m={};P.forEach(p=>m[p.id]=p);return L.map(x=>Object.assign({},x,{username:(m[x.user_id]||{}).username||"",avatar_url:(m[x.user_id]||{}).avatar_url||null,plan:(m[x.user_id]||{}).plan||"",premium_until:(m[x.user_id]||{}).premium_until||null,by:(m[x.granted_by]||{}).username||""}))},
     adminSetFeature(uid,feature,until){if(!until)return req(`/rest/v1/user_features?user_id=eq.${uid}&feature=eq.${feature}`,{method:"DELETE",headers:{Prefer:"return=minimal"}});
       return req("/rest/v1/user_features?on_conflict=user_id,feature",{method:"POST",body:{user_id:uid,feature,until,updated_at:new Date().toISOString()},headers:{Prefer:"resolution=merge-duplicates,return=minimal"}})},
     async adminUserBrief(id){const r=await sel("profiles",`&id=eq.${id}`);const p=r&&r[0];return p?{id:p.id,username:p.username,plan:p.plan||"",premium_until:p.premium_until,role:p.role,banned:p.banned}:null},
@@ -506,7 +510,8 @@ function LocalAPI(){
     async setUser(id,patch){need();const p=db.profiles.find(x=>x.id===id);Object.assign(p,patch);save()},
     async myFeatures(){if(!uid)return[];reload();return(db.ufeat||[]).filter(x=>x.user_id===uid&&new Date(x.until)>Date.now()).map(x=>({feature:x.feature,until:x.until}))},
     async adminFeatures(u){need();reload();return(db.ufeat||[]).filter(x=>x.user_id===u).map(x=>({feature:x.feature,until:x.until}))},
-    async adminSetFeature(u,f,until){need();reload();db.ufeat=(db.ufeat||[]).filter(x=>!(x.user_id===u&&x.feature===f));if(until)db.ufeat.push({user_id:u,feature:f,until});save()},
+    async adminSetFeature(u,f,until){need();reload();db.ufeat=(db.ufeat||[]).filter(x=>!(x.user_id===u&&x.feature===f));if(until)db.ufeat.push({user_id:u,feature:f,until,granted_by:uid,updated_at:new Date().toISOString()});save()},
+    async adminAllFeatures(onlyActive){need();reload();const pf=id=>db.profiles.find(p=>p.id===id)||{};return(db.ufeat||[]).filter(x=>!onlyActive||new Date(x.until)>Date.now()).sort((a,b)=>String(b.until).localeCompare(a.until)).map(x=>Object.assign({},x,{username:pf(x.user_id).username||"",avatar_url:pf(x.user_id).avatar_url||null,plan:pf(x.user_id).plan||"",premium_until:pf(x.user_id).premium_until||null,by:pf(x.granted_by).username||""}))},
     async adminUserBrief(id){need();reload();const p=db.profiles.find(x=>x.id===id);return p?{id:p.id,username:p.username,plan:p.plan||"",premium_until:p.premium_until,role:p.role,banned:p.banned}:null},
     async upload(file){need();if(file.size>3*1024*1024)throw new Error("En el modo de prueba solo se aceptan archivos de hasta 3 MB.");
       const url=await new Promise((ok,no)=>{const r=new FileReader();r.onload=()=>ok(r.result);r.onerror=no;r.readAsDataURL(file)});db.files.unshift({name:file.name,url,size:file.size});save();return url},

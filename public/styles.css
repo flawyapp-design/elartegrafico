@@ -2638,3 +2638,8 @@ details.lib-sec>summary:hover{background:var(--card2)}details.lib-sec>summary:fo
 #app .gii{--fg:#eaf0ff;--fg2:#c3cfeb;--ink:#eaf0ff;--muted:#93a3c7;--mut:#93a3c7;--dim:#7d8db3}
 #app .gii .gp .btn{background:transparent!important;color:#eaf0ff!important;border:1px solid #2b4282!important;box-shadow:none!important}
 @media (max-width:560px){.gw-chips .c2,.gw-chips .c3{display:none}.gw-top b{font-size:12px}}
+/* Admin → Pruebas de funciones */
+.prl{display:grid;gap:10px;margin-top:12px}.pru{border:1px solid var(--line);border-radius:14px;padding:12px 14px;background:var(--bg2)}
+.pru-h{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px}.pru-h b{font-size:15px}.pru-h .btn{margin-left:auto}
+.pru-f{display:grid;gap:6px}.prf{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 10px;border-radius:10px;border:1px solid var(--line)}
+.prf>span{display:grid;flex:1;min-width:180px}.prf small{color:var(--muted,#7c87a0);font-size:12px}.prf.on{border-color:rgba(34,196,147,.45)}.prf.off{opacity:.6}
