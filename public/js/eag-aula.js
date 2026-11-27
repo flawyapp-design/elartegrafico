@@ -58,9 +58,9 @@ let rpLast="",rpT=0;
 function rpWatch(){clearInterval(rpT);rpT=setInterval(()=>{if(!isT())return;const i=rpInfo(),k=i?[i.sym,i.tf,i.play,i.spd,Math.round(i.cur/60000)].join("|"):"off";
   if(k!==rpLast||(i&&i.play)){const ch=k!==rpLast;rpLast=k;if(ch||Date.now()-(rpWatch.t||0)>2500){rpWatch.t=Date.now();cast("c-rp",{rp:i})}}},700)}
 function aRp(rp){const R=RP();if(!R||!inC())return;
-  if(rp){if(A.rpOut)return;R.follow(A.pen?Object.assign({},rp,{free:true}):rp).catch(()=>{});if(!A.rpOn){A.rpOn=true;toast("⏪ El profe abrió el replay: lo ves con él. Puedes simular operaciones"+(A.pen?" y marcar.":"."));paint()}}
+  if(rp){if(A.rpOut)return;R.follow(A.pen||SW.id?Object.assign({},rp,{free:true}):rp).catch(()=>{});if(!A.rpOn){A.rpOn=true;toast("⏪ El profe abrió el replay: lo ves con él. Puedes simular operaciones"+(A.pen?" y marcar.":"."));paint()}}
   else if(A.rpOn){A.rpOn=false;A.rpOut=false;if(R.on()&&R.locked())R.stop();paint()}else A.rpOut=false}
-const hbPl=()=>({rp:rpInfo(),voice:T.voice,poll:T.poll&&T.poll.open?T.poll:null,pen:[...T.pen],penAll:T.penAll});
+const hbPl=()=>({wall:W.all&&W.id?{id:W.id,name:W.name}:null,rp:rpInfo(),voice:T.voice,poll:T.poll&&T.poll.open?T.poll:null,pen:[...T.pen],penAll:T.penAll});
 
 /* ======================== MARCAR EN CLASE (pizarra compartida) ========================
    El profe deja marcar a uno, a varios o a todos. Lo que marca cada uno aparece en el gráfico del profe
@@ -92,21 +92,34 @@ const penPeople=()=>{const m=new Map();T.listen.forEach((v,k)=>{if(Date.now()-v.
 /* ======================== VER EL GRÁFICO DE UN ALUMNO ========================
    El profe toca 👁 Ver en un alumno con permiso de marcar: su gráfico copia en vivo el del alumno (mercado, temporalidad,
    zoom y hacia dónde se mueve) y su cursor se ve como puntero. A la clase le sigue llegando lo de antes. */
-const W={id:null,name:"",last:null,ap:"",el:null,mine:null};
+const W={all:false,id:null,name:"",last:null,ap:"",el:null,mine:null};
 function kc0(){const P=panes();const a=X.active?X.active():0;return(P[a]||P[0]||{}).kc}
-function wStart(id){const n=(penPeople().find(x=>x[0]===id)||[])[1]||(D[id]&&D[id].name)||"Alumno";if(W.id&&W.id!==id)cast("c-watch",{to:W.id,on:false});
+function wStart(id){const n=(penPeople().find(x=>x[0]===id)||[])[1]||(D[id]&&D[id].name)||"Alumno";if(W.id&&W.id!==id){cast("c-watch",{to:W.id,on:false});if(W.all){W.all=false;cast("c-wall",{w:null})}}
   if(!W.id){W.mine=X.clase&&X.clase.hold?X.clase.hold(true):null;try{const k=kc0();W.own={sym:k.getSymbol().ticker,tf:k.getPeriod().text}}catch(e){W.own=null}}W.id=id;W.name=n;W.ap="";W.last=null;cast("c-watch",{to:id,on:true});wBar();toast(`👁 Viendo el gráfico de ${esc(n)}. La clase sigue viendo lo tuyo.`);document.querySelector(".au-pop")&&document.querySelector(".au-pop").remove()}
-function wStop(quiet){if(!W.id)return;cast("c-watch",{to:W.id,on:false});W.id=null;W.last=null;try{const k=kc0();k&&k.laserRemote({off:true})}catch(e){}
-  let h=X.clase&&X.clase.hold?X.clase.hold(false):W.mine;if(!h||!h.sym)h=W.own;W.mine=null;W.own=null;if(h&&h.sym&&X.follow)X.follow(h.sym,h.tf);if(W.el){W.el.remove();W.el=null}if(!quiet)toast("Volviste a tu gráfico.");paint()}
+function wStop(quiet){if(!W.id)return;if(W.all){W.all=false;cast("c-wall",{w:null})}cast("c-watch",{to:W.id,on:false});W.id=null;W.last=null;try{const k=kc0();k&&k.laserRemote({off:true})}catch(e){}
+  let h=X.clase&&X.clase.hold?X.clase.hold(false):W.mine;if(!h||!h.sym)h=W.own;W.mine=null;W.own=null;if(h&&h.sym&&X.follow)X.follow(h.sym,h.tf);setTimeout(()=>{try{kc0().chart.scrollToRealTime(200)}catch(e){}},700);if(W.el){W.el.remove();W.el=null}if(!quiet)toast("Volviste a tu gráfico.");paint()}
 function wBar(){if(!W.id){if(W.el){W.el.remove();W.el=null}return}if(!W.el){W.el=document.createElement("div");W.el.className="au-watch";document.body.appendChild(W.el);
     W.el.addEventListener("click",e=>{if(e.target.closest("[data-wx]"))wStop()})}
   const v=W.last,d=D[W.id];W.el.style.setProperty("--wc",colOf(W.id));
-  W.el.innerHTML=`<i class="au-pc" style="background:${colOf(W.id)}"></i><b>👁 Gráfico de ${esc(W.name)}</b><span>${v?esc((v.symName||v.sym||"")+" · "+(v.tf||"")):"Esperando su gráfico…"}</span>${v&&v.away?`<em>está en otra pestaña</em>`:""}${d?`<small>${Object.values(d.boards).reduce((a,b)=>a+b.length,0)} dibujo(s)</small>`:""}<button data-wx>Dejar de ver</button>`}
-async function wApply(v){if(!W.id)return;W.last=v;wBar();const k=kc0();if(!k)return;
-  try{const s=k.getSymbol(),t=k.getPeriod().text;if(v.sym&&(s.ticker!==v.sym||(v.tf&&t!==v.tf))){if(X.follow)X.follow(v.sym,v.tf);W.ap="";return}}catch(e){}
-  const key=[v.mid,v.bars,v.live].join("|");if(key!==W.ap){W.ap=key;try{const c=k.chart,w=c.getSize?c.getSize("candle_pane","main").width:k.el.clientWidth;if(v.bars>2)c.setBarSpace(Math.max(1,Math.min(50,(w||800)/v.bars)));
+  W.el.innerHTML=`<i class="au-pc" style="background:${colOf(W.id)}"></i><b>👁 Gráfico de ${esc(W.name)}</b><span>${v?esc((v.symName||v.sym||"")+" · "+(v.tf||"")):"Esperando su gráfico…"}</span>${v&&v.away?`<em>está en otra pestaña</em>`:""}${d?`<small>${Object.values(d.boards).reduce((a,b)=>a+b.length,0)} dibujo(s)</small>`:""}<label class="au-wall" title="Si lo activas, toda la clase ve en vivo el gráfico de este alumno"><input type="checkbox" data-wall ${W.all?"checked":""}><span>Mostrar a la clase</span></label><button data-wx>Dejar de ver</button>`;
+  const wa=W.el.querySelector("[data-wall]");wa.onchange=()=>wAll(wa.checked)}
+function wAll(on){W.all=!!on&&!!W.id;cast("c-wall",{w:W.all?{id:W.id,name:W.name}:null});toast(W.all?`📺 Toda la clase ve el gráfico de ${esc(W.name)}.`:"Ahora solo tú ves su gráfico.");wBar()}
+async function wApply(v){if(!W.id)return;W.last=v;wBar();applyView(v,W)}
+function applyView(v,st){const k=kc0();if(!k)return;
+  try{const s=k.getSymbol(),t=k.getPeriod().text;if(v.sym&&(s.ticker!==v.sym||(v.tf&&t!==v.tf))){if(X.follow)X.follow(v.sym,v.tf);st.ap="";return}}catch(e){}
+  const key=[v.mid,v.bars,v.live].join("|");if(key!==st.ap){st.ap=key;try{const c=k.chart,w=c.getSize?c.getSize("candle_pane","main").width:k.el.clientWidth;if(v.bars>2)c.setBarSpace(Math.max(1,Math.min(50,(w||800)/v.bars)));
       if(v.live)c.scrollToRealTime(0);else if(v.mid){const L=c.getDataList();let i=L.findIndex(q=>q.timestamp>=v.mid);if(i<0)i=L.length-1;c.scrollToDataIndex(i,0);for(let n=0;n<3;n++){const r=c.getVisibleRange(),mid=(r.realFrom+r.realTo)/2,dd=(i-mid)*c.getBarSpace();if(Math.abs(dd)<c.getBarSpace())break;c.scrollByDistance(-dd,0)}}}catch(e){}}
   if(v.cur)try{k.laserRemote({ts:v.cur.ts,v:v.cur.v,f:0})}catch(e){}}
+/* alumno: el profe muestra a la clase el gráfico de un compañero */
+const SW={id:null,name:"",ap:"",own:null,el:null};
+function swSet(w){const id=w&&w.id!==ME.id&&inC()?w.id:null;if(id===SW.id)return;
+  if(id){if(!SW.id){try{const k=kc0();SW.own={sym:k.getSymbol().ticker,tf:k.getPeriod().text}}catch(e){SW.own=null}}SW.id=id;SW.name=w.name||"un compañero";SW.ap="";
+    if(!SW.el){SW.el=document.createElement("div");SW.el.className="au-watch";document.body.appendChild(SW.el)}SW.el.style.setProperty("--wc",colOf(id));
+    SW.el.innerHTML=`<i class="au-pc" style="background:${colOf(id)}"></i><b>📺 Viendo cómo lo hace ${esc(SW.name)}</b><span>El profe lo muestra a la clase</span>`;
+    INV({kind:"clase",kicker:"Clase en vivo",title:`Mira cómo lo hace ${SW.name}`,sub:"Tu gráfico sigue el suyo en vivo",key:"wall",times:1,no:false,yes:"Entendido",hint:"Vas a ver su temporalidad, hacia dónde se mueve, su cursor y sus marcas. Cuando el profe termine, tu gráfico vuelve a como lo tenías."})}
+  else{SW.id=null;if(SW.el){SW.el.remove();SW.el=null}try{const k=kc0();k&&k.laserRemote({off:true})}catch(e){}const o=SW.own;SW.own=null;if(o&&o.sym&&X.follow)X.follow(o.sym,o.tf);setTimeout(()=>{try{kc0().chart.scrollToRealTime(200)}catch(e){}},700);toast("Tu gráfico volvió a como lo tenías.")}
+  paint()}
+
 /* alumno: mientras el profe lo mira, manda su vista y su cursor */
 const SV={on:false,T:0,last:"",cur:null,curT:0,bound:null};
 function svView(){const k=kc0();if(!k)return null;try{const s=k.getSymbol(),c=k.chart,L=c.getDataList(),r=c.getVisibleRange();if(!L.length||!r)return null;
@@ -144,6 +157,7 @@ function attnShow(name){const el=document.createElement("div");el.className="au-
 
 /* ======================== mensajes ======================== */
 function onEv(ev,p){if(!p||!p.from||p.from===ME.id)return;tick++;
+  if(ev==="c-view"&&!ADMIN){if(SW.id&&p.from===SW.id&&p.v){SW.at=Date.now();applyView(p.v,SW)}return}
   if(ev==="c-draw"){if(p.off||!p.boards||!Object.values(p.boards).some(v=>Array.isArray(v)&&v.length))delete D[p.from];else D[p.from]={name:p.fname,color:p.color||colOf(p.from),boards:p.boards,at:Date.now()};applyD();if(ADMIN)paint();return}
   if(ev==="c-pclear"){Object.keys(D).forEach(k=>delete D[k]);applyD();return}
   if(ev==="c-pen"&&!ADMIN){if(p.to!=="all"&&p.to!==ME.id){if(!p.on){delete D[p.to];applyD()}return}
@@ -165,9 +179,11 @@ function onEv(ev,p){if(!p||!p.from||p.from===ME.id)return;tick++;
   if(ev==="c-hb"){A.hb=Date.now();A.teacher=p.fname;const was=A.voice;A.voice=!!p.voice;if(p.poll&&(!A.poll||A.poll.id!==p.poll.id)){A.poll=p.poll;A.voted=null;A.res=null}if(!p.poll&&A.poll&&!A.res)A.poll=null;
     {const want=penOn(p);if(want!==A.pen&&inC())penSet(want)}
     if((p.rp&&!A.rpOn)||(!p.rp&&A.rpOn))aRp(p.rp);
+    if(((p.wall&&p.wall.id)||null)!==SW.id)swSet(p.wall);
     if(A.voice&&!was&&inC()&&!A.listen){if(!INV({kind:"clase",kicker:"Voz de la clase",title:"El profe abrió la voz",sub:"Toca para escucharlo",key:"voz",times:4,hint:"Solo escuchas: no se te pide el micrófono. Si quieres hablar, levanta la mano ✋.",yes:"🎧 Escuchar",onYes:()=>aListen(true)}))toast("🎙 El profe abrió la voz de la clase: toca «Escuchar».")}if(!A.voice&&A.listen){aDrop();A.listen=false}paint()}
   else if(ev==="c-rp"){aRp(p.rp)}
   else if(ev==="c-watch"){if(p.to===ME.id)svSet(!!p.on)}
+  else if(ev==="c-wall"){swSet(p.w)}
   else if(ev==="c-voff"){A.voice=false;if(A.listen){aDrop();A.listen=false;toast("El profe cerró la voz de la clase.")}paint()}
   else if(ev==="c-offer"){if(p.to===ME.id)aOffer(p)}
   else if(ev==="c-ice"){if(p.to===ME.id){if(A.pc&&!A.ice)A.pc.addIceCandidate(p.c).catch(()=>{});else(A.ice=A.ice||[]).push(p.c)}}
@@ -266,6 +282,7 @@ function beat(){if(!B)return;
   if(A.pen){if(!inC()||Date.now()-A.hb>30000)penSet(false,true);else if(Date.now()-dKeep>12000){dKeep=Date.now();penSend(true)}}
   if(W.id&&(!isT()||(W.last&&Date.now()-(W.lastAt||0)>60000)))wStop(true);
   if(SV.on&&(!A.pen||!inC()))svSet(false);
+  if(SW.id&&!inC())swSet(null);
   if(ADMIN&&!isT()&&(T.pen.size||T.penAll)){T.pen.clear();T.penAll=false}
   if(isT()){cast("c-hb",hbPl());const now=Date.now();T.listen.forEach((v,k)=>{if(now-v.at>40000&&!T.peers[k])T.listen.delete(k)})}
   else if(ADMIN&&T.voice&&!isT()){tVoice(false)} /* terminó la clase: se cierra la voz */
@@ -278,5 +295,5 @@ window.EAGAula={init(o){X=o;const S=window.EAGSocial;B=o.bus||(S&&S.bus);if(!B){
     addEventListener("beforeunload",()=>{if(A.listen)cast("c-leave",{});if(T.voice)cast("c-voff",{})})},
   refresh:()=>{paint();applyD()},onSym:()=>{applyD();if(A.pen)penSend(true)},voice:on=>tVoice(on!==false),
   _test(o){Object.assign(X,o.x||{});rpWatch();if(o.bus){B=o.bus;B.sub(ROOM,onEv)}if(o.me)ME=o.me;if(o.admin!=null)ADMIN=o.admin;paint()},
-  _state:()=>({W:W.id?{id:W.id,v:W.last&&[W.last.sym,W.last.tf,W.last.bars,W.last.live].join("|")}:null,SV:SV.on,D:Object.keys(D).map(k=>D[k].name+":"+Object.values(D[k].boards).reduce((a,b)=>a+b.length,0)),T:{pen:[...T.pen],penAll:T.penAll,voice:T.voice,peers:Object.keys(T.peers).length,hands:T.hands.size,floor:T.floor.size,poll:!!T.poll,votes:T.votes.size},A:{rpOn:!!A.rpOn,rpOut:!!A.rpOut,pen:A.pen,voice:A.voice,listen:A.listen,pc:A.pc&&A.pc.connectionState,hand:A.hand,floor:A.floor,poll:!!A.poll,voted:A.voted,res:!!A.res,audio:!!(A.audio&&A.audio.srcObject)}})};
+  _state:()=>({SW:SW.id,W:W.id?{all:W.all,id:W.id,v:W.last&&[W.last.sym,W.last.tf,W.last.bars,W.last.live].join("|")}:null,SV:SV.on,D:Object.keys(D).map(k=>D[k].name+":"+Object.values(D[k].boards).reduce((a,b)=>a+b.length,0)),T:{pen:[...T.pen],penAll:T.penAll,voice:T.voice,peers:Object.keys(T.peers).length,hands:T.hands.size,floor:T.floor.size,poll:!!T.poll,votes:T.votes.size},A:{rpOn:!!A.rpOn,rpOut:!!A.rpOut,pen:A.pen,voice:A.voice,listen:A.listen,pc:A.pc&&A.pc.connectionState,hand:A.hand,floor:A.floor,poll:!!A.poll,voted:A.voted,res:!!A.res,audio:!!(A.audio&&A.audio.srcObject)}})};
 })();
