@@ -277,7 +277,9 @@ function paintRoom(toBottom){if(!panel||!view.room)return;const room=view.room,i
   const ta=panel.querySelector("textarea"),fm=panel.querySelector(".sp-in");ta.dataset.room=room;
   if(drafts[room]){ta.value=drafts[room];ta.style.height="auto";ta.style.height=Math.min(120,ta.scrollHeight)+"px"}
   ta.oninput=()=>{drafts[room]=ta.value;ta.style.height="auto";ta.style.height=Math.min(120,ta.scrollHeight)+"px";typingPing(room)};
-  panel.querySelector("[data-idea]").onclick=async()=>{const i=ideaNow();if(!i)return X.toast("Abre un gráfico primero.");const v=ta.value.trim();ta.value="";drafts[room]="";ta.style.height="auto";const rp=takeReply(room);if(rp)i.reply=rp;await send(room,v,"idea",i)};
+  panel.querySelector("[data-idea]").onclick=async()=>{const i=ideaNow();if(!i)return X.toast("Abre un gráfico primero.");
+    /* foto del gráfico con todos los dibujos y zonas */
+    try{X.toast("📸 Tomando la foto del gráfico…");const b=await chartPic();if(b){const url=await X.API.chartChatUpload(b.blob);i.img={url,w:b.w,h:b.h}}}catch(e){}const v=ta.value.trim();ta.value="";drafts[room]="";ta.style.height="auto";const rp=takeReply(room);if(rp)i.reply=rp;await send(room,v,"idea",i)};
   paintTyping();
   panel.querySelector("[data-mic]").onclick=()=>recStart(room,fm);
   if(rec&&rec.room===room&&rec.bar){fm.appendChild(rec.bar);fm.classList.add("recording");rec.fm=fm}
@@ -296,7 +298,7 @@ function paintRoom(toBottom){if(!panel||!view.room)return;const room=view.room,i
   if(foc){ta.focus();try{ta.setSelectionRange(foc.a,foc.b)}catch(e){}}
   else if(toBottom&&matchMedia("(hover:hover)").matches&&!document.activeElement.closest(".sp-in"))setTimeout(()=>{if(document.activeElement===document.body||!document.activeElement)ta.focus()},20);
   box.querySelectorAll("[data-del]").forEach(b=>b.onclick=async()=>{if(!confirmSoft(b,"¿Borrar?"))return;const id=+b.dataset.del;const m=(msgs[room]||[]).find(x=>x.id===id);
-    try{await X.API.chatDelete(id);if(m&&(m.kind==="img"||m.kind==="audio")&&m.sender===ME.id&&m.payload)X.API.chartChatImgDel(m.payload.url);onDel(id);if(bc)bc.postMessage({k:"del",id})}catch(e){X.toast("No se pudo borrar.")}});
+    try{await X.API.chatDelete(id);if(m&&(m.kind==="img"||m.kind==="audio")&&m.sender===ME.id&&m.payload)X.API.chartChatImgDel(m.payload.url);if(m&&m.kind==="idea"&&m.sender===ME.id&&m.payload&&m.payload.img)X.API.chartChatImgDel(m.payload.img.url);onDel(id);if(bc)bc.postMessage({k:"del",id})}catch(e){X.toast("No se pudo borrar.")}});
   box.querySelectorAll("[data-mute]").forEach(b=>b.onclick=async()=>{if(!confirmSoft(b,"¿Silenciar?"))return;try{await X.API.chatBlock(b.dataset.mute,true);X.toast("Listo: esa persona ya no puede escribir en el chat.")}catch(e){X.toast("No se pudo.")}});
   box.querySelectorAll("[data-join]").forEach(b=>b.onclick=()=>joinShare(b.dataset.join,room));
   box.querySelectorAll("[data-rx]").forEach(b=>b.onclick=e=>{e.stopPropagation();const[id,em]=b.dataset.rx.split("|");react(+id,em,room)});
@@ -332,7 +334,7 @@ function msgRow(m,prev,isG){const mine=m.sender===ME.id,adm=X.isAdmin();const gr
   else if(m.kind==="audio"){const p=m.payload||{},wv=Array.isArray(p.wv)&&p.wv.length?p.wv.slice(0,40):Array.from({length:32},(_,i)=>3+((i*7)%5));
     inner=`<div class="vn-aud" data-au="${esc(p.url)}" data-dur="${+p.dur||0}"><button type="button" class="vn-play" title="Escuchar">${PLAY}</button><span class="vn-wv">${wv.map(h=>`<i style="height:${Math.max(3,Math.min(22,(+h||0)*2.4))}px"></i>`).join("")}</span><small class="vn-time">${fmtDur(p.dur)}</small><button type="button" class="vn-spd" title="Velocidad">1×</button></div>`}
   else if(m.kind==="idea"){const p=m.payload||{};
-    inner=`<div class="sp-card idea"><b>📈 Idea · ${esc(p.symName||p.sym||"")}${p.tf?" · "+esc(p.tf):""}</b>${p.price!=null?`<small>Precio cuando la compartió: <b>${esc(p.price)}</b></small>`:""}${m.body?`<div class="sp-txt">${linkify(m.body)}</div>`:""}${p.sym?`<button class="btn sm" data-go="${esc(p.sym)}|${esc(p.tf||"")}">Ver en mi gráfico</button>`:""}</div>`}
+    inner=`<div class="sp-card idea"><b>📈 Idea · ${esc(p.symName||p.sym||"")}${p.tf?" · "+esc(p.tf):""}</b>${p.img&&p.img.url?`<img class="sp-img" src="${esc(p.img.url)}" alt="Gráfico de la idea" loading="lazy"${p.img.w&&p.img.h?` style="aspect-ratio:${+p.img.w}/${+p.img.h}"`:""} onerror="this.remove()">`:""}${p.price!=null?`<small>Precio cuando la compartió: <b>${esc(p.price)}</b></small>`:""}${m.body?`<div class="sp-txt">${linkify(m.body)}</div>`:""}${p.sym?`<button class="btn sm" data-go="${esc(p.sym)}|${esc(p.tf||"")}">Ver en mi gráfico</button>`:""}</div>`}
   else inner=`<div class="sp-txt">${linkify(m.body)}</div>`;
   const tools=(mine||adm)&&m.id&&!(m.kind==="call")?`<button class="sp-del" data-del="${m.id}" title="${mine?"Borrar para todos":"Borrar (admin)"}">🗑</button>`:"";
   const mute=adm&&isG&&!mine?`<button class="sp-del" data-mute="${esc(m.sender)}" title="Silenciar a esta persona en el chat">🔇</button>`:"";
@@ -514,6 +516,11 @@ function roomMenu(anchor,room){const old=document.querySelector(".sp-menu");if(o
 function imgClean(){try{if(!X.isAdmin()||!X.API.chartChatImgClean)return;const k="eag_cc_clean",t=+(localStorage.getItem(k)||0);if(Date.now()-t<6*36e5)return;localStorage.setItem(k,String(Date.now()));
   setTimeout(()=>{X.API.chatCleanup&&X.API.chatCleanup().catch(()=>{});X.API.chartChatImgClean(10).catch(()=>{})},20000)}catch(e){}}
 /* idea de trading: mercado, temporalidad y precio actual del gráfico activo */
+async function chartPic(){const p=X.panes()[X.active()];if(!p||!p.kc.chart)return null;const ch=p.kc.chart;
+  const bg=getComputedStyle(p.kc.el||document.body).getPropertyValue("--chartbg").trim()||(document.documentElement.classList.contains("light")?"#ffffff":"#0b0c0e");
+  const src=ch.getConvertPictureUrl(true,"png",bg);const img=await new Promise((ok,no)=>{const m=new Image();m.onload=()=>ok(m);m.onerror=no;m.src=src});
+  const sc=Math.min(1,1400/img.width),w=Math.round(img.width*sc),h=Math.round(img.height*sc),c=document.createElement("canvas");c.width=w;c.height=h;c.getContext("2d").drawImage(img,0,0,w,h);
+  let q=.85,blob=await new Promise(ok=>c.toBlob(ok,"image/webp",q));while(blob&&blob.size>900e3&&q>.4){q-=.15;blob=await new Promise(ok=>c.toBlob(ok,"image/webp",q))}return blob?{blob,w,h}:null}
 function ideaNow(){try{const p=X.panes()[X.active()];const s=p.kc.getSymbol(),L=p.kc.chart.getDataList(),c=L[L.length-1];const pr=c?+c.close:null;
   return{sym:s.ticker,symName:s.name||s.shortName||s.ticker,tf:p.kc.getPeriod().text,price:pr!=null?pr.toLocaleString("en-US",{maximumFractionDigits:s.pricePrecision!=null?s.pricePrecision:3}):null}}catch(e){return null}}
 

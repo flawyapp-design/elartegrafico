@@ -41,6 +41,9 @@ function tsOfFi(L,fi){const n=L.length;if(!n||!isFinite(fi))return null;const P=
   if(fi<=0)return Math.round(L[0].timestamp+fi*P);if(fi>=n-1)return Math.round(L[n-1].timestamp+(fi-(n-1))*P);
   const j=Math.floor(fi);return Math.round(L[j].timestamp+(fi-j)*(L[j+1].timestamp-L[j].timestamp))}
 const SELBOX=new Set();
+/* dibujo bajo el mouse: muestra sus puntos para mover y la info (como TradingView) */
+const HOVOV=new Set();
+const FOCUS=ov=>SELBOX.has(ov.id)||HOVOV.has(ov.id)||(ov.extendData&&ov.extendData.info==="always");
 function boxPts(a,b){const both=a.dataIndex!=null&&b.dataIndex!=null;
   const aFirst=both?a.dataIndex<=b.dataIndex:(okT(a.timestamp)&&okT(b.timestamp)?a.timestamp<=b.timestamp:(okT(a.timestamp)?true:!okT(b.timestamp)));
   const L=aFirst?a:b,R=aFirst?b:a,T=Math.max(a.value,b.value),B=Math.min(a.value,b.value);
@@ -107,14 +110,14 @@ function registerAll(){
       const ex=overlay.extendData||{};const cu=ex.up||"#089981",cd=ex.dn||"#f23645";
       const pct=v=>(v/ev*100).toFixed(2)+"%";
       const lab=(x,y,txt,bg)=>({type:"text",ignoreEvent:true,attrs:{x,y,text:txt,align:"center",baseline:"middle"},styles:{color:"#fff",size:11,backgroundColor:bg,paddingLeft:6,paddingRight:6,paddingTop:3,paddingBottom:3,borderRadius:4}});
-      const cx=x1+w/2;
+      const cx=x1+w/2,fo=FOCUS(overlay)||coordinates.length<3;
       return[
         {type:"rect",attrs:{x:x1,y:Math.min(e.y,t.y),width:w,height:Math.abs(t.y-e.y)},styles:{style:"fill",color:hexA(cu,.18)}},
         {type:"rect",attrs:{x:x1,y:Math.min(e.y,s.y),width:w,height:Math.abs(s.y-e.y)},styles:{style:"fill",color:hexA(cd,.18)}},
         {type:"line",attrs:{coordinates:[{x:x1,y:e.y},{x:x1+w,y:e.y}]},styles:{color:"#9da1aa",size:1}},
-        lab(cx,t.y+(t.y<e.y?-10:10),`Objetivo ${fmt(tv,pp)} (${pct(rew)})`,cu),
+        ...(fo?[lab(cx,t.y+(t.y<e.y?-10:10),`Objetivo ${fmt(tv,pp)} (${pct(rew)})`,cu),
         lab(cx,s.y+(s.y<e.y?-10:10),`Stop ${fmt(sv,pp)} (${pct(risk)})`,cd),
-        lab(cx,e.y,`${long?"Largo":"Corto"} · R:B 1:${risk?(rew/risk).toFixed(2):"—"}`,"#2a2d35")]}});
+        lab(cx,e.y,`${long?"Largo":"Corto"} · R:B 1:${risk?(rew/risk).toFixed(2):"—"}`,"#2a2d35")]:[])]}});
   /* Posición larga (compra) y corta (venta), como TradingView: un clic pone la entrada; stop y objetivo salen solos y se arrastran */
   const posFig=side=>({overlay,coordinates,precision})=>{
     if(coordinates.length<3)return[];
@@ -124,16 +127,16 @@ function registerAll(){
     const ex=overlay.extendData||{},cu=ex.up||"#089981",cd=ex.dn||"#f23645";
     const pct=v=>(v/ev*100).toFixed(2)+"%";
     const lab=(x,y,txt,bg)=>({type:"text",ignoreEvent:true,attrs:{x,y,text:txt,align:"center",baseline:"middle"},styles:{color:"#fff",size:11,backgroundColor:bg,paddingLeft:7,paddingRight:7,paddingTop:3,paddingBottom:3,borderRadius:4}});
-    const cx=x1+w/2,okDir=side==="long"?(tv>ev&&sv<ev):(tv<ev&&sv>ev);
+    const cx=x1+w/2,okDir=side==="long"?(tv>ev&&sv<ev):(tv<ev&&sv>ev),fo=FOCUS(overlay);
     return[
       {type:"rect",attrs:{x:x1,y:Math.min(e.y,t.y),width:w,height:Math.abs(t.y-e.y)},styles:{style:"fill",color:hexA(cu,.2)}},
       {type:"rect",attrs:{x:x1,y:Math.min(e.y,s.y),width:w,height:Math.abs(s.y-e.y)},styles:{style:"fill",color:hexA(cd,.2)}},
       {type:"line",attrs:{coordinates:[{x:x1,y:t.y},{x:x1+w,y:t.y}]},styles:{color:cu,size:1}},
       {type:"line",attrs:{coordinates:[{x:x1,y:s.y},{x:x1+w,y:s.y}]},styles:{color:cd,size:1}},
       {type:"line",attrs:{coordinates:[{x:x1,y:e.y},{x:x1+w,y:e.y}]},styles:{color:"#9da1aa",size:1}},
-      lab(cx,t.y+(t.y<e.y?-11:11),`Objetivo ${fmt(tv,pp)} · ${fmt(rew,pp)} pts (${pct(rew)})`,cu),
+      ...(fo?[lab(cx,t.y+(t.y<e.y?-11:11),`Objetivo ${fmt(tv,pp)} · ${fmt(rew,pp)} pts (${pct(rew)})`,cu),
       lab(cx,s.y+(s.y<e.y?-11:11),`Stop ${fmt(sv,pp)} · ${fmt(risk,pp)} pts (${pct(risk)})`,cd),
-      lab(cx,e.y,`${side==="long"?"▲ Compra":"▼ Venta"} ${fmt(ev,pp)} · R:B 1:${risk?(rew/risk).toFixed(2):"—"}${okDir?"":" ⚠"}${(l=>l?" · "+l:"")(lotOf(overlay.id,ev,sv))}`,"#2a2d35")]};
+      lab(cx,e.y,`${side==="long"?"▲ Compra":"▼ Venta"} ${fmt(ev,pp)} · R:B 1:${risk?(rew/risk).toFixed(2):"—"}${okDir?"":" ⚠"}${(l=>l?" · "+l:"")(lotOf(overlay.id,ev,sv))}`,"#2a2d35")]:[])]};
   ["eagLong","eagShort"].forEach(n=>KC.registerOverlay({name:n,totalStep:2,needDefaultPointFigure:true,needDefaultXAxisFigure:true,needDefaultYAxisFigure:true,createPointFigures:posFig(n==="eagLong"?"long":"short")}));
   /* línea de alerta (solo se muestra; se maneja desde el panel de alertas) */
   KC.registerOverlay({name:"eagAlert",totalStep:2,needDefaultPointFigure:false,needDefaultXAxisFigure:false,needDefaultYAxisFigure:true,lock:true,
@@ -352,7 +355,7 @@ function registerAll(){
     if(kind==="zoneR")x2=bounding.width;
     const F=[];
     /* manijas propias (en la posición exacta), solo con el dibujo seleccionado */
-    const hdl=()=>{if(!SELBOX.has(overlay.id)||coordinates.length<8)return;const xm=(x1+xR)/2,ym=(y1+y2)/2,c=ex.color||((overlay.styles||{}).point||{}).borderColor||GOLD;
+    const hdl=()=>{if(!(SELBOX.has(overlay.id)||HOVOV.has(overlay.id))||coordinates.length<8)return;const xm=(x1+xR)/2,ym=(y1+y2)/2,c=ex.color||((overlay.styles||{}).point||{}).borderColor||GOLD;
       [[x1,y1],[xR,y1],[xR,y2],[x1,y2],[xm,y1],[xR,ym],[xm,y2],[x1,ym]].forEach(([x,y],k)=>F.push({type:"circle",key:"hdl_"+k,attrs:{x,y,r:5},styles:{style:"stroke_fill",color:"#0b1220",borderColor:"#d9b25a",borderSize:1.5}}))};
     if(kind==="buy"||kind==="sell"){const top=kind==="buy"?(ex.up||"#089981"):(ex.dn||"#f23645"),bot=kind==="buy"?(ex.dn||"#f23645"):(ex.up||"#089981"),col=ex.color||"#b46cff",lw=ex.size||2;
       F.push({type:"rect",attrs:{x:x1,y:y1,width:x2-x1,height:h},styles:{style:"stroke_fill",color:hexA(col,.16),borderColor:col,borderSize:1}});
@@ -973,7 +976,6 @@ ${o.onTracker?`<button class="wtrk" title="Marcador de operaciones (ganadas, per
     if(/edgeB$/.test(k)||Math.abs(y-yB)<=tol)return R(6);
     if(y>yT&&y<yB&&Math.abs(x-xL)<=tol)return R(7);
     if(y>yT&&y<yB&&isFinite(xR)&&Math.abs(x-xR)<=tol)return R(5);
-    if(bs)return R(x>=xL&&x<=xL+110&&y>=yT&&y<=yT+26?"move":"lock");
     return R("move")}
   function boxDragMove(e){if(!boxDrag||boxDrag.id!==e.overlay.id)return false;const d=boxDrag,m=d.m;if(m==="lock")return true;
     const now=pxAt(e.x,e.y);if(!now||!d.st)return true;const L=chart.getDataList(),S=d.snap;
@@ -1059,7 +1061,7 @@ ${o.onTracker?`<button class="wtrk" title="Marcador de operaciones (ganadas, per
         const tiny=ptrDown&&(ptrDown.max||0)<(ptrDown.touch?12:6);
         if(tiny&&movSnap&&movSnap.id===e.overlay.id&&movSnap.points.length){try{chart.overrideOverlay({id:e.overlay.id,points:movSnap.points})}catch(x){}movSnap=null;boxDrag=null;return false}
         movSnap=null;boxDrag=null;capture(chart.getOverlayById(e.overlay.id)||e.overlay);return false},
-      onMouseEnter:e=>{chartEl.classList.add("ovh");hovId=e&&e.overlay&&e.overlay.id;return false},onMouseLeave:e=>{chartEl.classList.remove("ovh");if(e&&e.overlay&&hovId===e.overlay.id)hovId=null;return false},
+      onMouseEnter:e=>{chartEl.classList.add("ovh");hovId=e&&e.overlay&&e.overlay.id;if(hovId)HOVOV.add(hovId);return false},onMouseLeave:e=>{if(e&&e.overlay)HOVOV.delete(e.overlay.id);chartEl.classList.remove("ovh");if(e&&e.overlay&&hovId===e.overlay.id)hovId=null;return false},
       onSelected:e=>{const lv=ovs.get(e.overlay.id);if(lastTouch&&lv&&lv.lock)return false;selId=e.overlay.id;SELBOX.add(e.overlay.id);showStyleBar(e.overlay.id);syncPan();return false},
       onDeselected:e=>{SELBOX.delete(e.overlay.id);if(selId===e.overlay.id){selId=null;hideStyleBar()}syncPan();return false},
       onRemoved:e=>{SELBOX.delete(e.overlay.id);if(bulk)return false;ovs.delete(e.overlay.id);if(selId===e.overlay.id){selId=null;hideStyleBar()}persist();return false},
@@ -1256,7 +1258,7 @@ ${o.onTracker?`<button class="wtrk" title="Marcador de operaciones (ganadas, per
     menu=document.createElement("div");menu.className="wmenu ctx"+(panel?" panel":"");
     const isOldTxt=v.name==="eagText"||v.name==="eagNote";const canLbl=!LBLX.test(v.name);const tf=curTf();
     const styleHTML=`<div class="mrow">${COLORS.map(k=>`<button class="sw${c.color===k?" on":""}" data-c="${k}" style="background:${k}" title="${k}"></button>`).join("")}<label class="sw pick" title="Otro color">+<input type="color" value="${/^#/.test(c.color)?c.color.slice(0,7):GOLD}"></label></div>
-      ${/^(eagNote|arrowMarkUp|arrowMarkDown|flagMark|priceLabel)$/.test(v.name)&&v.name!=="eagNote"?`<div class="ml">Tamaño</div><div class="mrow">${[[.75,"S"],[1,"M"],[1.5,"L"],[2,"XL"],[3,"XXL"]].map(([k,t])=>`<button class="tbn${(+(v.extendData||{}).sc||1)===k?" on":""}" data-msc="${k}">${t}</button>`).join("")}</div>`:""}${/^eag(Position|Long|Short)$/.test(v.name)||v.name==="eagText"||MARKX.test(v.name)?"":`<div class="ml">Grosor</div><div class="mrow">${[1,2,3,4].map(n=>`<button class="wd${+c.size===n?" on":""}" data-w="${n}" title="${n}px"><i style="height:${n}px"></i></button>`).join("")}</div>
+      ${/^(eagNote|arrowMarkUp|arrowMarkDown|flagMark|priceLabel)$/.test(v.name)&&v.name!=="eagNote"?`<div class="ml">Tamaño</div><div class="mrow">${[[.75,"S"],[1,"M"],[1.5,"L"],[2,"XL"],[3,"XXL"]].map(([k,t])=>`<button class="tbn${(+(v.extendData||{}).sc||1)===k?" on":""}" data-msc="${k}">${t}</button>`).join("")}</div>`:""}${/^eag(Position|Long|Short)$/.test(v.name)?`<div class="ml">Datos (objetivo, stop, R:B)</div><div class="mrow"><button class="tbn${(v.extendData||{}).info==="always"?"":" on"}" data-pinfo="hover">Al pasar el mouse</button><button class="tbn${(v.extendData||{}).info==="always"?" on":""}" data-pinfo="always">Siempre</button></div>`:""}${/^eag(Position|Long|Short)$/.test(v.name)||v.name==="eagText"||MARKX.test(v.name)?"":`<div class="ml">Grosor</div><div class="mrow">${[1,2,3,4].map(n=>`<button class="wd${+c.size===n?" on":""}" data-w="${n}" title="${n}px"><i style="height:${n}px"></i></button>`).join("")}</div>
       <div class="ml">Línea</div><div class="mrow">${[["solid","Sólida"],["dash","Guiones"],["dot","Puntos"]].map(([k,t])=>`<button class="ls${c.dash===k?" on":""}" data-d="${k}" title="${t}"><i class="${k}"></i></button>`).join("")}</div>`}
       ${isFill(v.name)?`<div class="ml">Relleno</div><div class="mrow">${[0,.08,.16,.3,.5].map(a=>`<button class="fa" data-f="${a}" title="${Math.round(a*100)}%"><i style="background:${hexA(c.color,a||.0001)};${a?"":"border:1px dashed var(--dim)"}"></i></button>`).join("")}</div>`:""}`;
     const lb=lblOf(v);
@@ -1322,6 +1324,7 @@ ${o.onTracker?`<button class="wtrk" title="Marcador de operaciones (ganadas, per
     const pk=menu.querySelector(".pick input");pk&&(pk.onchange=ev=>{setStyle(id,{color:ev.target.value,fill:null});again()});
     menu.querySelectorAll("[data-w]").forEach(b=>b.onclick=()=>{setStyle(id,{size:+b.dataset.w});again()});
     menu.querySelectorAll("[data-d]").forEach(b=>b.onclick=()=>{setStyle(id,{dash:b.dataset.d});again()});
+    menu.querySelectorAll("[data-pinfo]").forEach(b=>b.onclick=()=>{v.extendData=Object.assign({},v.extendData||{},{info:b.dataset.pinfo==="always"?"always":undefined});try{chart.overrideOverlay({id,extendData:v.extendData})}catch(e){}persist();again()});
     menu.querySelectorAll("[data-msc]").forEach(b=>b.onclick=()=>{v.extendData=Object.assign({},v.extendData||{},{sc:+b.dataset.msc});try{chart.overrideOverlay({id,extendData:v.extendData})}catch(e){}persist();again()});
     menu.querySelectorAll("[data-f]").forEach(b=>b.onclick=()=>{setStyle(id,{fill:hexA(curStyle(id).color,+b.dataset.f)});again()});
     /* texto */
