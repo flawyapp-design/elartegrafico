@@ -73,11 +73,12 @@ function paintBanner(){const c=cfg(),show=!X.isAdmin()&&c.on&&onAir();
   const h=`<span class="cl-dot"></span><b>EN VIVO</b><span class="cl-t">${esc(live.title||"Clase con el profe")} · ${esc(live.sym_name||tk||"")}${live.tf?" · "+esc(live.tf):""}</span>
     ${mine?"":`<button data-cb="go">Ir a ${esc(live.sym_name||tk)}</button>`}
     <label class="cl-f"><input type="checkbox" data-cb="fol" ${c.follow?"checked":""}> Seguir al profe</label>
-    <button data-cb="copy" title="Copiar los dibujos del profe a los tuyos (en este mercado)">Copiar</button><button data-cb="x" class="cl-x" title="Salir del Modo Clase">×</button>`;
+    <button data-cb="copy" title="Copiar los dibujos del profe a los tuyos (en este mercado)">Copiar</button>${window.EAGReplay?`<button data-cb="rp" title="Estudiar en replay con los dibujos del profe">⏪ Replay</button>`:""}<button data-cb="x" class="cl-x" title="Salir del Modo Clase">×</button>`;
   if(ban.__h!==h){ban.__h=h;ban.innerHTML=h;
     ban.querySelector('[data-cb="fol"]').onchange=e=>{c.follow=e.target.checked;X.save();if(c.follow)followProfe(true)};
     const g=ban.querySelector('[data-cb="go"]');g&&(g.onclick=()=>followProfe(true));
     ban.querySelector('[data-cb="copy"]').onclick=()=>copyFrom((live.boards||{})[tk]||[],tk);
+    const rb=ban.querySelector('[data-cb="rp"]');rb&&(rb.onclick=()=>{c.follow=false;X.save();window.EAGReplay.quick({})});
     ban.querySelector('[data-cb="x"]').onclick=()=>{setOn(false);X.toast("Saliste del Modo Clase. Actívalo cuando quieras con el botón <b>Clase</b>.")}}}
 function copyFrom(arr,tk){const p=X.panes().find(q=>{try{return q.kc.getSymbol().ticker===tk}catch(e){return false}});
   if(!p){X.follow(tk);setTimeout(()=>copyFrom(arr,tk),900);return}

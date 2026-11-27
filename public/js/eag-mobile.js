@@ -58,6 +58,7 @@ function tiles(){const T=[],add=(id,ic,t,fn,badge)=>T.push({id,ic,t,fn,badge});c
   add("ntb","📥","Avisos",()=>tap("ntb"),num($("#ntb .ntb-n")));
   add("alb","🔔","Alertas de precio",()=>tap("alb"));
   add("prob","🎓","Estudio",()=>tap("prob"));
+  if(window.EAGReplay)add("rp","⏪","Replay",()=>window.EAGReplay.quick({}));
   add("lay","🪟","Diseño",null);
   add("pfb","🗂️","Perfil",()=>tap("pfb"));
   if(vis("clb")||document.getElementById("clb"))add("clb","🔴","Modo Clase",()=>tap("clb"));

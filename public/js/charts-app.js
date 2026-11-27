@@ -306,11 +306,11 @@ function start(){
     return{
       async searchSymbols(q){await ready;q=String(q||"").trim().toLowerCase();
         return SYMS.filter(s=>!q||s.symbol.toLowerCase().includes(q)||String(s.display_name).toLowerCase().includes(q)).sort((a,b)=>tabOf(a).localeCompare(tabOf(b))||bcOrder(a)-bcOrder(b)).slice(0,200).map(info)},
-      async getHistoryKLineData(sym,period,from,to){const RP=window.EAGReplay;if(RP&&RP.on())return RP.history(sym,period,from,to,(a,b,c,d)=>realHist(a,b,c,d));return realHist(sym,period,from,to)},
+      async getHistoryKLineData(sym,period,from,to){const RP=window.EAGReplay;if(RP&&RP.on())return RP.history(sym,period,from,to,(a,b,c,d)=>realHist(a,b,c,d,true));return realHist(sym,period,from,to)},
       subscribe(sym,period,cb){const RP=window.EAGReplay;if(RP&&RP.on()){RP.sub(me,sym,period,cb);return}liveSub(sym,period,cb)},
       unsubscribe(sym,period){const RP=window.EAGReplay;RP&&RP.unsub(me);liveUnsub(sym,period)}
     };
-    async function realHist(sym,period,from,to){{
+    async function realHist(sym,period,from,to,noAdj){{
         if(period&&period.timespan==="tick"){const live=to>=Date.now()-3000;
           try{const m=await feed.ask(Object.assign({ticks_history:sym.ticker,style:"ticks",count:1000},live?{end:"latest"}:{end:Math.floor(to/1000)}));const h=m.history||{};
             const L=tickList(h.prices||[],h.times||[]);if(live&&L.length)tkLast=L[L.length-1].timestamp;return L}
@@ -318,7 +318,7 @@ function start(){
         const g=gran(period),end=Math.floor(Math.min(to,Date.now())/1000),start=Math.max(1,Math.floor(from/1000));
         if(end<=start)return[];
         if(!STDG.includes(g)){try{return await getCandles(sym.ticker,g,to>=Date.now()-1000?"latest":end,Math.min(990,Math.ceil((end-start)/g)))}catch(e){console.warn("[EAG] historial",sym.ticker,e.message);return[]}}
-        try{const m=await feed.ask({ticks_history:sym.ticker,style:"candles",granularity:g,start,end,count:5000,adjust_start_time:1});return(m.candles||[]).map(toK)}
+        try{const m=await feed.ask(Object.assign({ticks_history:sym.ticker,style:"candles",granularity:g,start,end,count:5000},noAdj?{}:{adjust_start_time:1}));const L=(m.candles||[]).map(toK);return noAdj?L.filter(k=>k.timestamp<=end*1000):L}
         catch(e){console.warn("[EAG] historial",sym.ticker,e.message);return[]}}}
     function liveSub(sym,period,cb){if(period&&period.timespan==="tick"){tickOn(sym.ticker,me,t=>{let ts=(+t.epoch)*1000;if(ts<=tkLast)ts=tkLast+1;tkLast=ts;const v=+t.quote;cb({timestamp:ts,open:v,high:v,low:v,close:v,volume:0})});return}
         hubOn(sym.ticker+":"+gran(period),me,sym.ticker,gran(period),cb)}
@@ -897,7 +897,7 @@ function start(){
     return{ok:false,need,why:mode==="replay"?"El Replay del mercado es exclusivo del plan Oro: mira el mercado vela por vela, en varias temporalidades a la vez y con operaciones simuladas.":"La Práctica guiada es exclusiva del plan Diamond: estudia con mercado real proyección, zonas, rompimientos e impulsos, con corrección al instante."}};
   /* Replay sobre los gráficos normales (todas las herramientas, todo el pasado, cambiar temporalidad mientras avanza) */
   if(window.EAGReplay)window.EAGReplay.init({feed,gran,SAVE,save,toast,panes:()=>panes.slice(0,visible()),active:()=>active,setSym:s=>setSym(s),perFind,
-    host:()=>$("#appw")||document.body,grid:()=>$("#grid"),isPhone:()=>DEV==="cel"});
+    host:()=>$("#appw")||document.body,grid:()=>$("#grid"),isPhone:()=>DEV==="cel",access:()=>proAccess("replay"),openPro:()=>window.EAGPro&&window.EAGPro.open("replay")});
   if(window.EAGPro){window.EAGPro.init({feed,syms:()=>SYMS,SAVE,save,toast,MAIN,access:proAccess,
       get up(){return CF().up||"#089981"},get dn(){return CF().dn||"#f23645"},
       cur:()=>{try{const p=panes[active];return{sym:p.kc.getSymbol().ticker,tf:p.kc.getPeriod().text}}catch(e){return{}}}});
