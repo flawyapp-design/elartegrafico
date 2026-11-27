@@ -1976,7 +1976,7 @@ async function boot(){
   const oe=API.oauthError&&API.oauthError();
   if(oe){history.replaceState(null,"",location.pathname+"#entrar");setTimeout(()=>toast(oe),300)}
   if(API.oauthDone&&API.oauthDone()){let bk="";try{bk=localStorage.getItem("ag_oauth_back")||"";localStorage.removeItem("ag_oauth_back")}catch(e){}
-    if(logged()){API.shareSession&&API.shareSession();if(bk==="academia"){location.href=toAcad("inicio");return}
+    if(logged()){API.shareSession&&API.shareSession();if(bk==="academia"){location.href=toAcad("inicio");return}if(bk==="charts"){location.href=/(^|\.)elartegrafico\.com$/.test(location.hostname)?"https://charts.elartegrafico.com/charts":"charts.html";return}
       const pf=API.profile()||{};if(pf.created_at&&Date.now()-new Date(pf.created_at).getTime()<10*60e3)setTimeout(()=>pop({icon:"check",tone:"green",kicker:"Cuenta creada con Discord",title:"¡Bienvenido, "+esc(pf.username||"")+"!",text:"Tu cuenta quedó conectada con Discord. Puedes cambiar tu foto y tu país en Configuración."}),600)}}
   route();dcReturn();presence();
 }

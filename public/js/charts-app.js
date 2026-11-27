@@ -123,10 +123,48 @@ const bcOrder=s=>{const m=s.symbol.match(/^(BOOM|CRASH)(\d+)/);return m?(m[1]===
 /* ===================== Arranque ===================== */
 const app=$("#app");
 const gate=(h1,p,btns)=>{app.innerHTML=`<div class="gate"><img src="assets/logo_circle.webp" alt=""><h1>${h1}</h1><p>${p}</p><div class="row">${btns}</div></div>`};
+/* ingreso propio de los charts: entras aquí mismo y te quedas en el gráfico (no te lleva a la página principal) */
+function capWidget(host){
+  if(CFG.TURNSTILE_SITE_KEY){let token="";host.innerHTML='<div class="ts"></div>';
+    const go=()=>{try{window.turnstile.render(host.querySelector(".ts"),{sitekey:CFG.TURNSTILE_SITE_KEY,theme:"dark",language:"es",callback:t=>token=t,"expired-callback":()=>token=""})}catch(e){}};
+    if(window.turnstile)go();else{const sc=document.createElement("script");sc.src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";sc.onload=go;document.head.appendChild(sc)}
+    return{ok:()=>!!token,token:()=>token,reset:()=>{try{window.turnstile.reset()}catch(e){}token=""}}}
+  return null}
+function loginGate(mode){mode=mode||"in";const ts=!!CFG.TURNSTILE_SITE_KEY;
+  app.innerHTML=`<div class="gate lg"><img src="assets/logo_circle.webp" alt=""><h1>EAG Charts</h1>
+    <p>${mode==="rec"?"Te enviamos un enlace a tu correo para crear una contraseña nueva.":"Ingresa con tu cuenta de El Arte Gráfico. Te quedas aquí, en los gráficos."}</p>
+    <form class="lgf" novalidate>
+      <label>${mode==="rec"?"Correo electrónico":"Correo o nombre de usuario"}<input name="e" type="${mode==="rec"?"email":"text"}" autocomplete="username" autocapitalize="none" spellcheck="false" required></label>
+      ${mode==="rec"?"":`<label>Contraseña<span class="lgpw"><input name="p" type="password" autocomplete="current-password" required><button type="button" data-sh>Mostrar</button></span></label>`}
+      ${ts?'<div class="lgcap"></div>':""}
+      <div class="lgerr" role="alert"></div>
+      <button class="btn gold" type="submit">${mode==="rec"?"Enviar enlace":"Ingresar"}</button>
+    </form>
+    <div class="lgl">${mode==="rec"?`<a href="#" data-in>Volver a ingresar</a>`:`<a href="#" data-rec>Olvidé mi contraseña</a><span>·</span><button type="button" class="lgdc" data-dc>Ingresar con Discord</button>`}</div>
+    <div class="lgl">¿No tienes cuenta? <a href="${MAIN}#registro">Créala en El Arte Gráfico</a></div></div>`;
+  const f=app.querySelector(".lgf"),err=app.querySelector(".lgerr"),cap=ts?capWidget(app.querySelector(".lgcap")):null,go=f.querySelector("[type=submit]");
+  setTimeout(()=>{try{f.e.focus()}catch(e){}},50);
+  const sh=app.querySelector("[data-sh]");sh&&(sh.onclick=()=>{f.p.type=f.p.type==="password"?"text":"password";sh.textContent=f.p.type==="password"?"Mostrar":"Ocultar"});
+  const rc=app.querySelector("[data-rec]");rc&&(rc.onclick=e=>{e.preventDefault();loginGate("rec0")});
+  const bi=app.querySelector("[data-in]");bi&&(bi.onclick=e=>{e.preventDefault();loginGate("in")});
+  if(mode==="rec0"){app.querySelector(".gate p").textContent="Escribe tu correo y te enviamos un enlace para crear una contraseña nueva.";f.querySelector("[type=submit]").textContent="Enviar enlace";const pw=f.p&&f.p.closest("label");pw&&pw.remove();f.e.type="email";app.querySelector(".lgl").innerHTML=`<a href="#" data-in2>Volver a ingresar</a>`;app.querySelector("[data-in2]").onclick=e=>{e.preventDefault();loginGate("in")}}
+  const dc=app.querySelector("[data-dc]");dc&&(dc.onclick=()=>{dc.disabled=true;try{localStorage.setItem("ag_oauth_back","charts")}catch(e){}Promise.resolve(API.discordLogin&&API.discordLogin(location.origin+location.pathname)).then(ok=>{if(ok===false)dc.disabled=false})});
+  f.onsubmit=async e=>{e.preventDefault();err.textContent="";const em=f.e.value.trim();const rec=mode==="rec0";
+    if(!em)return err.textContent=rec?"Escribe tu correo.":"Escribe tu correo o tu nombre de usuario.";
+    if((rec||em.includes("@"))&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em))return err.textContent="Escribe un correo válido.";
+    if(!rec&&!f.p.value)return err.textContent="Escribe tu contraseña.";
+    if(cap&&!cap.ok())return err.textContent="Completa la verificación anti-bots.";
+    go.disabled=true;go.textContent=rec?"Enviando…":"Ingresando…";
+    try{if(rec){await API.recover(em,cap&&cap.token());loginGate("rec");return}
+      await API.signIn({email:em,password:f.p.value,captcha:cap&&cap.token()});try{API.shareSession&&API.shareSession()}catch(x){}
+      go.textContent="Abriendo los gráficos…";location.reload()}
+    catch(x){err.textContent=x.message||"No se pudo ingresar.";cap&&cap.reset();go.disabled=false;go.textContent=rec?"Enviar enlace":"Ingresar"}}}
+window.__chartsLogout=async()=>{try{await API.signOut()}catch(e){}try{sessionStorage.clear()}catch(e){}location.reload()};
 (async function(){
   try{await API.init()}catch(e){}
   window.chartsPlan=()=>{try{if(API.isAdmin())return true;if(!API.isPremium())return false;const p=(API.profile&&API.profile())||{};return["plata","oro","diamond"].includes(String(p.plan||"").toLowerCase())}catch(e){return false}};
-  if(!API.user())return gate("EAG Charts","Gráficos en vivo de Boom y Crash, sintéticos, forex y más, con herramientas de análisis. Ingresa con tu cuenta de El Arte Gráfico.",`<a class="btn gold" href="${MAIN}#entrar">Ingresar</a><a class="btn" href="${MAIN}#registro">Crear cuenta</a>`);
+  try{if(API.user()&&localStorage.getItem("ag_oauth_back")==="charts")localStorage.removeItem("ag_oauth_back")}catch(e){}
+  if(!API.user())return loginGate();
   /* la conexión con Deriv arranca ya, mientras se revisa la cuenta (antes esperaba a que todo lo demás terminara) */
   try{window.__feedSt=null;window.__feedPre=Feed(s=>{window.__feedSt=s;if(window.__feedStCb)window.__feedStCb(s)});
     window.__symsPre=window.__feedPre.ask({active_symbols:"brief"}).catch(()=>null)}catch(e){}
@@ -1410,6 +1448,8 @@ function start(){
     const paintMenu=()=>{menu.innerHTML=`<div class="tmh">Herramientas ${narrow?"":"<small>📌 = verla en la barra</small>"}</div>`+X.map(([id,n,d])=>{const b=g(id)||menu.querySelector("#"+id);if(!b)return"";
         const hid=b.hidden&&id!=="fsb";return hid?"":`<div class="tmr" data-id="${id}"><button class="tgo" data-go="${id}">${b.querySelector("svg")?b.querySelector("svg").outerHTML:""}<span><b>${n}</b><small>${d}</small></span></button>${narrow?"":`<button class="tpin${SAVE.topPins.includes(id)?" on":""}" data-pin="${id}" title="${SAVE.topPins.includes(id)?"Quitar de la barra":"Fijar en la barra"}">📌</button>`}</div>`}).join("");
       if(DEV==="cel"&&SAVE.m5off){menu.insertAdjacentHTML("beforeend",`<div class="tmr"><button class="tgo" data-m5on><span style="font-size:18px">📱</span><span><b>Modo celular</b><small>Vista ordenada con pestañas abajo</small></span></button></div>`);menu.querySelector("[data-m5on]").onclick=()=>{window.EAGMobile&&window.EAGMobile.enable()}}
+      {const u=API.profile&&API.profile()||{};menu.insertAdjacentHTML("beforeend",`<div class="tmr tses"><button class="tgo" data-logout><span style="font-size:17px">⎋</span><span><b>Cerrar sesión</b><small>${esc(u.username||"")}${u.username?" · ":""}vuelves a ingresar aquí mismo</small></span></button></div>`);
+        menu.querySelector("[data-logout]").onclick=()=>{menu.hidden=true;window.__chartsLogout()}}
       menu.querySelectorAll("[data-go]").forEach(b=>b.onclick=()=>{menu.hidden=true;const el=g(b.dataset.go)||document.getElementById(b.dataset.go);el&&el.click()});
       menu.querySelectorAll("[data-pin]").forEach(b=>b.onclick=e=>{e.stopPropagation();const id=b.dataset.pin,P=SAVE.topPins,i=P.indexOf(id);if(i>=0)P.splice(i,1);else P.push(id);save();place();paintMenu()})};
     /* las que no están fijadas quedan guardadas (ocultas) para que sigan funcionando desde el menú */

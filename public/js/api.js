@@ -72,9 +72,9 @@ function SupabaseAPI(url,key){
       return{recovery};
     },
     oauthDone(){return oauthOk},oauthError(){return oauthErr},
-    async discordLogin(){let on=true;try{const r=await fetch(`${url}/auth/v1/settings`,{headers:{apikey:key}});if(r.ok){const j=await r.json();on=!!(j.external&&j.external.discord)}}catch(e){}
+    async discordLogin(back){let on=true;try{const r=await fetch(`${url}/auth/v1/settings`,{headers:{apikey:key}});if(r.ok){const j=await r.json();on=!!(j.external&&j.external.discord)}}catch(e){}
       if(!on){window.AGTOAST&&window.AGTOAST("El ingreso con Discord se activará muy pronto. Por ahora usa tu correo.");return false}
-      location.href=`${url}/auth/v1/authorize?`+new URLSearchParams({provider:"discord",redirect_to:location.origin+"/",scopes:"identify email guilds.join"});return true},
+      location.href=`${url}/auth/v1/authorize?`+new URLSearchParams({provider:"discord",redirect_to:back||location.origin+"/",scopes:"identify email guilds.join"});return true},
     shareSession(){if(sess&&sess.refresh_token)ckSet(sess.refresh_token);return SHARED?!!ckGet():true},
     user(){return sess&&sess.user?{id:sess.user.id,email:sess.user.email}:null},
     profile(){return prof},
