@@ -255,8 +255,8 @@ async function start(o){o=o||{};if(S){if(o.at)jump(o.at);return}
     if(e.code==="Space"){e.preventDefault();e.stopPropagation();setPlay(!S.play)}else if(e.key==="ArrowRight"){e.preventDefault();e.stopPropagation();step(1)}else if(e.key==="ArrowLeft"){e.preventDefault();e.stopPropagation();step(-1)}};
   addEventListener("keydown",keyH,true);
   if(o.pick)setTimeout(pickMode,900)}
-function stop(){if(!S)return;setPlay(false);if(S.pos.length)closeTr(null,null,"salida");S.pend=[];lines();document.querySelector(".rpo")&&document.querySelector(".rpo").remove();const n=S.trades.length;S=null;subs.clear();ui&&ui.remove();ui=null;document.documentElement.classList.remove("rp-on");
-  if(keyH)removeEventListener("keydown",keyH,true);keyH=null;applyHide();reloadAll();X.toast(n?`Saliste del replay (${n} operación${n===1?"":"es"} simulada${n===1?"":"s"}). Volviste al vivo.`:"Volviste al vivo.")}
+function stop(){if(!S)return;setPlay(false);document.querySelectorAll(".rppick").forEach(e=>e.remove());if(S.pos.length)closeTr(null,null,"salida");S.pend=[];lines();document.querySelector(".rpo")&&document.querySelector(".rpo").remove();const n=S.trades.length;S=null;subs.clear();ui&&ui.remove();ui=null;document.documentElement.classList.remove("rp-on");
+  if(keyH)removeEventListener("keydown",keyH,true);keyH=null;applyHide();reloadAll();setTimeout(()=>{try{X.onExit&&X.onExit()}catch(e){}dispatchEvent(new Event("resize"))},80);X.toast(n?`Saliste del replay (${n} operación${n===1?"":"es"} simulada${n===1?"":"s"}). Volviste al vivo.`:"Volviste al vivo.")}
 
 /* entrar al replay desde cualquier lado (gráfico compartido, clase, menú): mismo mercado y temporalidad, y eliges la vela */
 function quick(o){o=o||{};const a=X.access?X.access():{ok:true};if(!a.ok){X.openPro&&X.openPro();return}

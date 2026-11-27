@@ -934,7 +934,7 @@ function start(){
     if(window.__trial&&SITE.chartProTrial)return{ok:true};
     return{ok:false,need,why:mode==="replay"?"El Replay del mercado es exclusivo del plan Oro: mira el mercado vela por vela, en varias temporalidades a la vez y con operaciones simuladas.":"La Práctica guiada es exclusiva del plan Diamond: estudia con mercado real proyección, zonas, rompimientos e impulsos, con corrección al instante."}};
   /* Replay sobre los gráficos normales (todas las herramientas, todo el pasado, cambiar temporalidad mientras avanza) */
-  if(window.EAGReplay)window.EAGReplay.init({feed,gran,SAVE,save,toast,panes:()=>panes.slice(0,visible()),active:()=>active,setSym:s=>setSym(s),perFind,
+  if(window.EAGReplay)window.EAGReplay.init({feed,gran,SAVE,save,toast,onExit:()=>{Object.keys(MTFS).forEach(k=>buildMTF(+k))},panes:()=>panes.slice(0,visible()),active:()=>active,setSym:s=>setSym(s),perFind,
     host:()=>$("#appw")||document.body,grid:()=>$("#grid"),isPhone:()=>DEV==="cel",access:()=>proAccess("replay"),openPro:()=>window.EAGPro&&window.EAGPro.open("replay")});
   if(window.EAGPro){window.EAGPro.init({feed,syms:()=>SYMS,SAVE,save,toast,MAIN,access:proAccess,
       get up(){return CF().up||"#089981"},get dn(){return CF().dn||"#f23645"},
