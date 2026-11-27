@@ -709,49 +709,53 @@ function speakTick(){if(!call||!shBar)return;Object.keys(call.peers).forEach(id=
 let ringT=0,ringOutT=0;
 function tone(f,dur,vol){try{actx=actx||new(window.AudioContext||window.webkitAudioContext)();const o=actx.createOscillator(),g=actx.createGain();o.frequency.value=f;g.gain.setValueAtTime(.0001,actx.currentTime);g.gain.exponentialRampToValueAtTime(vol||.05,actx.currentTime+.03);g.gain.exponentialRampToValueAtTime(.0001,actx.currentTime+dur);o.connect(g);g.connect(actx.destination);o.start();o.stop(actx.currentTime+dur+.02)}catch(e){}}
 /* ---------- admin: dar acceso desde el chat (plan por días o meses) ---------- */
-const ACCP=[["plata","Plata","Gráficos completos"],["oro","Oro","+ Replay"],["diamond","Diamond","+ Práctica y todo"]];
+/* funciones sueltas (las de los planes Oro y Diamond), cada una con su vencimiento */
+const ACCF=[["replay","⏪","Replay del mercado"],["prac","🎯","Práctica guiada"],["zonas","📌","Zonas del profe"],["charts","📈","Gráficos completos","sin los límites de la versión gratis"],
+  ["tools","✏️","Herramientas de dibujo avanzadas"],["ind","ƒx","Indicadores sin límite"],["alerts","🔔","Alertas al celular"],["az","🧲","Zonas automáticas S/R"]];
 const ACCD=[["d1","1 día"],["d3","3 días"],["d7","7 días"],["d15","15 días"],["m1","1 mes"],["m3","3 meses"],["m6","6 meses"],["m12","12 meses"]];
 const fmtD=d=>new Date(d).toLocaleDateString("es-CO",{day:"numeric",month:"short",year:"numeric"});
+const fName=k=>(ACCF.find(x=>x[0]===k)||[0,"",k])[2];
 function addSpan(base,k){const d=new Date(base),n=+k.slice(1);if(k[0]==="m")d.setMonth(d.getMonth()+n);else d.setDate(d.getDate()+n);return d}
 async function accessPop(anchor,uid,name){if(!ME.admin)return;document.querySelectorAll(".sp-acc").forEach(x=>x.remove());
-  const el=document.createElement("div");el.className="sp-acc";el.setAttribute("role","dialog");el.setAttribute("aria-label","Dar acceso a "+(name||"usuario"));
-  el.innerHTML=`<div class="sa-h"><b>🎁 Dar acceso a ${esc(name||"usuario")}</b><button class="sx" data-ax aria-label="Cerrar">✕</button></div><div class="sa-now">Cargando su plan…</div>`;
+  const el=document.createElement("div");el.className="sp-acc";el.setAttribute("role","dialog");el.setAttribute("aria-label","Dar funciones a "+(name||"usuario"));
+  el.innerHTML=`<div class="sa-h"><b>🎁 Funciones para ${esc(name||"usuario")}</b><button class="sx" data-ax aria-label="Cerrar">✕</button></div><div class="sa-now">Cargando…</div>`;
   document.body.appendChild(el);const place=()=>{const r=anchor.getBoundingClientRect(),w=el.offsetWidth,h=el.offsetHeight;el.style.left=Math.max(6,Math.min(innerWidth-w-6,r.right-w))+"px";el.style.top=Math.max(6,Math.min(innerHeight-h-6,r.bottom+6))+"px"};place();
   const close=()=>{el.remove();removeEventListener("pointerdown",out,true)};const out=e=>{if(!el.contains(e.target)&&e.target!==anchor)close()};setTimeout(()=>addEventListener("pointerdown",out,true),0);
   el.querySelector("[data-ax]").onclick=close;
-  let u=null;try{u=await X.API.adminUserBrief(uid)}catch(e){}
-  if(!u){el.querySelector(".sa-now").textContent="No pude leer su cuenta. Intenta de nuevo.";return}
-  const act=u.premium_until&&new Date(u.premium_until)>new Date(),cur=String(u.plan||"").toLowerCase();
-  const st={plan:act&&ACCP.some(x=>x[0]===cur)?cur:"diamond",span:"d7",add:true};
-  const draw=()=>{const base=st.add&&act?new Date(u.premium_until):new Date(),until=addSpan(base,st.span);
-    el.innerHTML=`<div class="sa-h"><b>🎁 Dar acceso a ${esc(u.username||name)}</b><button class="sx" data-ax aria-label="Cerrar">✕</button></div>
-      <div class="sa-now">${u.role==="admin"?"Es admin: ya tiene todo.":act?`Ahora: <b>${esc((ACCP.find(x=>x[0]===cur)||[0,cur||"Premium"])[1])}</b> hasta ${fmtD(u.premium_until)}`:"Ahora: sin plan activo"}</div>
-      <div class="sa-l">Plan</div><div class="sa-g">${ACCP.map(([k,n,d])=>`<button class="sa-c${st.plan===k?" on":""}" data-pl="${k}"><b>${n}</b><small>${d}</small></button>`).join("")}</div>
-      <div class="sa-l">Por cuánto tiempo</div><div class="sa-g sa-d">${ACCD.map(([k,n])=>`<button class="sa-c${st.span===k?" on":""}" data-sp="${k}">${n}</button>`).join("")}</div>
+  let cur={},err="";try{(await X.API.adminFeatures(uid)||[]).forEach(f=>{cur[f.feature]=f.until})}catch(e){err=/user_features|does not exist|42P01|404/.test(e.message||"")?"Falta correr supabase/funciones_usuario.sql en Supabase.":(e.message||"No pude leer sus funciones.")}
+  if(err){el.querySelector(".sa-now").textContent=err;return}
+  const live=k=>cur[k]&&new Date(cur[k])>Date.now();
+  const st={sel:new Set(),span:"d7",add:true};
+  const draw=()=>{const n=st.sel.size;
+    el.innerHTML=`<div class="sa-h"><b>🎁 Funciones para ${esc(name||"usuario")}</b><button class="sx" data-ax aria-label="Cerrar">✕</button></div>
+      <div class="sa-now">Elige qué funciones activarle y por cuánto tiempo. No le cambia el plan.</div>
+      <div class="sa-fl">${ACCF.map(([k,ic,t,sub])=>`<label class="sa-f${st.sel.has(k)?" on":""}"><input type="checkbox" data-f="${k}" ${st.sel.has(k)?"checked":""}><span class="sa-fi">${ic}</span><span class="sa-ft"><b>${esc(t)}</b><small>${live(k)?`✓ Activa hasta ${fmtD(cur[k])}`:sub?esc(sub):"No la tiene"}</small></span>${live(k)?`<button class="sa-x" data-rmf="${k}" title="Quitársela">Quitar</button>`:""}</label>`).join("")}</div>
+      <div class="sa-l">Por cuánto tiempo</div><div class="sa-g sa-d">${ACCD.map(([k,t])=>`<button class="sa-c${st.span===k?" on":""}" data-sp="${k}">${t}</button>`).join("")}</div>
       <div class="sa-cus"><input type="number" min="1" max="999" data-cn placeholder="Otro" aria-label="Cantidad"><select data-cu aria-label="Unidad"><option value="d">días</option><option value="m">meses</option></select></div>
-      ${act?`<label class="sa-ck"><input type="checkbox" data-add ${st.add?"checked":""}> Sumar al tiempo que ya tiene</label>`:""}
+      <label class="sa-ck"><input type="checkbox" data-add ${st.add?"checked":""}> Si ya la tiene, sumar al tiempo que le queda</label>
       <label class="sa-ck"><input type="checkbox" data-tell checked> Avisarle por el chat</label>
-      <div class="sa-res">Queda en <b>${esc(ACCP.find(x=>x[0]===st.plan)[1])}</b> hasta <b>${fmtD(until)}</b></div>
-      <div class="sa-b">${act?`<button class="btn sm" data-rm>Quitar acceso</button>`:""}<button class="btn sm gold" data-go>Dar acceso</button></div>`;
+      <div class="sa-res">${n?`Activas <b>${n} ${n===1?"función":"funciones"}</b> por <b>${esc((ACCD.find(x=>x[0]===st.span)||[0,st.span.slice(1)+(st.span[0]==="m"?" meses":" días")])[1])}</b>`:"Marca al menos una función"}</div>
+      <div class="sa-b"><button class="btn sm gold" data-go ${n?"":"disabled"}>Dar acceso</button></div>`;
     el.querySelector("[data-ax]").onclick=close;
-    el.querySelectorAll("[data-pl]").forEach(b=>b.onclick=()=>{st.plan=b.dataset.pl;draw()});
+    el.querySelectorAll("[data-f]").forEach(c=>c.onchange=()=>{c.checked?st.sel.add(c.dataset.f):st.sel.delete(c.dataset.f);draw()});
     el.querySelectorAll("[data-sp]").forEach(b=>b.onclick=()=>{st.span=b.dataset.sp;draw()});
-    const cn=el.querySelector("[data-cn]"),cu=el.querySelector("[data-cu]");const cus=()=>{const n=Math.round(+cn.value);if(n>0&&n<1000){st.span=cu.value+n;const v=cn.value,uu=cu.value;draw();const c2=el.querySelector("[data-cn]");c2.value=v;el.querySelector("[data-cu]").value=uu;c2.focus()}};cn.oninput=cus;cu.onchange=cus;
-    if(/^[dm]\d+$/.test(st.span)&&!ACCD.some(x=>x[0]===st.span)){el.querySelector("[data-cn]").value=st.span.slice(1);el.querySelector("[data-cu]").value=st.span[0]}
-    const ad=el.querySelector("[data-add]");ad&&(ad.onchange=()=>{st.add=ad.checked;draw()});
-    const tell=()=>el.querySelector("[data-tell]").checked;
-    el.querySelector("[data-go]").onclick=async e=>{const b=e.currentTarget;b.disabled=true;const base=st.add&&act?new Date(u.premium_until):new Date(),until=addSpan(base,st.span),pn=ACCP.find(x=>x[0]===st.plan)[1];
-      try{await X.API.setUser(u.id,{plan:st.plan,premium_until:until.toISOString()});u.plan=st.plan;u.premium_until=until.toISOString();
-        if(tell()){try{const r=await X.API.chatDmOpen?await X.API.chatDmOpen(u.id):null;const room=r&&(r.room||r)||dmRoom(u.id);await send(room,`🎁 Te activé ${pn} hasta el ${fmtD(until)}. Recarga EAG Charts para empezar a usarlo.`,"text",{acc:{plan:st.plan,until:until.toISOString()}})}catch(x){}}
-        X.toast(`🎁 ${esc(u.username)}: ${pn} hasta el ${fmtD(until)}`);close()}catch(x){X.toast(x.message||"No se pudo dar el acceso");b.disabled=false}};
-    const rm=el.querySelector("[data-rm]");rm&&(rm.onclick=async()=>{if(!rm.dataset.ok){rm.dataset.ok=1;rm.textContent="Toca otra vez para quitarlo";return}
-      try{await X.API.setUser(u.id,{premium_until:null});X.toast(`Acceso quitado a ${esc(u.username)}`);close()}catch(x){X.toast(x.message)}});
+    const cn=el.querySelector("[data-cn]"),cu=el.querySelector("[data-cu]");
+    if(!ACCD.some(x=>x[0]===st.span)){cn.value=st.span.slice(1);cu.value=st.span[0]}
+    const cus=()=>{const v=Math.round(+cn.value);if(v>0&&v<1000){st.span=cu.value+v;const a=cn.value;draw();const c2=el.querySelector("[data-cn]");c2.value=a;c2.focus()}};cn.oninput=cus;cu.onchange=cus;
+    el.querySelector("[data-add]").onchange=e=>{st.add=e.target.checked};
+    el.querySelectorAll("[data-rmf]").forEach(b=>b.onclick=async e=>{e.preventDefault();e.stopPropagation();const k=b.dataset.rmf;if(!b.dataset.ok){b.dataset.ok=1;b.textContent="¿Seguro?";return}
+      try{await X.API.adminSetFeature(uid,k,null);delete cur[k];X.toast(`Le quitaste ${fName(k)} a ${esc(name)}`);draw()}catch(x){X.toast(x.message)}});
+    el.querySelector("[data-go]").onclick=async e=>{const b=e.currentTarget;if(!st.sel.size)return;b.disabled=true;const done=[];
+      try{for(const k of st.sel){const base=st.add&&live(k)?new Date(cur[k]):new Date(),until=addSpan(base,st.span);await X.API.adminSetFeature(uid,k,until.toISOString());cur[k]=until.toISOString();done.push({f:k,until:until.toISOString()})}
+        if(el.querySelector("[data-tell]").checked){try{await send(dmRoom(uid),`🎁 Te activé: ${done.map(d=>fName(d.f)+" hasta el "+fmtD(d.until)).join(" · ")}. Recarga EAG Charts para empezar a usarlo.`,"text",{acc:{feats:done}})}catch(x){}}
+        X.toast(`🎁 ${esc(name)}: ${done.map(d=>fName(d.f)).join(", ")}`);close()}
+      catch(x){X.toast(/user_features|42P01|404/.test(x.message||"")?"Falta correr supabase/funciones_usuario.sql en Supabase.":(x.message||"No se pudo"));b.disabled=false}};
     place()};
   draw()}
 /* al alumno: le avisan que le activaron un plan */
 function accNotice(m){const a=m.payload&&m.payload.acc;if(!a||m.sender===ME.id||!m.is_admin)return;if(Date.now()-new Date(m.created_at)>120000)return;
-  const pn=(ACCP.find(x=>x[0]===a.plan)||[0,"Premium"])[1];
-  invite({kind:"pen",kicker:"Acceso activado",title:`Ya tienes ${pn}`,sub:`Hasta el ${fmtD(a.until)}`,key:"acc",times:1,no:"Después",yes:"Recargar y usarlo",hint:"Para que se active en este gráfico hay que recargar la página. Tus dibujos y ajustes se quedan.",onYes:()=>location.reload()})}
+  const L=Array.isArray(a.feats)?a.feats:[];if(!L.length)return;const one=L.length===1;
+  invite({kind:"pen",kicker:"Te activaron funciones",title:one?`Ya tienes ${fName(L[0].f)}`:`Ya tienes ${L.length} funciones nuevas`,sub:L.map(d=>fName(d.f)+" hasta el "+fmtD(d.until)).join(" · "),key:"acc",times:1,no:"Después",yes:"Recargar y usarlo",hint:"Para que se active en este gráfico hay que recargar la página. Tus dibujos y ajustes se quedan.",onYes:()=>location.reload()})}
 
 /* ---------- invitación grande (llamada, llamada grupal, compartir gráfico, clase): fácil de ver y de tocar ---------- */
 let inv=null;

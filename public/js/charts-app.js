@@ -162,7 +162,7 @@ function loginGate(mode){mode=mode||"in";const ts=!!CFG.TURNSTILE_SITE_KEY;
 window.__chartsLogout=async()=>{try{await API.signOut()}catch(e){}try{sessionStorage.clear()}catch(e){}location.reload()};
 (async function(){
   try{await API.init()}catch(e){}
-  window.chartsPlan=()=>{try{if(API.isAdmin()||window.__gii)return true;if(!API.isPremium())return false;const p=(API.profile&&API.profile())||{};return["plata","oro","diamond"].includes(String(p.plan||"").toLowerCase())}catch(e){return false}};
+  window.chartsPlan=()=>{try{if(API.isAdmin()||window.__gii||(window.__feat&&window.__feat.charts))return true;if(!API.isPremium())return false;const p=(API.profile&&API.profile())||{};return["plata","oro","diamond"].includes(String(p.plan||"").toLowerCase())}catch(e){return false}};
   try{if(API.user()&&localStorage.getItem("ag_oauth_back")==="charts")localStorage.removeItem("ag_oauth_back")}catch(e){}
   if(!API.user())return loginGate();
   /* la conexión con Deriv arranca ya, mientras se revisa la cuenta (antes esperaba a que todo lo demás terminara) */
@@ -184,6 +184,9 @@ window.__chartsLogout=async()=>{try{await API.signOut()}catch(e){}try{sessionSto
     if(m){const c=SITE0.gii||{},d=+(c.days!=null?c.days:60),end=c.end?new Date(c.end+"T23:59:59-05:00").getTime():0;window.__gii=!end||!d||Date.now()<end+d*864e5;window.__giiUntil=end&&d?end+d*864e5:0}}catch(e){window.__gii=false}
   /* afiliados de Deriv verificados: desbloquean gratis las funciones que elija el admin (Admin → EAG Charts) */
   try{const me=(API.profile&&API.profile())||{};const on=SITE0.chartAffOn!==false;window.__affKeys=new Set(me.affiliate&&on?(Array.isArray(SITE0.chartAff)?SITE0.chartAff:["tools","ind","alerts","az"]):[]);window.__aff=!!me.affiliate}catch(e){window.__affKeys=new Set();window.__aff=false}
+  /* funciones sueltas que el admin le dio a este alumno (con vencimiento): se suman a lo que ya tiene */
+  try{const F=API.myFeatures?await API.myFeatures():[];window.__feat={};(F||[]).forEach(f=>{if(new Date(f.until)>Date.now()){window.__feat[f.feature]=f.until;window.__affKeys.add(f.feature)}});
+    if(window.__feat.charts)["tools","ind","alerts","az"].forEach(k=>window.__affKeys.add(k))}catch(e){window.__feat={}}
   if(!chartsPlan()){
     if(freeOn)window.__free=true;
     else{

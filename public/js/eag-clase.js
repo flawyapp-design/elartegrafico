@@ -13,7 +13,7 @@ let rtSend=null,X=null,live=null,zones={},rt=null,joined=false,txOn=false,txT=0,
 
 const cfg=()=>{X.SAVE.clase=Object.assign({on:false,follow:true,zones:true},X.SAVE.clase||{});return X.SAVE.clase};
 const onAir=()=>!!(live&&live.on_air&&live.updated_at&&Date.now()-new Date(live.updated_at).getTime()<STALE);
-const canZones=()=>X.isAdmin()||X.rank()>=3||!!X.trialPro();
+const canZones=()=>X.isAdmin()||X.rank()>=3||!!X.trialPro()||!!(window.__affKeys&&window.__affKeys.has("zonas"));
 const ago=t=>{const m=Math.round((Date.now()-new Date(t).getTime())/60000);if(m<1)return"hace un momento";if(m<60)return`hace ${m} min`;const h=Math.round(m/60);if(h<24)return`hace ${h} h`;const d=Math.round(h/24);return`hace ${d} día${d>1?"s":""}`};
 
 /* ============ tiempo real (Supabase Realtime, sin librerías) ============ */
