@@ -979,6 +979,7 @@ ${o.onTracker?`<button class="wtrk" title="Marcador de operaciones (ganadas, per
     if(y>yT&&y<yB&&isFinite(xR)&&Math.abs(x-xR)<=tol)return R(5);
     return R("move")}
   function boxDragMove(e){if(!boxDrag||boxDrag.id!==e.overlay.id)return false;const d=boxDrag,m=d.m;if(m==="lock")return true;
+    if(m==="pan"){const dx=e.x-d.px;d.px=e.x;try{if(dx)chart.scrollByDistance(dx,0)}catch(x){}try{chart.overrideOverlay({id:e.overlay.id,points:d.snap})}catch(x){}return true}
     const now=pxAt(e.x,e.y);if(!now||!d.st)return true;const L=chart.getDataList(),S=d.snap;
     let fL=d.fL,fR=d.fR,T=Math.max(S[0].value,S[3].value),B=Math.min(S[0].value,S[3].value);
     if(m==="move"){const df=Math.round(now.fi-d.st.fi),dv=now.value-d.st.value;fL+=df;fR+=df;T+=dv;B+=dv}
@@ -1055,11 +1056,16 @@ ${o.onTracker?`<button class="wtrk" title="Marcador de operaciones (ganadas, per
         if(e.overlay.name==="eagEmoji"&&!stay)setTimeout(()=>{const pt=chart.convertToPixel(e.overlay.points[0],{paneId:"candle_pane"})||{x:60,y:60};panelPos=null;openCtx(e.overlay.id,{x:pt.x+20,y:pt.y-20},true,"texto")},30);
         if(!/^(eagText|eagNote)$/.test(e.overlay.name))again2(e.overlay.name);return false},
       onPressedMoveStart:e=>{movingOv=true;chartEl.classList.add("ovdrag");try{movSnap={id:e.overlay.id,points:JSON.parse(JSON.stringify(e.overlay.points||[]))}}catch(x){movSnap=null}
-        boxDrag=BOX.test(e.overlay.name)?boxHit(e):null;return false},
+        boxDrag=BOX.test(e.overlay.name)?boxHit(e):null;
+        /* arrastrar DENTRO de una zona que no está seleccionada mueve el gráfico (como en TradingView las zonas grandes no estorban);
+           para mover la zona: tócala primero (queda seleccionada) o tómala de sus bordes o puntos */
+        if(boxDrag&&boxDrag.m==="move"&&!SELBOX.has(e.overlay.id)){boxDrag.m="pan";boxDrag.px=e.x;chartEl.classList.remove("ovdrag")}
+        return false},
       onPressedMoving:e=>boxDragMove(e),
       onPressedMoveEnd:e=>{movingOv=false;chartEl.classList.remove("ovdrag");
         /* un clic con un temblor de pocos píxeles no mueve el dibujo: vuelve exacto a su lugar (antes se corría al darle clic) */
         const tiny=ptrDown&&(ptrDown.max||0)<(ptrDown.touch?12:6);
+        if(boxDrag&&boxDrag.m==="pan"&&boxDrag.id===e.overlay.id){try{chart.overrideOverlay({id:e.overlay.id,points:boxDrag.snap})}catch(x){}movSnap=null;boxDrag=null;return false}
         if(tiny&&movSnap&&movSnap.id===e.overlay.id&&movSnap.points.length){try{chart.overrideOverlay({id:e.overlay.id,points:movSnap.points})}catch(x){}movSnap=null;boxDrag=null;return false}
         movSnap=null;boxDrag=null;capture(chart.getOverlayById(e.overlay.id)||e.overlay);return false},
       onMouseEnter:e=>{chartEl.classList.add("ovh");hovId=e&&e.overlay&&e.overlay.id;if(hovId)HOVOV.add(hovId);return false},onMouseLeave:e=>{if(e&&e.overlay)HOVOV.delete(e.overlay.id);chartEl.classList.remove("ovh");if(e&&e.overlay&&hovId===e.overlay.id)hovId=null;return false},
@@ -1080,7 +1086,12 @@ ${o.onTracker?`<button class="wtrk" title="Marcador de operaciones (ganadas, per
   function paintGuest(){if(drawingId||ttWait||ptrIsDown||brushOn){clearTimeout(guestWait);guestWait=setTimeout(paintGuest,900);return}clearTimeout(guestWait);bulk=true;guestIds.forEach(id=>{try{chart.removeOverlay(id)}catch(e){}OVSYM.delete(id)});bulk=false;guestIds=[];if(!ready)return;
     Object.keys(guest).forEach(k=>(guest[k]||[]).forEach(d=>{if(!d||!d.name||!Array.isArray(d.points)||!d.points.length||!d.points.every(p=>p&&p.timestamp))return;
       let pts=d.points;if(BOX.test(d.name)&&pts.length===2)pts=boxPts(pts[0],pts[1]).map(p=>({timestamp:p.timestamp,value:p.value}));
-      try{const id=chart.createOverlay({name:d.name,points:pts,styles:withPt(d),extendData:d.extendData,lock:true,visible:!hidden&&tfOk(d),onRightClick:()=>true,onDoubleClick:()=>true,onPressedMoveStart:()=>true});
+      /* los dibujos de otros (clase, gráfico compartido, idea, zonas automáticas) no se pueden mover, y arrastrar encima de ellos mueve el gráfico */
+      const snap=JSON.parse(JSON.stringify(pts));let gp=null;
+      try{const id=chart.createOverlay({name:d.name,points:pts,styles:withPt(d),extendData:d.extendData,lock:false,visible:!hidden&&tfOk(d),onRightClick:()=>true,onDoubleClick:()=>true,onSelected:()=>true,onDeselected:()=>true,
+          onPressedMoveStart:e=>{gp=e.x;return true},
+          onPressedMoving:e=>{if(gp!=null){const dx=e.x-gp;gp=e.x;try{if(dx)chart.scrollByDistance(dx,0)}catch(x){}}try{chart.overrideOverlay({id:e.overlay.id,points:snap})}catch(x){}return true},
+          onPressedMoveEnd:e=>{gp=null;try{chart.overrideOverlay({id:e.overlay.id,points:snap})}catch(x){}return true}});
         if(id){guestIds.push(id);OVSYM.set(id,sym&&sym.ticker)}}catch(e){}}))}
   function setGuest(layers,grp){guestG[grp||"clase"]=layers||{};rebuildGuest()}
   /* ---------- zonas automáticas de soporte y resistencia ----------
